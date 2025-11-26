@@ -1,0 +1,112 @@
+// example.bunker
+// A smart thermostat that demonstrates the "Bicameral Architecture"
+// It runs on a Microcontroller (Metal Profile) but has a Debug UI (Reactive Profile).
+
+// 1. KERNEL: The Systems Logic (Safe, Fast, Verified)
+// - Uses implicit Arena memory (no malloc/free).
+// - Uses Z3 verification to prove the heater never turns on if temp > max.
+kernel ThermostatCore {
+
+    // Define a custom type
+    struct Reading {
+        temp: f32,
+        humidity: f32,
+    }
+
+    // Verified Logic: Proves safety critical constraints
+    #[verified]
+    fn should_heat(current: f32, target: f32, safety_limit: f32) -> bool {
+        // Z3 Solver will panic at compile time if this logic allows heating above safety_limit
+        if current >= safety_limit {
+            return false;
+        }
+        return current < target;
+    }
+
+    // Hardware Interface (Unsafe because it touches registers)
+    #[unsafe_trust]
+    fn read_sensor_pin(pin_id: i32) -> f32 {
+        // In a real build, this emits ASM to read a memory-mapped register
+        return 22.5; 
+    }
+}
+
+// 2. SHELL: The Business Logic (Agent-Based, No Pointers)
+// - Manages the state of the device.
+// - Cannot crash (no pointers).
+shell DeviceManager {
+    import ThermostatCore;
+
+    agent Controller {
+        // State variables
+        current_temp = 20.0;
+        target_temp = 24.0;
+        is_heating = false;
+        safety_max = 30.0;
+
+        // Event Handler: Periodic Tick
+        on receive "tick" {
+            // 1. Read Sensor (Kernel Call)
+            current_temp = use ThermostatCore.read_sensor_pin with pin_id=1;
+
+            // 2. Decide to Heat (Verified Kernel Call)
+            let needs_heat = use ThermostatCore.should_heat 
+                with current=current_temp, target=target_temp, safety_limit=safety_max;
+
+            // 3. Update State
+            if needs_heat {
+                is_heating = true;
+                send "activate_relay" to HardwareDriver;
+            } else {
+                is_heating = false;
+                send "deactivate_relay" to HardwareDriver;
+            }
+        }
+
+        // Event Handler: User Input
+        on receive "set_target" with new_target: f32 {
+            target_temp = new_target;
+        }
+    }
+
+    agent HardwareDriver {
+        on receive "activate_relay" {
+            // In a real embedded target, this would toggle a GPIO pin
+            // For simulation, it just logs
+        }
+    }
+}
+
+// 3. VIEW: The Polymorphic Interface (One Code, Two Targets)
+view Interface {
+    
+    // TARGET A: Embedded Hardware (The physical device)
+    // Compiles to GPIO instructions.
+    #[target(embedded)]
+    Pin {
+        id: 13; // The "Heater On" LED
+        mode: output;
+        // Binds directly to Agent State
+        value: DeviceManager.Controller.is_heating ? HIGH : LOW;
+    }
+
+    // TARGET B: Debug Dashboard (The technician's laptop)
+    // Compiles to HTML/Canvas/OpenGL.
+    #[target(graphics)]
+    Window {
+        title: "Thermostat Debugger";
+        
+        Column {
+            Label {
+                text: "Current Temp: " + DeviceManager.Controller.current_temp + "C";
+                color: DeviceManager.Controller.is_heating ? #FF0000 : #00FF00;
+            }
+            
+            Button {
+                text: "Set to 25C";
+                // Sends a message back to the Shell
+                on_click: send "set_target" to DeviceManager.Controller with new_target=25.0;
+            }
+        }
+    }
+}

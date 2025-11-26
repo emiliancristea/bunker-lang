@@ -1,0 +1,29 @@
+// Test 02: Arena Memory
+// Purpose: Verify region-based memory management and defer.
+// Expected: Allocates objects, defers cleanup, no memory leaks.
+
+kernel Memory {
+    struct Buffer {
+        data: [i32; 1000],
+        size: i32,
+    }
+
+    fn create_buffer(size: i32) -> Buffer {
+        let buf = Buffer { data: [0; 1000], size: size };
+        return buf;
+    }
+
+    fn main() -> i32 {
+        // Buffer is allocated in the current Arena (stack frame)
+        let buf = create_buffer(100);
+        
+        // Defer ensures cleanup happens even if we return early
+        defer log("Buffer freed");
+
+        // Use the buffer
+        buf.data[0] = 42;
+
+        // When main() exits, the Arena is reset. 'buf' is freed automatically.
+        return buf.data[0];
+    }
+}

@@ -1,0 +1,241 @@
+// Bunker Language Grammar (PEG)
+// File extension: .bkr
+
+// ====================
+// TOP-LEVEL STRUCTURE
+// ====================
+
+file = { SOI ~ (kernel_block | shell_block | view_block)* ~ EOI }
+
+kernel_block = { "kernel" ~ identifier ~ "{" ~ kernel_item* ~ "}" }
+shell_block  = { "shell" ~ identifier ~ "{" ~ shell_item* ~ "}" }
+view_block   = { "view" ~ identifier ~ "{" ~ view_item* ~ "}" }
+
+// ====================
+// KERNEL LAYER
+// ====================
+
+kernel_item = { function | struct_def | const_def | comptime_fn }
+
+function = { 
+    attribute* ~ 
+    "fn" ~ identifier ~ "(" ~ param_list? ~ ")" ~ 
+    ("->" ~ type_expr)? ~ 
+    block 
+}
+
+comptime_fn = {
+    "comptime" ~ "fn" ~ identifier ~ "(" ~ param_list? ~ ")" ~
+    ("->" ~ type_expr)? ~
+    block
+}
+
+struct_def = { "struct" ~ identifier ~ "{" ~ struct_field* ~ "}" }
+struct_field = { identifier ~ ":" ~ type_expr ~ ","? }
+
+const_def = { "const" ~ identifier ~ ":" ~ type_expr ~ "=" ~ expr ~ ";" }
+
+param_list = { param ~ ("," ~ param)* }
+param = { identifier ~ ":" ~ type_expr }
+
+// ====================
+// SHELL LAYER
+// ====================
+
+shell_item = { import_stmt | agent_def }
+
+import_stmt = { "import" ~ identifier ~ ";" }
+
+agent_def = { "agent" ~ identifier ~ "{" ~ agent_item* ~ "}" }
+agent_item = { state_decl | message_handler }
+
+state_decl = { identifier ~ "=" ~ expr ~ ";" }
+
+message_handler = { 
+    "on" ~ "receive" ~ string_literal ~ 
+    ("with" ~ param_list)? ~ 
+    block 
+}
+
+// ====================
+// VIEW LAYER
+// ====================
+
+view_item = { component }
+
+component = { target_attr? ~ identifier ~ "{" ~ component_body* ~ "}" }
+component_body = { property | component }
+
+target_attr = { "#[target(" ~ ("graphics" | "embedded") ~ ")]" }
+
+property = { identifier ~ ":" ~ expr ~ ";" }
+
+// ====================
+// ATTRIBUTES
+// ====================
+
+attribute = { "#[" ~ attribute_inner ~ "]" }
+attribute_inner = { 
+    "verified" | 
+    "unsafe_trust" | 
+    requires_attr | 
+    ensures_attr 
+}
+requires_attr = { "requires(" ~ expr ~ ")" }
+ensures_attr = { "ensures(" ~ expr ~ ")" }
+
+// ====================
+// STATEMENTS
+// ====================
+
+block = { "{" ~ statement* ~ "}" }
+
+statement = {
+    let_stmt |
+    return_stmt |
+    if_stmt |
+    for_stmt |
+    loop_stmt |
+    match_stmt |
+    defer_stmt |
+    send_stmt |
+    assign_stmt |
+    expr_stmt
+}
+
+assign_stmt = { assign_target ~ "=" ~ expr ~ ";" }
+assign_target = { identifier ~ ("." ~ identifier | "[" ~ expr ~ "]")* }
+
+let_stmt = { "let" ~ identifier ~ (":" ~ type_expr)? ~ "=" ~ expr ~ ";" }
+return_stmt = { "return" ~ expr? ~ ";" }
+if_stmt = { "if" ~ expr ~ block ~ ("else" ~ (if_stmt | block))? }
+for_stmt = { "for" ~ identifier ~ "in" ~ expr ~ block }
+loop_stmt = { "loop" ~ block }
+match_stmt = { "match" ~ expr ~ "{" ~ match_arm* ~ "}" }
+match_arm = { pattern ~ "=>" ~ (expr ~ ";" | block) }
+defer_stmt = { "defer" ~ (expr ~ ";" | block) }
+send_stmt = { "send" ~ expr ~ "to" ~ identifier ~ ("with" ~ named_args)? ~ ";" }
+expr_stmt = { expr ~ ";" }
+
+// ====================
+// EXPRESSIONS
+// ====================
+
+expr = { ternary_expr }
+ternary_expr = { or_expr ~ ("?" ~ expr ~ ":" ~ expr)? }
+or_expr = { prefix_expr ~ (binary_op ~ prefix_expr)* }
+
+prefix_expr = { prefix_op? ~ postfix_expr }
+prefix_op = { "!" | "-" | "copy" }
+
+postfix_expr = { primary_expr ~ postfix_op* }
+postfix_op = { call_op | index_op | field_op }
+
+call_op = { "(" ~ arg_list? ~ ")" }
+index_op = { "[" ~ expr ~ "]" }
+field_op = { "." ~ identifier }
+
+arg_list = { expr ~ ("," ~ expr)* }
+named_args = { named_arg ~ ("," ~ named_arg)* }
+named_arg = { identifier ~ "=" ~ expr }
+
+primary_expr = {
+    "(" ~ expr ~ ")" |
+    use_expr |
+    send_expr |
+    lambda_expr |
+    if_expr |
+    match_expr |
+    array_literal |
+    struct_literal |
+    literal |
+    identifier
+}
+
+send_expr = { "send" ~ expr ~ "to" ~ qualified_name ~ ("with" ~ named_args)? }
+
+use_expr = { "use" ~ qualified_name ~ "with" ~ named_args }
+qualified_name = { identifier ~ ("." ~ identifier)* }
+
+lambda_expr = { "|" ~ param_list? ~ "|" ~ (expr | block) }
+
+if_expr = { "if" ~ expr ~ block ~ "else" ~ block }
+match_expr = { "match" ~ expr ~ "{" ~ match_arm* ~ "}" }
+
+array_literal = { "[" ~ (array_repeat | (expr ~ ("," ~ expr)*)?) ~ "]" }
+array_repeat = { expr ~ ";" ~ integer }
+struct_literal = { identifier ~ "{" ~ (struct_init ~ ("," ~ struct_init)*)? ~ "}" }
+struct_init = { identifier ~ ":" ~ expr }
+
+// ====================
+// OPERATORS
+// ====================
+
+binary_op = {
+    "==" | "!=" | "<=" | ">=" | "<" | ">" |
+    "&&" | "||" |
+    "+" | "-" | "*" | "/" | "%" |
+    "as"
+}
+
+// ====================
+// PATTERNS
+// ====================
+
+pattern = {
+    "Some(" ~ identifier ~ ")" |
+    "None" |
+    "true" |
+    "false" |
+    literal |
+    identifier
+}
+
+// ====================
+// TYPES
+// ====================
+
+type_expr = {
+    option_type |
+    array_type |
+    ref_type |
+    base_type
+}
+
+option_type = { "Option<" ~ type_expr ~ ">" }
+array_type = { "[" ~ type_expr ~ ";" ~ integer ~ "]" }
+ref_type = { "&" ~ "mut"? ~ type_expr }
+base_type = { 
+    "i32" | "i64" | "f32" | "f64" | 
+    "bool" | "str" | "vec3" | "vec2" |
+    identifier 
+}
+
+// ====================
+// LITERALS
+// ====================
+
+literal = {
+    float |
+    integer |
+    string_literal |
+    char_literal |
+    bool_literal |
+    hex_color
+}
+
+integer = @{ "-"? ~ ASCII_DIGIT+ }
+float = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
+string_literal = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+char_literal = @{ "'" ~ ANY ~ "'" }
+bool_literal = { "true" | "false" }
+hex_color = @{ "#" ~ ASCII_HEX_DIGIT{6} }
+
+// ====================
+// IDENTIFIERS & WHITESPACE
+// ====================
+
+identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }

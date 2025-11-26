@@ -1,0 +1,42 @@
+// Test 05: Hello GUI
+// Purpose: Verify View layer parsing and reactive binding.
+// Expected: Opens a window with a label that updates when agent state changes.
+
+kernel Counter {
+    fn increment(value: i32) -> i32 {
+        return value + 1;
+    }
+}
+
+shell App {
+    import Counter;
+
+    agent State {
+        count = 0;
+
+        on receive "increment" {
+            count = use Counter.increment with value=count;
+        }
+    }
+}
+
+view MainWindow {
+    #[target(graphics)]
+    Window {
+        title: "Hello Bunker";
+        width: 400;
+        height: 300;
+
+        Column {
+            Label {
+                text: "Count: " + App.State.count;
+                font_size: 24;
+            }
+
+            Button {
+                text: "Increment";
+                on_click: send "increment" to App.State;
+            }
+        }
+    }
+}

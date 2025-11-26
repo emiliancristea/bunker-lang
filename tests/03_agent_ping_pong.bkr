@@ -1,0 +1,28 @@
+// Test 03: Agent Ping Pong
+// Purpose: Verify Shell layer Agent parsing and message passing.
+// Expected: Two agents exchange messages until done.
+
+shell Communication {
+    agent PingAgent {
+        count = 0;
+
+        on receive "start" {
+            send "ping" to PongAgent;
+        }
+
+        on receive "pong" {
+            count = count + 1;
+            if count < 3 {
+                send "ping" to PongAgent;
+            } else {
+                send "done" to System;
+            }
+        }
+    }
+
+    agent PongAgent {
+        on receive "ping" {
+            send "pong" to PingAgent;
+        }
+    }
+}

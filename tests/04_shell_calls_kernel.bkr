@@ -1,0 +1,45 @@
+// Test 04: Shell Calls Kernel
+// Purpose: Verify cross-layer communication (Shell -> Kernel).
+// Expected: Shell Agent calls Kernel function and uses the result.
+
+kernel Physics {
+    #[verified]
+    fn calculate_damage(base: i32, multiplier: i32) -> i32 {
+        let result = base * multiplier;
+        return result;
+    }
+}
+
+shell Combat {
+    import Physics;
+
+    agent Player {
+        health = 100;
+        attack_power = 25;
+
+        on receive "attack" with target_defense: i32 {
+            // Call into the Kernel for verified math
+            let damage = use Physics.calculate_damage with base=attack_power, multiplier=2;
+            
+            let final_damage = damage - target_defense;
+            if final_damage < 0 {
+                final_damage = 0;
+            }
+
+            send "damage_dealt" to Target with amount=final_damage;
+        }
+    }
+
+    agent Target {
+        health = 50;
+
+        on receive "damage_dealt" with amount: i32 {
+            health = health - amount;
+            
+            match health > 0 {
+                true => send "still_alive" to System;
+                false => send "defeated" to System;
+            }
+        }
+    }
+}

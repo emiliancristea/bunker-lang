@@ -1,0 +1,32 @@
+[package]
+name = "bunker-cli"
+version = "0.1.0"
+edition = "2021"
+authors = ["Bunker Corporation"]
+description = "The Bunker Language Compiler"
+license = "MIT"
+
+[dependencies]
+# Parser
+pest = "2.7"
+pest_derive = "2.7"
+
+# CLI
+clap = { version = "4.4", features = ["derive"] }
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Colored output
+colored = "2.1"
+
+# Code generation (Cranelift)
+cranelift = "0.111"
+cranelift-module = "0.111"
+cranelift-object = "0.111"
+cranelift-native = "0.111"
+target-lexicon = "0.12"
+
+[dev-dependencies]
+pretty_assertions = "1.4"

@@ -1,0 +1,19 @@
+// Test 06 BAD: Verified Transfer (INTENTIONALLY BROKEN)
+// Purpose: Verify Z3 contract verification FAILS for buggy code.
+// Expected: Compilation ERROR. Z3 finds counterexample.
+
+kernel Banking {
+    struct Account {
+        id: i32,
+        balance: i64,
+    }
+
+    #[requires(amount > 0)]
+    #[requires(from.balance >= amount)]
+    #[ensures(from.balance + to.balance == old(from.balance) + old(to.balance))]
+    fn transfer(from: &mut Account, to: &mut Account, amount: i64) {
+        // BUG: We subtract but forget to add to 'to'!
+        from.balance = from.balance - amount;
+        // to.balance = to.balance + amount;  // MISSING LINE
+    }
+}

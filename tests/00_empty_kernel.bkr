@@ -1,0 +1,6 @@
+// Test 00: Empty Kernel
+// Purpose: Verify the parser can handle the minimal valid .bunker file.
+// Expected: Parses successfully with 0 functions.
+
+kernel Empty {
+}
