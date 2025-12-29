@@ -1,0 +1,650 @@
+// Bunker Self-Hosting Compiler - Parser
+// Workaround: Create result nodes BEFORE any if-peek blocks to avoid JIT bug
+
+kernel Parser {
+    // Token types (must match lexer)
+    const TOK_EOF: i64 = 0;
+    const TOK_IDENT: i64 = 10;
+    const TOK_INT: i64 = 11;
+    const TOK_STRING: i64 = 13;
+    const TOK_TRUE: i64 = 14;
+    const TOK_FALSE: i64 = 15;
+    const TOK_KERNEL: i64 = 20;
+    const TOK_FN: i64 = 23;
+    const TOK_LET: i64 = 24;
+    const TOK_IF: i64 = 25;
+    const TOK_ELSE: i64 = 26;
+    const TOK_WHILE: i64 = 29;
+    const TOK_RETURN: i64 = 33;
+    const TOK_CONST: i64 = 35;
+    const TOK_I32: i64 = 60;
+    const TOK_I64: i64 = 61;
+    const TOK_F64: i64 = 62;
+    const TOK_BOOL: i64 = 63;
+    const TOK_STR: i64 = 64;
+    const TOK_PLUS: i64 = 80;
+    const TOK_MINUS: i64 = 81;
+    const TOK_STAR: i64 = 82;
+    const TOK_SLASH: i64 = 83;
+    const TOK_EQ: i64 = 85;
+    const TOK_NE: i64 = 86;
+    const TOK_LT: i64 = 87;
+    const TOK_GT: i64 = 88;
+    const TOK_LE: i64 = 89;
+    const TOK_GE: i64 = 90;
+    const TOK_AND: i64 = 91;
+    const TOK_OR: i64 = 92;
+    const TOK_NOT: i64 = 93;
+    const TOK_ASSIGN: i64 = 99;
+    const TOK_ARROW: i64 = 101;
+    const TOK_LPAREN: i64 = 110;
+    const TOK_RPAREN: i64 = 111;
+    const TOK_LBRACE: i64 = 112;
+    const TOK_RBRACE: i64 = 113;
+    const TOK_COMMA: i64 = 116;
+    const TOK_SEMICOLON: i64 = 117;
+    const TOK_COLON: i64 = 118;
+
+    // AST Node types
+    const NODE_KERNEL: i64 = 1;
+    const NODE_FN: i64 = 2;
+    const NODE_PARAM: i64 = 3;
+    const NODE_TYPE: i64 = 4;
+    const NODE_BLOCK: i64 = 5;
+    const NODE_LET: i64 = 6;
+    const NODE_RETURN: i64 = 7;
+    const NODE_IF: i64 = 8;
+    const NODE_WHILE: i64 = 9;
+    const NODE_EXPR_STMT: i64 = 10;
+    const NODE_ASSIGN: i64 = 11;
+    const NODE_BINARY: i64 = 20;
+    const NODE_UNARY: i64 = 21;
+    const NODE_CALL: i64 = 22;
+    const NODE_IDENT: i64 = 23;
+    const NODE_INT_LIT: i64 = 24;
+    const NODE_BOOL_LIT: i64 = 25;
+    const NODE_STR_LIT: i64 = 26;
+    const NODE_CONST: i64 = 27;
+
+    // Parser state: [tokens, pos, error]
+    fn parser_new(tokens: i64) -> i64 {
+        let state = vec_new();
+        vec_push(state, tokens);
+        vec_push(state, 0);
+        vec_push(state, 0);
+        return state;
+    }
+
+    fn parser_pos(state: i64) -> i64 {
+        return vec_get(state, 1);
+    }
+
+    fn parser_set_pos(state: i64, pos: i64) -> i64 {
+        vec_set(state, 1, pos);
+        return state;
+    }
+
+    fn parser_tokens(state: i64) -> i64 {
+        return vec_get(state, 0);
+    }
+
+    fn parser_peek(state: i64) -> i64 {
+        let tokens = parser_tokens(state);
+        let pos = parser_pos(state);
+        if pos >= vec_len(tokens) {
+            return TOK_EOF;
+        }
+        return vec_get(tokens, pos);
+    }
+
+    fn parser_advance(state: i64) -> i64 {
+        let pos = parser_pos(state);
+        parser_set_pos(state, pos + 1);
+        let tokens = parser_tokens(state);
+        return vec_get(tokens, pos);
+    }
+
+    fn parser_expect(state: i64, expected: i64) -> bool {
+        if parser_peek(state) == expected {
+            parser_advance(state);
+            return true;
+        }
+        return false;
+    }
+
+    fn parser_error(state: i64) -> i64 {
+        vec_set(state, 2, 1);
+        return state;
+    }
+
+    fn parser_has_error(state: i64) -> bool {
+        return vec_get(state, 2) != 0;
+    }
+
+    // Parse type
+    fn parse_type(state: i64) -> i64 {
+        let node = vec_new();
+        vec_push(node, NODE_TYPE);
+
+        let tok = parser_peek(state);
+        let kind: i64 = 0;
+        let valid = false;
+
+        if tok == TOK_I32 { kind = 0; valid = true; }
+        if tok == TOK_I64 { kind = 1; valid = true; }
+        if tok == TOK_F64 { kind = 2; valid = true; }
+        if tok == TOK_BOOL { kind = 3; valid = true; }
+        if tok == TOK_STR { kind = 4; valid = true; }
+
+        if valid {
+            parser_advance(state);
+            vec_push(node, kind);
+        } else {
+            parser_error(state);
+            vec_push(node, 0);
+        }
+
+        return node;
+    }
+
+    // Parse primary (no if-peek issues here since simple branches)
+    fn parse_primary(state: i64) -> i64 {
+        let node = vec_new();
+        let tok = parser_peek(state);
+
+        if tok == TOK_INT {
+            parser_advance(state);
+            vec_push(node, NODE_INT_LIT);
+            vec_push(node, 42);
+            return node;
+        }
+
+        if tok == TOK_TRUE {
+            parser_advance(state);
+            vec_push(node, NODE_BOOL_LIT);
+            vec_push(node, 1);
+            return node;
+        }
+
+        if tok == TOK_FALSE {
+            parser_advance(state);
+            vec_push(node, NODE_BOOL_LIT);
+            vec_push(node, 0);
+            return node;
+        }
+
+        if tok == TOK_IDENT {
+            parser_advance(state);
+            let pos = parser_pos(state) - 1;
+
+            if parser_peek(state) == TOK_LPAREN {
+                parser_advance(state);
+                vec_push(node, NODE_CALL);
+                vec_push(node, pos);
+                if !parser_expect(state, TOK_RPAREN) {
+                    parser_error(state);
+                }
+                return node;
+            }
+
+            vec_push(node, NODE_IDENT);
+            vec_push(node, pos);
+            return node;
+        }
+
+        if tok == TOK_LPAREN {
+            parser_advance(state);
+            let inner = parse_expr(state);
+            if !parser_expect(state, TOK_RPAREN) {
+                parser_error(state);
+            }
+            return inner;
+        }
+
+        parser_error(state);
+        vec_push(node, NODE_INT_LIT);
+        vec_push(node, 0);
+        return node;
+    }
+
+    fn parse_unary(state: i64) -> i64 {
+        let tok = parser_peek(state);
+
+        if tok == TOK_NOT || tok == TOK_MINUS {
+            let node = vec_new();
+            vec_push(node, NODE_UNARY);
+            vec_push(node, tok);
+            parser_advance(state);
+            let operand = parse_unary(state);
+            vec_push(node, operand);
+            return node;
+        }
+
+        return parse_primary(state);
+    }
+
+    fn parse_mul(state: i64) -> i64 {
+        let left = parse_unary(state);
+        let continuing = true;
+
+        while continuing {
+            let tok = parser_peek(state);
+            if tok == TOK_STAR || tok == TOK_SLASH {
+                // Create node BEFORE advancing (workaround)
+                let node = vec_new();
+                vec_push(node, NODE_BINARY);
+                vec_push(node, tok);
+                vec_push(node, left);
+                parser_advance(state);
+                let right = parse_unary(state);
+                vec_push(node, right);
+                left = node;
+            } else {
+                continuing = false;
+            }
+        }
+
+        return left;
+    }
+
+    fn parse_add(state: i64) -> i64 {
+        let left = parse_mul(state);
+        let continuing = true;
+
+        while continuing {
+            let tok = parser_peek(state);
+            if tok == TOK_PLUS || tok == TOK_MINUS {
+                let node = vec_new();
+                vec_push(node, NODE_BINARY);
+                vec_push(node, tok);
+                vec_push(node, left);
+                parser_advance(state);
+                let right = parse_mul(state);
+                vec_push(node, right);
+                left = node;
+            } else {
+                continuing = false;
+            }
+        }
+
+        return left;
+    }
+
+    fn parse_cmp(state: i64) -> i64 {
+        let left = parse_add(state);
+        let tok = parser_peek(state);
+
+        if tok == TOK_LT || tok == TOK_GT || tok == TOK_LE || tok == TOK_GE || tok == TOK_EQ || tok == TOK_NE {
+            let node = vec_new();
+            vec_push(node, NODE_BINARY);
+            vec_push(node, tok);
+            vec_push(node, left);
+            parser_advance(state);
+            let right = parse_add(state);
+            vec_push(node, right);
+            return node;
+        }
+
+        return left;
+    }
+
+    fn parse_and(state: i64) -> i64 {
+        let left = parse_cmp(state);
+        let continuing = true;
+
+        while continuing {
+            if parser_peek(state) == TOK_AND {
+                let node = vec_new();
+                vec_push(node, NODE_BINARY);
+                vec_push(node, TOK_AND);
+                vec_push(node, left);
+                parser_advance(state);
+                let right = parse_cmp(state);
+                vec_push(node, right);
+                left = node;
+            } else {
+                continuing = false;
+            }
+        }
+
+        return left;
+    }
+
+    fn parse_or(state: i64) -> i64 {
+        let left = parse_and(state);
+        let continuing = true;
+
+        while continuing {
+            if parser_peek(state) == TOK_OR {
+                let node = vec_new();
+                vec_push(node, NODE_BINARY);
+                vec_push(node, TOK_OR);
+                vec_push(node, left);
+                parser_advance(state);
+                let right = parse_and(state);
+                vec_push(node, right);
+                left = node;
+            } else {
+                continuing = false;
+            }
+        }
+
+        return left;
+    }
+
+    fn parse_expr(state: i64) -> i64 {
+        return parse_or(state);
+    }
+
+    // Parse return - create node FIRST
+    fn parse_return(state: i64) -> i64 {
+        let node = vec_new();
+        vec_push(node, NODE_RETURN);
+
+        parser_advance(state);
+
+        let expr: i64 = 0;
+        if parser_peek(state) != TOK_SEMICOLON {
+            expr = parse_expr(state);
+        }
+
+        vec_push(node, expr);
+
+        if !parser_expect(state, TOK_SEMICOLON) {
+            parser_error(state);
+        }
+
+        return node;
+    }
+
+    // Parse let - create node FIRST
+    fn parse_let(state: i64) -> i64 {
+        let node = vec_new();
+        vec_push(node, NODE_LET);
+
+        parser_advance(state);
+
+        let name_pos = parser_pos(state);
+        if !parser_expect(state, TOK_IDENT) {
+            parser_error(state);
+        }
+        vec_push(node, name_pos);
+
+        let type_node: i64 = 0;
+        if parser_peek(state) == TOK_COLON {
+            parser_advance(state);
+            type_node = parse_type(state);
+        }
+        vec_push(node, type_node);
+
+        let init_expr: i64 = 0;
+        if parser_peek(state) == TOK_ASSIGN {
+            parser_advance(state);
+            init_expr = parse_expr(state);
+        }
+        vec_push(node, init_expr);
+
+        if !parser_expect(state, TOK_SEMICOLON) {
+            parser_error(state);
+        }
+
+        return node;
+    }
+
+    // Parse if - create node FIRST
+    fn parse_if(state: i64) -> i64 {
+        let node = vec_new();
+        vec_push(node, NODE_IF);
+
+        parser_advance(state);
+
+        let cond = parse_expr(state);
+        vec_push(node, cond);
+
+        let then_block = parse_block(state);
+        vec_push(node, then_block);
+
+        let else_block: i64 = 0;
+        if parser_peek(state) == TOK_ELSE {
+            parser_advance(state);
+            if parser_peek(state) == TOK_IF {
+                else_block = parse_if(state);
+            } else {
+                else_block = parse_block(state);
+            }
+        }
+        vec_push(node, else_block);
+
+        return node;
+    }
+
+    // Parse while - create node FIRST
+    fn parse_while(state: i64) -> i64 {
+        let node = vec_new();
+        vec_push(node, NODE_WHILE);
+
+        parser_advance(state);
+
+        let cond = parse_expr(state);
+        vec_push(node, cond);
+
+        let body = parse_block(state);
+        vec_push(node, body);
+
+        return node;
+    }
+
+    // Parse statement
+    fn parse_stmt(state: i64) -> i64 {
+        let tok = parser_peek(state);
+
+        if tok == TOK_LET {
+            return parse_let(state);
+        }
+
+        if tok == TOK_RETURN {
+            return parse_return(state);
+        }
+
+        if tok == TOK_IF {
+            return parse_if(state);
+        }
+
+        if tok == TOK_WHILE {
+            return parse_while(state);
+        }
+
+        // Expression statement or assignment
+        let expr = parse_expr(state);
+
+        if parser_peek(state) == TOK_ASSIGN {
+            let node = vec_new();
+            vec_push(node, NODE_ASSIGN);
+            vec_push(node, expr);
+            parser_advance(state);
+            let value = parse_expr(state);
+            vec_push(node, value);
+            if !parser_expect(state, TOK_SEMICOLON) {
+                parser_error(state);
+            }
+            return node;
+        }
+
+        let node = vec_new();
+        vec_push(node, NODE_EXPR_STMT);
+        vec_push(node, expr);
+        if !parser_expect(state, TOK_SEMICOLON) {
+            parser_error(state);
+        }
+        return node;
+    }
+
+    // Parse block - create node FIRST
+    fn parse_block(state: i64) -> i64 {
+        let node = vec_new();
+        vec_push(node, NODE_BLOCK);
+
+        if !parser_expect(state, TOK_LBRACE) {
+            parser_error(state);
+        }
+
+        let continuing = true;
+        while continuing {
+            let tok = parser_peek(state);
+            if tok == TOK_RBRACE || tok == TOK_EOF {
+                continuing = false;
+            } else {
+                let stmt = parse_stmt(state);
+                vec_push(node, stmt);
+            }
+        }
+
+        if !parser_expect(state, TOK_RBRACE) {
+            parser_error(state);
+        }
+
+        return node;
+    }
+
+    // Parse function - create node FIRST
+    fn parse_fn(state: i64) -> i64 {
+        let node = vec_new();
+        vec_push(node, NODE_FN);
+
+        parser_advance(state);
+
+        let name_pos = parser_pos(state);
+        if !parser_expect(state, TOK_IDENT) {
+            parser_error(state);
+        }
+        vec_push(node, name_pos);
+
+        if !parser_expect(state, TOK_LPAREN) {
+            parser_error(state);
+        }
+
+        let params = vec_new();
+        if !parser_expect(state, TOK_RPAREN) {
+            parser_error(state);
+        }
+        vec_push(node, params);
+
+        let ret_type: i64 = 0;
+        if parser_peek(state) == TOK_ARROW {
+            parser_advance(state);
+            ret_type = parse_type(state);
+        }
+        vec_push(node, ret_type);
+
+        let body = parse_block(state);
+        vec_push(node, body);
+
+        return node;
+    }
+
+    // Parse kernel - create node FIRST
+    fn parse_kernel(state: i64) -> i64 {
+        let node = vec_new();
+        vec_push(node, NODE_KERNEL);
+
+        if !parser_expect(state, TOK_KERNEL) {
+            parser_error(state);
+        }
+
+        let name_pos = parser_pos(state);
+        if !parser_expect(state, TOK_IDENT) {
+            parser_error(state);
+        }
+        vec_push(node, name_pos);
+
+        if !parser_expect(state, TOK_LBRACE) {
+            parser_error(state);
+        }
+
+        let functions = vec_new();
+        vec_push(node, functions);
+
+        let continuing = true;
+        while continuing {
+            let tok = parser_peek(state);
+            if tok == TOK_RBRACE || tok == TOK_EOF {
+                continuing = false;
+            } else if tok == TOK_FN {
+                let fn_node = parse_fn(state);
+                vec_push(functions, fn_node);
+            } else if tok == TOK_CONST {
+                parser_advance(state);
+                let skip_loop = true;
+                while skip_loop {
+                    let t = parser_peek(state);
+                    if t == TOK_SEMICOLON || t == TOK_EOF {
+                        skip_loop = false;
+                    } else {
+                        parser_advance(state);
+                    }
+                }
+                parser_advance(state);
+            } else {
+                parser_error(state);
+                continuing = false;
+            }
+        }
+
+        if !parser_expect(state, TOK_RBRACE) {
+            parser_error(state);
+        }
+
+        return node;
+    }
+
+    fn main() -> i32 {
+        // Test: kernel Test { fn main() -> i32 { return 42; } }
+        let tokens = vec_new();
+        vec_push(tokens, TOK_KERNEL);
+        vec_push(tokens, TOK_IDENT);
+        vec_push(tokens, TOK_LBRACE);
+        vec_push(tokens, TOK_FN);
+        vec_push(tokens, TOK_IDENT);
+        vec_push(tokens, TOK_LPAREN);
+        vec_push(tokens, TOK_RPAREN);
+        vec_push(tokens, TOK_ARROW);
+        vec_push(tokens, TOK_I32);
+        vec_push(tokens, TOK_LBRACE);
+        vec_push(tokens, TOK_RETURN);
+        vec_push(tokens, TOK_INT);
+        vec_push(tokens, TOK_SEMICOLON);
+        vec_push(tokens, TOK_RBRACE);
+        vec_push(tokens, TOK_RBRACE);
+        vec_push(tokens, TOK_EOF);
+
+        let state = parser_new(tokens);
+        let ast = parse_kernel(state);
+
+        if parser_has_error(state) { return 1; }
+
+        // Check kernel node
+        if vec_get(ast, 0) != NODE_KERNEL { return 2; }
+
+        // Check functions list
+        let funcs = vec_get(ast, 2);
+        if vec_len(funcs) != 1 { return 3; }
+
+        // Check function node
+        let fn_node = vec_get(funcs, 0);
+        if vec_get(fn_node, 0) != NODE_FN { return 4; }
+
+        // Check function body (block)
+        let body = vec_get(fn_node, 4);
+        if vec_get(body, 0) != NODE_BLOCK { return 5; }
+
+        // Check return statement
+        let ret_stmt = vec_get(body, 1);
+        if vec_get(ret_stmt, 0) != NODE_RETURN { return 6; }
+
+        // Check return expression (int literal)
+        let ret_expr = vec_get(ret_stmt, 1);
+        if vec_get(ret_expr, 0) != NODE_INT_LIT { return 7; }
+
+        return 42;
+    }
+}

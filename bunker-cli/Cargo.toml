@@ -21,12 +21,28 @@ thiserror = "1.0"
 # Colored output
 colored = "2.1"
 
+# Serialization (for JSON error output)
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
 # Code generation (Cranelift)
 cranelift = "0.111"
 cranelift-module = "0.111"
+cranelift-jit = "0.111"
 cranelift-object = "0.111"
 cranelift-native = "0.111"
 target-lexicon = "0.12"
+
+# SMT Solver (optional, for advanced contract verification)
+# Note: Requires Z3 library to be installed on the system.
+# On Windows: Install from https://github.com/Z3Prover/z3/releases
+# On Linux: apt install libz3-dev
+# On macOS: brew install z3
+z3 = { version = "0.13", optional = true }
+
+[features]
+default = []
+smt = ["z3"]
 
 [dev-dependencies]
 pretty_assertions = "1.4"

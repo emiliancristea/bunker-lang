@@ -1,0 +1,21 @@
+// Test 67: Grid Layout Container
+// Purpose: Verify Grid layout arranges children in rows and columns.
+// Expected: Check only (view test)
+
+view GridTest {
+    #[target(graphics)]
+    Window {
+        title: "Grid Layout Test";
+        width: 400;
+        height: 300;
+
+        Grid {
+            columns: 2;
+            spacing: 10;
+            Button { text: "1"; }
+            Button { text: "2"; }
+            Button { text: "3"; }
+            Button { text: "4"; }
+        }
+    }
+}

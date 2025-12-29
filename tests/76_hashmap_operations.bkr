@@ -1,0 +1,77 @@
+// Test 76: HashMap Operations
+// Purpose: Test HashMap<K, V> builtins for key-value storage.
+// Expected: JIT returns 42
+
+kernel HashMapOps {
+    fn main() -> i32 {
+        // Create a new hashmap
+        let map = hashmap_new();
+
+        // Test insert
+        let inserted1 = hashmap_insert(map, 1, 100);
+        if !inserted1 {
+            return 1;  // hashmap_insert failed
+        }
+
+        let inserted2 = hashmap_insert(map, 2, 200);
+        if !inserted2 {
+            return 2;  // hashmap_insert second key failed
+        }
+
+        let inserted3 = hashmap_insert(map, 3, 300);
+        if !inserted3 {
+            return 3;  // hashmap_insert third key failed
+        }
+
+        // Test get
+        let val1 = hashmap_get(map, 1);
+        if val1 != 100 {
+            return 4;  // hashmap_get key 1 failed
+        }
+
+        let val2 = hashmap_get(map, 2);
+        if val2 != 200 {
+            return 5;  // hashmap_get key 2 failed
+        }
+
+        let val3 = hashmap_get(map, 3);
+        if val3 != 300 {
+            return 6;  // hashmap_get key 3 failed
+        }
+
+        // Test update (insert same key with new value)
+        let updated = hashmap_insert(map, 2, 250);
+        if !updated {
+            return 7;  // hashmap_insert update failed
+        }
+
+        let val2_updated = hashmap_get(map, 2);
+        if val2_updated != 250 {
+            return 8;  // hashmap update didn't work
+        }
+
+        // Test remove
+        let removed = hashmap_remove(map, 3);
+        if !removed {
+            return 9;  // hashmap_remove failed
+        }
+
+        // After remove, get should return 0 (default)
+        let val3_after = hashmap_get(map, 3);
+        if val3_after != 0 {
+            return 10;  // hashmap_get after remove should be 0
+        }
+
+        // Verify remaining values are still correct
+        let final_val1 = hashmap_get(map, 1);
+        let final_val2 = hashmap_get(map, 2);
+        if final_val1 != 100 {
+            return 11;  // remaining key 1 value wrong
+        }
+        if final_val2 != 250 {
+            return 12;  // remaining key 2 value wrong
+        }
+
+        return 42;  // All tests passed
+    }
+}

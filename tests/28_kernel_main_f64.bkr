@@ -1,0 +1,10 @@
+// Test 28: Kernel main() returning f64
+// Purpose: Verify JIT correctly handles f64 return type.
+// Expected: Result: 3.14159 (approximately)
+
+kernel Math {
+    fn main() -> f64 {
+        let pi: f64 = 3.14159;
+        return pi;
+    }
+}

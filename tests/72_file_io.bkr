@@ -1,0 +1,32 @@
+// Test 72: File I/O Built-ins
+// Purpose: Test read_file, write_file, file_exists functions.
+// Expected: JIT test that writes and reads a file
+
+kernel FileIO {
+    fn main() -> i32 {
+        // Write a test file
+        let content = "Hello from Bunker!";
+        let path = "test_output.txt";
+
+        let wrote = write_file(path, content);
+        if !wrote {
+            return 1;  // Write failed
+        }
+
+        // Check if file exists
+        let exists = file_exists(path);
+        if !exists {
+            return 2;  // File doesn't exist after write
+        }
+
+        // Read the file back
+        let read_content = read_file(path);
+
+        // Compare lengths (simple check)
+        if len(read_content) != len(content) {
+            return 3;  // Content length mismatch
+        }
+
+        return 42;  // Success
+    }
+}

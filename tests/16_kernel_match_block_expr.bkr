@@ -1,0 +1,18 @@
+// Test 16: Kernel Match Block Expression
+// Purpose: Ensure match arms can use block bodies and yield a value.
+// Expected: `bunker run` returns 12 from the block arm.
+
+kernel MatchBlockExpr {
+    fn main() -> i32 {
+        let x = 2;
+        let y = match x {
+            1 => 10;
+            2 => {
+                let v = 5;
+                v + 7;
+            }
+            other => 0;
+        };
+        return y;
+    }
+}

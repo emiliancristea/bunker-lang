@@ -1,0 +1,24 @@
+// Test 10 BAD: View Send Wrong Arg Type
+// Purpose: Ensure View `send` actions are validated against Shell message schemas.
+// Expected: `bunker check` FAILS (type mismatch).
+
+shell App {
+    agent Worker {
+        on receive "do_work" with amount: i32 {
+            send "done" to System;
+        }
+    }
+}
+
+view BadView2 {
+    #[target(graphics)]
+    Window {
+        title: "Bad2";
+
+        Button {
+            text: "Go";
+            on_click: send "do_work" to App.Worker with amount="oops";
+        }
+    }
+}
+

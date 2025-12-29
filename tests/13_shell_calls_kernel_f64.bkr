@@ -1,0 +1,33 @@
+// Test 13: Shell Calls Kernel (f64)
+// Purpose: Verify Shell `use` supports f64 Kernel signatures and Kernel JIT supports float ops.
+// Expected: Shell Agent calls an f64 Kernel function and uses the result.
+
+kernel PhysicsF64 {
+    #[verified]
+    fn compute_damage(base: f64, multiplier: f64) -> f64 {
+        // Int literal should be promoted to f64 in Kernel JIT.
+        return base * multiplier + 1;
+    }
+}
+
+shell UseF64 {
+    import PhysicsF64;
+
+    agent App {
+        on receive "start" {
+            // `multiplier` is passed as an int to exercise Shell int->f64 bridging.
+            let damage = use PhysicsF64.compute_damage with base=1.5, multiplier=2;
+            send "check" to Checker with value=damage;
+        }
+    }
+
+    agent Checker {
+        on receive "check" with value: f64 {
+            match value == 4.0 {
+                true => send "done" to System;
+                false => send "fail" to System;
+            }
+        }
+    }
+}
+

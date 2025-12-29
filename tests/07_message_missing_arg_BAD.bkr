@@ -1,0 +1,19 @@
+// Test 07 BAD: Missing Message Arg
+// Purpose: Ensure typed message schemas reject sends that omit required args.
+// Expected: `bunker check` FAILS (missing arg).
+
+shell BadMessages {
+    agent Sender {
+        on receive "start" {
+            // Missing required arg `amount`
+            send "do_work" to Worker;
+        }
+    }
+
+    agent Worker {
+        on receive "do_work" with amount: i32 {
+            send "done" to System;
+        }
+    }
+}
+

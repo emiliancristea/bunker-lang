@@ -1,0 +1,38 @@
+// Test 56: Kernel early return
+// Purpose: Verify early return from functions works correctly.
+// Expected: Result: 42
+
+kernel EarlyReturnTest {
+    fn find_first_even(a: i32, b: i32, c: i32) -> i32 {
+        if a % 2 == 0 {
+            return a;
+        }
+        if b % 2 == 0 {
+            return b;
+        }
+        if c % 2 == 0 {
+            return c;
+        }
+        return 0;
+    }
+
+    fn early_loop_exit() -> i32 {
+        for i in 0..100 {
+            if i == 10 {
+                return i;
+            }
+        }
+        return 0;
+    }
+
+    fn main() -> i32 {
+        // find_first_even(3, 42, 7) should return 42 (first even)
+        let result: i32 = find_first_even(3, 42, 7);
+
+        // Verify early_loop_exit returns 10
+        let loop_result: i32 = early_loop_exit();
+
+        // result (42) + loop_result (10) - 10 = 42
+        return result + loop_result - 10;
+    }
+}

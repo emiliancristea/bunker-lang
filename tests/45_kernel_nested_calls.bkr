@@ -1,0 +1,31 @@
+// Test 45: Kernel nested function calls
+// Purpose: Verify nested function calls work correctly.
+// Expected: Result: 42
+
+kernel NestedCallsTest {
+    fn double(x: i32) -> i32 {
+        return x * 2;
+    }
+
+    fn add_five(x: i32) -> i32 {
+        return x + 5;
+    }
+
+    fn square(x: i32) -> i32 {
+        return x * x;
+    }
+
+    fn main() -> i32 {
+        // Nested calls: double(add_five(3)) = double(8) = 16
+        let r1: i32 = double(add_five(3));
+
+        // More nesting: add_five(double(double(2))) = add_five(double(4)) = add_five(8) = 13
+        let r2: i32 = add_five(double(double(2)));
+
+        // With square: square(3) + double(2) = 9 + 4 = 13
+        let r3: i32 = square(3) + double(2);
+
+        // Combine: 16 + 13 + 13 = 42
+        return r1 + r2 + r3;
+    }
+}

@@ -1,0 +1,18 @@
+// Test 25: Comptime Fibonacci
+// Purpose: Verify recursive comptime fn with multiple calls per invocation.
+// Expected: `bunker run` returns 55 (fib(10) computed at compile time).
+
+kernel ComptimeFib {
+    comptime fn fib(n: i32) -> i32 {
+        if n <= 1 {
+            return n;
+        }
+        return fib(n - 1) + fib(n - 2);
+    }
+
+    fn main() -> i32 {
+        // fib(10) = 55, computed entirely at compile time
+        let result = fib(10);
+        return result;
+    }
+}

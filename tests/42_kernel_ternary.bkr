@@ -1,0 +1,23 @@
+// Test 42: Kernel ternary expression
+// Purpose: Verify ternary operator (? :) works correctly.
+// Expected: Result: 42
+
+kernel TernaryTest {
+    fn main() -> i32 {
+        let a: i32 = 10;
+        let b: i32 = 20;
+
+        // Simple ternary
+        let max1: i32 = a > b ? a : b;  // 20
+
+        // Nested ternary
+        let c: i32 = 30;
+        let max2: i32 = a > b ? (a > c ? a : c) : (b > c ? b : c);  // 30
+
+        // Ternary with computation
+        let result: i32 = max1 + max2;  // 20 + 30 = 50
+
+        // Subtract 8 to get 42
+        return result - 8;
+    }
+}

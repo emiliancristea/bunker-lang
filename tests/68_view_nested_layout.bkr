@@ -1,0 +1,32 @@
+// Test 68: Nested Layout Containers
+// Purpose: Verify nested Row/Column/Grid layouts work correctly.
+// Expected: Check only (view test)
+
+view NestedTest {
+    #[target(graphics)]
+    Window {
+        title: "Nested Layout";
+        width: 500;
+        height: 400;
+
+        Column {
+            spacing: 15;
+
+            Label { text: "Header"; }
+
+            Row {
+                spacing: 10;
+                Button { text: "A"; }
+                Button { text: "B"; }
+            }
+
+            Grid {
+                columns: 3;
+                spacing: 5;
+                Label { text: "1"; }
+                Label { text: "2"; }
+                Label { text: "3"; }
+            }
+        }
+    }
+}

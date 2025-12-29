@@ -1,0 +1,17 @@
+// Test 14: Kernel If Branching
+// Purpose: Verify Kernel JIT supports `if/else` control flow and bool values.
+// Expected: `bunker run` prints `Result: 42`.
+
+kernel IfBranching {
+    fn main() -> i32 {
+        let x = 10;
+        let ok: bool = !(x != 10);
+
+        if ok {
+            return 42;
+        } else {
+            return 0;
+        }
+    }
+}
+

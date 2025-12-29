@@ -1,0 +1,55 @@
+// Test 52: Kernel complex option matching
+// Purpose: Verify Option type with complex match expressions.
+// Expected: Result: 42
+
+kernel OptionMatchTest {
+    fn get_or_default(opt: Option<i32>, default: i32) -> i32 {
+        return match opt {
+            Some(x) => x;
+            None => default;
+        };
+    }
+
+    fn double_if_some(opt: Option<i32>) -> Option<i32> {
+        return match opt {
+            Some(x) => Some(x * 2);
+            None => None;
+        };
+    }
+
+    fn main() -> i32 {
+        let result: i32 = 0;
+
+        // Basic Some
+        let opt1: Option<i32> = Some(10);
+        result = result + get_or_default(opt1, 0);  // 10
+
+        // Basic None
+        let opt2: Option<i32> = None;
+        result = result + get_or_default(opt2, 5);  // 5
+        // Total: 15
+
+        // Double Some value
+        let opt3: Option<i32> = Some(7);
+        let doubled: Option<i32> = double_if_some(opt3);
+        result = result + get_or_default(doubled, 0);  // 14
+        // Total: 29
+
+        // Double None stays None
+        let opt4: Option<i32> = None;
+        let doubled2: Option<i32> = double_if_some(opt4);
+        result = result + get_or_default(doubled2, 3);  // 3
+        // Total: 32
+
+        // Simple matching with expression
+        let opt5: Option<i32> = Some(5);
+        let matched: i32 = match opt5 {
+            Some(x) => x * 2;
+            None => 0;
+        };
+        result = result + matched;  // 10
+        // Total: 42
+
+        return result;
+    }
+}

@@ -1,0 +1,28 @@
+// Test 44: Kernel unary negation
+// Purpose: Verify unary negation (-) works correctly.
+// Expected: Result: 42
+
+kernel UnaryNegTest {
+    fn main() -> i32 {
+        let a: i32 = 10;
+
+        // Simple negation
+        let neg_a: i32 = -a;  // -10
+
+        // Double negation (should restore original)
+        let double_neg: i32 = -(-a);  // 10
+
+        // Negation in expression
+        let b: i32 = 5;
+        let result1: i32 = -a + b;  // -10 + 5 = -5
+
+        // Negation of literal
+        let neg_lit: i32 = -100;  // -100
+
+        // Combine: -10 + 10 + (-5) + (-100) = -105
+        let sum: i32 = neg_a + double_neg + result1 + neg_lit;
+
+        // Add 147 to get 42
+        return sum + 147;
+    }
+}

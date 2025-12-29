@@ -1,0 +1,14 @@
+// Test 37: Kernel string concatenation
+// Purpose: Verify string literals and concatenation work.
+// Expected: Result: 11 (length of "Hello World")
+
+kernel StringConcatTest {
+    fn main() -> i32 {
+        let hello: str = "Hello";
+        let world: str = " World";
+        let result: str = hello + world;
+
+        // Verify: "Hello" (5) + " World" (6) = "Hello World" (11)
+        return strlen(result);
+    }
+}

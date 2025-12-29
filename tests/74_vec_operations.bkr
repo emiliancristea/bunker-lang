@@ -1,0 +1,61 @@
+// Test 74: Vec Operations
+// Purpose: Test dynamic array (Vec) builtins.
+// Expected: JIT returns 42
+
+kernel VecOps {
+    fn main() -> i32 {
+        // Create a new vector
+        let v = vec_new();
+
+        // Test push and len
+        vec_push(v, 10);
+        vec_push(v, 20);
+        vec_push(v, 30);
+
+        let length = vec_len(v);
+        if length != 3 {
+            return 1;  // vec_len failed
+        }
+
+        // Test get
+        let first = vec_get(v, 0);
+        if first != 10 {
+            return 2;  // vec_get failed
+        }
+
+        let second = vec_get(v, 1);
+        if second != 20 {
+            return 3;  // vec_get index 1 failed
+        }
+
+        // Test set
+        let set_ok = vec_set(v, 1, 25);
+        if !set_ok {
+            return 4;  // vec_set failed
+        }
+
+        let updated = vec_get(v, 1);
+        if updated != 25 {
+            return 5;  // vec_set value not updated
+        }
+
+        // Test pop
+        let popped = vec_pop(v);
+        if popped != 30 {
+            return 6;  // vec_pop failed
+        }
+
+        let new_len = vec_len(v);
+        if new_len != 2 {
+            return 7;  // vec_pop didn't decrease length
+        }
+
+        // Sum remaining elements
+        let sum = vec_get(v, 0) + vec_get(v, 1);
+        if sum != 35 {
+            return 8;  // sum mismatch (10 + 25 = 35)
+        }
+
+        return 42;  // All tests passed
+    }
+}

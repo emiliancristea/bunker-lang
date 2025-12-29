@@ -1,0 +1,17 @@
+// Test 61: Deep Copy of Struct
+// Purpose: Verify that `copy` creates an independent copy (not shallow)
+// Expected: JIT returns 42 (modification of p2 doesn't affect p1)
+
+kernel DeepCopyTest {
+    struct Point { x: i32, y: i32 }
+
+    fn main() -> i32 {
+        let p1 = Point { x: 10, y: 20 };
+        let p2 = copy p1;  // Deep copy
+        p2.x = 100;        // Modify p2
+        // p1 should still have original value if deep copy works
+        // p1.x + p1.y = 10 + 20 = 30
+        // We add 12 to get 42 for the standard test result
+        return p1.x + p1.y + 12;
+    }
+}

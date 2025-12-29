@@ -1,0 +1,18 @@
+// Test 24: Comptime Function Evaluation
+// Purpose: Verify comptime fn calls are evaluated at compile time.
+// Expected: `bunker run` returns 120 (5! computed at compile time).
+
+kernel ComptimeTest {
+    comptime fn factorial(n: i32) -> i32 {
+        if n <= 1 {
+            return 1;
+        }
+        return n * factorial(n - 1);
+    }
+
+    fn main() -> i32 {
+        // This call should be folded to 120 at compile time
+        let result = factorial(5);
+        return result;
+    }
+}

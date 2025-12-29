@@ -1,0 +1,21 @@
+// Test 26: Shell Defer Support
+// Purpose: Verify defer works in Shell agent handlers.
+// Expected: Shell runs without error, deferred cleanup executes.
+
+shell DeferTest {
+    agent Counter {
+        value = 0;
+        cleanup_ran = false;
+
+        on receive "start" {
+            defer {
+                cleanup_ran = true;
+            }
+
+            value = value + 10;
+
+            // Defer should run after this handler completes
+            send "done" to System;
+        }
+    }
+}

@@ -1,0 +1,16 @@
+// Test 33: Kernel loop with break statement
+// Purpose: Verify runtime loop can be exited with break.
+// Expected: Result: 5 (loop breaks when i reaches 5)
+
+kernel LoopBreakTest {
+    fn main() -> i32 {
+        let i: i32 = 0;
+        loop {
+            i = i + 1;
+            if i >= 5 {
+                break;
+            }
+        }
+        return i;
+    }
+}

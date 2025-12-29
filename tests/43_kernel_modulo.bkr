@@ -1,0 +1,28 @@
+// Test 43: Kernel modulo operator
+// Purpose: Verify modulo (%) works correctly.
+// Expected: Result: 42
+
+kernel ModuloTest {
+    fn main() -> i32 {
+        let a: i32 = 100;
+        let b: i32 = 7;
+
+        // Basic modulo
+        let r1: i32 = a % b;  // 100 % 7 = 2
+
+        // Modulo with larger numbers
+        let r2: i32 = 1000 % 13;  // 1000 % 13 = 12
+
+        // Chained modulo
+        let r3: i32 = 256 % 100 % 30;  // 256 % 100 = 56, 56 % 30 = 26
+
+        // Use modulo to check even/odd
+        let even: i32 = 42 % 2;  // 0
+
+        // Combine: 2 + 12 + 26 + 0 = 40
+        let sum: i32 = r1 + r2 + r3 + even;
+
+        // Add 2 to get 42
+        return sum + 2;
+    }
+}

@@ -1,0 +1,36 @@
+// Test 46: Kernel struct operations
+// Purpose: Verify struct creation and field access works correctly.
+// Expected: Result: 42
+
+kernel StructOpsTest {
+    struct Point {
+        x: i32,
+        y: i32,
+    }
+
+    struct Rectangle {
+        width: i32,
+        height: i32,
+    }
+
+    fn area(r: Rectangle) -> i32 {
+        return r.width * r.height;
+    }
+
+    fn main() -> i32 {
+        // Create struct
+        let p: Point = Point { x: 10, y: 20 };
+
+        // Access fields
+        let sum_coords: i32 = p.x + p.y;  // 10 + 20 = 30
+
+        // Create another struct
+        let rect: Rectangle = Rectangle { width: 3, height: 4 };
+
+        // Pass to function
+        let a: i32 = area(rect);  // 3 * 4 = 12
+
+        // Combine: 30 + 12 = 42
+        return sum_coords + a;
+    }
+}

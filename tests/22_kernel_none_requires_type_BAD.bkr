@@ -1,0 +1,10 @@
+// Test 22: Kernel None Requires Annotation
+// Purpose: Ensure None without an Option annotation is rejected.
+// Expected: `bunker check` fails.
+
+kernel NoneBad {
+    fn main() -> i32 {
+        let x = None;
+        return 0;
+    }
+}

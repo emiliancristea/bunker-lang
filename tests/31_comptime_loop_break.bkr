@@ -1,0 +1,20 @@
+// Test 31: Comptime loop with break
+// Purpose: Verify comptime fn can use loop and break statements.
+// Expected: Result: 11 (loop until i > 10, then break)
+
+kernel LoopBreak {
+    comptime fn count_to_ten() -> i32 {
+        let i: i32 = 0;
+        loop {
+            i = i + 1;
+            if i > 10 {
+                break;
+            }
+        }
+        return i;
+    }
+
+    fn main() -> i32 {
+        return count_to_ten();
+    }
+}

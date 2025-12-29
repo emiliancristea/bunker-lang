@@ -1,0 +1,62 @@
+// Test 73: String Methods
+// Purpose: Test string manipulation builtins.
+// Expected: JIT returns 42
+
+kernel StringMethods {
+    fn main() -> i32 {
+        // Test char_at
+        let hello = "Hello";
+        let ch = char_at(hello, 0);
+        if len(ch) != 1 {
+            return 1;  // char_at failed
+        }
+
+        // Test substring
+        let world = "Hello World";
+        let sub = substring(world, 0, 5);
+        if len(sub) != 5 {
+            return 2;  // substring failed
+        }
+
+        // Test contains
+        let text = "Hello Bunker";
+        let has_bunker = contains(text, "Bunker");
+        if !has_bunker {
+            return 3;  // contains failed
+        }
+
+        // Test starts_with
+        let starts = starts_with(text, "Hello");
+        if !starts {
+            return 4;  // starts_with failed
+        }
+
+        // Test ends_with
+        let ends = ends_with(text, "Bunker");
+        if !ends {
+            return 5;  // ends_with failed
+        }
+
+        // Test trim
+        let padded = "  trimmed  ";
+        let trimmed = trim(padded);
+        if len(trimmed) != 7 {
+            return 6;  // trim failed
+        }
+
+        // Test parse_int
+        let num_str = "12345";
+        let num = parse_int(num_str);
+        if num != 12345 {
+            return 7;  // parse_int failed
+        }
+
+        // Test int_to_string
+        let str_num = int_to_string(42);
+        if len(str_num) != 2 {
+            return 8;  // int_to_string failed
+        }
+
+        return 42;  // All tests passed
+    }
+}

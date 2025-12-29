@@ -1,0 +1,22 @@
+// Test 20: Kernel Option Basics
+// Purpose: Ensure Some/None expressions and Option match binding work.
+// Expected: `bunker run` returns 15.
+
+kernel OptionBasics {
+    fn main() -> i32 {
+        let a: Option<i32> = Some(4);
+        let b: Option<i32> = None;
+
+        let x = match a {
+            Some(v) => v + 1;
+            None => 0;
+        };
+
+        let y = match b {
+            Some(v) => v + 2;
+            None => 10;
+        };
+
+        return x + y;
+    }
+}

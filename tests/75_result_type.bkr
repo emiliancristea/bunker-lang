@@ -1,0 +1,73 @@
+// Test 75: Result Type Operations
+// Purpose: Test Result<T, E> type builtins for error handling.
+// Expected: JIT returns 42
+
+kernel ResultOps {
+    fn main() -> i32 {
+        // Create an Ok result
+        let ok_result = result_ok(100);
+
+        // Test is_ok
+        let is_ok = result_is_ok(ok_result);
+        if !is_ok {
+            return 1;  // result_is_ok failed for Ok
+        }
+
+        // Test is_err (should be false for Ok)
+        let is_err = result_is_err(ok_result);
+        if is_err {
+            return 2;  // result_is_err should be false for Ok
+        }
+
+        // Test unwrap on Ok
+        let ok_value = result_unwrap(ok_result);
+        if ok_value != 100 {
+            return 3;  // result_unwrap failed
+        }
+
+        // Create an Err result
+        let err_result = result_err(42);
+
+        // Test is_ok (should be false for Err)
+        let err_is_ok = result_is_ok(err_result);
+        if err_is_ok {
+            return 4;  // result_is_ok should be false for Err
+        }
+
+        // Test is_err (should be true for Err)
+        let err_is_err = result_is_err(err_result);
+        if !err_is_err {
+            return 5;  // result_is_err should be true for Err
+        }
+
+        // Test unwrap_err on Err
+        let err_value = result_unwrap_err(err_result);
+        if err_value != 42 {
+            return 6;  // result_unwrap_err failed
+        }
+
+        // Test result_tag (0 = Ok, 1 = Err)
+        let ok_tag = result_tag(ok_result);
+        if ok_tag != 0 {
+            return 7;  // result_tag for Ok should be 0
+        }
+
+        let err_tag = result_tag(err_result);
+        if err_tag != 1 {
+            return 8;  // result_tag for Err should be 1
+        }
+
+        // Test result_value (gets value for both Ok and Err)
+        let ok_val = result_value(ok_result);
+        if ok_val != 100 {
+            return 9;  // result_value for Ok failed
+        }
+
+        let err_val = result_value(err_result);
+        if err_val != 42 {
+            return 10;  // result_value for Err failed
+        }
+
+        return 42;  // All tests passed
+    }
+}

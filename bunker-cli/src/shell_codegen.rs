@@ -8,6 +8,7 @@ use crate::ast::{self, Shell, Agent, MessageHandler, Stmt, Expr, Literal};
 
 // Agent state layout
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub struct AgentLayout {
     pub name: String,
     pub size: u32,
@@ -142,7 +143,7 @@ impl<'a> ShellCompiler<'a> {
         // Clone data we need before borrowing ctx
         let layout = self.agent_layouts.get(&agent.name).cloned();
         let message_ids = self.message_ids.clone();
-        let handlers: Vec<_> = agent.handlers.iter().cloned().collect();
+        let handlers = agent.handlers.clone();
 
         let mut builder_ctx = FunctionBuilderContext::new();
         {
@@ -236,7 +237,7 @@ impl<'a> ShellCompiler<'a> {
             .get_function_decl(func_id).signature.clone();
 
         let layout = self.agent_layouts.get(&agent.name).cloned();
-        let state_inits: Vec<_> = agent.state.iter().cloned().collect();
+        let state_inits = agent.state.clone();
 
         let mut builder_ctx = FunctionBuilderContext::new();
         {
@@ -255,7 +256,7 @@ impl<'a> ShellCompiler<'a> {
                         let (_, offset, ty) = &layout.fields[i];
                         let val = match &state_decl.value {
                             Expr::Literal(Literal::Int(n)) => {
-                                builder.ins().iconst(*ty, *n as i64)
+                                builder.ins().iconst(*ty, *n)
                             }
                             Expr::Literal(Literal::Bool(b)) => {
                                 builder.ins().iconst(*ty, if *b { 1 } else { 0 })
@@ -328,12 +329,13 @@ fn compile_shell_stmt(
     variables: &mut HashMap<String, Variable>,
 ) {
     match stmt {
-        Stmt::Assign { target, value } => {
-            if let Expr::Ident(name) = target {
-                if let Some(&var) = variables.get(name) {
-                    let val = compile_shell_expr(builder, value, variables);
-                    builder.def_var(var, val);
-                }
+        Stmt::Assign {
+            target: Expr::Ident(name),
+            value,
+        } => {
+            if let Some(&var) = variables.get(name) {
+                let val = compile_shell_expr(builder, value, variables);
+                builder.def_var(var, val);
             }
         }
         Stmt::If { condition, then_block, else_block } => {
@@ -379,7 +381,7 @@ fn compile_shell_expr(
     match expr {
         Expr::Literal(lit) => {
             match lit {
-                Literal::Int(n) => builder.ins().iconst(types::I32, *n as i64),
+                Literal::Int(n) => builder.ins().iconst(types::I32, *n),
                 Literal::Float(f) => builder.ins().f64const(*f),
                 Literal::Bool(b) => builder.ins().iconst(types::I8, if *b { 1 } else { 0 }),
                 _ => builder.ins().iconst(types::I32, 0),

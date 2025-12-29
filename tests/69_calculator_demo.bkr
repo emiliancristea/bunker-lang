@@ -1,0 +1,138 @@
+// Test 69: Calculator Demo (End-to-End)
+// Purpose: Demonstrate all three layers working together with layout.
+// This showcases Kernel (math), Shell (state machine), and View (GUI) integration.
+// Expected: Check only (GUI demo)
+
+kernel Calculator {
+    fn add(a: i32, b: i32) -> i32 {
+        return a + b;
+    }
+
+    fn subtract(a: i32, b: i32) -> i32 {
+        return a - b;
+    }
+
+    fn multiply(a: i32, b: i32) -> i32 {
+        return a * b;
+    }
+
+    fn divide(a: i32, b: i32) -> i32 {
+        if b == 0 {
+            return 0;
+        }
+        return a / b;
+    }
+}
+
+shell CalculatorApp {
+    import Calculator;
+
+    agent State {
+        display = 0;
+        operand = 0;
+        operator = 0;  // 0=none, 1=add, 2=sub, 3=mul, 4=div
+
+        on receive "digit" with value: i32 {
+            display = display * 10 + value;
+        }
+
+        on receive "clear" {
+            display = 0;
+            operand = 0;
+            operator = 0;
+        }
+
+        on receive "add" {
+            operand = display;
+            operator = 1;
+            display = 0;
+        }
+
+        on receive "subtract" {
+            operand = display;
+            operator = 2;
+            display = 0;
+        }
+
+        on receive "multiply" {
+            operand = display;
+            operator = 3;
+            display = 0;
+        }
+
+        on receive "divide" {
+            operand = display;
+            operator = 4;
+            display = 0;
+        }
+
+        on receive "equals" {
+            if operator == 1 {
+                display = use Calculator.add with a=operand, b=display;
+            }
+            if operator == 2 {
+                display = use Calculator.subtract with a=operand, b=display;
+            }
+            if operator == 3 {
+                display = use Calculator.multiply with a=operand, b=display;
+            }
+            if operator == 4 {
+                display = use Calculator.divide with a=operand, b=display;
+            }
+            operator = 0;
+        }
+    }
+}
+
+view CalculatorView {
+    #[target(graphics)]
+    Window {
+        title: "Bunker Calculator";
+        width: 300;
+        height: 400;
+
+        Column {
+            spacing: 10;
+
+            // Display shows current value
+            Label {
+                text: CalculatorApp.State.display;
+            }
+
+            // Number pad (3x3 Grid)
+            Grid {
+                columns: 3;
+                spacing: 5;
+
+                Button { text: "7"; on_click: send "digit" to CalculatorApp.State with value=7; }
+                Button { text: "8"; on_click: send "digit" to CalculatorApp.State with value=8; }
+                Button { text: "9"; on_click: send "digit" to CalculatorApp.State with value=9; }
+                Button { text: "4"; on_click: send "digit" to CalculatorApp.State with value=4; }
+                Button { text: "5"; on_click: send "digit" to CalculatorApp.State with value=5; }
+                Button { text: "6"; on_click: send "digit" to CalculatorApp.State with value=6; }
+                Button { text: "1"; on_click: send "digit" to CalculatorApp.State with value=1; }
+                Button { text: "2"; on_click: send "digit" to CalculatorApp.State with value=2; }
+                Button { text: "3"; on_click: send "digit" to CalculatorApp.State with value=3; }
+            }
+
+            // Zero and clear row
+            Row {
+                spacing: 5;
+                Button { text: "0"; on_click: send "digit" to CalculatorApp.State with value=0; }
+                Button { text: "C"; on_click: send "clear" to CalculatorApp.State; }
+            }
+
+            // Operators row
+            Row {
+                spacing: 5;
+                Button { text: "+"; on_click: send "add" to CalculatorApp.State; }
+                Button { text: "-"; on_click: send "subtract" to CalculatorApp.State; }
+                Button { text: "*"; on_click: send "multiply" to CalculatorApp.State; }
+                Button { text: "/"; on_click: send "divide" to CalculatorApp.State; }
+            }
+
+            // Equals button
+            Button { text: "="; on_click: send "equals" to CalculatorApp.State; }
+        }
+    }
+}

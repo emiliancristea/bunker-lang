@@ -109,36 +109,35 @@ fn build_function(pair: Pair<Rule>) -> Result<Function, String> {
 
 fn build_attribute(pair: Pair<Rule>) -> Result<Attribute, String> {
     for inner in pair.into_inner() {
-        match inner.as_rule() {
-            Rule::attribute_inner => {
-                let text = inner.as_str();
-                if text == "verified" {
-                    return Ok(Attribute::Verified);
-                } else if text == "unsafe_trust" {
-                    return Ok(Attribute::UnsafeTrust);
-                } else {
-                    for attr_inner in inner.into_inner() {
-                        match attr_inner.as_rule() {
-                            Rule::requires_attr => {
-                                for expr_pair in attr_inner.into_inner() {
-                                    if expr_pair.as_rule() == Rule::expr {
-                                        return Ok(Attribute::Requires(build_expr(expr_pair)?));
-                                    }
-                                }
+        if inner.as_rule() != Rule::attribute_inner {
+            continue;
+        }
+
+        let text = inner.as_str();
+        if text == "verified" {
+            return Ok(Attribute::Verified);
+        } else if text == "unsafe_trust" {
+            return Ok(Attribute::UnsafeTrust);
+        } else {
+            for attr_inner in inner.into_inner() {
+                match attr_inner.as_rule() {
+                    Rule::requires_attr => {
+                        for expr_pair in attr_inner.into_inner() {
+                            if expr_pair.as_rule() == Rule::expr {
+                                return Ok(Attribute::Requires(build_expr(expr_pair)?));
                             }
-                            Rule::ensures_attr => {
-                                for expr_pair in attr_inner.into_inner() {
-                                    if expr_pair.as_rule() == Rule::expr {
-                                        return Ok(Attribute::Ensures(build_expr(expr_pair)?));
-                                    }
-                                }
-                            }
-                            _ => {}
                         }
                     }
+                    Rule::ensures_attr => {
+                        for expr_pair in attr_inner.into_inner() {
+                            if expr_pair.as_rule() == Rule::expr {
+                                return Ok(Attribute::Ensures(build_expr(expr_pair)?));
+                            }
+                        }
+                    }
+                    _ => {}
                 }
             }
-            _ => {}
         }
     }
     Err("Unknown attribute".to_string())
@@ -183,6 +182,24 @@ fn build_type(pair: Pair<Rule>) -> Result<Type, String> {
                     }
                 }
             }
+            Rule::result_type => {
+                let mut types = Vec::new();
+                for type_inner in inner.into_inner() {
+                    if type_inner.as_rule() == Rule::type_expr {
+                        types.push(build_type(type_inner)?);
+                    }
+                }
+                if types.len() == 2 {
+                    return Ok(Type::Result(Box::new(types.remove(0)), Box::new(types.remove(0))));
+                }
+            }
+            Rule::vec_type => {
+                for type_inner in inner.into_inner() {
+                    if type_inner.as_rule() == Rule::type_expr {
+                        return Ok(Type::Vec(Box::new(build_type(type_inner)?)));
+                    }
+                }
+            }
             Rule::array_type => {
                 let mut elem_type = Type::I32;
                 let mut size = 0usize;
@@ -200,10 +217,9 @@ fn build_type(pair: Pair<Rule>) -> Result<Type, String> {
                 return Ok(Type::Array(Box::new(elem_type), size));
             }
             Rule::ref_type => {
-                let mut mutable = false;
                 let mut inner_type = Type::I32;
                 let text = inner.as_str();
-                mutable = text.contains("mut");
+                let mutable = text.contains("mut");
                 for ref_inner in inner.into_inner() {
                     if ref_inner.as_rule() == Rule::type_expr {
                         inner_type = build_type(ref_inner)?;
@@ -322,8 +338,17 @@ fn build_statement(pair: Pair<Rule>) -> Result<Stmt, String> {
             Rule::for_stmt => {
                 return build_for_stmt(inner);
             }
+            Rule::while_stmt => {
+                return build_while_stmt(inner);
+            }
             Rule::loop_stmt => {
                 return build_loop_stmt(inner);
+            }
+            Rule::break_stmt => {
+                return Ok(Stmt::Break);
+            }
+            Rule::continue_stmt => {
+                return Ok(Stmt::Continue);
             }
             Rule::match_stmt => {
                 return build_match_stmt(inner);
@@ -445,6 +470,25 @@ fn build_for_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
     Ok(Stmt::For { var, iter, body })
 }
 
+fn build_while_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
+    let mut condition = Expr::Literal(Literal::Bool(true));
+    let mut body = Block { statements: vec![] };
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::expr => {
+                condition = build_expr(inner)?;
+            }
+            Rule::block => {
+                body = build_block(inner)?;
+            }
+            _ => {}
+        }
+    }
+
+    Ok(Stmt::While { condition, body })
+}
+
 fn build_loop_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
     for inner in pair.into_inner() {
         if inner.as_rule() == Rule::block {
@@ -475,7 +519,7 @@ fn build_match_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
 
 fn build_match_arm(pair: Pair<Rule>) -> Result<MatchArm, String> {
     let mut pattern = Pattern::Ident("_".to_string());
-    let mut body = Expr::Literal(Literal::Int(0));
+    let mut body = MatchBody::Expr(Expr::Literal(Literal::Int(0)));
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -483,11 +527,11 @@ fn build_match_arm(pair: Pair<Rule>) -> Result<MatchArm, String> {
                 pattern = build_pattern(inner)?;
             }
             Rule::expr => {
-                body = build_expr(inner)?;
+                body = MatchBody::Expr(build_expr(inner)?);
             }
             Rule::block => {
                 let block = build_block(inner)?;
-                body = Expr::Literal(Literal::Int(0)); // Simplified for now
+                body = MatchBody::Block(block);
             }
             _ => {}
         }
@@ -497,10 +541,10 @@ fn build_match_arm(pair: Pair<Rule>) -> Result<MatchArm, String> {
 }
 
 fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
-    let text = pair.as_str().trim();
-    
-    if text.starts_with("Some(") && text.ends_with(")") {
-        let inner = &text[5..text.len()-1];
+    let text = pair.as_str().trim().to_string();
+
+    if text.starts_with("Some(") && text.ends_with(')') {
+        let inner = &text[5..text.len() - 1];
         return Ok(Pattern::Some(inner.to_string()));
     }
     if text == "None" {
@@ -512,19 +556,35 @@ fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
     if text == "false" {
         return Ok(Pattern::Bool(false));
     }
-    
-    Ok(Pattern::Ident(text.to_string()))
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::literal => {
+                let expr = build_literal(inner)?;
+                if let Expr::Literal(lit) = expr {
+                    return Ok(Pattern::Literal(lit));
+                }
+            }
+            Rule::identifier => return Ok(Pattern::Ident(inner.as_str().to_string())),
+            _ => {}
+        }
+    }
+
+    Ok(Pattern::Ident(text))
 }
 
 fn build_defer_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::expr => {
-                return Ok(Stmt::Defer(Box::new(Stmt::Expr(build_expr(inner)?))));
+                let expr = build_expr(inner)?;
+                return Ok(Stmt::Defer(Block {
+                    statements: vec![Stmt::Expr(expr)],
+                }));
             }
             Rule::block => {
                 let block = build_block(inner)?;
-                return Ok(Stmt::Defer(Box::new(Stmt::Expr(Expr::Literal(Literal::Int(0))))));
+                return Ok(Stmt::Defer(block));
             }
             _ => {}
         }
@@ -633,11 +693,8 @@ fn build_named_args(pair: Pair<Rule>) -> Result<Vec<(String, Expr)>, String> {
 
 fn build_expr(pair: Pair<Rule>) -> Result<Expr, String> {
     for inner in pair.into_inner() {
-        match inner.as_rule() {
-            Rule::ternary_expr => {
-                return build_ternary_expr(inner);
-            }
-            _ => {}
+        if inner.as_rule() == Rule::ternary_expr {
+            return build_ternary_expr(inner);
         }
     }
     Err("Invalid expression".to_string())
@@ -645,11 +702,11 @@ fn build_expr(pair: Pair<Rule>) -> Result<Expr, String> {
 
 fn build_ternary_expr(pair: Pair<Rule>) -> Result<Expr, String> {
     let mut parts: Vec<Expr> = vec![];
-    
+
     for inner in pair.into_inner() {
         match inner.as_rule() {
-            Rule::or_expr => {
-                parts.push(build_or_expr(inner)?);
+            Rule::range_expr => {
+                parts.push(build_range_expr(inner)?);
             }
             Rule::expr => {
                 parts.push(build_expr(inner)?);
@@ -668,6 +725,38 @@ fn build_ternary_expr(pair: Pair<Rule>) -> Result<Expr, String> {
         Ok(parts.remove(0))
     } else {
         Err("Invalid ternary expression".to_string())
+    }
+}
+
+fn build_range_expr(pair: Pair<Rule>) -> Result<Expr, String> {
+    let mut start: Option<Expr> = None;
+    let mut end: Option<Expr> = None;
+    let mut inclusive = false;
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::or_expr => {
+                if start.is_none() {
+                    start = Some(build_or_expr(inner)?);
+                } else {
+                    end = Some(build_or_expr(inner)?);
+                }
+            }
+            Rule::range_op => {
+                inclusive = inner.as_str() == "..=";
+            }
+            _ => {}
+        }
+    }
+
+    match (start, end) {
+        (Some(s), Some(e)) => Ok(Expr::Range {
+            start: Box::new(s),
+            end: Box::new(e),
+            inclusive,
+        }),
+        (Some(expr), None) => Ok(expr),
+        _ => Err("Invalid range expression".to_string()),
     }
 }
 
@@ -691,16 +780,64 @@ fn build_or_expr(pair: Pair<Rule>) -> Result<Expr, String> {
         return Err("Empty expression".to_string());
     }
 
-    let mut result = exprs.remove(0);
-    for (i, op) in ops.into_iter().enumerate() {
-        if i < exprs.len() {
-            result = Expr::Binary {
-                op,
-                left: Box::new(result),
-                right: Box::new(exprs.remove(0)),
-            };
+    fn precedence(op: BinaryOp) -> u8 {
+        match op {
+            BinaryOp::Or => 1,
+            BinaryOp::And => 2,
+            BinaryOp::BitOr => 3,
+            BinaryOp::BitXor => 4,
+            BinaryOp::BitAnd => 5,
+            BinaryOp::Eq | BinaryOp::Ne | BinaryOp::Lt | BinaryOp::Le | BinaryOp::Gt | BinaryOp::Ge => 6,
+            BinaryOp::Shl | BinaryOp::Shr => 7,
+            BinaryOp::Add | BinaryOp::Sub => 8,
+            BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => 9,
+            BinaryOp::As => 10,
         }
     }
+
+    fn reduce_once(expr_stack: &mut Vec<Expr>, op: BinaryOp) -> Result<(), String> {
+        let right = expr_stack.pop().ok_or_else(|| "Missing RHS expression".to_string())?;
+        let left = expr_stack.pop().ok_or_else(|| "Missing LHS expression".to_string())?;
+        expr_stack.push(Expr::Binary {
+            op,
+            left: Box::new(left),
+            right: Box::new(right),
+        });
+        Ok(())
+    }
+
+    let mut expr_stack: Vec<Expr> = Vec::new();
+    let mut op_stack: Vec<BinaryOp> = Vec::new();
+
+    let mut expr_iter = exprs.into_iter();
+    let Some(first) = expr_iter.next() else {
+        return Err("Empty expression".to_string());
+    };
+    expr_stack.push(first);
+
+    for (op, rhs) in ops.into_iter().zip(expr_iter) {
+        while let Some(&top) = op_stack.last() {
+            if precedence(top) >= precedence(op) {
+                let top = op_stack.pop().expect("peeked above");
+                reduce_once(&mut expr_stack, top)?;
+            } else {
+                break;
+            }
+        }
+        op_stack.push(op);
+        expr_stack.push(rhs);
+    }
+
+    while let Some(op) = op_stack.pop() {
+        reduce_once(&mut expr_stack, op)?;
+    }
+
+    let result = match expr_stack.len() {
+        1 => expr_stack
+            .pop()
+            .expect("len checked above"),
+        _ => return Err("Invalid expression".to_string()),
+    };
 
     Ok(result)
 }
@@ -801,6 +938,16 @@ fn build_postfix_op(pair: Pair<Rule>, base: Expr) -> Result<Expr, String> {
                     }
                 }
             }
+            Rule::cast_op => {
+                for cast_inner in inner.into_inner() {
+                    if cast_inner.as_rule() == Rule::type_expr {
+                        return Ok(Expr::Cast {
+                            expr: Box::new(base),
+                            target_type: build_type(cast_inner)?,
+                        });
+                    }
+                }
+            }
             _ => {}
         }
     }
@@ -828,6 +975,9 @@ fn build_primary_expr(pair: Pair<Rule>) -> Result<Expr, String> {
             Rule::match_expr => {
                 return build_match_expr(inner);
             }
+            Rule::option_expr => {
+                return build_option_expr(inner);
+            }
             Rule::array_literal => {
                 return build_array_literal(inner);
             }
@@ -844,6 +994,21 @@ fn build_primary_expr(pair: Pair<Rule>) -> Result<Expr, String> {
         }
     }
     Err("Invalid primary expression".to_string())
+}
+
+fn build_option_expr(pair: Pair<Rule>) -> Result<Expr, String> {
+    let mut inner_expr = None;
+    for inner in pair.into_inner() {
+        if inner.as_rule() == Rule::expr {
+            inner_expr = Some(build_expr(inner)?);
+        }
+    }
+
+    if let Some(expr) = inner_expr {
+        Ok(Expr::Some(Box::new(expr)))
+    } else {
+        Ok(Expr::None)
+    }
 }
 
 fn build_use_expr(pair: Pair<Rule>) -> Result<Expr, String> {
@@ -871,7 +1036,7 @@ fn build_use_expr(pair: Pair<Rule>) -> Result<Expr, String> {
 
 fn build_send_expr(pair: Pair<Rule>) -> Result<Expr, String> {
     let mut message = Expr::Literal(Literal::String(String::new()));
-    let mut path = vec![];
+    let mut target = vec![];
     let mut args = vec![];
 
     for inner in pair.into_inner() {
@@ -882,7 +1047,7 @@ fn build_send_expr(pair: Pair<Rule>) -> Result<Expr, String> {
             Rule::qualified_name => {
                 for name_inner in inner.into_inner() {
                     if name_inner.as_rule() == Rule::identifier {
-                        path.push(name_inner.as_str().to_string());
+                        target.push(name_inner.as_str().to_string());
                     }
                 }
             }
@@ -893,7 +1058,11 @@ fn build_send_expr(pair: Pair<Rule>) -> Result<Expr, String> {
         }
     }
 
-    Ok(Expr::Use { path, args }) // Simplified - treat send as a use for now
+    Ok(Expr::Send {
+        message: Box::new(message),
+        target,
+        args,
+    })
 }
 
 fn build_lambda_expr(pair: Pair<Rule>) -> Result<Expr, String> {
@@ -924,10 +1093,8 @@ fn build_lambda_expr(pair: Pair<Rule>) -> Result<Expr, String> {
 
 fn build_if_expr(pair: Pair<Rule>) -> Result<Expr, String> {
     let mut condition = Expr::Literal(Literal::Bool(true));
-    let mut then_expr = Expr::Literal(Literal::Int(0));
-    let mut else_expr = Expr::Literal(Literal::Int(0));
     let mut found_cond = false;
-    let mut found_then = false;
+    let mut blocks: Vec<Block> = Vec::new();
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -938,19 +1105,19 @@ fn build_if_expr(pair: Pair<Rule>) -> Result<Expr, String> {
                 }
             }
             Rule::block => {
-                // Simplified
-                if !found_then {
-                    found_then = true;
-                }
+                blocks.push(build_block(inner)?);
             }
             _ => {}
         }
     }
 
+    let then_block = blocks.get(0).cloned().unwrap_or_else(|| Block { statements: vec![] });
+    let else_block = blocks.get(1).cloned().unwrap_or_else(|| Block { statements: vec![] });
+
     Ok(Expr::If {
         condition: Box::new(condition),
-        then_expr: Box::new(then_expr),
-        else_expr: Box::new(else_expr),
+        then_expr: Box::new(Expr::Block(then_block)),
+        else_expr: Box::new(Expr::Block(else_block)),
     })
 }
 
@@ -1092,6 +1259,11 @@ fn build_binary_op(pair: Pair<Rule>) -> Result<BinaryOp, String> {
         ">=" => BinaryOp::Ge,
         "&&" => BinaryOp::And,
         "||" => BinaryOp::Or,
+        "&" => BinaryOp::BitAnd,
+        "|" => BinaryOp::BitOr,
+        "^" => BinaryOp::BitXor,
+        "<<" => BinaryOp::Shl,
+        ">>" => BinaryOp::Shr,
         "as" => BinaryOp::As,
         _ => return Err(format!("Unknown operator: {}", op)),
     })

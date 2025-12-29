@@ -1,0 +1,19 @@
+// Test 66: Row Layout Container
+// Purpose: Verify Row layout arranges children horizontally.
+// Expected: Check only (view test)
+
+view RowTest {
+    #[target(graphics)]
+    Window {
+        title: "Row Layout Test";
+        width: 400;
+        height: 200;
+
+        Row {
+            spacing: 20;
+            Button { text: "Left"; }
+            Button { text: "Center"; }
+            Button { text: "Right"; }
+        }
+    }
+}

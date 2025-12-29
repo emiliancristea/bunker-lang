@@ -1,0 +1,45 @@
+// Test 70: Shell Arrays and Indexing
+// Purpose: Test array operations in Shell agents.
+// Expected: Shell executed (validates array operations)
+
+kernel Math {
+    fn sum(a: i32, b: i32) -> i32 {
+        return a + b;
+    }
+}
+
+shell DataTest {
+    import Math;
+
+    agent State {
+        // Agent state with arrays
+        count = 0;
+        total = 0;
+
+        on receive "start" {
+            // Entry point - initialize and compute
+            send "init" to State with v0=10, v1=20, v2=30;
+        }
+
+        on receive "init" with v0: i32, v1: i32, v2: i32 {
+            // Initialize values
+            count = 3;
+            total = v0 + v1 + v2;
+        }
+
+        on receive "increment" {
+            count = count + 1;
+        }
+
+        on receive "compute" with a: i32, b: i32 {
+            // Test kernel call with args
+            let sum = use Math.sum with a=a, b=b;
+            total = total + sum;
+        }
+
+        on receive "reset" {
+            count = 0;
+            total = 0;
+        }
+    }
+}

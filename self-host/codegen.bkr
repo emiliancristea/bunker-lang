@@ -1,0 +1,404 @@
+// Bunker Self-Hosting Compiler - Code Generator
+// Generates a simple serialized bytecode format
+
+kernel CodeGen {
+    // AST Node types (must match parser)
+    const NODE_KERNEL: i64 = 1;
+    const NODE_FN: i64 = 2;
+    const NODE_PARAM: i64 = 3;
+    const NODE_TYPE: i64 = 4;
+    const NODE_BLOCK: i64 = 5;
+    const NODE_LET: i64 = 6;
+    const NODE_RETURN: i64 = 7;
+    const NODE_IF: i64 = 8;
+    const NODE_WHILE: i64 = 9;
+    const NODE_EXPR_STMT: i64 = 10;
+    const NODE_ASSIGN: i64 = 11;
+    const NODE_BINARY: i64 = 20;
+    const NODE_UNARY: i64 = 21;
+    const NODE_CALL: i64 = 22;
+    const NODE_IDENT: i64 = 23;
+    const NODE_INT_LIT: i64 = 24;
+    const NODE_BOOL_LIT: i64 = 25;
+    const NODE_STR_LIT: i64 = 26;
+
+    // Bytecode opcodes
+    const OP_PUSH_I64: i64 = 1;
+    const OP_PUSH_BOOL: i64 = 2;
+    const OP_LOAD_LOCAL: i64 = 10;
+    const OP_STORE_LOCAL: i64 = 11;
+    const OP_ADD: i64 = 20;
+    const OP_SUB: i64 = 21;
+    const OP_MUL: i64 = 22;
+    const OP_DIV: i64 = 23;
+    const OP_LT: i64 = 30;
+    const OP_GT: i64 = 31;
+    const OP_LE: i64 = 32;
+    const OP_GE: i64 = 33;
+    const OP_EQ: i64 = 34;
+    const OP_NE: i64 = 35;
+    const OP_AND: i64 = 40;
+    const OP_OR: i64 = 41;
+    const OP_NOT: i64 = 42;
+    const OP_NEG: i64 = 43;
+    const OP_CALL: i64 = 50;
+    const OP_RETURN: i64 = 51;
+    const OP_JUMP: i64 = 60;
+    const OP_JUMP_IF_FALSE: i64 = 61;
+    const OP_POP: i64 = 70;
+
+    // Token ops (from parser)
+    const TOK_PLUS: i64 = 80;
+    const TOK_MINUS: i64 = 81;
+    const TOK_STAR: i64 = 82;
+    const TOK_SLASH: i64 = 83;
+    const TOK_LT: i64 = 87;
+    const TOK_GT: i64 = 88;
+    const TOK_LE: i64 = 89;
+    const TOK_GE: i64 = 90;
+    const TOK_AND: i64 = 91;
+    const TOK_OR: i64 = 92;
+    const TOK_NOT: i64 = 93;
+    const TOK_EQ: i64 = 85;
+    const TOK_NE: i64 = 86;
+
+    // Code generator state: [bytecode, locals, local_count]
+    fn codegen_new() -> i64 {
+        let state = vec_new();
+        vec_push(state, vec_new());  // bytecode
+        vec_push(state, vec_new());  // locals table
+        vec_push(state, 0);          // local count
+        return state;
+    }
+
+    fn codegen_bytecode(state: i64) -> i64 {
+        return vec_get(state, 0);
+    }
+
+    fn emit(state: i64, op: i64) -> i64 {
+        let bc = codegen_bytecode(state);
+        vec_push(bc, op);
+        return state;
+    }
+
+    fn emit2(state: i64, op: i64, arg: i64) -> i64 {
+        let bc = codegen_bytecode(state);
+        vec_push(bc, op);
+        vec_push(bc, arg);
+        return state;
+    }
+
+    fn bytecode_len(state: i64) -> i64 {
+        return vec_len(codegen_bytecode(state));
+    }
+
+    fn patch_jump(state: i64, addr: i64, target: i64) -> i64 {
+        let bc = codegen_bytecode(state);
+        vec_set(bc, addr + 1, target);
+        return state;
+    }
+
+    // Local variable management
+    fn add_local(state: i64, name_idx: i64) -> i64 {
+        let locals = vec_get(state, 1);
+        let slot = vec_get(state, 2);
+        vec_push(locals, name_idx);
+        vec_set(state, 2, slot + 1);
+        return slot;
+    }
+
+    fn lookup_local(state: i64, name_idx: i64) -> i64 {
+        let locals = vec_get(state, 1);
+        let i: i64 = 0;
+        let found: i64 = 0;
+        let searching = true;
+
+        while searching && i < vec_len(locals) {
+            if vec_get(locals, i) == name_idx {
+                found = i;
+                searching = false;
+            }
+            i = i + 1;
+        }
+
+        return found;
+    }
+
+    // Generate code for expression
+    fn gen_expr(state: i64, expr: i64) -> i64 {
+        let node_type = vec_get(expr, 0);
+
+        if node_type == NODE_INT_LIT {
+            let value = vec_get(expr, 1);
+            emit2(state, OP_PUSH_I64, value);
+            return state;
+        }
+
+        if node_type == NODE_BOOL_LIT {
+            let value = vec_get(expr, 1);
+            emit2(state, OP_PUSH_BOOL, value);
+            return state;
+        }
+
+        if node_type == NODE_IDENT {
+            let name_idx = vec_get(expr, 1);
+            let slot = lookup_local(state, name_idx);
+            emit2(state, OP_LOAD_LOCAL, slot);
+            return state;
+        }
+
+        if node_type == NODE_BINARY {
+            let op = vec_get(expr, 1);
+            let left = vec_get(expr, 2);
+            let right = vec_get(expr, 3);
+
+            gen_expr(state, left);
+            gen_expr(state, right);
+
+            if op == TOK_PLUS { emit(state, OP_ADD); }
+            if op == TOK_MINUS { emit(state, OP_SUB); }
+            if op == TOK_STAR { emit(state, OP_MUL); }
+            if op == TOK_SLASH { emit(state, OP_DIV); }
+            if op == TOK_LT { emit(state, OP_LT); }
+            if op == TOK_GT { emit(state, OP_GT); }
+            if op == TOK_LE { emit(state, OP_LE); }
+            if op == TOK_GE { emit(state, OP_GE); }
+            if op == TOK_EQ { emit(state, OP_EQ); }
+            if op == TOK_NE { emit(state, OP_NE); }
+            if op == TOK_AND { emit(state, OP_AND); }
+            if op == TOK_OR { emit(state, OP_OR); }
+
+            return state;
+        }
+
+        if node_type == NODE_UNARY {
+            let op = vec_get(expr, 1);
+            let operand = vec_get(expr, 2);
+
+            gen_expr(state, operand);
+
+            if op == TOK_NOT { emit(state, OP_NOT); }
+            if op == TOK_MINUS { emit(state, OP_NEG); }
+
+            return state;
+        }
+
+        if node_type == NODE_CALL {
+            let name_idx = vec_get(expr, 1);
+            emit2(state, OP_CALL, name_idx);
+            return state;
+        }
+
+        return state;
+    }
+
+    // Generate code for statement
+    fn gen_stmt(state: i64, stmt: i64) -> i64 {
+        let node_type = vec_get(stmt, 0);
+
+        if node_type == NODE_LET {
+            let name_idx = vec_get(stmt, 1);
+            let init_expr = vec_get(stmt, 3);
+
+            let slot = add_local(state, name_idx);
+
+            if init_expr != 0 {
+                gen_expr(state, init_expr);
+                emit2(state, OP_STORE_LOCAL, slot);
+            }
+
+            return state;
+        }
+
+        if node_type == NODE_RETURN {
+            let ret_expr = vec_get(stmt, 1);
+            if ret_expr != 0 {
+                gen_expr(state, ret_expr);
+            }
+            emit(state, OP_RETURN);
+            return state;
+        }
+
+        if node_type == NODE_IF {
+            let cond = vec_get(stmt, 1);
+            let then_block = vec_get(stmt, 2);
+            let else_block = vec_get(stmt, 3);
+
+            gen_expr(state, cond);
+            let jump_addr = bytecode_len(state);
+            emit2(state, OP_JUMP_IF_FALSE, 0);  // placeholder
+
+            gen_block(state, then_block);
+
+            if else_block != 0 {
+                let jump_end = bytecode_len(state);
+                emit2(state, OP_JUMP, 0);  // placeholder
+
+                let else_start = bytecode_len(state);
+                patch_jump(state, jump_addr, else_start);
+
+                let else_type = vec_get(else_block, 0);
+                if else_type == NODE_BLOCK {
+                    gen_block(state, else_block);
+                } else if else_type == NODE_IF {
+                    gen_stmt(state, else_block);
+                }
+
+                let end_addr = bytecode_len(state);
+                patch_jump(state, jump_end, end_addr);
+            } else {
+                let end_addr = bytecode_len(state);
+                patch_jump(state, jump_addr, end_addr);
+            }
+
+            return state;
+        }
+
+        if node_type == NODE_WHILE {
+            let cond = vec_get(stmt, 1);
+            let body = vec_get(stmt, 2);
+
+            let loop_start = bytecode_len(state);
+            gen_expr(state, cond);
+
+            let jump_addr = bytecode_len(state);
+            emit2(state, OP_JUMP_IF_FALSE, 0);
+
+            gen_block(state, body);
+
+            emit2(state, OP_JUMP, loop_start);
+
+            let end_addr = bytecode_len(state);
+            patch_jump(state, jump_addr, end_addr);
+
+            return state;
+        }
+
+        if node_type == NODE_EXPR_STMT {
+            let expr = vec_get(stmt, 1);
+            gen_expr(state, expr);
+            emit(state, OP_POP);
+            return state;
+        }
+
+        if node_type == NODE_ASSIGN {
+            let target = vec_get(stmt, 1);
+            let value = vec_get(stmt, 2);
+
+            gen_expr(state, value);
+
+            let target_type = vec_get(target, 0);
+            if target_type == NODE_IDENT {
+                let name_idx = vec_get(target, 1);
+                let slot = lookup_local(state, name_idx);
+                emit2(state, OP_STORE_LOCAL, slot);
+            }
+
+            return state;
+        }
+
+        return state;
+    }
+
+    // Generate code for block
+    fn gen_block(state: i64, block: i64) -> i64 {
+        let i: i64 = 1;
+        let continuing = true;
+
+        while continuing && i < vec_len(block) {
+            let stmt = vec_get(block, i);
+            gen_stmt(state, stmt);
+            i = i + 1;
+        }
+
+        return state;
+    }
+
+    // Generate code for function
+    fn gen_fn(state: i64, fn_node: i64) -> i64 {
+        let body = vec_get(fn_node, 4);
+        gen_block(state, body);
+        return state;
+    }
+
+    fn main() -> i32 {
+        // Test: Generate code for "return 42;"
+        let ret_expr = vec_new();
+        vec_push(ret_expr, NODE_INT_LIT);
+        vec_push(ret_expr, 42);
+
+        let ret_stmt = vec_new();
+        vec_push(ret_stmt, NODE_RETURN);
+        vec_push(ret_stmt, ret_expr);
+
+        let block = vec_new();
+        vec_push(block, NODE_BLOCK);
+        vec_push(block, ret_stmt);
+
+        let fn_node = vec_new();
+        vec_push(fn_node, NODE_FN);
+        vec_push(fn_node, 1);
+        vec_push(fn_node, vec_new());
+        vec_push(fn_node, 0);
+        vec_push(fn_node, block);
+
+        let state = codegen_new();
+        gen_fn(state, fn_node);
+
+        let bc = codegen_bytecode(state);
+
+        // Expected: OP_PUSH_I64, 42, OP_RETURN
+        if vec_len(bc) != 3 { return 1; }
+        if vec_get(bc, 0) != OP_PUSH_I64 { return 2; }
+        if vec_get(bc, 1) != 42 { return 3; }
+        if vec_get(bc, 2) != OP_RETURN { return 4; }
+
+        // Test 2: Generate code for "let x = 10; return x;"
+        let state2 = codegen_new();
+
+        let init_expr = vec_new();
+        vec_push(init_expr, NODE_INT_LIT);
+        vec_push(init_expr, 10);
+
+        let let_stmt = vec_new();
+        vec_push(let_stmt, NODE_LET);
+        vec_push(let_stmt, 5);  // name_idx for 'x'
+        vec_push(let_stmt, 0);  // no type annotation
+        vec_push(let_stmt, init_expr);
+
+        let ident = vec_new();
+        vec_push(ident, NODE_IDENT);
+        vec_push(ident, 5);  // same name_idx
+
+        let ret_stmt2 = vec_new();
+        vec_push(ret_stmt2, NODE_RETURN);
+        vec_push(ret_stmt2, ident);
+
+        let block2 = vec_new();
+        vec_push(block2, NODE_BLOCK);
+        vec_push(block2, let_stmt);
+        vec_push(block2, ret_stmt2);
+
+        let fn_node2 = vec_new();
+        vec_push(fn_node2, NODE_FN);
+        vec_push(fn_node2, 1);
+        vec_push(fn_node2, vec_new());
+        vec_push(fn_node2, 0);
+        vec_push(fn_node2, block2);
+
+        gen_fn(state2, fn_node2);
+        let bc2 = codegen_bytecode(state2);
+
+        // Expected: PUSH 10, STORE 0, LOAD 0, RETURN (7 elements total)
+        if vec_len(bc2) != 7 { return 10 + vec_len(bc2); }
+        if vec_get(bc2, 0) != OP_PUSH_I64 { return 20; }
+        if vec_get(bc2, 1) != 10 { return 21; }
+        if vec_get(bc2, 2) != OP_STORE_LOCAL { return 22; }
+        if vec_get(bc2, 3) != 0 { return 23; }  // slot 0
+        if vec_get(bc2, 4) != OP_LOAD_LOCAL { return 24; }
+        if vec_get(bc2, 5) != 0 { return 25; }  // slot 0
+        if vec_get(bc2, 6) != OP_RETURN { return 26; }
+
+        return 42;
+    }
+}

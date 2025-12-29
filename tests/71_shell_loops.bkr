@@ -1,0 +1,85 @@
+// Test 71: Shell Loop Support
+// Purpose: Test for, while, loop, break, continue in Shell agents.
+// Expected: Shell executed (validates loop operations)
+
+kernel Math {
+    fn add(a: i32, b: i32) -> i32 {
+        return a + b;
+    }
+}
+
+shell LoopTest {
+    import Math;
+
+    agent State {
+        sum = 0;
+        count = 0;
+
+        on receive "start" {
+            // Test for loop with range
+            send "for_range" to State;
+        }
+
+        on receive "for_range" {
+            // Sum 1 to 5 using for loop
+            for i in 1..6 {
+                sum = sum + i;
+            }
+            count = count + 1;
+            // Expected: sum = 15 (1+2+3+4+5)
+            send "while_loop" to State;
+        }
+
+        on receive "while_loop" {
+            // Test while loop
+            let n = 0;
+            while n < 5 {
+                sum = sum + 10;
+                n = n + 1;
+            }
+            count = count + 1;
+            // Expected: sum = 65 (15 + 50)
+            send "for_break" to State;
+        }
+
+        on receive "for_break" {
+            // Test break in for loop
+            for i in 1..100 {
+                if i > 3 {
+                    break;
+                }
+                sum = sum + i;
+            }
+            count = count + 1;
+            // Expected: sum = 71 (65 + 6, stopped at i=4)
+            send "for_continue" to State;
+        }
+
+        on receive "for_continue" {
+            // Test continue in for loop
+            for i in 1..6 {
+                if i == 3 {
+                    continue;
+                }
+                sum = sum + i;
+            }
+            count = count + 1;
+            // Expected: sum = 83 (71 + 12, skipped i=3)
+            send "loop_break" to State;
+        }
+
+        on receive "loop_break" {
+            // Test infinite loop with break
+            let n = 0;
+            loop {
+                n = n + 1;
+                if n > 2 {
+                    break;
+                }
+                sum = sum + 100;
+            }
+            count = count + 1;
+            // Expected: sum = 283 (83 + 200)
+        }
+    }
+}

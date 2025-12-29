@@ -1,0 +1,13 @@
+// Test 59: Use After Move (BAD - should fail type checking)
+// Purpose: Verify that use-after-move is rejected
+// Expected: Type error "Use of moved value 'p1'"
+
+kernel MoveTest {
+    struct Point { x: i32, y: i32 }
+
+    fn main() -> i32 {
+        let p1 = Point { x: 10, y: 20 };
+        let p2 = p1;        // p1 is moved to p2
+        return p1.x;        // ERROR: use of moved value 'p1'
+    }
+}

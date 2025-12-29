@@ -1,0 +1,55 @@
+// Test 51: Kernel comparison operators
+// Purpose: Verify all comparison operators work correctly.
+// Expected: Result: 42
+
+kernel ComparisonsTest {
+    fn bool_to_int(b: bool) -> i32 {
+        if b { return 1; } else { return 0; }
+    }
+
+    fn main() -> i32 {
+        let result: i32 = 0;
+
+        // Equal (==)
+        result = result + bool_to_int(5 == 5);   // 1
+        result = result + bool_to_int(5 == 6);   // 0
+
+        // Not equal (!=)
+        result = result + bool_to_int(5 != 6);   // 1
+        result = result + bool_to_int(5 != 5);   // 0
+
+        // Less than (<)
+        result = result + bool_to_int(3 < 5);    // 1
+        result = result + bool_to_int(5 < 3);    // 0
+        result = result + bool_to_int(5 < 5);    // 0
+
+        // Less than or equal (<=)
+        result = result + bool_to_int(3 <= 5);   // 1
+        result = result + bool_to_int(5 <= 5);   // 1
+        result = result + bool_to_int(6 <= 5);   // 0
+
+        // Greater than (>)
+        result = result + bool_to_int(5 > 3);    // 1
+        result = result + bool_to_int(3 > 5);    // 0
+        result = result + bool_to_int(5 > 5);    // 0
+
+        // Greater than or equal (>=)
+        result = result + bool_to_int(5 >= 3);   // 1
+        result = result + bool_to_int(5 >= 5);   // 1
+        result = result + bool_to_int(3 >= 5);   // 0
+
+        // So far: 1+1+1+1+1+1+1+1 = 8 trues
+
+        // With variables
+        let a: i32 = 10;
+        let b: i32 = 20;
+        result = result + bool_to_int(a < b);    // 1
+        result = result + bool_to_int(a != b);   // 1
+        result = result + bool_to_int(a + 10 == b);  // 1
+        result = result + bool_to_int(a * 2 >= b);   // 1
+
+        // Total: 8 + 4 = 12
+        // Need 42, so add 30
+        return result + 30;
+    }
+}

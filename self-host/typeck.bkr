@@ -1,0 +1,342 @@
+// Bunker Self-Hosting Compiler - Type Checker
+// Minimal type checking for self-hosting
+
+kernel TypeChecker {
+    // AST Node types (must match parser)
+    const NODE_KERNEL: i64 = 1;
+    const NODE_FN: i64 = 2;
+    const NODE_PARAM: i64 = 3;
+    const NODE_TYPE: i64 = 4;
+    const NODE_BLOCK: i64 = 5;
+    const NODE_LET: i64 = 6;
+    const NODE_RETURN: i64 = 7;
+    const NODE_IF: i64 = 8;
+    const NODE_WHILE: i64 = 9;
+    const NODE_EXPR_STMT: i64 = 10;
+    const NODE_ASSIGN: i64 = 11;
+    const NODE_BINARY: i64 = 20;
+    const NODE_UNARY: i64 = 21;
+    const NODE_CALL: i64 = 22;
+    const NODE_IDENT: i64 = 23;
+    const NODE_INT_LIT: i64 = 24;
+    const NODE_BOOL_LIT: i64 = 25;
+    const NODE_STR_LIT: i64 = 26;
+    const NODE_CONST: i64 = 27;
+
+    // Type constants
+    const TYPE_I32: i64 = 0;
+    const TYPE_I64: i64 = 1;
+    const TYPE_F64: i64 = 2;
+    const TYPE_BOOL: i64 = 3;
+    const TYPE_STR: i64 = 4;
+    const TYPE_VOID: i64 = 5;
+    const TYPE_UNKNOWN: i64 = 99;
+
+    // Type checker state: [errors, symbol_table, current_fn_ret_type]
+    fn typeck_new() -> i64 {
+        let state = vec_new();
+        vec_push(state, vec_new());  // errors list
+        vec_push(state, vec_new());  // symbol table (pairs: [name_idx, type])
+        vec_push(state, TYPE_VOID);  // current function return type
+        return state;
+    }
+
+    fn typeck_errors(state: i64) -> i64 {
+        return vec_get(state, 0);
+    }
+
+    fn typeck_add_error(state: i64, code: i64) -> i64 {
+        let errors = typeck_errors(state);
+        vec_push(errors, code);
+        return state;
+    }
+
+    fn typeck_has_errors(state: i64) -> bool {
+        return vec_len(typeck_errors(state)) > 0;
+    }
+
+    fn typeck_set_ret_type(state: i64, ty: i64) -> i64 {
+        vec_set(state, 2, ty);
+        return state;
+    }
+
+    fn typeck_get_ret_type(state: i64) -> i64 {
+        return vec_get(state, 2);
+    }
+
+    // Symbol table operations
+    fn typeck_add_symbol(state: i64, name_idx: i64, ty: i64) -> i64 {
+        let syms = vec_get(state, 1);
+        let entry = vec_new();
+        vec_push(entry, name_idx);
+        vec_push(entry, ty);
+        vec_push(syms, entry);
+        return state;
+    }
+
+    fn typeck_lookup_symbol(state: i64, name_idx: i64) -> i64 {
+        let syms = vec_get(state, 1);
+        let i: i64 = 0;
+        let found = TYPE_UNKNOWN;
+        let searching = true;
+
+        while searching && i < vec_len(syms) {
+            let entry = vec_get(syms, i);
+            if vec_get(entry, 0) == name_idx {
+                found = vec_get(entry, 1);
+                searching = false;
+            }
+            i = i + 1;
+        }
+
+        return found;
+    }
+
+    // Get type from type node
+    fn get_type_from_node(type_node: i64) -> i64 {
+        if type_node == 0 {
+            return TYPE_UNKNOWN;
+        }
+        return vec_get(type_node, 1);
+    }
+
+    // Infer expression type
+    fn infer_expr_type(state: i64, expr: i64) -> i64 {
+        let node_type = vec_get(expr, 0);
+
+        if node_type == NODE_INT_LIT {
+            return TYPE_I64;  // Default integers to i64
+        }
+
+        if node_type == NODE_BOOL_LIT {
+            return TYPE_BOOL;
+        }
+
+        if node_type == NODE_STR_LIT {
+            return TYPE_STR;
+        }
+
+        if node_type == NODE_IDENT {
+            let name_idx = vec_get(expr, 1);
+            return typeck_lookup_symbol(state, name_idx);
+        }
+
+        if node_type == NODE_BINARY {
+            // For now, inherit type from left operand
+            let left = vec_get(expr, 2);
+            return infer_expr_type(state, left);
+        }
+
+        if node_type == NODE_UNARY {
+            let operand = vec_get(expr, 2);
+            return infer_expr_type(state, operand);
+        }
+
+        if node_type == NODE_CALL {
+            // Simplified: assume calls return i64
+            return TYPE_I64;
+        }
+
+        return TYPE_UNKNOWN;
+    }
+
+    // Check statement
+    fn check_stmt(state: i64, stmt: i64) -> i64 {
+        let node_type = vec_get(stmt, 0);
+
+        if node_type == NODE_LET {
+            let name_idx = vec_get(stmt, 1);
+            let type_node = vec_get(stmt, 2);
+            let init_expr = vec_get(stmt, 3);
+
+            let declared_type = TYPE_UNKNOWN;
+            if type_node != 0 {
+                declared_type = get_type_from_node(type_node);
+            }
+
+            let inferred_type = TYPE_UNKNOWN;
+            if init_expr != 0 {
+                inferred_type = infer_expr_type(state, init_expr);
+            }
+
+            // Use declared type if available, otherwise inferred
+            let final_type = declared_type;
+            if final_type == TYPE_UNKNOWN {
+                final_type = inferred_type;
+            }
+
+            typeck_add_symbol(state, name_idx, final_type);
+            return state;
+        }
+
+        if node_type == NODE_RETURN {
+            let ret_expr = vec_get(stmt, 1);
+            if ret_expr != 0 {
+                let expr_type = infer_expr_type(state, ret_expr);
+                let expected = typeck_get_ret_type(state);
+                // Simplified check: i32 and i64 are compatible
+                let compatible = false;
+                if expr_type == expected { compatible = true; }
+                if expr_type == TYPE_I32 && expected == TYPE_I64 { compatible = true; }
+                if expr_type == TYPE_I64 && expected == TYPE_I32 { compatible = true; }
+                if !compatible && expr_type != TYPE_UNKNOWN {
+                    typeck_add_error(state, 100);  // return type mismatch
+                }
+            }
+            return state;
+        }
+
+        if node_type == NODE_IF {
+            let cond = vec_get(stmt, 1);
+            let cond_type = infer_expr_type(state, cond);
+            if cond_type != TYPE_BOOL && cond_type != TYPE_UNKNOWN {
+                typeck_add_error(state, 101);  // condition must be bool
+            }
+
+            let then_block = vec_get(stmt, 2);
+            check_block(state, then_block);
+
+            let else_block = vec_get(stmt, 3);
+            if else_block != 0 {
+                let else_type = vec_get(else_block, 0);
+                if else_type == NODE_BLOCK {
+                    check_block(state, else_block);
+                } else if else_type == NODE_IF {
+                    check_stmt(state, else_block);
+                }
+            }
+            return state;
+        }
+
+        if node_type == NODE_WHILE {
+            let cond = vec_get(stmt, 1);
+            let cond_type = infer_expr_type(state, cond);
+            if cond_type != TYPE_BOOL && cond_type != TYPE_UNKNOWN {
+                typeck_add_error(state, 102);  // condition must be bool
+            }
+
+            let body = vec_get(stmt, 2);
+            check_block(state, body);
+            return state;
+        }
+
+        if node_type == NODE_EXPR_STMT {
+            // Just check the expression exists
+            return state;
+        }
+
+        if node_type == NODE_ASSIGN {
+            let target = vec_get(stmt, 1);
+            let value = vec_get(stmt, 2);
+            // Could add type checking here
+            return state;
+        }
+
+        return state;
+    }
+
+    // Check block
+    fn check_block(state: i64, block: i64) -> i64 {
+        let i: i64 = 1;  // Skip NODE_BLOCK type marker
+        let continuing = true;
+
+        while continuing && i < vec_len(block) {
+            let stmt = vec_get(block, i);
+            check_stmt(state, stmt);
+            i = i + 1;
+        }
+
+        return state;
+    }
+
+    // Check function
+    fn check_fn(state: i64, fn_node: i64) -> i64 {
+        let name_idx = vec_get(fn_node, 1);
+        let params = vec_get(fn_node, 2);
+        let ret_type_node = vec_get(fn_node, 3);
+        let body = vec_get(fn_node, 4);
+
+        // Set current function return type
+        let ret_type = TYPE_VOID;
+        if ret_type_node != 0 {
+            ret_type = get_type_from_node(ret_type_node);
+        }
+        typeck_set_ret_type(state, ret_type);
+
+        // Check body
+        check_block(state, body);
+
+        return state;
+    }
+
+    // Check kernel
+    fn check_kernel(state: i64, kernel: i64) -> i64 {
+        let funcs = vec_get(kernel, 2);
+        let i: i64 = 0;
+        let continuing = true;
+
+        while continuing && i < vec_len(funcs) {
+            let fn_node = vec_get(funcs, i);
+            check_fn(state, fn_node);
+            i = i + 1;
+        }
+
+        return state;
+    }
+
+    fn main() -> i32 {
+        // Test 1: Create type checker state
+        let state = typeck_new();
+        if typeck_has_errors(state) { return 1; }
+
+        // Test 2: Add and lookup symbol
+        typeck_add_symbol(state, 5, TYPE_I64);
+        let found_type = typeck_lookup_symbol(state, 5);
+        if found_type != TYPE_I64 { return 2; }
+
+        // Test 3: Lookup missing symbol
+        let missing = typeck_lookup_symbol(state, 99);
+        if missing != TYPE_UNKNOWN { return 3; }
+
+        // Test 4: Create a mock AST and check it
+        // AST for: kernel Test { fn main() -> i32 { return 42; } }
+        let ret_expr = vec_new();
+        vec_push(ret_expr, NODE_INT_LIT);
+        vec_push(ret_expr, 42);
+
+        let ret_stmt = vec_new();
+        vec_push(ret_stmt, NODE_RETURN);
+        vec_push(ret_stmt, ret_expr);
+
+        let block = vec_new();
+        vec_push(block, NODE_BLOCK);
+        vec_push(block, ret_stmt);
+
+        let ret_type = vec_new();
+        vec_push(ret_type, NODE_TYPE);
+        vec_push(ret_type, TYPE_I32);
+
+        let fn_node = vec_new();
+        vec_push(fn_node, NODE_FN);
+        vec_push(fn_node, 1);  // name_idx
+        vec_push(fn_node, vec_new());  // params
+        vec_push(fn_node, ret_type);
+        vec_push(fn_node, block);
+
+        let funcs = vec_new();
+        vec_push(funcs, fn_node);
+
+        let kernel = vec_new();
+        vec_push(kernel, NODE_KERNEL);
+        vec_push(kernel, 0);  // name_idx
+        vec_push(kernel, funcs);
+
+        let state2 = typeck_new();
+        check_kernel(state2, kernel);
+
+        // i64 returned from i32 function should be compatible
+        if typeck_has_errors(state2) { return 4; }
+
+        return 42;
+    }
+}

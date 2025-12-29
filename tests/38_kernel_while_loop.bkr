@@ -1,0 +1,17 @@
+// Test 38: Kernel while loop
+// Purpose: Verify while loop with condition checking.
+// Expected: Result: 55 (sum of 1..10)
+
+kernel WhileLoopTest {
+    fn main() -> i32 {
+        let sum: i32 = 0;
+        let i: i32 = 1;
+
+        while i <= 10 {
+            sum = sum + i;
+            i = i + 1;
+        }
+
+        return sum;
+    }
+}

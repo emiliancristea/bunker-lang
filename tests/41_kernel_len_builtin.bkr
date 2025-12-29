@@ -1,0 +1,25 @@
+// Test 41: Kernel len() builtin function
+// Purpose: Verify len() works on arrays and strings.
+// Expected: Result: 15
+
+kernel LenTest {
+    fn main() -> i32 {
+        // Array length (compile-time constant)
+        let arr: [i32; 5] = [1, 2, 3, 4, 5];
+        let arr_len: i32 = len(arr);  // 5
+
+        // String length (runtime)
+        let str: str = "Hello";
+        let str_len: i32 = len(str);  // 5
+
+        // Another array
+        let arr2: [i32; 3] = [10, 20, 30];
+        let arr2_len: i32 = len(arr2);  // 3
+
+        // strlen should also work
+        let str2_len: i32 = strlen(str);  // 5 (same as len for strings)
+
+        // Total: 5 + 5 + 3 + 5 - 3 = 15
+        return arr_len + str_len + arr2_len + str2_len - arr2_len;
+    }
+}

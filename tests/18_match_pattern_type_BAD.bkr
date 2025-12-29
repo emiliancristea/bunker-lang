@@ -1,0 +1,14 @@
+// Test 18 (BAD): Match Pattern Type Mismatch
+// Purpose: Ensure match patterns are type-checked against the matched expression.
+// Expected: Type error for bool pattern on i32 match.
+
+kernel MatchPatternTypeBad {
+    fn main() -> i32 {
+        let x = 1;
+        let y = match x {
+            true => 1;
+            other => 0;
+        };
+        return y;
+    }
+}

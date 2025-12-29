@@ -1,0 +1,20 @@
+// Test 55: Kernel constants
+// Purpose: Verify const declarations work correctly.
+// Expected: Result: 42
+
+kernel ConstTest {
+    const PI_APPROX: i32 = 3;
+    const MAGIC_NUMBER: i32 = 42;
+    const OFFSET: i32 = 10;
+
+    fn main() -> i32 {
+        // Use constants in calculations
+        let result: i32 = MAGIC_NUMBER;
+
+        // Verify we can do arithmetic with constants
+        let check: i32 = OFFSET + PI_APPROX;  // 13
+
+        // Just return the magic number
+        return result;
+    }
+}

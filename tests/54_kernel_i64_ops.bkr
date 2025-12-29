@@ -1,0 +1,17 @@
+// Test 54: Kernel i64 operations
+// Purpose: Verify i64 arithmetic works correctly.
+// Expected: Result: 42
+
+kernel I64OpsTest {
+    fn main() -> i32 {
+        // Large i64 values
+        let big1: i64 = 1000000000000;
+        let big2: i64 = 999999999958;
+
+        // Difference
+        let diff: i64 = big1 - big2;  // 42
+
+        // Convert to i32 for return
+        return diff as i32;
+    }
+}

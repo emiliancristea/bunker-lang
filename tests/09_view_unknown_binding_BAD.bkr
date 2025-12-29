@@ -1,0 +1,23 @@
+// Test 09 BAD: View Unknown Binding
+// Purpose: Ensure View bindings are validated (agent/state key must exist).
+// Expected: `bunker check` FAILS (unknown state key).
+
+shell App {
+    agent State {
+        count = 0;
+
+        on receive "start" {
+            send "done" to System;
+        }
+    }
+}
+
+view BadView {
+    #[target(graphics)]
+    Window {
+        title: "Bad";
+
+        Label { text: "Count: " + App.State.missing; }
+    }
+}
+

@@ -1,0 +1,18 @@
+// Test 21: Kernel Option Match Inference
+// Purpose: Ensure None infers Option type from the Some arm in a match-expression.
+// Expected: `bunker run` returns 7.
+
+kernel OptionIfInfer {
+    fn main() -> i32 {
+        let flag = 0;
+        let value = match flag {
+            0 => Some(7);
+            _ => None;
+        };
+        let out = match value {
+            Some(v) => v;
+            None => 0;
+        };
+        return out;
+    }
+}

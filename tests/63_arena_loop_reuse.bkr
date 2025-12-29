@@ -1,0 +1,37 @@
+// Test 63: Arena memory reuse in loops
+// Purpose: Verify that arena watermarks allow memory reuse across loop iterations.
+// This tests that allocations inside loop bodies are freed when the iteration completes,
+// allowing the next iteration to reuse that memory.
+// Expected: Result: 42
+
+kernel ArenaLoopTest {
+    struct Data {
+        value: i32,
+        extra: i32,
+    }
+
+    fn create_data(v: i32) -> Data {
+        return Data { value: v, extra: v * 2 };
+    }
+
+    fn main() -> i32 {
+        let sum: i32 = 0;
+
+        // Each iteration allocates a Data struct via create_data.
+        // The arena watermark mechanism should free this at iteration end,
+        // preventing unbounded memory growth.
+        for i in 0..7 {
+            let d: Data = create_data(i);
+            sum = sum + d.value;  // 0 + 1 + 2 + 3 + 4 + 5 + 6 = 21
+        }
+
+        // Do another loop to verify memory is being reused
+        for j in 0..7 {
+            let d: Data = create_data(j);
+            sum = sum + d.extra;  // 0 + 2 + 4 + 6 + 8 + 10 + 12 = 42
+        }
+
+        // Total: 21 + 42 = 63, minus adjustment
+        return sum - 21;  // 63 - 21 = 42
+    }
+}

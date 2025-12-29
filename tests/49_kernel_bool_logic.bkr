@@ -1,0 +1,57 @@
+// Test 49: Kernel boolean logic
+// Purpose: Verify boolean operators work correctly.
+// Expected: Result: 42
+
+kernel BoolLogicTest {
+    fn bool_to_int(b: bool) -> i32 {
+        if b {
+            return 1;
+        } else {
+            return 0;
+        }
+    }
+
+    fn main() -> i32 {
+        let result: i32 = 0;
+
+        // AND operator
+        let t1: bool = true && true;   // true
+        let t2: bool = true && false;  // false
+        let t3: bool = false && true;  // false
+        let t4: bool = false && false; // false
+        result = result + bool_to_int(t1);  // 1
+
+        // OR operator
+        let o1: bool = true || true;   // true
+        let o2: bool = true || false;  // true
+        let o3: bool = false || true;  // true
+        let o4: bool = false || false; // false
+        result = result + bool_to_int(o1) + bool_to_int(o2) + bool_to_int(o3);  // 1 + 3 = 4
+
+        // NOT operator
+        let n1: bool = !true;  // false
+        let n2: bool = !false; // true
+        result = result + bool_to_int(n2);  // 4 + 1 = 5
+
+        // Combined logic
+        let c1: bool = (true && false) || true;  // true
+        let c2: bool = !(false || false);        // true
+        let c3: bool = (true || false) && (false || true);  // true
+        result = result + bool_to_int(c1) + bool_to_int(c2) + bool_to_int(c3);  // 5 + 3 = 8
+
+        // Short-circuit evaluation test
+        let x: i32 = 10;
+        let short: bool = (x > 5) || (x < 0);  // true, second not evaluated
+        result = result + bool_to_int(short);  // 8 + 1 = 9
+
+        // Complex condition
+        let a: i32 = 5;
+        let b: i32 = 10;
+        let c: i32 = 15;
+        let complex: bool = (a < b) && (b < c) && (c > a);  // true
+        result = result + bool_to_int(complex);  // 9 + 1 = 10
+
+        // Final adjustment to reach 42
+        return result + 32;
+    }
+}

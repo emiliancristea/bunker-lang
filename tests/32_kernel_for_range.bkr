@@ -1,0 +1,17 @@
+// Test 32: Kernel for-loop with range (runtime)
+// Purpose: Verify runtime for-loop works with range expressions.
+// Expected: Result: 55 (sum of 1..=10)
+
+kernel RuntimeLoop {
+    fn sum_range(n: i32) -> i32 {
+        let total: i32 = 0;
+        for i in 1..=n {
+            total = total + i;
+        }
+        return total;
+    }
+
+    fn main() -> i32 {
+        return sum_range(10);
+    }
+}

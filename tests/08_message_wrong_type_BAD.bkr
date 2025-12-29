@@ -1,0 +1,19 @@
+// Test 08 BAD: Wrong Message Arg Type
+// Purpose: Ensure typed message schemas reject sends with wrong arg types.
+// Expected: `bunker check` FAILS (type mismatch).
+
+shell BadMessages2 {
+    agent Sender {
+        on receive "start" {
+            // `amount` expects i32, but gets a string
+            send "do_work" to Worker with amount="oops";
+        }
+    }
+
+    agent Worker {
+        on receive "do_work" with amount: i32 {
+            send "done" to System;
+        }
+    }
+}
+

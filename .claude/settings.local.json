@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cargo build:*)",
+      "Bash(for f in tests/*.bkr)",
+      "Bash(do echo \"=== $f ===\")",
+      "Bash(./bunker-cli/target/release/bunker-cli.exe check:*)",
+      "Bash(done)",
+      "Bash(ls:*)",
+      "Bash(while read f)"
+    ]
+  }
+}

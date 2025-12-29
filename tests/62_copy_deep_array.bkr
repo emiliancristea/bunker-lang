@@ -1,0 +1,16 @@
+// Test 62: Deep Copy of Array
+// Purpose: Verify that `copy` creates an independent array copy
+// Expected: JIT returns 42 (modification of arr2 doesn't affect arr1)
+
+kernel ArrayCopyTest {
+    fn main() -> i32 {
+        let arr1 = [10, 20, 30];
+        let arr2 = copy arr1;  // Deep copy
+        arr2[0] = 100;         // Modify arr2
+        // arr1 should still have original values if deep copy works
+        // arr1[0] + arr1[1] + arr1[2] = 10 + 20 + 30 = 60
+        // But since primitives in arrays are copied, we test the pointer behavior
+        // arr1[0] + 32 = 10 + 32 = 42
+        return arr1[0] + 32;
+    }
+}

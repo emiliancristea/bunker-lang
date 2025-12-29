@@ -1,0 +1,10 @@
+// Test 27: Kernel main() returning i64
+// Purpose: Verify JIT correctly handles i64 return type.
+// Expected: Result: 9223372036854775807 (i64 max)
+
+kernel Math {
+    fn main() -> i64 {
+        let max: i64 = 9223372036854775807;
+        return max;
+    }
+}

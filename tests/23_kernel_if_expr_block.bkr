@@ -1,0 +1,16 @@
+// Test 23: Kernel If Expression Blocks
+// Purpose: Ensure if-expr blocks execute and yield last expression value.
+// Expected: `bunker run` returns 7.
+
+kernel IfExprBlock {
+    fn main() -> i32 {
+        let flag = 1;
+        let out = if flag == 1 {
+            let tmp = 5;
+            tmp + 2;
+        } else {
+            0;
+        };
+        return out;
+    }
+}

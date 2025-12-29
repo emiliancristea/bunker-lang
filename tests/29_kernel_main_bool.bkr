@@ -1,0 +1,11 @@
+// Test 29: Kernel main() returning bool
+// Purpose: Verify JIT correctly handles bool return type.
+// Expected: Result: true
+
+kernel Logic {
+    fn main() -> bool {
+        let x: i32 = 5;
+        let y: i32 = 3;
+        return x > y;
+    }
+}

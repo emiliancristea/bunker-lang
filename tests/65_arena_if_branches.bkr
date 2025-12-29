@@ -1,0 +1,39 @@
+// Test 65: Arena scoping across if/else branches
+// Purpose: Verify that allocations in if/else branches are properly scoped.
+// Each branch should have its own arena scope.
+// Expected: Result: 42
+
+kernel ArenaIfElseTest {
+    struct Box {
+        val: i32,
+    }
+
+    fn make_box(v: i32) -> Box {
+        return Box { val: v };
+    }
+
+    fn compute(flag: bool) -> i32 {
+        if flag {
+            // This branch allocates a Box
+            let b: Box = make_box(30);
+            return b.val;
+        } else {
+            // This branch also allocates a Box (different scope)
+            let b: Box = make_box(20);
+            return b.val;
+        }
+    }
+
+    fn main() -> i32 {
+        // Call compute with true - gets 30
+        let a: i32 = compute(true);
+
+        // Call compute with false - gets 20
+        let b: i32 = compute(false);
+
+        // Each call should have properly scoped its Box allocation
+        // a=30, b=20
+        // Total: 30 + 20 - 8 = 42
+        return a + b - 8;
+    }
+}

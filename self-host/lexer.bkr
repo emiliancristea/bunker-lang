@@ -1,0 +1,281 @@
+// Bunker Self-Hosting Compiler - Lexer (Chunked)
+// Workaround: Tokenizes in chunks of 8 to stay under the 10-iteration bug threshold
+
+kernel Lexer {
+    const TOK_EOF: i64 = 0;
+    const TOK_ERROR: i64 = 1;
+    const TOK_IDENT: i64 = 10;
+    const TOK_INT: i64 = 11;
+    const TOK_STRING: i64 = 13;
+    const TOK_TRUE: i64 = 14;
+    const TOK_FALSE: i64 = 15;
+    const TOK_KERNEL: i64 = 20;
+    const TOK_SHELL: i64 = 21;
+    const TOK_VIEW: i64 = 22;
+    const TOK_FN: i64 = 23;
+    const TOK_LET: i64 = 24;
+    const TOK_IF: i64 = 25;
+    const TOK_ELSE: i64 = 26;
+    const TOK_FOR: i64 = 28;
+    const TOK_WHILE: i64 = 29;
+    const TOK_RETURN: i64 = 33;
+    const TOK_STRUCT: i64 = 34;
+    const TOK_CONST: i64 = 35;
+    const TOK_I32: i64 = 60;
+    const TOK_I64: i64 = 61;
+    const TOK_F64: i64 = 62;
+    const TOK_BOOL: i64 = 63;
+    const TOK_STR: i64 = 64;
+    const TOK_PLUS: i64 = 80;
+    const TOK_MINUS: i64 = 81;
+    const TOK_STAR: i64 = 82;
+    const TOK_SLASH: i64 = 83;
+    const TOK_PERCENT: i64 = 84;
+    const TOK_EQ: i64 = 85;
+    const TOK_NE: i64 = 86;
+    const TOK_LT: i64 = 87;
+    const TOK_GT: i64 = 88;
+    const TOK_LE: i64 = 89;
+    const TOK_GE: i64 = 90;
+    const TOK_AND: i64 = 91;
+    const TOK_OR: i64 = 92;
+    const TOK_NOT: i64 = 93;
+    const TOK_ASSIGN: i64 = 99;
+    const TOK_ARROW: i64 = 101;
+    const TOK_LPAREN: i64 = 110;
+    const TOK_RPAREN: i64 = 111;
+    const TOK_LBRACE: i64 = 112;
+    const TOK_RBRACE: i64 = 113;
+    const TOK_LBRACKET: i64 = 114;
+    const TOK_RBRACKET: i64 = 115;
+    const TOK_COMMA: i64 = 116;
+    const TOK_SEMICOLON: i64 = 117;
+    const TOK_COLON: i64 = 118;
+    const TOK_DOT: i64 = 119;
+
+    // Tokenize a chunk of up to 8 tokens, returns [new_pos, last_tok, tok1, tok2, ...]
+    fn tokenize_chunk(source: str, pos: i64) -> i64 {
+        let result = vec_new();
+        let src_len = len(source);
+        let count: i64 = 0;
+        let last_tok: i64 = TOK_ERROR;
+        let continue_loop = true;
+
+        while continue_loop && count < 8 {
+            // Skip whitespace
+            let skipping = true;
+            while skipping && pos < src_len {
+                let code = char_code(char_at(source, pos));
+                if code == 32 || code == 9 || code == 10 || code == 13 {
+                    pos = pos + 1;
+                } else if code == 47 && pos + 1 < src_len && char_code(char_at(source, pos + 1)) == 47 {
+                    pos = pos + 2;
+                    let in_comment = true;
+                    while in_comment && pos < src_len {
+                        if char_code(char_at(source, pos)) == 10 {
+                            in_comment = false;
+                        } else {
+                            pos = pos + 1;
+                        }
+                    }
+                } else {
+                    skipping = false;
+                }
+            }
+
+            let tok_type: i64 = TOK_EOF;
+            let handled = false;
+
+            if pos >= src_len {
+                tok_type = TOK_EOF;
+                handled = true;
+                continue_loop = false;
+            }
+
+            // Check identifier
+            if !handled {
+                let code = char_code(char_at(source, pos));
+                let is_alpha = (code >= 97 && code <= 122) || (code >= 65 && code <= 90) || code == 95;
+                if is_alpha {
+                    let start = pos;
+                    let scanning = true;
+                    while scanning && pos < src_len {
+                        let pc = char_code(char_at(source, pos));
+                        let is_alnum = (pc >= 97 && pc <= 122) || (pc >= 65 && pc <= 90) || pc == 95 || (pc >= 48 && pc <= 57);
+                        if is_alnum {
+                            pos = pos + 1;
+                        } else {
+                            scanning = false;
+                        }
+                    }
+                    let word = substring(source, start, pos);
+                    tok_type = TOK_IDENT;
+                    if word == "i32" { tok_type = TOK_I32; }
+                    if word == "i64" { tok_type = TOK_I64; }
+                    if word == "f64" { tok_type = TOK_F64; }
+                    if word == "bool" { tok_type = TOK_BOOL; }
+                    if word == "str" { tok_type = TOK_STR; }
+                    if word == "true" { tok_type = TOK_TRUE; }
+                    if word == "false" { tok_type = TOK_FALSE; }
+                    if word == "kernel" { tok_type = TOK_KERNEL; }
+                    if word == "shell" { tok_type = TOK_SHELL; }
+                    if word == "view" { tok_type = TOK_VIEW; }
+                    if word == "fn" { tok_type = TOK_FN; }
+                    if word == "let" { tok_type = TOK_LET; }
+                    if word == "if" { tok_type = TOK_IF; }
+                    if word == "else" { tok_type = TOK_ELSE; }
+                    if word == "for" { tok_type = TOK_FOR; }
+                    if word == "while" { tok_type = TOK_WHILE; }
+                    if word == "return" { tok_type = TOK_RETURN; }
+                    if word == "struct" { tok_type = TOK_STRUCT; }
+                    if word == "const" { tok_type = TOK_CONST; }
+                    handled = true;
+                }
+            }
+
+            // Check digit
+            if !handled {
+                let code = char_code(char_at(source, pos));
+                if code >= 48 && code <= 57 {
+                    let scanning = true;
+                    while scanning && pos < src_len {
+                        let dc = char_code(char_at(source, pos));
+                        if dc >= 48 && dc <= 57 {
+                            pos = pos + 1;
+                        } else {
+                            scanning = false;
+                        }
+                    }
+                    tok_type = TOK_INT;
+                    handled = true;
+                }
+            }
+
+            // Check string
+            if !handled {
+                let code = char_code(char_at(source, pos));
+                if code == 34 {
+                    pos = pos + 1;
+                    let in_string = true;
+                    while in_string && pos < src_len {
+                        if char_code(char_at(source, pos)) == 34 {
+                            in_string = false;
+                        } else {
+                            pos = pos + 1;
+                        }
+                    }
+                    if pos < src_len { pos = pos + 1; }
+                    tok_type = TOK_STRING;
+                    handled = true;
+                }
+            }
+
+            // Two-char operators
+            if !handled && pos + 1 < src_len {
+                let ch = char_at(source, pos);
+                let two = ch + char_at(source, pos + 1);
+                if two == "==" { tok_type = TOK_EQ; pos = pos + 2; handled = true; }
+                if !handled && two == "!=" { tok_type = TOK_NE; pos = pos + 2; handled = true; }
+                if !handled && two == "<=" { tok_type = TOK_LE; pos = pos + 2; handled = true; }
+                if !handled && two == ">=" { tok_type = TOK_GE; pos = pos + 2; handled = true; }
+                if !handled && two == "&&" { tok_type = TOK_AND; pos = pos + 2; handled = true; }
+                if !handled && two == "||" { tok_type = TOK_OR; pos = pos + 2; handled = true; }
+                if !handled && two == "->" { tok_type = TOK_ARROW; pos = pos + 2; handled = true; }
+            }
+
+            // Single-char
+            if !handled {
+                let ch = char_at(source, pos);
+                if ch == "+" { tok_type = TOK_PLUS; }
+                if ch == "-" { tok_type = TOK_MINUS; }
+                if ch == "*" { tok_type = TOK_STAR; }
+                if ch == "/" { tok_type = TOK_SLASH; }
+                if ch == "%" { tok_type = TOK_PERCENT; }
+                if ch == "<" { tok_type = TOK_LT; }
+                if ch == ">" { tok_type = TOK_GT; }
+                if ch == "!" { tok_type = TOK_NOT; }
+                if ch == "=" { tok_type = TOK_ASSIGN; }
+                if ch == "(" { tok_type = TOK_LPAREN; }
+                if ch == ")" { tok_type = TOK_RPAREN; }
+                if ch == "{" { tok_type = TOK_LBRACE; }
+                if ch == "}" { tok_type = TOK_RBRACE; }
+                if ch == "[" { tok_type = TOK_LBRACKET; }
+                if ch == "]" { tok_type = TOK_RBRACKET; }
+                if ch == "," { tok_type = TOK_COMMA; }
+                if ch == ";" { tok_type = TOK_SEMICOLON; }
+                if ch == ":" { tok_type = TOK_COLON; }
+                if ch == "." { tok_type = TOK_DOT; }
+                pos = pos + 1;
+            }
+
+            vec_push(result, tok_type);
+            last_tok = tok_type;
+            count = count + 1;
+        }
+
+        // Prepend pos and last_tok
+        let final_result = vec_new();
+        vec_push(final_result, pos);
+        vec_push(final_result, last_tok);
+        let i: i64 = 0;
+        while i < vec_len(result) {
+            vec_push(final_result, vec_get(result, i));
+            i = i + 1;
+        }
+        return final_result;
+    }
+
+    fn tokenize(source: str) -> i64 {
+        let types = vec_new();
+        let pos: i64 = 0;
+        let done = false;
+
+        while !done {
+            let chunk = tokenize_chunk(source, pos);
+            pos = vec_get(chunk, 0);
+            let last_tok = vec_get(chunk, 1);
+
+            // Copy tokens from chunk (starting at index 2)
+            let i: i64 = 2;
+            while i < vec_len(chunk) {
+                vec_push(types, vec_get(chunk, i));
+                i = i + 1;
+            }
+
+            if last_tok == TOK_EOF {
+                done = true;
+            }
+        }
+
+        return types;
+    }
+
+    fn main() -> i32 {
+        // Test 1: Simple tokens (3 tokens)
+        let types1 = tokenize("kernel Test");
+
+        if vec_len(types1) != 3 { return 1; }
+        if vec_get(types1, 0) != TOK_KERNEL { return 2; }
+        if vec_get(types1, 1) != TOK_IDENT { return 3; }
+        if vec_get(types1, 2) != TOK_EOF { return 4; }
+
+        // Test 2: Function declaration (12 tokens)
+        let types2 = tokenize("fn main() -> i32 { return 42; }");
+
+        if vec_len(types2) != 12 { return 10 + vec_len(types2); }
+        if vec_get(types2, 0) != TOK_FN { return 20; }
+        if vec_get(types2, 1) != TOK_IDENT { return 21; }
+        if vec_get(types2, 2) != TOK_LPAREN { return 22; }
+        if vec_get(types2, 3) != TOK_RPAREN { return 23; }
+        if vec_get(types2, 4) != TOK_ARROW { return 24; }
+        if vec_get(types2, 5) != TOK_I32 { return 25; }
+        if vec_get(types2, 6) != TOK_LBRACE { return 26; }
+        if vec_get(types2, 7) != TOK_RETURN { return 27; }
+        if vec_get(types2, 8) != TOK_INT { return 28; }
+        if vec_get(types2, 9) != TOK_SEMICOLON { return 29; }
+        if vec_get(types2, 10) != TOK_RBRACE { return 30; }
+        if vec_get(types2, 11) != TOK_EOF { return 31; }
+
+        return 42;
+    }
+}

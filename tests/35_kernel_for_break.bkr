@@ -1,0 +1,16 @@
+// Test 35: Kernel for-loop with break statement
+// Purpose: Verify runtime for-loop can exit early with break.
+// Expected: Result: 15 (sum of 1..5 before break at 6: 1+2+3+4+5=15)
+
+kernel ForBreakTest {
+    fn main() -> i32 {
+        let total: i32 = 0;
+        for i in 1..=100 {
+            if i > 5 {
+                break;
+            }
+            total = total + i;
+        }
+        return total;
+    }
+}

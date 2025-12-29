@@ -157,12 +157,18 @@ pub enum Stmt {
         iter: Expr,
         body: Block,
     },
+    While {
+        condition: Expr,
+        body: Block,
+    },
     Loop(Block),
+    Break,
+    Continue,
     Match {
         expr: Expr,
         arms: Vec<MatchArm>,
     },
-    Defer(Box<Stmt>),
+    Defer(Block),
     Send {
         message: Expr,
         target: String,
@@ -174,10 +180,17 @@ pub enum Stmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct MatchArm {
     pub pattern: Pattern,
-    pub body: Expr,
+    pub body: MatchBody,
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum MatchBody {
+    Expr(Expr),
+    Block(Block),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+#[allow(dead_code)]
 pub enum Pattern {
     Some(String),
     None,
@@ -219,6 +232,11 @@ pub enum Expr {
         path: Vec<String>,
         args: Vec<(String, Expr)>,
     },
+    Send {
+        message: Box<Expr>,
+        target: Vec<String>,
+        args: Vec<(String, Expr)>,
+    },
     Lambda {
         params: Vec<Param>,
         body: Box<Expr>,
@@ -232,12 +250,26 @@ pub enum Expr {
         expr: Box<Expr>,
         arms: Vec<MatchArm>,
     },
+    Block(Block),
+    Some(Box<Expr>),
+    None,
     Array(Vec<Expr>),
     Struct {
         name: String,
         fields: Vec<(String, Expr)>,
     },
     Copy(Box<Expr>),
+    /// Range expression: `start..end` (exclusive) or `start..=end` (inclusive)
+    Range {
+        start: Box<Expr>,
+        end: Box<Expr>,
+        inclusive: bool,
+    },
+    /// Type cast expression: `expr as Type`
+    Cast {
+        expr: Box<Expr>,
+        target_type: Type,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -265,6 +297,11 @@ pub enum BinaryOp {
     Ge,
     And,
     Or,
+    BitAnd,
+    BitOr,
+    BitXor,
+    Shl,
+    Shr,
     As,
 }
 
@@ -289,6 +326,8 @@ pub enum Type {
     Vec2,
     Vec3,
     Option(Box<Type>),
+    Result(Box<Type>, Box<Type>),  // Result<T, E>
+    Vec(Box<Type>),                 // Vec<T> - dynamic array
     Array(Box<Type>, usize),
     Ref { mutable: bool, ty: Box<Type> },
     Named(String),

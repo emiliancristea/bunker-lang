@@ -1,0 +1,16 @@
+// Test 17 (BAD): Match Block Without Value
+// Purpose: Ensure match expression blocks must yield a value.
+// Expected: Type error for missing value in block arm.
+
+kernel MatchBlockNoValue {
+    fn main() -> i32 {
+        let x = 1;
+        let y = match x {
+            1 => {
+                let v = 5;
+            }
+            other => 0;
+        };
+        return y;
+    }
+}

@@ -1,0 +1,14 @@
+// Test 60: Copy Prevents Move
+// Purpose: Verify that explicit `copy` allows continued use of source
+// Expected: JIT returns 60 (p1.x + p1.y + p2.x + p2.y)
+
+kernel CopyTest {
+    struct Point { x: i32, y: i32 }
+
+    fn main() -> i32 {
+        let p1 = Point { x: 10, y: 20 };
+        let p2 = copy p1;  // Deep copy: p1 is NOT moved
+        // Both p1 and p2 are valid
+        return p1.x + p1.y + p2.x + p2.y;  // 10 + 20 + 10 + 20 = 60
+    }
+}
