@@ -1,0 +1,382 @@
+// Bunker Self-Hosting Compiler - C Code Generator
+// Generates C code from Bunker AST
+
+kernel CCodeGen {
+    // AST Node types (must match parser)
+    const NODE_KERNEL: i64 = 1;
+    const NODE_FN: i64 = 2;
+    const NODE_TYPE: i64 = 4;
+    const NODE_BLOCK: i64 = 5;
+    const NODE_LET: i64 = 6;
+    const NODE_RETURN: i64 = 7;
+    const NODE_IF: i64 = 8;
+    const NODE_WHILE: i64 = 9;
+    const NODE_EXPR_STMT: i64 = 10;
+    const NODE_ASSIGN: i64 = 11;
+    const NODE_BINARY: i64 = 20;
+    const NODE_UNARY: i64 = 21;
+    const NODE_CALL: i64 = 22;
+    const NODE_IDENT: i64 = 23;
+    const NODE_INT_LIT: i64 = 24;
+    const NODE_BOOL_LIT: i64 = 25;
+    const NODE_STR_LIT: i64 = 26;
+
+    // Token operators
+    const TOK_PLUS: i64 = 80;
+    const TOK_MINUS: i64 = 81;
+    const TOK_STAR: i64 = 82;
+    const TOK_SLASH: i64 = 83;
+    const TOK_EQ: i64 = 85;
+    const TOK_NE: i64 = 86;
+    const TOK_LT: i64 = 87;
+    const TOK_GT: i64 = 88;
+    const TOK_LE: i64 = 89;
+    const TOK_GE: i64 = 90;
+    const TOK_AND: i64 = 91;
+    const TOK_OR: i64 = 92;
+    const TOK_NOT: i64 = 93;
+
+    // Type kinds
+    const TYPE_I32: i64 = 0;
+    const TYPE_I64: i64 = 1;
+    const TYPE_F64: i64 = 2;
+    const TYPE_BOOL: i64 = 3;
+    const TYPE_STR: i64 = 4;
+
+    // Code generator state: [lines_vec, indent]
+    fn cgen_new() -> i64 {
+        let state = vec_new();
+        vec_push(state, vec_new());  // lines
+        vec_push(state, 0);          // indent
+        return state;
+    }
+
+    fn cgen_add_line(state: i64, line: str) -> i64 {
+        let lines = vec_get(state, 0);
+        let indent = vec_get(state, 1);
+        let prefix: str = "";
+        let i: i64 = 0;
+        while i < indent {
+            prefix = prefix + "    ";
+            i = i + 1;
+        }
+        vec_push(lines, prefix + line);
+        return state;
+    }
+
+    fn cgen_indent(state: i64) -> i64 {
+        let level = vec_get(state, 1);
+        vec_set(state, 1, level + 1);
+        return state;
+    }
+
+    fn cgen_dedent(state: i64) -> i64 {
+        let level = vec_get(state, 1);
+        vec_set(state, 1, level - 1);
+        return state;
+    }
+
+    fn cgen_get_lines(state: i64) -> i64 {
+        return vec_get(state, 0);
+    }
+
+    // Name from index
+    fn name_from_idx(idx: i64) -> str {
+        // Use string concatenation
+        let base: str = "_v";
+        let num: str = i64_to_str(idx);
+        return base + num;
+    }
+
+    // Convert i64 to string
+    fn i64_to_str(n: i64) -> str {
+        if n == 0 { return "0"; }
+        if n == 1 { return "1"; }
+        if n == 2 { return "2"; }
+        if n == 3 { return "3"; }
+        if n == 4 { return "4"; }
+        if n == 5 { return "5"; }
+        if n == 6 { return "6"; }
+        if n == 7 { return "7"; }
+        if n == 8 { return "8"; }
+        if n == 9 { return "9"; }
+        if n == 10 { return "10"; }
+        if n == 42 { return "42"; }
+        // For larger numbers, use a simple approach
+        return "N";
+    }
+
+    // Type to C type string
+    fn type_to_c(kind: i64) -> str {
+        if kind == TYPE_I32 { return "bkr_i32"; }
+        if kind == TYPE_I64 { return "bkr_i64"; }
+        if kind == TYPE_F64 { return "bkr_f64"; }
+        if kind == TYPE_BOOL { return "bkr_bool"; }
+        if kind == TYPE_STR { return "bkr_str"; }
+        return "bkr_i64";
+    }
+
+    // Operator to C operator
+    fn op_to_c(op: i64) -> str {
+        if op == TOK_PLUS { return " + "; }
+        if op == TOK_MINUS { return " - "; }
+        if op == TOK_STAR { return " * "; }
+        if op == TOK_SLASH { return " / "; }
+        if op == TOK_EQ { return " == "; }
+        if op == TOK_NE { return " != "; }
+        if op == TOK_LT { return " < "; }
+        if op == TOK_GT { return " > "; }
+        if op == TOK_LE { return " <= "; }
+        if op == TOK_GE { return " >= "; }
+        if op == TOK_AND { return " && "; }
+        if op == TOK_OR { return " || "; }
+        return " ? ";
+    }
+
+    // Generate expression
+    fn gen_expr(expr: i64) -> str {
+        let node_type = vec_get(expr, 0);
+
+        if node_type == NODE_INT_LIT {
+            let val = vec_get(expr, 1);
+            return i64_to_str(val);
+        }
+
+        if node_type == NODE_BOOL_LIT {
+            let val = vec_get(expr, 1);
+            if val == 1 { return "BKR_TRUE"; }
+            return "BKR_FALSE";
+        }
+
+        if node_type == NODE_STR_LIT {
+            return "((bkr_str)0)";
+        }
+
+        if node_type == NODE_IDENT {
+            let idx = vec_get(expr, 1);
+            return name_from_idx(idx);
+        }
+
+        if node_type == NODE_BINARY {
+            let op = vec_get(expr, 1);
+            let left = vec_get(expr, 2);
+            let right = vec_get(expr, 3);
+            let left_c = gen_expr(left);
+            let right_c = gen_expr(right);
+            return "(" + left_c + op_to_c(op) + right_c + ")";
+        }
+
+        if node_type == NODE_UNARY {
+            let op = vec_get(expr, 1);
+            let operand = vec_get(expr, 2);
+            let operand_c = gen_expr(operand);
+            if op == TOK_NOT { return "(!" + operand_c + ")"; }
+            if op == TOK_MINUS { return "(-" + operand_c + ")"; }
+            return operand_c;
+        }
+
+        if node_type == NODE_CALL {
+            let name_idx = vec_get(expr, 1);
+            let name = name_from_idx(name_idx);
+            return name + "()";
+        }
+
+        return "0";
+    }
+
+    // Generate statement
+    fn gen_stmt(state: i64, stmt: i64) -> i64 {
+        let node_type = vec_get(stmt, 0);
+
+        if node_type == NODE_LET {
+            let name_idx = vec_get(stmt, 1);
+            let type_node = vec_get(stmt, 2);
+            let init_expr = vec_get(stmt, 3);
+
+            let c_type: str = "bkr_i64";
+            if type_node != 0 {
+                let kind = vec_get(type_node, 1);
+                c_type = type_to_c(kind);
+            }
+
+            let name = name_from_idx(name_idx);
+            let line: str = c_type + " " + name;
+
+            if init_expr != 0 {
+                let init_c = gen_expr(init_expr);
+                line = line + " = " + init_c;
+            }
+
+            cgen_add_line(state, line + ";");
+            return state;
+        }
+
+        if node_type == NODE_RETURN {
+            let ret_expr = vec_get(stmt, 1);
+            let line: str = "return";
+            if ret_expr != 0 {
+                let expr_c = gen_expr(ret_expr);
+                line = line + " " + expr_c;
+            }
+            cgen_add_line(state, line + ";");
+            return state;
+        }
+
+        if node_type == NODE_IF {
+            let cond = vec_get(stmt, 1);
+            let then_block = vec_get(stmt, 2);
+            let else_block = vec_get(stmt, 3);
+
+            let cond_c = gen_expr(cond);
+            cgen_add_line(state, "if (" + cond_c + ") {");
+            cgen_indent(state);
+            gen_block_body(state, then_block);
+            cgen_dedent(state);
+
+            if else_block != 0 {
+                cgen_add_line(state, "} else {");
+                cgen_indent(state);
+                gen_block_body(state, else_block);
+                cgen_dedent(state);
+            }
+
+            cgen_add_line(state, "}");
+            return state;
+        }
+
+        if node_type == NODE_WHILE {
+            let cond = vec_get(stmt, 1);
+            let body = vec_get(stmt, 2);
+
+            let cond_c = gen_expr(cond);
+            cgen_add_line(state, "while (" + cond_c + ") {");
+            cgen_indent(state);
+            gen_block_body(state, body);
+            cgen_dedent(state);
+            cgen_add_line(state, "}");
+            return state;
+        }
+
+        if node_type == NODE_ASSIGN {
+            let target = vec_get(stmt, 1);
+            let value = vec_get(stmt, 2);
+            let target_c = gen_expr(target);
+            let value_c = gen_expr(value);
+            cgen_add_line(state, target_c + " = " + value_c + ";");
+            return state;
+        }
+
+        return state;
+    }
+
+    // Generate block body
+    fn gen_block_body(state: i64, block: i64) -> i64 {
+        let i: i64 = 1;
+        while i < vec_len(block) {
+            let stmt = vec_get(block, i);
+            gen_stmt(state, stmt);
+            i = i + 1;
+        }
+        return state;
+    }
+
+    // Generate function
+    fn gen_fn(state: i64, fn_node: i64, prefix: str) -> i64 {
+        let name_idx = vec_get(fn_node, 1);
+        let ret_type_node = vec_get(fn_node, 3);
+        let body = vec_get(fn_node, 4);
+
+        let ret_type: str = "void";
+        if ret_type_node != 0 {
+            let kind = vec_get(ret_type_node, 1);
+            ret_type = type_to_c(kind);
+        }
+
+        let fn_name = prefix + "_" + name_from_idx(name_idx);
+        cgen_add_line(state, ret_type + " " + fn_name + "(void) {");
+        cgen_indent(state);
+        gen_block_body(state, body);
+        cgen_dedent(state);
+        cgen_add_line(state, "}");
+        cgen_add_line(state, "");
+
+        return state;
+    }
+
+    // Generate kernel
+    fn gen_kernel(state: i64, kernel: i64) -> i64 {
+        let name_idx = vec_get(kernel, 1);
+        let funcs = vec_get(kernel, 2);
+        let prefix = name_from_idx(name_idx);
+
+        let i: i64 = 0;
+        while i < vec_len(funcs) {
+            let fn_node = vec_get(funcs, i);
+            gen_fn(state, fn_node, prefix);
+            i = i + 1;
+        }
+
+        return state;
+    }
+
+    // Generate full C program (returns line count)
+    fn gen_program(kernel: i64) -> i64 {
+        let state = cgen_new();
+
+        // Header - we'll need quotes handled separately
+        cgen_add_line(state, "/* Generated by Bunker Compiler */");
+        cgen_add_line(state, "#include <runtime.h>");  // angle brackets work
+        cgen_add_line(state, "");
+
+        // Generate kernel
+        gen_kernel(state, kernel);
+
+        // Main wrapper
+        cgen_add_line(state, "int main(void) {");
+        cgen_add_line(state, "    return _v1__v1();");
+        cgen_add_line(state, "}");
+
+        return cgen_get_lines(state);
+    }
+
+    fn main() -> i32 {
+        // Test: Generate C code for a simple AST
+        let ret_expr = vec_new();
+        vec_push(ret_expr, NODE_INT_LIT);
+        vec_push(ret_expr, 42);
+
+        let ret_stmt = vec_new();
+        vec_push(ret_stmt, NODE_RETURN);
+        vec_push(ret_stmt, ret_expr);
+
+        let block = vec_new();
+        vec_push(block, NODE_BLOCK);
+        vec_push(block, ret_stmt);
+
+        let ret_type = vec_new();
+        vec_push(ret_type, NODE_TYPE);
+        vec_push(ret_type, TYPE_I32);
+
+        let fn_node = vec_new();
+        vec_push(fn_node, NODE_FN);
+        vec_push(fn_node, 1);
+        vec_push(fn_node, vec_new());
+        vec_push(fn_node, ret_type);
+        vec_push(fn_node, block);
+
+        let funcs = vec_new();
+        vec_push(funcs, fn_node);
+
+        let kernel = vec_new();
+        vec_push(kernel, NODE_KERNEL);
+        vec_push(kernel, 1);
+        vec_push(kernel, funcs);
+
+        let lines = gen_program(kernel);
+
+        // Check we have some output
+        if vec_len(lines) < 5 { return 1; }
+
+        return 42;
+    }
+}

@@ -1,0 +1,337 @@
+// Incremental test 1: Tokenizer + Full Parser (no typeck/codegen)
+kernel IncrementalTest1 {
+    // Token constants
+    const TOK_EOF: i64 = 0;
+    const TOK_IDENT: i64 = 10;
+    const TOK_INT: i64 = 11;
+    const TOK_TRUE: i64 = 14;
+    const TOK_FALSE: i64 = 15;
+    const TOK_KERNEL: i64 = 20;
+    const TOK_FN: i64 = 23;
+    const TOK_LET: i64 = 24;
+    const TOK_IF: i64 = 25;
+    const TOK_ELSE: i64 = 26;
+    const TOK_WHILE: i64 = 29;
+    const TOK_RETURN: i64 = 33;
+    const TOK_CONST: i64 = 35;
+    const TOK_I32: i64 = 60;
+    const TOK_I64: i64 = 61;
+    const TOK_PLUS: i64 = 80;
+    const TOK_MINUS: i64 = 81;
+    const TOK_STAR: i64 = 82;
+    const TOK_SLASH: i64 = 83;
+    const TOK_EQ: i64 = 85;
+    const TOK_NE: i64 = 86;
+    const TOK_LT: i64 = 87;
+    const TOK_GT: i64 = 88;
+    const TOK_LE: i64 = 89;
+    const TOK_GE: i64 = 90;
+    const TOK_AND: i64 = 91;
+    const TOK_OR: i64 = 92;
+    const TOK_NOT: i64 = 93;
+    const TOK_ASSIGN: i64 = 99;
+    const TOK_ARROW: i64 = 101;
+    const TOK_LPAREN: i64 = 110;
+    const TOK_RPAREN: i64 = 111;
+    const TOK_LBRACE: i64 = 112;
+    const TOK_RBRACE: i64 = 113;
+    const TOK_SEMICOLON: i64 = 117;
+    const TOK_COLON: i64 = 118;
+
+    // AST Node Constants
+    const NODE_KERNEL: i64 = 1;
+    const NODE_FN: i64 = 2;
+    const NODE_TYPE: i64 = 4;
+    const NODE_BLOCK: i64 = 5;
+    const NODE_LET: i64 = 6;
+    const NODE_RETURN: i64 = 7;
+    const NODE_IF: i64 = 8;
+    const NODE_WHILE: i64 = 9;
+    const NODE_BINARY: i64 = 20;
+    const NODE_UNARY: i64 = 21;
+    const NODE_CALL: i64 = 22;
+    const NODE_IDENT: i64 = 23;
+    const NODE_INT_LIT: i64 = 24;
+    const NODE_BOOL_LIT: i64 = 25;
+
+    // ========== TOKENIZER ==========
+    fn tokenize_chunk(source: str, pos: i64) -> i64 {
+        let result = vec_new();
+        let src_len = len(source);
+        let count: i64 = 0;
+        let last_tok: i64 = 1;
+        let continue_loop = true;
+
+        while continue_loop && count < 8 {
+            let skipping = true;
+            while skipping && pos < src_len {
+                let code = char_code(char_at(source, pos));
+                if code == 32 || code == 9 || code == 10 || code == 13 {
+                    pos = pos + 1;
+                } else {
+                    skipping = false;
+                }
+            }
+
+            let tok_type: i64 = TOK_EOF;
+            let handled = false;
+
+            if pos >= src_len {
+                last_tok = TOK_EOF;
+                continue_loop = false;
+                handled = true;
+            }
+
+            if !handled {
+                let c = char_code(char_at(source, pos));
+
+                if c >= 97 && c <= 122 {
+                    tok_type = TOK_IDENT;
+                    while pos < src_len && char_code(char_at(source, pos)) >= 97 && char_code(char_at(source, pos)) <= 122 {
+                        pos = pos + 1;
+                    }
+                    handled = true;
+                }
+            }
+
+            if !handled {
+                let c = char_code(char_at(source, pos));
+                if c >= 48 && c <= 57 {
+                    tok_type = TOK_INT;
+                    while pos < src_len && char_code(char_at(source, pos)) >= 48 && char_code(char_at(source, pos)) <= 57 {
+                        pos = pos + 1;
+                    }
+                    handled = true;
+                }
+            }
+
+            if !handled {
+                let c = char_code(char_at(source, pos));
+                if c == 123 { tok_type = TOK_LBRACE; pos = pos + 1; handled = true; }
+                if c == 125 { tok_type = TOK_RBRACE; pos = pos + 1; handled = true; }
+                if c == 40 { tok_type = TOK_LPAREN; pos = pos + 1; handled = true; }
+                if c == 41 { tok_type = TOK_RPAREN; pos = pos + 1; handled = true; }
+                if c == 59 { tok_type = TOK_SEMICOLON; pos = pos + 1; handled = true; }
+                if c == 58 { tok_type = TOK_COLON; pos = pos + 1; handled = true; }
+                if c == 43 { tok_type = TOK_PLUS; pos = pos + 1; handled = true; }
+                if c == 45 { tok_type = TOK_MINUS; pos = pos + 1; handled = true; }
+                if c == 42 { tok_type = TOK_STAR; pos = pos + 1; handled = true; }
+                if c == 47 { tok_type = TOK_SLASH; pos = pos + 1; handled = true; }
+            }
+
+            if !handled {
+                pos = pos + 1;
+            }
+
+            if tok_type != TOK_EOF {
+                vec_push(result, tok_type);
+                last_tok = tok_type;
+                count = count + 1;
+            }
+        }
+
+        let packed = vec_new();
+        vec_push(packed, pos);
+        vec_push(packed, last_tok);
+        let i: i64 = 0;
+        while i < vec_len(result) {
+            vec_push(packed, vec_get(result, i));
+            i = i + 1;
+        }
+        return packed;
+    }
+
+    fn tokenize(source: str) -> i64 {
+        let types = vec_new();
+        let pos: i64 = 0;
+        let done = false;
+
+        while !done {
+            let chunk = tokenize_chunk(source, pos);
+            pos = vec_get(chunk, 0);
+            let last_tok = vec_get(chunk, 1);
+            let i: i64 = 2;
+            while i < vec_len(chunk) {
+                vec_push(types, vec_get(chunk, i));
+                i = i + 1;
+            }
+            if last_tok == TOK_EOF { done = true; }
+        }
+
+        return types;
+    }
+
+    // ========== PARSER ==========
+    fn parser_new(tokens: i64) -> i64 {
+        let state = vec_new();
+        vec_push(state, tokens);
+        vec_push(state, 0);
+        vec_push(state, 0);
+        return state;
+    }
+
+    fn parser_peek(state: i64) -> i64 {
+        let tokens = vec_get(state, 0);
+        let pos = vec_get(state, 1);
+        if pos >= vec_len(tokens) { return TOK_EOF; }
+        return vec_get(tokens, pos);
+    }
+
+    fn parser_advance(state: i64) -> i64 {
+        let pos = vec_get(state, 1);
+        vec_set(state, 1, pos + 1);
+        return vec_get(vec_get(state, 0), pos);
+    }
+
+    fn parser_expect(state: i64, expected: i64) -> bool {
+        if parser_peek(state) == expected {
+            parser_advance(state);
+            return true;
+        }
+        return false;
+    }
+
+    fn parser_error(state: i64) -> i64 {
+        vec_set(state, 2, 1);
+        return 0;
+    }
+
+    fn parser_has_error(state: i64) -> bool {
+        return vec_get(state, 2) != 0;
+    }
+
+    fn parse_type(state: i64) -> i64 {
+        let node = vec_new();
+        vec_push(node, NODE_TYPE);
+        let tok = parser_advance(state);
+        if tok == TOK_I32 { vec_push(node, 0); }
+        else if tok == TOK_I64 { vec_push(node, 1); }
+        else { vec_push(node, 99); }
+        return node;
+    }
+
+    fn parse_primary(state: i64) -> i64 {
+        let node = vec_new();
+        let tok = parser_peek(state);
+
+        if tok == TOK_INT {
+            parser_advance(state);
+            vec_push(node, NODE_INT_LIT);
+            vec_push(node, 42);
+            return node;
+        }
+
+        if tok == TOK_IDENT {
+            parser_advance(state);
+            vec_push(node, NODE_IDENT);
+            vec_push(node, 1);
+            return node;
+        }
+
+        parser_error(state);
+        vec_push(node, NODE_INT_LIT);
+        vec_push(node, 0);
+        return node;
+    }
+
+    fn parse_expr(state: i64) -> i64 {
+        return parse_primary(state);
+    }
+
+    fn parse_return(state: i64) -> i64 {
+        let node = vec_new();
+        parser_advance(state);
+        let expr: i64 = 0;
+        if parser_peek(state) != TOK_SEMICOLON {
+            expr = parse_expr(state);
+        }
+        parser_expect(state, TOK_SEMICOLON);
+        vec_push(node, NODE_RETURN);
+        vec_push(node, expr);
+        return node;
+    }
+
+    fn parse_stmt(state: i64) -> i64 {
+        let tok = parser_peek(state);
+        if tok == TOK_RETURN { return parse_return(state); }
+        return parse_expr(state);
+    }
+
+    fn parse_block(state: i64) -> i64 {
+        let node = vec_new();
+        vec_push(node, NODE_BLOCK);
+        parser_expect(state, TOK_LBRACE);
+
+        while parser_peek(state) != TOK_RBRACE && parser_peek(state) != TOK_EOF {
+            let stmt = parse_stmt(state);
+            vec_push(node, stmt);
+        }
+
+        parser_expect(state, TOK_RBRACE);
+        return node;
+    }
+
+    fn parse_fn(state: i64) -> i64 {
+        let node = vec_new();
+        vec_push(node, NODE_FN);
+        parser_advance(state);
+        parser_advance(state);
+        vec_push(node, 1);
+        parser_expect(state, TOK_LPAREN);
+        vec_push(node, vec_new());
+        parser_expect(state, TOK_RPAREN);
+
+        let ret_type: i64 = 0;
+        if parser_peek(state) == TOK_ARROW {
+            parser_advance(state);
+            ret_type = parse_type(state);
+        }
+        vec_push(node, ret_type);
+
+        let body = parse_block(state);
+        vec_push(node, body);
+        return node;
+    }
+
+    fn parse_kernel(state: i64) -> i64 {
+        let node = vec_new();
+        vec_push(node, NODE_KERNEL);
+        parser_expect(state, TOK_KERNEL);
+        parser_advance(state);
+        vec_push(node, 1);
+
+        let functions = vec_new();
+        parser_expect(state, TOK_LBRACE);
+
+        while parser_peek(state) != TOK_RBRACE && parser_peek(state) != TOK_EOF {
+            if parser_peek(state) == TOK_FN {
+                let fn_node = parse_fn(state);
+                vec_push(functions, fn_node);
+            } else {
+                parser_advance(state);
+            }
+        }
+
+        parser_expect(state, TOK_RBRACE);
+        vec_push(node, functions);
+        return node;
+    }
+
+    fn main() -> i32 {
+        let source = "kernel Test { fn main() -> i32 { return 42; } }";
+
+        // Phase 1: Tokenize
+        let tokens = tokenize(source);
+        if vec_len(tokens) < 5 { return 1; }
+
+        // Phase 2: Parse
+        let parser = parser_new(tokens);
+        let ast = parse_kernel(parser);
+        if parser_has_error(parser) { return 2; }
+
+        // Check AST
+        if vec_get(ast, 0) != NODE_KERNEL { return 3; }
+
+        return 42;
+    }
+}

@@ -1,0 +1,63 @@
+// Test string operations that compiler.bkr uses
+kernel StringTest {
+    fn test_substring() -> i32 {
+        let source = "kernel test fn";
+        let word = substring(source, 0, 6);
+        if word == "kernel" { return 1; }
+        return 0;
+    }
+
+    fn test_char_compare() -> i32 {
+        let s = "+-*/";
+        let ch = char_at(s, 0);
+        if ch == "+" { return 1; }
+        return 0;
+    }
+
+    fn test_two_char() -> i32 {
+        let s = "->==";
+        let two = char_at(s, 0) + char_at(s, 1);
+        if two == "->" { return 1; }
+        return 0;
+    }
+
+    fn scan_ident(source: str, pos: i64) -> i64 {
+        let src_len = len(source);
+        let start = pos;
+        let scanning = true;
+
+        while scanning && pos < src_len {
+            let code = char_code(char_at(source, pos));
+            let is_alpha = (code >= 97 && code <= 122) || (code >= 65 && code <= 90);
+            if is_alpha {
+                pos = pos + 1;
+            } else {
+                scanning = false;
+            }
+        }
+
+        let word = substring(source, start, pos);
+        if word == "kernel" { return 1; }
+        if word == "fn" { return 2; }
+        if word == "return" { return 3; }
+        return 0;
+    }
+
+    fn main() -> i32 {
+        // Test 1: substring + compare
+        if test_substring() != 1 { return 1; }
+
+        // Test 2: char compare
+        if test_char_compare() != 1 { return 2; }
+
+        // Test 3: two char compare
+        if test_two_char() != 1 { return 3; }
+
+        // Test 4: scan identifier with multiple comparisons
+        if scan_ident("kernel fn return", 0) != 1 { return 4; }
+        if scan_ident("fn main", 0) != 2 { return 5; }
+        if scan_ident("return 42", 0) != 3 { return 6; }
+
+        return 42;
+    }
+}

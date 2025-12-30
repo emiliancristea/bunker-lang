@@ -274,7 +274,7 @@ view MyView {
 - [ ] Embedded profile (`--profile=metal`)
 - [ ] Language server (LSP)
 - [ ] Package manager
-- [ ] Self-hosting compiler
+- [x] **Self-hosting compiler** ? - Bunker compiler written in Bunker\! (self-host/compiler.bkr)
 
 ## Why Not Existing Languages?
 

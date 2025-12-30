@@ -443,18 +443,21 @@ const VEC_INITIAL_CAPACITY: i64 = 8;
 const VEC_HEADER_SIZE: i64 = 24; // 8 bytes capacity + 8 bytes length + 8 bytes data ptr
 
 /// Create a new empty Vec. Returns pointer to Vec header.
+/// Note: Vec data is allocated with the system allocator (not arena) to survive block scopes.
 extern "C" fn bunker_vec_new() -> i64 {
     JIT_ARENA.with(|a| {
         let mut arena = a.borrow_mut();
 
-        // Allocate header
+        // Allocate header in arena
         let header_ptr = arena.alloc(VEC_HEADER_SIZE as usize, 8);
         if header_ptr.is_null() {
             return 0;
         }
 
-        // Allocate initial data array
-        let data_ptr = arena.alloc((VEC_INITIAL_CAPACITY * 8) as usize, 8);
+        // Allocate initial data array using system allocator (not arena)
+        // This ensures data survives arena_pop calls from nested blocks
+        let data_layout = std::alloc::Layout::from_size_align((VEC_INITIAL_CAPACITY * 8) as usize, 8).unwrap();
+        let data_ptr = unsafe { std::alloc::alloc_zeroed(data_layout) };
         if data_ptr.is_null() {
             return 0;
         }
@@ -473,6 +476,7 @@ extern "C" fn bunker_vec_new() -> i64 {
 }
 
 /// Push an element to the Vec. Returns the new length.
+/// Note: Vec data uses system allocator to survive arena scope changes.
 extern "C" fn bunker_vec_push(vec_ptr: i64, value: i64) -> i64 {
     if vec_ptr == 0 {
         return 0;
@@ -489,27 +493,31 @@ extern "C" fn bunker_vec_push(vec_ptr: i64, value: i64) -> i64 {
             // Need to reallocate - double the capacity
             let new_capacity = capacity * 2;
 
-            JIT_ARENA.with(|a| {
-                let mut arena = a.borrow_mut();
-                let new_data = arena.alloc((new_capacity * 8) as usize, 8);
-                if new_data.is_null() {
-                    return length;
-                }
+            // Use system allocator for vec data (not arena)
+            let new_layout = std::alloc::Layout::from_size_align((new_capacity * 8) as usize, 8).unwrap();
+            let new_data = std::alloc::alloc_zeroed(new_layout);
+            if new_data.is_null() {
+                return length;
+            }
 
-                // Copy old data
+            // Copy old data
+            if !data_ptr.is_null() && length > 0 {
                 std::ptr::copy_nonoverlapping(data_ptr, new_data as *mut i64, length as usize);
+                // Free old data
+                let old_layout = std::alloc::Layout::from_size_align((capacity * 8) as usize, 8).unwrap();
+                std::alloc::dealloc(data_ptr as *mut u8, old_layout);
+            }
 
-                // Update header
-                *header = new_capacity;
-                *header.offset(2) = new_data as i64;
+            // Update header
+            *header = new_capacity;
+            *header.offset(2) = new_data as i64;
 
-                // Write new element
-                let new_data_ptr = new_data as *mut i64;
-                *new_data_ptr.offset(length as isize) = value;
-                *header.offset(1) = length + 1;
+            // Write new element
+            let new_data_ptr = new_data as *mut i64;
+            *new_data_ptr.offset(length as isize) = value;
+            *header.offset(1) = length + 1;
 
-                length + 1
-            })
+            length + 1
         } else {
             // Just push
             *data_ptr.offset(length as isize) = value;
@@ -3047,7 +3055,7 @@ fn compile_expr_inline(
                     defer_stack,
                     right,
                 )?;
-                return emit_string_concat(builder, module, alloc_func, lhs, rhs);
+                return emit_string_concat(builder, module, alloc_func, lhs, rhs, var_index);
             }
 
             // Handle string equality comparison
@@ -4047,6 +4055,7 @@ fn emit_string_concat(
     alloc_func: FuncId,
     left: Value,
     right: Value,
+    var_index: &mut u32,
 ) -> Result<Value> {
     // Get lengths
     let len1 = get_string_len(builder, left);
@@ -4085,13 +4094,17 @@ fn emit_string_concat(
 
     // For now, let's implement a simplified version that copies byte-by-byte
     // using a loop-like structure with basic blocks
-    // Use unique variable indices for each memcpy call
-    emit_memcpy_loop(builder, result_data, data1, len1, 10000)?;
+    // Use unique variable indices for each memcpy call (with 20000 offset to avoid collisions)
+    let copy_var_idx1 = 20000 + (*var_index as usize);
+    *var_index += 1;
+    emit_memcpy_loop(builder, result_data, data1, len1, copy_var_idx1)?;
 
     // Copy second string after the first
     let dest2 = builder.ins().iadd(result_data, len1);
     let data2 = get_string_data(builder, right);
-    emit_memcpy_loop(builder, dest2, data2, len2, 10001)?;
+    let copy_var_idx2 = 20000 + (*var_index as usize);
+    *var_index += 1;
+    emit_memcpy_loop(builder, dest2, data2, len2, copy_var_idx2)?;
 
     Ok(result_ptr)
 }
