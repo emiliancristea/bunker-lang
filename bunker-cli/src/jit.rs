@@ -1879,7 +1879,9 @@ fn compile_block_inline(
         defer_stack,
         loop_exit,
         loop_continue,
-        true,
+        // Runtime allocations currently bypass JIT_ARENA, so emitted block
+        // watermarks only add leak risk on early returns in self-host runs.
+        false,
     )
 }
 
