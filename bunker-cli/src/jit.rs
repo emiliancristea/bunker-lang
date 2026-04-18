@@ -13,6 +13,7 @@ use crate::{ast, builtins};
 // Thread-local Arena Allocator for JIT Runtime
 // ============================================================================
 
+#[allow(dead_code)]
 const ARENA_BLOCK_SIZE: usize = 64 * 1024; // 64 KB blocks
 const ARENA_WATERMARK_MAX_DEPTH: usize = 1_000_000;
 
@@ -46,6 +47,7 @@ impl Arena {
         }
     }
 
+    #[allow(dead_code)]
     fn alloc(&mut self, size: usize, align: usize) -> *mut u8 {
         if size == 0 {
             return std::ptr::null_mut();
@@ -794,15 +796,15 @@ fn hash_i64(key: i64) -> i64 {
 
 /// Create a new empty HashMap.
 extern "C" fn bunker_hashmap_new() -> i64 {
-    let header_layout = std::alloc::Layout::from_size_align(HASHMAP_HEADER_SIZE as usize, 8).unwrap();
+    let header_layout =
+        std::alloc::Layout::from_size_align(HASHMAP_HEADER_SIZE as usize, 8).unwrap();
     let header_ptr = unsafe { std::alloc::alloc_zeroed(header_layout) };
     if header_ptr.is_null() {
         return 0;
     }
 
     let entries_size = HASHMAP_INITIAL_CAPACITY * HASHMAP_ENTRY_SIZE;
-    let entries_layout =
-        std::alloc::Layout::from_size_align(entries_size as usize, 8).unwrap();
+    let entries_layout = std::alloc::Layout::from_size_align(entries_size as usize, 8).unwrap();
     let entries_ptr = unsafe { std::alloc::alloc_zeroed(entries_layout) };
     if entries_ptr.is_null() {
         unsafe {
@@ -889,7 +891,7 @@ extern "C" fn bunker_hashmap_grow(map_ptr: i64) -> i64 {
         let new_entries_size = new_capacity * HASHMAP_ENTRY_SIZE;
         let new_entries_layout =
             std::alloc::Layout::from_size_align(new_entries_size as usize, 8).unwrap();
-        let new_entries_ptr = unsafe { std::alloc::alloc_zeroed(new_entries_layout) };
+        let new_entries_ptr = std::alloc::alloc_zeroed(new_entries_layout);
         if new_entries_ptr.is_null() {
             return 0;
         }
