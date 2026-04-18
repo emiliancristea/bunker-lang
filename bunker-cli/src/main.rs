@@ -893,11 +893,10 @@ fn self_host_compile(
 
     let main_result = {
         let _guard = CurrentDirGuard::change_to(&temp_dir)?;
-        let result = jit::run_kernel_main_flex(&ast)?;
         // Intentionally defer arena reset here: some large self-host inputs
         // currently hit allocator behavior at reset due oversized arena blocks
         // in long-running JIT compilation paths. Process exit will reclaim memory.
-        result
+        jit::run_kernel_main_flex(&ast)?
     };
 
     let result_ok = matches!(
