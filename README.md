@@ -34,7 +34,7 @@ Research shows that **33.6% of LLM-generated code fails due to type errors**, gr
 2. **`comptime` Functions** - Full compile-time execution (like Zig, but integrated)
 3. **`defer` Statement** - Deterministic cleanup without RAII complexity
 4. **Design-by-Contract** - `#[requires]` and `#[ensures]` with verification—contracts eliminate AI hallucinations
-5. **`Option<T>` Only** - No null, no exceptions, no `Result<T,E>` boilerplate
+5. **Explicit Sum Types** - No null, no exceptions; `Option<T>` plus bootstrap `Result<T,E>` support
 6. **Explicit `copy`** - No hidden copies, move semantics simpler than Rust's borrow checker
 
 ## Quick Example
@@ -92,21 +92,17 @@ Human writes contracts → AI generates code → Compiler verifies → Ship prov
 4. If verification fails, AI refines based on counterexamples
 5. **Proven-correct code** ships to production
 
-## Installation
+## Build Policy
 
-### Prerequisites
-- Rust 1.70+ (for building the compiler)
-- Cargo
+Local Cargo builds, local test-suite execution, and local code-producing/runtime CLI commands are disabled for this repository. The compiler and self-host runtime can consume enough memory to destabilize a workstation while the language is still being bootstrapped.
 
-### Build from Source
+Use GitHub Actions as the build and verification environment:
 
-```bash
-git clone https://github.com/emiliancristea/bunker-lang.git
-cd bunker-lang/bunker-cli
-cargo build --release
-```
+1. Push a branch or open a pull request.
+2. Wait for the `CI` workflow.
+3. Download the `bunker-cli-*` artifact from the workflow run when a verified compiler binary is needed.
 
-The compiler binary will be at `target/release/bunker-cli`.
+Safe local inspection commands are still allowed when a CI-built binary is available: `check`, `parse`, and `self-host-check`. Code-producing or runtime commands such as `build`, `run`, and `self-host-compile` are CI-only.
 
 ## Usage
 
@@ -114,14 +110,23 @@ The compiler binary will be at `target/release/bunker-cli`.
 # Check syntax and types
 bunker-cli check myfile.bkr
 
-# Run with JIT compilation
+# CI-only: run with JIT compilation
 bunker-cli run myfile.bkr
 
-# Compile to object file
+# CI-only: compile to object file
 bunker-cli build myfile.bkr -o myfile.o
 
 # Parse and show AST (debugging)
 bunker-cli parse myfile.bkr
+
+# Emit prompt-ready JSON diagnostics for an AI repair loop
+bunker-cli --format=json check myfile.bkr
+
+# Check whether the Bunker-written compiler sources are self-host ready
+bunker-cli self-host-check self-host
+
+# CI-only: compile through the Bunker-written compiler prototype
+bunker-cli self-host-compile tests/01_basic_math.bkr -o self_host_output.c
 ```
 
 ## Project Structure
@@ -140,7 +145,7 @@ bunker-lang/
 │   │   ├── codegen.rs        # Cranelift AOT compilation
 │   │   └── shell_runtime.rs  # Agent VM runtime
 │   └── Cargo.toml
-├── tests/                # 64 golden test files
+├── tests/                # 92 acceptance tests
 ├── docs/
 │   ├── VISION.md         # Language design philosophy
 │   └── ARCHITECTURE.md   # Compiler pipeline design
@@ -235,6 +240,9 @@ view MyView {
 | `str` | String |
 | `[T; N]` | Fixed-size array |
 | `Option<T>` | Optional value |
+| `Result<T, E>` | Explicit success/error value |
+| `Vec<T>` | Dynamic array |
+| `HashMap<K, V>` | Key-value map |
 
 ### Attributes (Design-by-Contract)
 
@@ -257,14 +265,20 @@ view MyView {
 - [x] Shell: agent compiler + message-queue VM + Kernel bridge
 - [x] Shell: typed message schemas with compile-time validation
 - [x] View: text backend + Windows `#[target(graphics)]` backend
+- [x] View: layout containers (`Column`, `Row`, `Grid`) with spacing/padding
 - [x] Contracts: `#[requires]`/`#[ensures]` with lightweight verification
-- [x] **64 tests passing** (including 9 negative `*_BAD` tests)
+- [x] Bootstrap stdlib builtins: file I/O, string methods, `Vec`, `Result`, `HashMap`
+- [x] AI diagnostic envelope: schema version, source excerpts, structured suggestions, prompt-ready repair context
+- [x] Self-host readiness command (`self-host-check`) for Bunker-written compiler sources; 8/8 current sources pass checks
+- [x] Self-host compile wrapper (`self-host-compile`) that runs `self-host/bkrc.bkr` on real `.bkr` input and emits C
+- [x] **92 tests passing** (including 16 negative `*_BAD` tests)
 
 ### In Progress 🚧
 - [x] Z3 SMT verification integration (`--smt` flag, requires Z3 installation) ✅
 - [x] Structured JSON error output (`--format=json` for AI feedback loops) ✅
-- [ ] View layout (Row/Column/Grid) & more widgets
-- [ ] Standard library
+- [x] Prompt-ready AI diagnostic context (`ai_prompt_context.prompt_addition`) ✅
+- [ ] More View widgets and reactive polish
+- [ ] Coherent standard library beyond bootstrap builtins
 - [ ] AI training dataset and benchmarks
 
 > **Note:** Run `/check-update-status` to get a full specification compliance report and gap analysis.
@@ -274,7 +288,7 @@ view MyView {
 - [ ] Embedded profile (`--profile=metal`)
 - [ ] Language server (LSP)
 - [ ] Package manager
-- [x] **Self-hosting compiler** ? - Bunker compiler written in Bunker\! (self-host/compiler.bkr)
+- [ ] Self-hosting compiler (prototype can emit C for a bootstrap subset; not self-compiling yet)
 
 ## Why Not Existing Languages?
 

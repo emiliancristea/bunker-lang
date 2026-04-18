@@ -33,55 +33,57 @@ kernel TypeChecker {
     const TYPE_UNKNOWN: i64 = 99;
 
     // Type checker state: [errors, symbol_table, current_fn_ret_type]
-    fn typeck_new() -> i64 {
-        let state = vec_new();
-        vec_push(state, vec_new());  // errors list
-        vec_push(state, vec_new());  // symbol table (pairs: [name_idx, type])
+    fn typeck_new() -> Vec<i64> {
+        let state: Vec<i64> = vec_new();
+        let errors: Vec<i64> = vec_new();
+        let symbols: Vec<i64> = vec_new();
+        vec_push(state, errors as i64);
+        vec_push(state, symbols as i64);
         vec_push(state, TYPE_VOID);  // current function return type
         return state;
     }
 
-    fn typeck_errors(state: i64) -> i64 {
-        return vec_get(state, 0);
+    fn typeck_errors(state: Vec<i64>) -> Vec<i64> {
+        return vec_get(state, 0) as Vec<i64>;
     }
 
-    fn typeck_add_error(state: i64, code: i64) -> i64 {
+    fn typeck_add_error(state: Vec<i64>, code: i64) -> Vec<i64> {
         let errors = typeck_errors(state);
         vec_push(errors, code);
         return state;
     }
 
-    fn typeck_has_errors(state: i64) -> bool {
+    fn typeck_has_errors(state: Vec<i64>) -> bool {
         return vec_len(typeck_errors(state)) > 0;
     }
 
-    fn typeck_set_ret_type(state: i64, ty: i64) -> i64 {
+    fn typeck_set_ret_type(state: Vec<i64>, ty: i64) -> Vec<i64> {
         vec_set(state, 2, ty);
         return state;
     }
 
-    fn typeck_get_ret_type(state: i64) -> i64 {
+    fn typeck_get_ret_type(state: Vec<i64>) -> i64 {
         return vec_get(state, 2);
     }
 
     // Symbol table operations
-    fn typeck_add_symbol(state: i64, name_idx: i64, ty: i64) -> i64 {
-        let syms = vec_get(state, 1);
-        let entry = vec_new();
+    fn typeck_add_symbol(state: Vec<i64>, name_idx: i64, ty: i64) -> Vec<i64> {
+        let syms = vec_get(state, 1) as Vec<i64>;
+        let entry: Vec<i64> = vec_new();
         vec_push(entry, name_idx);
         vec_push(entry, ty);
-        vec_push(syms, entry);
+        vec_push(syms, entry as i64);
         return state;
     }
 
-    fn typeck_lookup_symbol(state: i64, name_idx: i64) -> i64 {
-        let syms = vec_get(state, 1);
+    fn typeck_lookup_symbol(state: Vec<i64>, name_idx: i64) -> i64 {
+        let syms = vec_get(state, 1) as Vec<i64>;
         let i: i64 = 0;
         let found = TYPE_UNKNOWN;
         let searching = true;
 
         while searching && i < vec_len(syms) {
-            let entry = vec_get(syms, i);
+            let entry = vec_get(syms, i) as Vec<i64>;
             if vec_get(entry, 0) == name_idx {
                 found = vec_get(entry, 1);
                 searching = false;
@@ -97,11 +99,12 @@ kernel TypeChecker {
         if type_node == 0 {
             return TYPE_UNKNOWN;
         }
-        return vec_get(type_node, 1);
+        let node = type_node as Vec<i64>;
+        return vec_get(node, 1);
     }
 
     // Infer expression type
-    fn infer_expr_type(state: i64, expr: i64) -> i64 {
+    fn infer_expr_type(state: Vec<i64>, expr: Vec<i64>) -> i64 {
         let node_type = vec_get(expr, 0);
 
         if node_type == NODE_INT_LIT {
@@ -123,12 +126,12 @@ kernel TypeChecker {
 
         if node_type == NODE_BINARY {
             // For now, inherit type from left operand
-            let left = vec_get(expr, 2);
+            let left = vec_get(expr, 2) as Vec<i64>;
             return infer_expr_type(state, left);
         }
 
         if node_type == NODE_UNARY {
-            let operand = vec_get(expr, 2);
+            let operand = vec_get(expr, 2) as Vec<i64>;
             return infer_expr_type(state, operand);
         }
 
@@ -141,7 +144,7 @@ kernel TypeChecker {
     }
 
     // Check statement
-    fn check_stmt(state: i64, stmt: i64) -> i64 {
+    fn check_stmt(state: Vec<i64>, stmt: Vec<i64>) -> Vec<i64> {
         let node_type = vec_get(stmt, 0);
 
         if node_type == NODE_LET {
@@ -156,7 +159,7 @@ kernel TypeChecker {
 
             let inferred_type = TYPE_UNKNOWN;
             if init_expr != 0 {
-                inferred_type = infer_expr_type(state, init_expr);
+                inferred_type = infer_expr_type(state, init_expr as Vec<i64>);
             }
 
             // Use declared type if available, otherwise inferred
@@ -172,7 +175,7 @@ kernel TypeChecker {
         if node_type == NODE_RETURN {
             let ret_expr = vec_get(stmt, 1);
             if ret_expr != 0 {
-                let expr_type = infer_expr_type(state, ret_expr);
+                let expr_type = infer_expr_type(state, ret_expr as Vec<i64>);
                 let expected = typeck_get_ret_type(state);
                 // Simplified check: i32 and i64 are compatible
                 let compatible = false;
@@ -187,35 +190,36 @@ kernel TypeChecker {
         }
 
         if node_type == NODE_IF {
-            let cond = vec_get(stmt, 1);
+            let cond = vec_get(stmt, 1) as Vec<i64>;
             let cond_type = infer_expr_type(state, cond);
             if cond_type != TYPE_BOOL && cond_type != TYPE_UNKNOWN {
                 typeck_add_error(state, 101);  // condition must be bool
             }
 
-            let then_block = vec_get(stmt, 2);
+            let then_block = vec_get(stmt, 2) as Vec<i64>;
             check_block(state, then_block);
 
             let else_block = vec_get(stmt, 3);
             if else_block != 0 {
-                let else_type = vec_get(else_block, 0);
+                let else_node = else_block as Vec<i64>;
+                let else_type = vec_get(else_node, 0);
                 if else_type == NODE_BLOCK {
-                    check_block(state, else_block);
+                    check_block(state, else_node);
                 } else if else_type == NODE_IF {
-                    check_stmt(state, else_block);
+                    check_stmt(state, else_node);
                 }
             }
             return state;
         }
 
         if node_type == NODE_WHILE {
-            let cond = vec_get(stmt, 1);
+            let cond = vec_get(stmt, 1) as Vec<i64>;
             let cond_type = infer_expr_type(state, cond);
             if cond_type != TYPE_BOOL && cond_type != TYPE_UNKNOWN {
                 typeck_add_error(state, 102);  // condition must be bool
             }
 
-            let body = vec_get(stmt, 2);
+            let body = vec_get(stmt, 2) as Vec<i64>;
             check_block(state, body);
             return state;
         }
@@ -236,12 +240,12 @@ kernel TypeChecker {
     }
 
     // Check block
-    fn check_block(state: i64, block: i64) -> i64 {
+    fn check_block(state: Vec<i64>, block: Vec<i64>) -> Vec<i64> {
         let i: i64 = 1;  // Skip NODE_BLOCK type marker
         let continuing = true;
 
         while continuing && i < vec_len(block) {
-            let stmt = vec_get(block, i);
+            let stmt = vec_get(block, i) as Vec<i64>;
             check_stmt(state, stmt);
             i = i + 1;
         }
@@ -250,11 +254,11 @@ kernel TypeChecker {
     }
 
     // Check function
-    fn check_fn(state: i64, fn_node: i64) -> i64 {
+    fn check_fn(state: Vec<i64>, fn_node: Vec<i64>) -> Vec<i64> {
         let name_idx = vec_get(fn_node, 1);
         let params = vec_get(fn_node, 2);
         let ret_type_node = vec_get(fn_node, 3);
-        let body = vec_get(fn_node, 4);
+        let body = vec_get(fn_node, 4) as Vec<i64>;
 
         // Set current function return type
         let ret_type = TYPE_VOID;
@@ -270,13 +274,13 @@ kernel TypeChecker {
     }
 
     // Check kernel
-    fn check_kernel(state: i64, kernel: i64) -> i64 {
-        let funcs = vec_get(kernel, 2);
+    fn check_kernel(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
+        let funcs = vec_get(kernel, 2) as Vec<i64>;
         let i: i64 = 0;
         let continuing = true;
 
         while continuing && i < vec_len(funcs) {
-            let fn_node = vec_get(funcs, i);
+            let fn_node = vec_get(funcs, i) as Vec<i64>;
             check_fn(state, fn_node);
             i = i + 1;
         }
@@ -286,7 +290,7 @@ kernel TypeChecker {
 
     fn main() -> i32 {
         // Test 1: Create type checker state
-        let state = typeck_new();
+        let state: Vec<i64> = typeck_new();
         if typeck_has_errors(state) { return 1; }
 
         // Test 2: Add and lookup symbol
@@ -300,38 +304,39 @@ kernel TypeChecker {
 
         // Test 4: Create a mock AST and check it
         // AST for: kernel Test { fn main() -> i32 { return 42; } }
-        let ret_expr = vec_new();
+        let ret_expr: Vec<i64> = vec_new();
         vec_push(ret_expr, NODE_INT_LIT);
         vec_push(ret_expr, 42);
 
-        let ret_stmt = vec_new();
+        let ret_stmt: Vec<i64> = vec_new();
         vec_push(ret_stmt, NODE_RETURN);
-        vec_push(ret_stmt, ret_expr);
+        vec_push(ret_stmt, ret_expr as i64);
 
-        let block = vec_new();
+        let block: Vec<i64> = vec_new();
         vec_push(block, NODE_BLOCK);
-        vec_push(block, ret_stmt);
+        vec_push(block, ret_stmt as i64);
 
-        let ret_type = vec_new();
+        let ret_type: Vec<i64> = vec_new();
         vec_push(ret_type, NODE_TYPE);
         vec_push(ret_type, TYPE_I32);
 
-        let fn_node = vec_new();
+        let fn_node: Vec<i64> = vec_new();
         vec_push(fn_node, NODE_FN);
         vec_push(fn_node, 1);  // name_idx
-        vec_push(fn_node, vec_new());  // params
-        vec_push(fn_node, ret_type);
-        vec_push(fn_node, block);
+        let params: Vec<i64> = vec_new();
+        vec_push(fn_node, params as i64);
+        vec_push(fn_node, ret_type as i64);
+        vec_push(fn_node, block as i64);
 
-        let funcs = vec_new();
-        vec_push(funcs, fn_node);
+        let funcs: Vec<i64> = vec_new();
+        vec_push(funcs, fn_node as i64);
 
-        let kernel = vec_new();
+        let kernel: Vec<i64> = vec_new();
         vec_push(kernel, NODE_KERNEL);
         vec_push(kernel, 0);  // name_idx
-        vec_push(kernel, funcs);
+        vec_push(kernel, funcs as i64);
 
-        let state2 = typeck_new();
+        let state2: Vec<i64> = typeck_new();
         check_kernel(state2, kernel);
 
         // i64 returned from i32 function should be compatible

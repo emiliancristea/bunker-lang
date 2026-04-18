@@ -1473,10 +1473,12 @@ This section tracks the implementation status of each specification part against
 - [x] Result-based error handling
 - [x] Compiler error messages
 - [x] Source location tracking
-- [ ] Structured JSON error output
+- [x] Structured JSON error output
+- [x] Prompt-ready AI repair context
+- [x] Structured suggestions with applicability and confidence metadata
 - [ ] Typed holes with hole fits
 - [ ] SARIF output format
-- [ ] Machine-applicable fix suggestions
+- [ ] Span-backed machine-applicable replacements
 - [ ] Error recovery during parsing
 
 ### Part 7: Concurrency and Parallelism ❌ Not Started
@@ -1494,12 +1496,12 @@ This section tracks the implementation status of each specification part against
 - [ ] Lockfile generation
 - [ ] `bunker.toml` configuration
 
-### Part 9: Standard Library ❌ Not Started
+### Part 9: Standard Library 🔶 Partial
 - [ ] Core numeric types with overflow options
-- [ ] UTF-8 String type
-- [ ] Collections (Vec, Array, Map, Set)
+- [x] UTF-8 String type
+- [x] Collections (Vec, Array, Map, Set)
 - [ ] Iterator pattern
-- [ ] Option/Result combinators
+- [x] Option/Result combinators
 - [ ] Consistent naming conventions
 
 ### Part 10: Tooling and Ecosystem ❌ Not Started
@@ -1525,7 +1527,7 @@ This section tracks the implementation status of each specification part against
 - [x] View Windows graphics backend
 - [ ] `@pure`/`@impure` annotations
 - [ ] Reactive view bindings
-- [ ] View layout containers (Row/Column/Grid)
+- [x] View layout containers (Row/Column/Grid)
 - [ ] Unidirectional data flow enforcement
 
 ## Current Implementation Summary
@@ -1555,25 +1557,29 @@ These features are specifically critical for AI code generation accuracy:
 |---------|--------|--------------|
 | Grammar-constrained decoding compatible | ✅ | 96% syntax error reduction |
 | Type-constrained generation | 🔶 | >50% fewer compilation errors |
-| Structured JSON errors | ❌ | 62.5% vs 34% repair accuracy |
+| Structured JSON errors | ✅ | `--format=json` emits schema version, source excerpts, hints, suggestions, and prompt context |
 | Typed holes | ❌ | Precise context for generation |
 | Contract verification | 🔶 | Eliminates hallucinations |
 | Explicit ownership | ✅ | Avoids borrow checker failures |
+| Self-host readiness reporting | ✅ | `self-host-check` reports 8/8 current Bunker-written compiler sources passing |
+| Self-host compile wrapper | 🔶 | `self-host-compile` runs `self-host/bkrc.bkr` on real input and emits C for the bootstrap subset |
 
 ## Critical Path to AI-Native MVP
 
-1. **Structured JSON Error Output** - Enables AI feedback loops (62.5% repair accuracy)
-2. **Z3 SMT Integration** - True contract verification eliminates hallucinations
-3. **Typed Holes with Fits** - Provides precise generation context
-4. **Arena Memory Allocator** - Completes AI-friendly memory model
-5. **View Layout Containers** - Enables end-to-end application demos
+1. **Embedded/Metal Profile** - Complete the multi-profile target story
+2. **Self-Host Execution Parity** - Expand the Bunker-written compiler subset and compare generated output against the Rust compiler
+3. **Typed Holes with Fits** - Provide precise generation context
+4. **Canonical Formatter** - Make training and reviews consistent
+5. **LSP with AI Extensions** - Expose compiler context to tools
+6. **Coherent Standard Library** - Replace bootstrap builtins with a stable surface
 
 ## Test Coverage
 
-- **Total Tests:** 64 passing
-- **JIT-Enabled:** 50 tests (Kernel `fn main`)
-- **Negative Tests:** 9 tests (type errors, move errors)
-- **Shell Execution:** 5 tests (agent VM)
+- **Total Tests:** 92 passing
+- **JIT-Enabled:** 57 tests (validated by `run_tests.ps1`)
+- **Negative Tests:** 16 tests (type errors, move errors)
+- **Shell-Bearing Files:** 14 tests
+- **View-Bearing Files:** 7 tests
 
 ## Research Validation Needed
 

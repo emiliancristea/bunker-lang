@@ -970,7 +970,7 @@ This section tracks the implementation status of each specification area against
 #### Area 6: Error Handling 🔶 Partial
 - [x] Compiler error messages
 - [x] Source location tracking
-- [ ] Structured JSON error output
+- [x] Structured JSON error output
 - [ ] Typed holes with hole fits
 - [ ] Error recovery during parsing
 - [ ] Machine-applicable fix suggestions
@@ -989,11 +989,11 @@ This section tracks the implementation status of each specification area against
 - [ ] Package manager (`bunker.toml`)
 - [ ] REPL with hot-reloading
 
-#### Area 9: Standard Library ❌ Not Started
+#### Area 9: Standard Library 🔶 Partial
 - [ ] Core numeric types
-- [ ] String operations
-- [ ] Collections (Vec, Map, Set)
-- [ ] I/O primitives
+- [x] String operations
+- [x] Collections (Vec, Map, Set)
+- [x] I/O primitives
 - [ ] Consistent naming conventions
 
 #### Area 10: Metaprogramming 🔶 Partial
@@ -1016,7 +1016,7 @@ This section tracks the implementation status of each specification area against
 | 6. Error Handling | 🔶 | 25% | High |
 | 7. Concurrency | ❌ | 0% | Low |
 | 8. Tooling | ❌ | 0% | Low |
-| 9. Stdlib | ❌ | 0% | Low |
+| 9. Stdlib | 🔶 | 25% | Low |
 | 10. Metaprogramming | 🔶 | 40% | Medium |
 
 **Legend:** ✅ Complete (>80%), 🔶 Partial (20-80%), ❌ Not Started (<20%)
@@ -1024,15 +1024,16 @@ This section tracks the implementation status of each specification area against
 ### Critical Path to MVP
 
 1. **Z3 SMT Integration** - Enables true contract verification
-2. **Structured JSON Errors** - Critical for AI feedback loops
-3. **Arena Memory Allocator** - Completes memory model
-4. **View Layout Containers** - Enables real UI applications
+2. **Standard Library Cleanup** - Replace bootstrap builtins with a coherent stdlib surface
+3. **Embedded/Metal Profile** - Completes the multi-profile execution story
+4. **Tooling (Formatter/LSP)** - Turns the prototype into a usable developer platform
 
 ### Test Coverage
 
-- **Total Tests:** 64 passing
-- **JIT-Enabled:** 50 tests
-- **Negative Tests:** 9 tests
-- **Shell Execution:** 5 tests
+- **Total Tests:** 92 passing
+- **JIT-Enabled:** 57 tests
+- **Negative Tests:** 16 tests
+- **Shell-Bearing Files:** 14 tests
+- **View-Bearing Files:** 7 tests
 
 *Last updated: Run `/check-update-status` to refresh*

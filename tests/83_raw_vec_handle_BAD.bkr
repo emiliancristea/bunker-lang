@@ -1,0 +1,11 @@
+// Test 83: Raw Vec Handle Rejected
+// Purpose: Collection builtins should reject raw i64 Vec handles.
+// Expected: Type checker rejects vec_len(raw)
+
+kernel RawVecHandleBad {
+    fn main() -> i32 {
+        let values: Vec<i32> = vec_new();
+        let raw: i64 = values as i64;
+        return vec_len(raw) as i32;
+    }
+}

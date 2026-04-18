@@ -54,8 +54,8 @@ kernel Lexer {
     const TOK_DOT: i64 = 119;
 
     // Tokenize a chunk of up to 8 tokens, returns [new_pos, last_tok, tok1, tok2, ...]
-    fn tokenize_chunk(source: str, pos: i64) -> i64 {
-        let result = vec_new();
+    fn tokenize_chunk(source: str, pos: i64) -> Vec<i64> {
+        let result: Vec<i64> = vec_new();
         let src_len = len(source);
         let count: i64 = 0;
         let last_tok: i64 = TOK_ERROR;
@@ -214,7 +214,7 @@ kernel Lexer {
         }
 
         // Prepend pos and last_tok
-        let final_result = vec_new();
+        let final_result: Vec<i64> = vec_new();
         vec_push(final_result, pos);
         vec_push(final_result, last_tok);
         let i: i64 = 0;
@@ -225,8 +225,8 @@ kernel Lexer {
         return final_result;
     }
 
-    fn tokenize(source: str) -> i64 {
-        let types = vec_new();
+    fn tokenize(source: str) -> Vec<i64> {
+        let types: Vec<i64> = vec_new();
         let pos: i64 = 0;
         let done = false;
 
@@ -252,7 +252,7 @@ kernel Lexer {
 
     fn main() -> i32 {
         // Test 1: Simple tokens (3 tokens)
-        let types1 = tokenize("kernel Test");
+        let types1: Vec<i64> = tokenize("kernel Test");
 
         if vec_len(types1) != 3 { return 1; }
         if vec_get(types1, 0) != TOK_KERNEL { return 2; }
@@ -260,7 +260,7 @@ kernel Lexer {
         if vec_get(types1, 2) != TOK_EOF { return 4; }
 
         // Test 2: Function declaration (12 tokens)
-        let types2 = tokenize("fn main() -> i32 { return 42; }");
+        let types2: Vec<i64> = tokenize("fn main() -> i32 { return 42; }");
 
         if vec_len(types2) != 12 { return 10 + vec_len(types2); }
         if vec_get(types2, 0) != TOK_FN { return 20; }

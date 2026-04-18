@@ -327,7 +327,8 @@ pub enum Type {
     Vec3,
     Option(Box<Type>),
     Result(Box<Type>, Box<Type>),  // Result<T, E>
-    Vec(Box<Type>),                 // Vec<T> - dynamic array
+    Vec(Box<Type>),                // Vec<T> - dynamic array
+    HashMap(Box<Type>, Box<Type>), // HashMap<K, V>
     Array(Box<Type>, usize),
     Ref { mutable: bool, ty: Box<Type> },
     Named(String),

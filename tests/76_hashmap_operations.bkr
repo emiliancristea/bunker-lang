@@ -5,7 +5,7 @@
 kernel HashMapOps {
     fn main() -> i32 {
         // Create a new hashmap
-        let map = hashmap_new();
+        let map: HashMap<i32, i32> = hashmap_new();
 
         // Test insert
         let inserted1 = hashmap_insert(map, 1, 100);

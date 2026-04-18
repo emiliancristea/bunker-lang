@@ -212,6 +212,7 @@ type_expr = {
     option_type |
     result_type |
     vec_type |
+    hashmap_type |
     array_type |
     ref_type |
     base_type
@@ -220,6 +221,7 @@ type_expr = {
 option_type = { "Option<" ~ type_expr ~ ">" }
 result_type = { "Result<" ~ type_expr ~ "," ~ type_expr ~ ">" }
 vec_type = { "Vec<" ~ type_expr ~ ">" }
+hashmap_type = { "HashMap<" ~ type_expr ~ "," ~ type_expr ~ ">" }
 array_type = { "[" ~ type_expr ~ ";" ~ integer ~ "]" }
 ref_type = { "&" ~ "mut"? ~ type_expr }
 base_type = {

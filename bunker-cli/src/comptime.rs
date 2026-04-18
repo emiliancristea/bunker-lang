@@ -4,9 +4,9 @@
 //! when all arguments are compile-time constants. Results are folded back into
 //! the AST as literal values.
 
-use std::collections::HashMap;
-use anyhow::{anyhow, Result};
 use crate::ast::{self, BinaryOp, Block, Expr, Function, Literal, Stmt, UnaryOp};
+use anyhow::{anyhow, Result};
+use std::collections::HashMap;
 
 /// Control flow result from evaluating a block or statement.
 enum ControlFlow {
@@ -32,17 +32,6 @@ pub enum ComptimeValue {
 }
 
 impl ComptimeValue {
-    /// Convert to an AST literal for constant folding.
-    pub fn to_literal(&self) -> Option<Literal> {
-        match self {
-            ComptimeValue::Int(n) => Some(Literal::Int(*n)),
-            ComptimeValue::Float(f) => Some(Literal::Float(*f)),
-            ComptimeValue::Bool(b) => Some(Literal::Bool(*b)),
-            ComptimeValue::Char(c) => Some(Literal::Char(*c)),
-            _ => None, // Option types don't map directly to simple literals
-        }
-    }
-
     /// Convert to an AST expression for constant folding.
     pub fn to_expr(&self) -> Expr {
         match self {
@@ -160,7 +149,11 @@ impl ComptimeEvaluator {
                 Stmt::Return(None) => {
                     return Ok(ControlFlow::Return(ComptimeValue::Int(0)));
                 }
-                Stmt::If { condition, then_block, else_block } => {
+                Stmt::If {
+                    condition,
+                    then_block,
+                    else_block,
+                } => {
                     let cond = self.eval_expr(condition, env, depth)?;
                     let ComptimeValue::Bool(b) = cond else {
                         return Err(anyhow!("comptime: if condition must be bool"));
@@ -195,9 +188,13 @@ impl ComptimeEvaluator {
                                 }
                                 ast::MatchBody::Block(b) => {
                                     match self.eval_block_cf(b, &mut arm_env, depth + 1)? {
-                                        ControlFlow::Return(val) => return Ok(ControlFlow::Return(val)),
+                                        ControlFlow::Return(val) => {
+                                            return Ok(ControlFlow::Return(val))
+                                        }
                                         ControlFlow::Break => return Ok(ControlFlow::Break),
-                                        ControlFlow::LoopContinue => return Ok(ControlFlow::LoopContinue),
+                                        ControlFlow::LoopContinue => {
+                                            return Ok(ControlFlow::LoopContinue)
+                                        }
                                         ControlFlow::Continue(val) => result = val,
                                     }
                                 }
@@ -212,15 +209,29 @@ impl ComptimeEvaluator {
                 Stmt::For { var, iter, body } => {
                     // Extract range bounds (iterator must be a range expression)
                     let (start, end, inclusive) = match iter {
-                        Expr::Range { start, end, inclusive } => {
+                        Expr::Range {
+                            start,
+                            end,
+                            inclusive,
+                        } => {
                             let start_val = self.eval_expr(start, env, depth)?;
                             let end_val = self.eval_expr(end, env, depth)?;
                             match (start_val, end_val) {
-                                (ComptimeValue::Int(s), ComptimeValue::Int(e)) => (s, e, *inclusive),
-                                _ => return Err(anyhow!("comptime: for loop range must be integer bounds")),
+                                (ComptimeValue::Int(s), ComptimeValue::Int(e)) => {
+                                    (s, e, *inclusive)
+                                }
+                                _ => {
+                                    return Err(anyhow!(
+                                        "comptime: for loop range must be integer bounds"
+                                    ))
+                                }
                             }
                         }
-                        _ => return Err(anyhow!("comptime: for loop iterator must be a range expression")),
+                        _ => {
+                            return Err(anyhow!(
+                                "comptime: for loop iterator must be a range expression"
+                            ))
+                        }
                     };
 
                     let end_val = if inclusive { end + 1 } else { end };
@@ -242,7 +253,10 @@ impl ComptimeEvaluator {
                     'infinite_loop: loop {
                         iterations += 1;
                         if iterations > MAX_ITERATIONS {
-                            return Err(anyhow!("comptime: loop exceeded {} iterations", MAX_ITERATIONS));
+                            return Err(anyhow!(
+                                "comptime: loop exceeded {} iterations",
+                                MAX_ITERATIONS
+                            ));
                         }
 
                         match self.eval_block_cf(body, env, depth + 1)? {
@@ -260,7 +274,10 @@ impl ComptimeEvaluator {
                     'while_loop: loop {
                         iterations += 1;
                         if iterations > MAX_ITERATIONS {
-                            return Err(anyhow!("comptime: while loop exceeded {} iterations", MAX_ITERATIONS));
+                            return Err(anyhow!(
+                                "comptime: while loop exceeded {} iterations",
+                                MAX_ITERATIONS
+                            ));
                         }
 
                         // Evaluate condition
@@ -268,7 +285,11 @@ impl ComptimeEvaluator {
                         let should_continue = match cond_val {
                             ComptimeValue::Bool(b) => b,
                             ComptimeValue::Int(n) => n != 0,
-                            _ => return Err(anyhow!("comptime: while condition must be bool or int")),
+                            _ => {
+                                return Err(anyhow!(
+                                    "comptime: while condition must be bool or int"
+                                ))
+                            }
                         };
 
                         if !should_continue {
@@ -326,7 +347,11 @@ impl ComptimeEvaluator {
                 let val = self.eval_expr(expr, env, depth)?;
                 self.eval_unary(*op, val)
             }
-            Expr::If { condition, then_expr, else_expr } => {
+            Expr::If {
+                condition,
+                then_expr,
+                else_expr,
+            } => {
                 let cond = self.eval_expr(condition, env, depth)?;
                 let ComptimeValue::Bool(b) = cond else {
                     return Err(anyhow!("comptime: if condition must be bool"));
@@ -409,7 +434,12 @@ impl ComptimeEvaluator {
         self.eval_block(&func.body, &mut env, depth + 1)
     }
 
-    fn eval_binary(&self, op: BinaryOp, left: ComptimeValue, right: ComptimeValue) -> Result<ComptimeValue> {
+    fn eval_binary(
+        &self,
+        op: BinaryOp,
+        left: ComptimeValue,
+        right: ComptimeValue,
+    ) -> Result<ComptimeValue> {
         use BinaryOp::*;
         use ComptimeValue::*;
 
@@ -532,7 +562,10 @@ fn expr_to_comptime_value(expr: &Expr) -> Option<ComptimeValue> {
             Some(ComptimeValue::Some(Box::new(val)))
         }
         Expr::None => Some(ComptimeValue::None),
-        Expr::Unary { op: UnaryOp::Neg, expr } => {
+        Expr::Unary {
+            op: UnaryOp::Neg,
+            expr,
+        } => {
             let val = expr_to_comptime_value(expr)?;
             match val {
                 ComptimeValue::Int(n) => Some(ComptimeValue::Int(-n)),
@@ -615,7 +648,11 @@ fn fold_stmt(stmt: &mut Stmt, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
         Stmt::Expr(expr) => {
             fold_expr(expr, eval, stats);
         }
-        Stmt::If { condition, then_block, else_block } => {
+        Stmt::If {
+            condition,
+            then_block,
+            else_block,
+        } => {
             fold_expr(condition, eval, stats);
             fold_block(then_block, eval, stats);
             if let Some(else_b) = else_block {
@@ -680,7 +717,11 @@ fn fold_expr(expr: &mut Expr, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
         Expr::Field { expr: inner, .. } => {
             fold_expr(inner, eval, stats);
         }
-        Expr::If { condition, then_expr, else_expr } => {
+        Expr::If {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
             fold_expr(condition, eval, stats);
             fold_expr(then_expr, eval, stats);
             fold_expr(else_expr, eval, stats);
@@ -768,18 +809,22 @@ mod tests {
         let func = Function {
             name: "add".to_string(),
             params: vec![
-                ast::Param { name: "x".to_string(), ty: Type::I32 },
-                ast::Param { name: "y".to_string(), ty: Type::I32 },
+                ast::Param {
+                    name: "x".to_string(),
+                    ty: Type::I32,
+                },
+                ast::Param {
+                    name: "y".to_string(),
+                    ty: Type::I32,
+                },
             ],
             return_type: Some(Type::I32),
             body: Block {
-                statements: vec![
-                    Stmt::Return(Some(Expr::Binary {
-                        op: BinaryOp::Add,
-                        left: Box::new(Expr::Ident("x".to_string())),
-                        right: Box::new(Expr::Ident("y".to_string())),
-                    })),
-                ],
+                statements: vec![Stmt::Return(Some(Expr::Binary {
+                    op: BinaryOp::Add,
+                    left: Box::new(Expr::Ident("x".to_string())),
+                    right: Box::new(Expr::Ident("y".to_string())),
+                }))],
             },
             attributes: vec![],
         };
@@ -807,9 +852,10 @@ mod tests {
         // }
         let func = Function {
             name: "factorial".to_string(),
-            params: vec![
-                ast::Param { name: "n".to_string(), ty: Type::I32 },
-            ],
+            params: vec![ast::Param {
+                name: "n".to_string(),
+                ty: Type::I32,
+            }],
             return_type: Some(Type::I32),
             body: Block {
                 statements: vec![
@@ -843,10 +889,7 @@ mod tests {
 
         eval.functions.insert("factorial".to_string(), func);
 
-        let result = eval.try_eval(
-            "factorial",
-            &[Expr::Literal(Literal::Int(5))],
-        );
+        let result = eval.try_eval("factorial", &[Expr::Literal(Literal::Int(5))]);
 
         assert_eq!(result, Some(ComptimeValue::Int(120)));
     }

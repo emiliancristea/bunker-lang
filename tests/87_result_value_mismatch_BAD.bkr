@@ -1,0 +1,11 @@
+// Test 87: Result Value Mismatch
+// Purpose: result_value should reject Result<T, E> when T and E differ.
+// Expected: Type checker rejection
+
+kernel ResultValueMismatchBad {
+    fn main() -> i32 {
+        let mixed: Result<i32, str> = result_err("oops");
+        let value = result_value(mixed);
+        return value;
+    }
+}

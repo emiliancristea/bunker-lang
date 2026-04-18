@@ -1,0 +1,11 @@
+// Test 78: Typed Vec Wrong Value
+// Purpose: Vec<T> should reject pushes of incompatible element types.
+// Expected: Type check rejection
+
+kernel TypedVecWrongValue {
+    fn main() -> i32 {
+        let values: Vec<i32> = vec_new();
+        vec_push(values, "oops");
+        return 0;
+    }
+}

@@ -263,9 +263,9 @@ Result: 42
 | 6 | ✅ Complete | View layer with Row/Column/Grid layout |
 | 7 | 🔶 Partial | Z3 integration complete, requires Z3 installation |
 | 8 | ⬜ Not Started | Embedded/Metal profile |
-| 9 | ⬜ Not Started | Self-hosting |
+| 9 | 🔶 Partial | `self-host-check` is green and `self-host-compile` emits C for a bootstrap subset; not self-compiling yet |
 
-**Test Suite:** 74 tests passing (54 JIT-enabled, 9 negative tests, 7 shell execution, 4 view/demo)
+**Test Suite:** 92 tests passing (57 JIT-validated, 16 negative tests, 14 shell-bearing files, 7 view-bearing files)
 
 ---
 
@@ -277,6 +277,10 @@ Result: 42
 4. ~~**View Layout Containers** - Row/Column/Grid for real UI applications.~~ ✅ **DONE** (recursive layout with spacing/padding)
 5. ~~**End-to-End Demo** - Complete application using all three layers.~~ ✅ **DONE** (`69_calculator_demo.bkr` - Calculator with Kernel+Shell+View)
 6. ~~**AI Training Dataset** - Begin curating Bunker code samples for AI training.~~ ✅ **DONE** (`docs/EXAMPLES.md` - comprehensive annotated examples)
-7. **Embedded/Metal Profile** - Phase 8: bare-metal compilation target.
+7. ~~**Self-host Readiness Check** - Report blockers for Bunker-written compiler sources.~~ ✅ **DONE** (`self-host-check`)
+8. ~~**Typed Self-Host Migration** - Repair `self-host/*.bkr` to satisfy current typed collection rules.~~ ✅ **DONE** (8/8 self-host sources pass)
+9. ~~**Self-Host Execution Wrapper** - Run `self-host/bkrc.bkr` on real `.bkr` input and emit C.~~ ✅ **DONE** (`self-host-compile`)
+10. **Self-Host Execution Parity** - Expand the Bunker-written compiler subset and compare generated output against the Rust compiler.
+11. **Embedded/Metal Profile** - Phase 8: bare-metal compilation target.
 
 > **Tip:** Run `/check-update-status` to get a full implementation status report with specification compliance analysis.

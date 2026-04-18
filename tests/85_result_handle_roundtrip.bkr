@@ -1,0 +1,22 @@
+// Test 85: Result Handle Cast Roundtrip
+// Purpose: Explicit i64 <-> Result<T, E> casts should remain available.
+// Expected: JIT returns 42
+
+kernel ResultHandleRoundtrip {
+    fn main() -> i32 {
+        let ok: Result<i32, str> = result_ok(42);
+        let raw: i64 = ok as i64;
+        let typed: Result<i32, str> = raw as Result<i32, str>;
+
+        if !result_is_ok(typed) {
+            return 1;
+        }
+
+        let value: i32 = result_unwrap(typed);
+        if value != 42 {
+            return 2;
+        }
+
+        return 42;
+    }
+}

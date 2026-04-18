@@ -55,8 +55,8 @@ kernel IncrementalTest1 {
     const NODE_BOOL_LIT: i64 = 25;
 
     // ========== TOKENIZER ==========
-    fn tokenize_chunk(source: str, pos: i64) -> i64 {
-        let result = vec_new();
+    fn tokenize_chunk(source: str, pos: i64) -> Vec<i64> {
+        let result: Vec<i64> = vec_new();
         let src_len = len(source);
         let count: i64 = 0;
         let last_tok: i64 = 1;
@@ -130,7 +130,7 @@ kernel IncrementalTest1 {
             }
         }
 
-        let packed = vec_new();
+        let packed: Vec<i64> = vec_new();
         vec_push(packed, pos);
         vec_push(packed, last_tok);
         let i: i64 = 0;
@@ -141,8 +141,8 @@ kernel IncrementalTest1 {
         return packed;
     }
 
-    fn tokenize(source: str) -> i64 {
-        let types = vec_new();
+    fn tokenize(source: str) -> Vec<i64> {
+        let types: Vec<i64> = vec_new();
         let pos: i64 = 0;
         let done = false;
 
@@ -162,28 +162,29 @@ kernel IncrementalTest1 {
     }
 
     // ========== PARSER ==========
-    fn parser_new(tokens: i64) -> i64 {
-        let state = vec_new();
-        vec_push(state, tokens);
+    fn parser_new(tokens: Vec<i64>) -> Vec<i64> {
+        let state: Vec<i64> = vec_new();
+        vec_push(state, tokens as i64);
         vec_push(state, 0);
         vec_push(state, 0);
         return state;
     }
 
-    fn parser_peek(state: i64) -> i64 {
-        let tokens = vec_get(state, 0);
+    fn parser_peek(state: Vec<i64>) -> i64 {
+        let tokens = vec_get(state, 0) as Vec<i64>;
         let pos = vec_get(state, 1);
         if pos >= vec_len(tokens) { return TOK_EOF; }
         return vec_get(tokens, pos);
     }
 
-    fn parser_advance(state: i64) -> i64 {
+    fn parser_advance(state: Vec<i64>) -> i64 {
         let pos = vec_get(state, 1);
         vec_set(state, 1, pos + 1);
-        return vec_get(vec_get(state, 0), pos);
+        let tokens = vec_get(state, 0) as Vec<i64>;
+        return vec_get(tokens, pos);
     }
 
-    fn parser_expect(state: i64, expected: i64) -> bool {
+    fn parser_expect(state: Vec<i64>, expected: i64) -> bool {
         if parser_peek(state) == expected {
             parser_advance(state);
             return true;
@@ -191,17 +192,17 @@ kernel IncrementalTest1 {
         return false;
     }
 
-    fn parser_error(state: i64) -> i64 {
+    fn parser_error(state: Vec<i64>) -> i64 {
         vec_set(state, 2, 1);
         return 0;
     }
 
-    fn parser_has_error(state: i64) -> bool {
+    fn parser_has_error(state: Vec<i64>) -> bool {
         return vec_get(state, 2) != 0;
     }
 
-    fn parse_type(state: i64) -> i64 {
-        let node = vec_new();
+    fn parse_type(state: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
         vec_push(node, NODE_TYPE);
         let tok = parser_advance(state);
         if tok == TOK_I32 { vec_push(node, 0); }
@@ -210,8 +211,8 @@ kernel IncrementalTest1 {
         return node;
     }
 
-    fn parse_primary(state: i64) -> i64 {
-        let node = vec_new();
+    fn parse_primary(state: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
         let tok = parser_peek(state);
 
         if tok == TOK_INT {
@@ -234,16 +235,16 @@ kernel IncrementalTest1 {
         return node;
     }
 
-    fn parse_expr(state: i64) -> i64 {
+    fn parse_expr(state: Vec<i64>) -> Vec<i64> {
         return parse_primary(state);
     }
 
-    fn parse_return(state: i64) -> i64 {
-        let node = vec_new();
+    fn parse_return(state: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
         parser_advance(state);
         let expr: i64 = 0;
         if parser_peek(state) != TOK_SEMICOLON {
-            expr = parse_expr(state);
+            expr = parse_expr(state) as i64;
         }
         parser_expect(state, TOK_SEMICOLON);
         vec_push(node, NODE_RETURN);
@@ -251,69 +252,70 @@ kernel IncrementalTest1 {
         return node;
     }
 
-    fn parse_stmt(state: i64) -> i64 {
+    fn parse_stmt(state: Vec<i64>) -> Vec<i64> {
         let tok = parser_peek(state);
         if tok == TOK_RETURN { return parse_return(state); }
         return parse_expr(state);
     }
 
-    fn parse_block(state: i64) -> i64 {
-        let node = vec_new();
+    fn parse_block(state: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
         vec_push(node, NODE_BLOCK);
         parser_expect(state, TOK_LBRACE);
 
         while parser_peek(state) != TOK_RBRACE && parser_peek(state) != TOK_EOF {
             let stmt = parse_stmt(state);
-            vec_push(node, stmt);
+            vec_push(node, stmt as i64);
         }
 
         parser_expect(state, TOK_RBRACE);
         return node;
     }
 
-    fn parse_fn(state: i64) -> i64 {
-        let node = vec_new();
+    fn parse_fn(state: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
         vec_push(node, NODE_FN);
         parser_advance(state);
         parser_advance(state);
         vec_push(node, 1);
         parser_expect(state, TOK_LPAREN);
-        vec_push(node, vec_new());
+        let params: Vec<i64> = vec_new();
+        vec_push(node, params as i64);
         parser_expect(state, TOK_RPAREN);
 
         let ret_type: i64 = 0;
         if parser_peek(state) == TOK_ARROW {
             parser_advance(state);
-            ret_type = parse_type(state);
+            ret_type = parse_type(state) as i64;
         }
         vec_push(node, ret_type);
 
         let body = parse_block(state);
-        vec_push(node, body);
+        vec_push(node, body as i64);
         return node;
     }
 
-    fn parse_kernel(state: i64) -> i64 {
-        let node = vec_new();
+    fn parse_kernel(state: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
         vec_push(node, NODE_KERNEL);
         parser_expect(state, TOK_KERNEL);
         parser_advance(state);
         vec_push(node, 1);
 
-        let functions = vec_new();
+        let functions: Vec<i64> = vec_new();
         parser_expect(state, TOK_LBRACE);
 
         while parser_peek(state) != TOK_RBRACE && parser_peek(state) != TOK_EOF {
             if parser_peek(state) == TOK_FN {
                 let fn_node = parse_fn(state);
-                vec_push(functions, fn_node);
+                vec_push(functions, fn_node as i64);
             } else {
                 parser_advance(state);
             }
         }
 
         parser_expect(state, TOK_RBRACE);
-        vec_push(node, functions);
+        vec_push(node, functions as i64);
         return node;
     }
 

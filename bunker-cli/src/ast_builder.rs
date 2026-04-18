@@ -1,6 +1,6 @@
-use pest::iterators::Pair;
-use crate::parser::Rule;
 use crate::ast::*;
+use crate::parser::Rule;
+use pest::iterators::Pair;
 
 pub fn build_ast(pair: Pair<Rule>) -> Result<File, String> {
     let mut file = File {
@@ -190,7 +190,10 @@ fn build_type(pair: Pair<Rule>) -> Result<Type, String> {
                     }
                 }
                 if types.len() == 2 {
-                    return Ok(Type::Result(Box::new(types.remove(0)), Box::new(types.remove(0))));
+                    return Ok(Type::Result(
+                        Box::new(types.remove(0)),
+                        Box::new(types.remove(0)),
+                    ));
                 }
             }
             Rule::vec_type => {
@@ -198,6 +201,20 @@ fn build_type(pair: Pair<Rule>) -> Result<Type, String> {
                     if type_inner.as_rule() == Rule::type_expr {
                         return Ok(Type::Vec(Box::new(build_type(type_inner)?)));
                     }
+                }
+            }
+            Rule::hashmap_type => {
+                let mut types = Vec::new();
+                for type_inner in inner.into_inner() {
+                    if type_inner.as_rule() == Rule::type_expr {
+                        types.push(build_type(type_inner)?);
+                    }
+                }
+                if types.len() == 2 {
+                    return Ok(Type::HashMap(
+                        Box::new(types.remove(0)),
+                        Box::new(types.remove(0)),
+                    ));
                 }
             }
             Rule::array_type => {
@@ -787,7 +804,12 @@ fn build_or_expr(pair: Pair<Rule>) -> Result<Expr, String> {
             BinaryOp::BitOr => 3,
             BinaryOp::BitXor => 4,
             BinaryOp::BitAnd => 5,
-            BinaryOp::Eq | BinaryOp::Ne | BinaryOp::Lt | BinaryOp::Le | BinaryOp::Gt | BinaryOp::Ge => 6,
+            BinaryOp::Eq
+            | BinaryOp::Ne
+            | BinaryOp::Lt
+            | BinaryOp::Le
+            | BinaryOp::Gt
+            | BinaryOp::Ge => 6,
             BinaryOp::Shl | BinaryOp::Shr => 7,
             BinaryOp::Add | BinaryOp::Sub => 8,
             BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => 9,
@@ -796,8 +818,12 @@ fn build_or_expr(pair: Pair<Rule>) -> Result<Expr, String> {
     }
 
     fn reduce_once(expr_stack: &mut Vec<Expr>, op: BinaryOp) -> Result<(), String> {
-        let right = expr_stack.pop().ok_or_else(|| "Missing RHS expression".to_string())?;
-        let left = expr_stack.pop().ok_or_else(|| "Missing LHS expression".to_string())?;
+        let right = expr_stack
+            .pop()
+            .ok_or_else(|| "Missing RHS expression".to_string())?;
+        let left = expr_stack
+            .pop()
+            .ok_or_else(|| "Missing LHS expression".to_string())?;
         expr_stack.push(Expr::Binary {
             op,
             left: Box::new(left),
@@ -833,9 +859,7 @@ fn build_or_expr(pair: Pair<Rule>) -> Result<Expr, String> {
     }
 
     let result = match expr_stack.len() {
-        1 => expr_stack
-            .pop()
-            .expect("len checked above"),
+        1 => expr_stack.pop().expect("len checked above"),
         _ => return Err("Invalid expression".to_string()),
     };
 
@@ -848,7 +872,7 @@ fn build_prefix_expr(pair: Pair<Rule>) -> Result<Expr, String> {
     let mut is_copy = false;
 
     let inners: Vec<_> = pair.into_inner().collect();
-    
+
     for inner in &inners {
         match inner.as_rule() {
             Rule::prefix_op => {
@@ -1111,8 +1135,14 @@ fn build_if_expr(pair: Pair<Rule>) -> Result<Expr, String> {
         }
     }
 
-    let then_block = blocks.get(0).cloned().unwrap_or_else(|| Block { statements: vec![] });
-    let else_block = blocks.get(1).cloned().unwrap_or_else(|| Block { statements: vec![] });
+    let then_block = blocks
+        .first()
+        .cloned()
+        .unwrap_or_else(|| Block { statements: vec![] });
+    let else_block = blocks
+        .get(1)
+        .cloned()
+        .unwrap_or_else(|| Block { statements: vec![] });
 
     Ok(Expr::If {
         condition: Box::new(condition),

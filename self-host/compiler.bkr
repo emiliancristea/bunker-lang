@@ -76,8 +76,8 @@ kernel Compiler {
     // LEXER (Chunked to avoid JIT bug)
     // ========================================
 
-    fn tokenize_chunk(source: str, pos: i64) -> i64 {
-        let result = vec_new();
+    fn tokenize_chunk(source: str, pos: i64) -> Vec<i64> {
+        let result: Vec<i64> = vec_new();
         let src_len = len(source);
         let count: i64 = 0;
         let last_tok: i64 = 1;  // TOK_ERROR
@@ -186,7 +186,7 @@ kernel Compiler {
             count = count + 1;
         }
 
-        let final_result = vec_new();
+        let final_result: Vec<i64> = vec_new();
         vec_push(final_result, pos);
         vec_push(final_result, last_tok);
         let i: i64 = 0;
@@ -197,13 +197,13 @@ kernel Compiler {
         return final_result;
     }
 
-    fn tokenize(source: str) -> i64 {
-        let types = vec_new();
+    fn tokenize(source: str) -> Vec<i64> {
+        let types: Vec<i64> = vec_new();
         let pos: i64 = 0;
         let done = false;
 
         while !done {
-            let chunk = tokenize_chunk(source, pos);
+            let chunk: Vec<i64> = tokenize_chunk(source, pos);
             pos = vec_get(chunk, 0);
             let last_tok = vec_get(chunk, 1);
             let i: i64 = 2;
@@ -221,28 +221,29 @@ kernel Compiler {
     // PARSER (Create nodes before if-peek)
     // ========================================
 
-    fn parser_new(tokens: i64) -> i64 {
-        let state = vec_new();
-        vec_push(state, tokens);
+    fn parser_new(tokens: Vec<i64>) -> Vec<i64> {
+        let state: Vec<i64> = vec_new();
+        vec_push(state, tokens as i64);
         vec_push(state, 0);
         vec_push(state, 0);
         return state;
     }
 
-    fn parser_peek(state: i64) -> i64 {
-        let tokens = vec_get(state, 0);
+    fn parser_peek(state: Vec<i64>) -> i64 {
+        let tokens = vec_get(state, 0) as Vec<i64>;
         let pos = vec_get(state, 1);
         if pos >= vec_len(tokens) { return TOK_EOF; }
         return vec_get(tokens, pos);
     }
 
-    fn parser_advance(state: i64) -> i64 {
+    fn parser_advance(state: Vec<i64>) -> i64 {
         let pos = vec_get(state, 1);
         vec_set(state, 1, pos + 1);
-        return vec_get(vec_get(state, 0), pos);
+        let tokens = vec_get(state, 0) as Vec<i64>;
+        return vec_get(tokens, pos);
     }
 
-    fn parser_expect(state: i64, expected: i64) -> bool {
+    fn parser_expect(state: Vec<i64>, expected: i64) -> bool {
         if parser_peek(state) == expected {
             parser_advance(state);
             return true;
@@ -250,17 +251,17 @@ kernel Compiler {
         return false;
     }
 
-    fn parser_error(state: i64) -> i64 {
+    fn parser_error(state: Vec<i64>) -> i64 {
         vec_set(state, 2, 1);
-        return state;
+        return 0;
     }
 
-    fn parser_has_error(state: i64) -> bool {
+    fn parser_has_error(state: Vec<i64>) -> bool {
         return vec_get(state, 2) != 0;
     }
 
-    fn parse_type(state: i64) -> i64 {
-        let node = vec_new();
+    fn parse_type(state: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
         vec_push(node, NODE_TYPE);
         let tok = parser_peek(state);
         let kind: i64 = 0;
@@ -270,8 +271,8 @@ kernel Compiler {
         return node;
     }
 
-    fn parse_primary(state: i64) -> i64 {
-        let node = vec_new();
+    fn parse_primary(state: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
         let tok = parser_peek(state);
 
         if tok == TOK_INT {
@@ -298,7 +299,7 @@ kernel Compiler {
 
         if tok == TOK_LPAREN {
             parser_advance(state);
-            let inner = parse_expr(state);
+            let inner: Vec<i64> = parse_expr(state);
             parser_expect(state, TOK_RPAREN);
             return inner;
         }
@@ -308,20 +309,20 @@ kernel Compiler {
         return node;
     }
 
-    fn parse_mul(state: i64) -> i64 {
-        let left = parse_primary(state);
+    fn parse_mul(state: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_primary(state);
         let continuing = true;
 
         while continuing {
             let tok = parser_peek(state);
             if tok == TOK_STAR || tok == TOK_SLASH {
-                let node = vec_new();
+                let node: Vec<i64> = vec_new();
                 vec_push(node, NODE_BINARY);
                 vec_push(node, tok);
-                vec_push(node, left);
+                vec_push(node, left as i64);
                 parser_advance(state);
-                let right = parse_primary(state);
-                vec_push(node, right);
+                let right: Vec<i64> = parse_primary(state);
+                vec_push(node, right as i64);
                 left = node;
             } else {
                 continuing = false;
@@ -330,20 +331,20 @@ kernel Compiler {
         return left;
     }
 
-    fn parse_add(state: i64) -> i64 {
-        let left = parse_mul(state);
+    fn parse_add(state: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_mul(state);
         let continuing = true;
 
         while continuing {
             let tok = parser_peek(state);
             if tok == TOK_PLUS || tok == TOK_MINUS {
-                let node = vec_new();
+                let node: Vec<i64> = vec_new();
                 vec_push(node, NODE_BINARY);
                 vec_push(node, tok);
-                vec_push(node, left);
+                vec_push(node, left as i64);
                 parser_advance(state);
-                let right = parse_mul(state);
-                vec_push(node, right);
+                let right: Vec<i64> = parse_mul(state);
+                vec_push(node, right as i64);
                 left = node;
             } else {
                 continuing = false;
@@ -352,25 +353,25 @@ kernel Compiler {
         return left;
     }
 
-    fn parse_expr(state: i64) -> i64 {
+    fn parse_expr(state: Vec<i64>) -> Vec<i64> {
         return parse_add(state);
     }
 
-    fn parse_return(state: i64) -> i64 {
-        let node = vec_new();
+    fn parse_return(state: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
         vec_push(node, NODE_RETURN);
         parser_advance(state);
         let expr: i64 = 0;
         if parser_peek(state) != TOK_SEMICOLON {
-            expr = parse_expr(state);
+            expr = parse_expr(state) as i64;
         }
         vec_push(node, expr);
         parser_expect(state, TOK_SEMICOLON);
         return node;
     }
 
-    fn parse_let(state: i64) -> i64 {
-        let node = vec_new();
+    fn parse_let(state: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
         vec_push(node, NODE_LET);
         parser_advance(state);
         let name_pos = vec_get(state, 1);
@@ -380,31 +381,31 @@ kernel Compiler {
         let type_node: i64 = 0;
         if parser_peek(state) == TOK_COLON {
             parser_advance(state);
-            type_node = parse_type(state);
+            type_node = parse_type(state) as i64;
         }
         vec_push(node, type_node);
 
         let init_expr: i64 = 0;
         if parser_peek(state) == TOK_ASSIGN {
             parser_advance(state);
-            init_expr = parse_expr(state);
+            init_expr = parse_expr(state) as i64;
         }
         vec_push(node, init_expr);
         parser_expect(state, TOK_SEMICOLON);
         return node;
     }
 
-    fn parse_stmt(state: i64) -> i64 {
+    fn parse_stmt(state: Vec<i64>) -> Vec<i64> {
         let tok = parser_peek(state);
         if tok == TOK_LET { return parse_let(state); }
         if tok == TOK_RETURN { return parse_return(state); }
         parser_error(state);
-        let node = vec_new();
+        let node: Vec<i64> = vec_new();
         return node;
     }
 
-    fn parse_block(state: i64) -> i64 {
-        let node = vec_new();
+    fn parse_block(state: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
         vec_push(node, NODE_BLOCK);
         parser_expect(state, TOK_LBRACE);
         let continuing = true;
@@ -413,45 +414,46 @@ kernel Compiler {
             if tok == TOK_RBRACE || tok == TOK_EOF {
                 continuing = false;
             } else {
-                let stmt = parse_stmt(state);
-                vec_push(node, stmt);
+                let stmt: Vec<i64> = parse_stmt(state);
+                vec_push(node, stmt as i64);
             }
         }
         parser_expect(state, TOK_RBRACE);
         return node;
     }
 
-    fn parse_fn(state: i64) -> i64 {
-        let node = vec_new();
+    fn parse_fn(state: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
         vec_push(node, NODE_FN);
         parser_advance(state);
         let name_pos = vec_get(state, 1);
         parser_expect(state, TOK_IDENT);
         vec_push(node, name_pos);
         parser_expect(state, TOK_LPAREN);
-        vec_push(node, vec_new());
+        let params: Vec<i64> = vec_new();
+        vec_push(node, params as i64);
         parser_expect(state, TOK_RPAREN);
         let ret_type: i64 = 0;
         if parser_peek(state) == TOK_ARROW {
             parser_advance(state);
-            ret_type = parse_type(state);
+            ret_type = parse_type(state) as i64;
         }
         vec_push(node, ret_type);
-        let body = parse_block(state);
-        vec_push(node, body);
+        let body: Vec<i64> = parse_block(state);
+        vec_push(node, body as i64);
         return node;
     }
 
-    fn parse_kernel(state: i64) -> i64 {
-        let node = vec_new();
+    fn parse_kernel(state: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
         vec_push(node, NODE_KERNEL);
         parser_expect(state, TOK_KERNEL);
         let name_pos = vec_get(state, 1);
         parser_expect(state, TOK_IDENT);
         vec_push(node, name_pos);
         parser_expect(state, TOK_LBRACE);
-        let functions = vec_new();
-        vec_push(node, functions);
+        let functions: Vec<i64> = vec_new();
+        vec_push(node, functions as i64);
 
         let continuing = true;
         while continuing {
@@ -459,8 +461,8 @@ kernel Compiler {
             if tok == TOK_RBRACE || tok == TOK_EOF {
                 continuing = false;
             } else if tok == TOK_FN {
-                let fn_node = parse_fn(state);
-                vec_push(functions, fn_node);
+                let fn_node: Vec<i64> = parse_fn(state);
+                vec_push(functions, fn_node as i64);
             } else {
                 continuing = false;
             }
@@ -473,22 +475,25 @@ kernel Compiler {
     // TYPE CHECKER (Simplified)
     // ========================================
 
-    fn typeck_new() -> i64 {
-        let state = vec_new();
-        vec_push(state, vec_new());  // errors
+    fn typeck_new() -> Vec<i64> {
+        let state: Vec<i64> = vec_new();
+        let errors: Vec<i64> = vec_new();
+        vec_push(state, errors as i64);
         vec_push(state, TYPE_VOID);  // return type
         return state;
     }
 
-    fn typeck_has_errors(state: i64) -> bool {
-        return vec_len(vec_get(state, 0)) > 0;
+    fn typeck_has_errors(state: Vec<i64>) -> bool {
+        let errors = vec_get(state, 0) as Vec<i64>;
+        return vec_len(errors) > 0;
     }
 
-    fn check_kernel(state: i64, kernel: i64) -> i64 {
+    fn check_kernel(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
         // Simplified: just verify structure
-        let funcs = vec_get(kernel, 2);
+        let funcs = vec_get(kernel, 2) as Vec<i64>;
         if vec_len(funcs) < 1 {
-            vec_push(vec_get(state, 0), 1);
+            let errors = vec_get(state, 0) as Vec<i64>;
+            vec_push(errors, 1);
         }
         return state;
     }
@@ -497,34 +502,39 @@ kernel Compiler {
     // CODE GENERATOR
     // ========================================
 
-    fn codegen_new() -> i64 {
-        let state = vec_new();
-        vec_push(state, vec_new());  // bytecode
-        vec_push(state, vec_new());  // locals
+    fn codegen_new() -> Vec<i64> {
+        let state: Vec<i64> = vec_new();
+        let bytecode: Vec<i64> = vec_new();
+        let locals: Vec<i64> = vec_new();
+        vec_push(state, bytecode as i64);
+        vec_push(state, locals as i64);
         vec_push(state, 0);          // local count
         return state;
     }
 
-    fn emit(state: i64, op: i64) -> i64 {
-        vec_push(vec_get(state, 0), op);
+    fn emit(state: Vec<i64>, op: i64) -> Vec<i64> {
+        let bytecode = vec_get(state, 0) as Vec<i64>;
+        vec_push(bytecode, op);
         return state;
     }
 
-    fn emit2(state: i64, op: i64, arg: i64) -> i64 {
-        vec_push(vec_get(state, 0), op);
-        vec_push(vec_get(state, 0), arg);
+    fn emit2(state: Vec<i64>, op: i64, arg: i64) -> Vec<i64> {
+        let bytecode = vec_get(state, 0) as Vec<i64>;
+        vec_push(bytecode, op);
+        vec_push(bytecode, arg);
         return state;
     }
 
-    fn add_local(state: i64, name_idx: i64) -> i64 {
+    fn add_local(state: Vec<i64>, name_idx: i64) -> i64 {
         let slot = vec_get(state, 2);
-        vec_push(vec_get(state, 1), name_idx);
+        let locals = vec_get(state, 1) as Vec<i64>;
+        vec_push(locals, name_idx);
         vec_set(state, 2, slot + 1);
         return slot;
     }
 
-    fn lookup_local(state: i64, name_idx: i64) -> i64 {
-        let locals = vec_get(state, 1);
+    fn lookup_local(state: Vec<i64>, name_idx: i64) -> i64 {
+        let locals = vec_get(state, 1) as Vec<i64>;
         let i: i64 = 0;
         while i < vec_len(locals) {
             if vec_get(locals, i) == name_idx { return i; }
@@ -533,7 +543,7 @@ kernel Compiler {
         return 0;
     }
 
-    fn gen_expr(state: i64, expr: i64) -> i64 {
+    fn gen_expr(state: Vec<i64>, expr: Vec<i64>) -> Vec<i64> {
         let node_type = vec_get(expr, 0);
         if node_type == NODE_INT_LIT {
             emit2(state, OP_PUSH_I64, vec_get(expr, 1));
@@ -544,8 +554,8 @@ kernel Compiler {
             return state;
         }
         if node_type == NODE_BINARY {
-            gen_expr(state, vec_get(expr, 2));
-            gen_expr(state, vec_get(expr, 3));
+            gen_expr(state, vec_get(expr, 2) as Vec<i64>);
+            gen_expr(state, vec_get(expr, 3) as Vec<i64>);
             let op = vec_get(expr, 1);
             if op == TOK_PLUS { emit(state, OP_ADD); }
             if op == TOK_MINUS { emit(state, OP_SUB); }
@@ -556,45 +566,45 @@ kernel Compiler {
         return state;
     }
 
-    fn gen_stmt(state: i64, stmt: i64) -> i64 {
+    fn gen_stmt(state: Vec<i64>, stmt: Vec<i64>) -> Vec<i64> {
         let node_type = vec_get(stmt, 0);
         if node_type == NODE_LET {
             let slot = add_local(state, vec_get(stmt, 1));
             let init = vec_get(stmt, 3);
             if init != 0 {
-                gen_expr(state, init);
+                gen_expr(state, init as Vec<i64>);
                 emit2(state, OP_STORE_LOCAL, slot);
             }
             return state;
         }
         if node_type == NODE_RETURN {
             let expr = vec_get(stmt, 1);
-            if expr != 0 { gen_expr(state, expr); }
+            if expr != 0 { gen_expr(state, expr as Vec<i64>); }
             emit(state, OP_RETURN);
             return state;
         }
         return state;
     }
 
-    fn gen_block(state: i64, block: i64) -> i64 {
+    fn gen_block(state: Vec<i64>, block: Vec<i64>) -> Vec<i64> {
         let i: i64 = 1;
         while i < vec_len(block) {
-            gen_stmt(state, vec_get(block, i));
+            gen_stmt(state, vec_get(block, i) as Vec<i64>);
             i = i + 1;
         }
         return state;
     }
 
-    fn gen_fn(state: i64, fn_node: i64) -> i64 {
-        gen_block(state, vec_get(fn_node, 4));
+    fn gen_fn(state: Vec<i64>, fn_node: Vec<i64>) -> Vec<i64> {
+        gen_block(state, vec_get(fn_node, 4) as Vec<i64>);
         return state;
     }
 
-    fn gen_kernel(state: i64, kernel: i64) -> i64 {
-        let funcs = vec_get(kernel, 2);
+    fn gen_kernel(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
+        let funcs = vec_get(kernel, 2) as Vec<i64>;
         let i: i64 = 0;
         while i < vec_len(funcs) {
-            gen_fn(state, vec_get(funcs, i));
+            gen_fn(state, vec_get(funcs, i) as Vec<i64>);
             i = i + 1;
         }
         return state;
@@ -606,20 +616,20 @@ kernel Compiler {
 
     fn compile(source: str) -> i64 {
         // Phase 1: Lexical Analysis
-        let tokens = tokenize(source);
+        let tokens: Vec<i64> = tokenize(source);
 
         // Phase 2: Parsing
-        let parser = parser_new(tokens);
-        let ast = parse_kernel(parser);
+        let parser: Vec<i64> = parser_new(tokens);
+        let ast: Vec<i64> = parse_kernel(parser);
         if parser_has_error(parser) { return 0; }
 
         // Phase 3: Type Checking
-        let typeck = typeck_new();
+        let typeck: Vec<i64> = typeck_new();
         check_kernel(typeck, ast);
         if typeck_has_errors(typeck) { return 0; }
 
         // Phase 4: Code Generation
-        let codegen = codegen_new();
+        let codegen: Vec<i64> = codegen_new();
         gen_kernel(codegen, ast);
 
         // Return bytecode
@@ -634,11 +644,12 @@ kernel Compiler {
         if bytecode == 0 { return 1; }
 
         // Verify bytecode: PUSH 42, RETURN
-        let bc_len = vec_len(bytecode);
+        let bc = bytecode as Vec<i64>;
+        let bc_len = vec_len(bc);
         if bc_len != 3 { return 10 + bc_len; }
-        if vec_get(bytecode, 0) != OP_PUSH_I64 { return 20; }
-        if vec_get(bytecode, 1) != 42 { return 21; }
-        if vec_get(bytecode, 2) != OP_RETURN { return 22; }
+        if vec_get(bc, 0) != OP_PUSH_I64 { return 20; }
+        if vec_get(bc, 1) != 42 { return 21; }
+        if vec_get(bc, 2) != OP_RETURN { return 22; }
 
         return 42;
     }

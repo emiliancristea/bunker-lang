@@ -1,19 +1,20 @@
+use std::alloc::{alloc_zeroed, dealloc, Layout};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::alloc::{alloc_zeroed, dealloc, Layout};
 
 use anyhow::{anyhow, Result};
 use cranelift::prelude::*;
 use cranelift_jit::{JITBuilder, JITModule};
 use cranelift_module::{FuncId, Linkage, Module};
 
-use crate::ast;
+use crate::{ast, builtins};
 
 // ============================================================================
 // Thread-local Arena Allocator for JIT Runtime
 // ============================================================================
 
 const ARENA_BLOCK_SIZE: usize = 64 * 1024; // 64 KB blocks
+const ARENA_WATERMARK_MAX_DEPTH: usize = 1_000_000;
 
 struct ArenaBlock {
     data: *mut u8,
@@ -98,10 +99,6 @@ impl Arena {
         if let Some(block) = self.blocks.first() {
             self.current = block.data;
             self.remaining = block.layout.size();
-            // Zero out for security
-            unsafe {
-                std::ptr::write_bytes(block.data, 0, block.layout.size());
-            }
         } else {
             self.current = std::ptr::null_mut();
             self.remaining = 0;
@@ -147,7 +144,7 @@ struct ArenaWatermark {
 
 thread_local! {
     static JIT_ARENA: RefCell<Arena> = RefCell::new(Arena::new());
-    static WATERMARK_STACK: RefCell<Vec<ArenaWatermark>> = RefCell::new(Vec::new());
+    static WATERMARK_STACK: RefCell<Vec<ArenaWatermark>> = const { RefCell::new(Vec::new()) };
 }
 
 /// Reset the JIT arena, freeing all allocated memory.
@@ -162,9 +159,18 @@ pub fn reset_jit_arena() {
 
 /// Push a new arena watermark onto the stack (called at block entry).
 extern "C" fn bunker_arena_push() {
-    JIT_ARENA.with(|arena| {
-        let mark = arena.borrow().save_watermark();
-        WATERMARK_STACK.with(|stack| stack.borrow_mut().push(mark));
+    WATERMARK_STACK.with(|stack| {
+        let mut stack = stack.borrow_mut();
+        if stack.len() >= ARENA_WATERMARK_MAX_DEPTH {
+            panic!(
+                "JIT arena watermark stack overflow: exceeded {ARENA_WATERMARK_MAX_DEPTH} nested scopes"
+            );
+        }
+
+        JIT_ARENA.with(|arena| {
+            let mark = arena.borrow().save_watermark();
+            stack.push(mark);
+        });
     });
 }
 
@@ -208,27 +214,7 @@ extern "C" fn bunker_read_file(path_ptr: i64) -> i64 {
         Err(_) => return 0,
     };
 
-    // Allocate and write the result string
-    let content_bytes = contents.as_bytes();
-    let total_size = 8 + content_bytes.len(); // 8 bytes for length + content
-
-    let result_ptr = JIT_ARENA.with(|arena| arena.borrow_mut().alloc(total_size, 8));
-    if result_ptr.is_null() {
-        return 0;
-    }
-
-    unsafe {
-        // Write length
-        *(result_ptr as *mut i64) = content_bytes.len() as i64;
-        // Write content
-        std::ptr::copy_nonoverlapping(
-            content_bytes.as_ptr(),
-            result_ptr.add(8),
-            content_bytes.len(),
-        );
-    }
-
-    result_ptr as i64
+    alloc_bunker_string(&contents)
 }
 
 /// Write content to a file. Returns 1 on success, 0 on failure.
@@ -282,7 +268,11 @@ extern "C" fn bunker_file_exists(path_ptr: i64) -> i64 {
         }
     };
 
-    if std::path::Path::new(&path_str).exists() { 1 } else { 0 }
+    if std::path::Path::new(&path_str).exists() {
+        1
+    } else {
+        0
+    }
 }
 
 /// Helper to read a Bunker string from a pointer
@@ -301,7 +291,11 @@ fn alloc_bunker_string(s: &str) -> i64 {
     let bytes = s.as_bytes();
     let total_size = 8 + bytes.len();
 
-    let result_ptr = JIT_ARENA.with(|arena| arena.borrow_mut().alloc(total_size, 8));
+    let layout = match std::alloc::Layout::from_size_align(total_size.max(8), 8) {
+        Ok(layout) => layout,
+        Err(_) => return 0,
+    };
+    let result_ptr = unsafe { std::alloc::alloc_zeroed(layout) };
     if result_ptr.is_null() {
         return 0;
     }
@@ -317,7 +311,9 @@ fn alloc_bunker_string(s: &str) -> i64 {
 /// Get character at index. Returns single-char string or empty string if out of bounds.
 extern "C" fn bunker_char_at(str_ptr: i64, index: i64) -> i64 {
     let s = unsafe { read_bunker_string(str_ptr) };
-    let Some(s) = s else { return alloc_bunker_string("") };
+    let Some(s) = s else {
+        return alloc_bunker_string("");
+    };
 
     if index < 0 || index as usize >= s.len() {
         return alloc_bunker_string("");
@@ -338,7 +334,9 @@ extern "C" fn bunker_char_at(str_ptr: i64, index: i64) -> i64 {
 /// Extract substring from start to end (exclusive).
 extern "C" fn bunker_substring(str_ptr: i64, start: i64, end: i64) -> i64 {
     let s = unsafe { read_bunker_string(str_ptr) };
-    let Some(s) = s else { return alloc_bunker_string("") };
+    let Some(s) = s else {
+        return alloc_bunker_string("");
+    };
 
     let start = start.max(0) as usize;
     let end = end.max(0) as usize;
@@ -358,7 +356,13 @@ extern "C" fn bunker_contains(str_ptr: i64, substr_ptr: i64) -> i64 {
     let substr = unsafe { read_bunker_string(substr_ptr) };
 
     match (s, substr) {
-        (Some(s), Some(sub)) => if s.contains(&sub) { 1 } else { 0 },
+        (Some(s), Some(sub)) => {
+            if s.contains(&sub) {
+                1
+            } else {
+                0
+            }
+        }
         _ => 0,
     }
 }
@@ -369,7 +373,13 @@ extern "C" fn bunker_starts_with(str_ptr: i64, prefix_ptr: i64) -> i64 {
     let prefix = unsafe { read_bunker_string(prefix_ptr) };
 
     match (s, prefix) {
-        (Some(s), Some(p)) => if s.starts_with(&p) { 1 } else { 0 },
+        (Some(s), Some(p)) => {
+            if s.starts_with(&p) {
+                1
+            } else {
+                0
+            }
+        }
         _ => 0,
     }
 }
@@ -380,7 +390,13 @@ extern "C" fn bunker_ends_with(str_ptr: i64, suffix_ptr: i64) -> i64 {
     let suffix = unsafe { read_bunker_string(suffix_ptr) };
 
     match (s, suffix) {
-        (Some(s), Some(suf)) => if s.ends_with(&suf) { 1 } else { 0 },
+        (Some(s), Some(suf)) => {
+            if s.ends_with(&suf) {
+                1
+            } else {
+                0
+            }
+        }
         _ => 0,
     }
 }
@@ -388,7 +404,9 @@ extern "C" fn bunker_ends_with(str_ptr: i64, suffix_ptr: i64) -> i64 {
 /// Trim whitespace from both ends of string.
 extern "C" fn bunker_trim(str_ptr: i64) -> i64 {
     let s = unsafe { read_bunker_string(str_ptr) };
-    let Some(s) = s else { return alloc_bunker_string("") };
+    let Some(s) = s else {
+        return alloc_bunker_string("");
+    };
     alloc_bunker_string(s.trim())
 }
 
@@ -415,7 +433,7 @@ extern "C" fn bunker_char_code(str_ptr: i64) -> i64 {
 
 /// Create a single-character string from a character code.
 extern "C" fn bunker_from_char_code(code: i64) -> i64 {
-    if code < 0 || code > 255 {
+    if !(0..=255).contains(&code) {
         return alloc_bunker_string("");
     }
     let ch = code as u8 as char;
@@ -427,9 +445,15 @@ extern "C" fn bunker_str_eq(a_ptr: i64, b_ptr: i64) -> i64 {
     let a = unsafe { read_bunker_string(a_ptr) };
     let b = unsafe { read_bunker_string(b_ptr) };
     match (a, b) {
-        (Some(a), Some(b)) => if a == b { 1 } else { 0 },
+        (Some(a), Some(b)) => {
+            if a == b {
+                1
+            } else {
+                0
+            }
+        }
         (None, None) => 1, // Both null
-        _ => 0, // One null, one not
+        _ => 0,            // One null, one not
     }
 }
 
@@ -443,36 +467,35 @@ const VEC_INITIAL_CAPACITY: i64 = 8;
 const VEC_HEADER_SIZE: i64 = 24; // 8 bytes capacity + 8 bytes length + 8 bytes data ptr
 
 /// Create a new empty Vec. Returns pointer to Vec header.
-/// Note: Vec data is allocated with the system allocator (not arena) to survive block scopes.
+/// Vec handles must survive block scopes because parsers/builders store them in other Vecs.
+/// Allocate both header and data with the system allocator instead of the arena.
 extern "C" fn bunker_vec_new() -> i64 {
-    JIT_ARENA.with(|a| {
-        let mut arena = a.borrow_mut();
+    let header_layout = std::alloc::Layout::from_size_align(VEC_HEADER_SIZE as usize, 8).unwrap();
+    let header_ptr = unsafe { std::alloc::alloc_zeroed(header_layout) };
+    if header_ptr.is_null() {
+        return 0;
+    }
 
-        // Allocate header in arena
-        let header_ptr = arena.alloc(VEC_HEADER_SIZE as usize, 8);
-        if header_ptr.is_null() {
-            return 0;
-        }
-
-        // Allocate initial data array using system allocator (not arena)
-        // This ensures data survives arena_pop calls from nested blocks
-        let data_layout = std::alloc::Layout::from_size_align((VEC_INITIAL_CAPACITY * 8) as usize, 8).unwrap();
-        let data_ptr = unsafe { std::alloc::alloc_zeroed(data_layout) };
-        if data_ptr.is_null() {
-            return 0;
-        }
-
+    let data_layout =
+        std::alloc::Layout::from_size_align((VEC_INITIAL_CAPACITY * 8) as usize, 8).unwrap();
+    let data_ptr = unsafe { std::alloc::alloc_zeroed(data_layout) };
+    if data_ptr.is_null() {
         unsafe {
-            // Write capacity
-            *(header_ptr as *mut i64) = VEC_INITIAL_CAPACITY;
-            // Write length (0)
-            *((header_ptr as *mut i64).offset(1)) = 0;
-            // Write data pointer
-            *((header_ptr as *mut i64).offset(2)) = data_ptr as i64;
+            std::alloc::dealloc(header_ptr, header_layout);
         }
+        return 0;
+    }
 
-        header_ptr as i64
-    })
+    unsafe {
+        // Write capacity
+        *(header_ptr as *mut i64) = VEC_INITIAL_CAPACITY;
+        // Write length (0)
+        *((header_ptr as *mut i64).offset(1)) = 0;
+        // Write data pointer
+        *((header_ptr as *mut i64).offset(2)) = data_ptr as i64;
+    }
+
+    header_ptr as i64
 }
 
 /// Push an element to the Vec. Returns the new length.
@@ -494,7 +517,8 @@ extern "C" fn bunker_vec_push(vec_ptr: i64, value: i64) -> i64 {
             let new_capacity = capacity * 2;
 
             // Use system allocator for vec data (not arena)
-            let new_layout = std::alloc::Layout::from_size_align((new_capacity * 8) as usize, 8).unwrap();
+            let new_layout =
+                std::alloc::Layout::from_size_align((new_capacity * 8) as usize, 8).unwrap();
             let new_data = std::alloc::alloc_zeroed(new_layout);
             if new_data.is_null() {
                 return length;
@@ -504,7 +528,8 @@ extern "C" fn bunker_vec_push(vec_ptr: i64, value: i64) -> i64 {
             if !data_ptr.is_null() && length > 0 {
                 std::ptr::copy_nonoverlapping(data_ptr, new_data as *mut i64, length as usize);
                 // Free old data
-                let old_layout = std::alloc::Layout::from_size_align((capacity * 8) as usize, 8).unwrap();
+                let old_layout =
+                    std::alloc::Layout::from_size_align((capacity * 8) as usize, 8).unwrap();
                 std::alloc::dealloc(data_ptr as *mut u8, old_layout);
             }
 
@@ -634,38 +659,34 @@ const RESULT_SIZE: i64 = 16; // 8 bytes tag + 8 bytes value
 
 /// Create an Ok result with the given value.
 extern "C" fn bunker_result_ok(value: i64) -> i64 {
-    JIT_ARENA.with(|a| {
-        let mut arena = a.borrow_mut();
-        let ptr = arena.alloc(RESULT_SIZE as usize, 8);
-        if ptr.is_null() {
-            return 0;
-        }
+    let layout = std::alloc::Layout::from_size_align(RESULT_SIZE as usize, 8).unwrap();
+    let ptr = unsafe { std::alloc::alloc_zeroed(layout) };
+    if ptr.is_null() {
+        return 0;
+    }
 
-        unsafe {
-            *(ptr as *mut i64) = 0; // Ok tag
-            *((ptr as *mut i64).offset(1)) = value;
-        }
+    unsafe {
+        *(ptr as *mut i64) = 0; // Ok tag
+        *((ptr as *mut i64).offset(1)) = value;
+    }
 
-        ptr as i64
-    })
+    ptr as i64
 }
 
 /// Create an Err result with the given error value.
 extern "C" fn bunker_result_err(error: i64) -> i64 {
-    JIT_ARENA.with(|a| {
-        let mut arena = a.borrow_mut();
-        let ptr = arena.alloc(RESULT_SIZE as usize, 8);
-        if ptr.is_null() {
-            return 0;
-        }
+    let layout = std::alloc::Layout::from_size_align(RESULT_SIZE as usize, 8).unwrap();
+    let ptr = unsafe { std::alloc::alloc_zeroed(layout) };
+    if ptr.is_null() {
+        return 0;
+    }
 
-        unsafe {
-            *(ptr as *mut i64) = 1; // Err tag
-            *((ptr as *mut i64).offset(1)) = error;
-        }
+    unsafe {
+        *(ptr as *mut i64) = 1; // Err tag
+        *((ptr as *mut i64).offset(1)) = error;
+    }
 
-        ptr as i64
-    })
+    ptr as i64
 }
 
 /// Check if a result is Ok. Returns 1 if Ok, 0 if Err.
@@ -676,7 +697,11 @@ extern "C" fn bunker_result_is_ok(result_ptr: i64) -> i64 {
 
     unsafe {
         let tag = *(result_ptr as *const i64);
-        if tag == 0 { 1 } else { 0 }
+        if tag == 0 {
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -688,7 +713,11 @@ extern "C" fn bunker_result_is_err(result_ptr: i64) -> i64 {
 
     unsafe {
         let tag = *(result_ptr as *const i64);
-        if tag == 1 { 1 } else { 0 }
+        if tag == 1 {
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -729,9 +758,7 @@ extern "C" fn bunker_result_tag(result_ptr: i64) -> i64 {
         return 1; // Null is treated as Err
     }
 
-    unsafe {
-        *(result_ptr as *const i64)
-    }
+    unsafe { *(result_ptr as *const i64) }
 }
 
 /// Get the value from a result (Ok or Err value).
@@ -740,9 +767,7 @@ extern "C" fn bunker_result_value(result_ptr: i64) -> i64 {
         return 0;
     }
 
-    unsafe {
-        *((result_ptr as *const i64).offset(1))
-    }
+    unsafe { *((result_ptr as *const i64).offset(1)) }
 }
 
 // ============================================================================
@@ -753,7 +778,7 @@ extern "C" fn bunker_result_value(result_ptr: i64) -> i64 {
 // Using open addressing with linear probing
 
 const HASHMAP_HEADER_SIZE: i64 = 24; // capacity + length + entries_ptr
-const HASHMAP_ENTRY_SIZE: i64 = 32;  // key + value + hash + occupied
+const HASHMAP_ENTRY_SIZE: i64 = 32; // key + value + hash + occupied
 const HASHMAP_INITIAL_CAPACITY: i64 = 16;
 
 /// Simple hash function for i64 keys (using FNV-1a-like hash)
@@ -767,55 +792,32 @@ fn hash_i64(key: i64) -> i64 {
     h as i64
 }
 
-/// Hash a Bunker string for use as HashMap key
-fn hash_string(str_ptr: i64) -> i64 {
-    if str_ptr == 0 {
-        return 0;
-    }
-    unsafe {
-        let len = *(str_ptr as *const i64) as usize;
-        let data = (str_ptr as *const u8).offset(8);
-
-        let mut h = 0xcbf29ce484222325u64;
-        for i in 0..len {
-            h ^= *data.offset(i as isize) as u64;
-            h = h.wrapping_mul(0x100000001b3);
-        }
-        h as i64
-    }
-}
-
 /// Create a new empty HashMap.
 extern "C" fn bunker_hashmap_new() -> i64 {
-    JIT_ARENA.with(|a| {
-        let mut arena = a.borrow_mut();
+    let header_layout = std::alloc::Layout::from_size_align(HASHMAP_HEADER_SIZE as usize, 8).unwrap();
+    let header_ptr = unsafe { std::alloc::alloc_zeroed(header_layout) };
+    if header_ptr.is_null() {
+        return 0;
+    }
 
-        // Allocate header
-        let header_ptr = arena.alloc(HASHMAP_HEADER_SIZE as usize, 8);
-        if header_ptr.is_null() {
-            return 0;
-        }
-
-        // Allocate entries array
-        let entries_size = HASHMAP_INITIAL_CAPACITY * HASHMAP_ENTRY_SIZE;
-        let entries_ptr = arena.alloc(entries_size as usize, 8);
-        if entries_ptr.is_null() {
-            return 0;
-        }
-
-        // Zero out entries (all unoccupied)
+    let entries_size = HASHMAP_INITIAL_CAPACITY * HASHMAP_ENTRY_SIZE;
+    let entries_layout =
+        std::alloc::Layout::from_size_align(entries_size as usize, 8).unwrap();
+    let entries_ptr = unsafe { std::alloc::alloc_zeroed(entries_layout) };
+    if entries_ptr.is_null() {
         unsafe {
-            std::ptr::write_bytes(entries_ptr, 0, entries_size as usize);
+            std::alloc::dealloc(header_ptr, header_layout);
         }
+        return 0;
+    }
 
-        unsafe {
-            *(header_ptr as *mut i64) = HASHMAP_INITIAL_CAPACITY; // capacity
-            *((header_ptr as *mut i64).offset(1)) = 0;            // length
-            *((header_ptr as *mut i64).offset(2)) = entries_ptr as i64; // entries_ptr
-        }
+    unsafe {
+        *(header_ptr as *mut i64) = HASHMAP_INITIAL_CAPACITY; // capacity
+        *((header_ptr as *mut i64).offset(1)) = 0; // length
+        *((header_ptr as *mut i64).offset(2)) = entries_ptr as i64; // entries_ptr
+    }
 
-        header_ptr as i64
-    })
+    header_ptr as i64
 }
 
 /// Insert a key-value pair into the HashMap. Returns 1 on success.
@@ -844,15 +846,16 @@ extern "C" fn bunker_hashmap_insert(map_ptr: i64, key: i64, value: i64) -> i64 {
 
         // Linear probing
         loop {
-            let entry_ptr = (entries_ptr as *mut u8).offset(idx * HASHMAP_ENTRY_SIZE as isize) as *mut i64;
+            let entry_ptr =
+                (entries_ptr as *mut u8).offset(idx * HASHMAP_ENTRY_SIZE as isize) as *mut i64;
             let occupied = *entry_ptr.offset(3);
 
             if occupied == 0 {
                 // Empty slot - insert here
-                *entry_ptr = key;           // key
+                *entry_ptr = key; // key
                 *entry_ptr.offset(1) = value; // value
-                *entry_ptr.offset(2) = hash;  // hash
-                *entry_ptr.offset(3) = 1;     // occupied
+                *entry_ptr.offset(2) = hash; // hash
+                *entry_ptr.offset(3) = 1; // occupied
 
                 // Update length
                 *((map_ptr as *mut i64).offset(1)) = length + 1;
@@ -875,64 +878,65 @@ extern "C" fn bunker_hashmap_grow(map_ptr: i64) -> i64 {
         return 0;
     }
 
-    JIT_ARENA.with(|a| {
-        let mut arena = a.borrow_mut();
+    unsafe {
+        let old_capacity = *(map_ptr as *const i64);
+        let old_entries_ptr = *((map_ptr as *const i64).offset(2)) as *mut i8;
+        let old_entries_size = old_capacity * HASHMAP_ENTRY_SIZE;
+        let old_entries_layout =
+            std::alloc::Layout::from_size_align(old_entries_size as usize, 8).unwrap();
 
-        unsafe {
-            let old_capacity = *(map_ptr as *const i64);
-            let old_entries_ptr = *((map_ptr as *const i64).offset(2)) as *const i64;
+        let new_capacity = old_capacity * 2;
+        let new_entries_size = new_capacity * HASHMAP_ENTRY_SIZE;
+        let new_entries_layout =
+            std::alloc::Layout::from_size_align(new_entries_size as usize, 8).unwrap();
+        let new_entries_ptr = unsafe { std::alloc::alloc_zeroed(new_entries_layout) };
+        if new_entries_ptr.is_null() {
+            return 0;
+        }
 
-            let new_capacity = old_capacity * 2;
-            let new_entries_size = new_capacity * HASHMAP_ENTRY_SIZE;
-            let new_entries_ptr = arena.alloc(new_entries_size as usize, 8);
-            if new_entries_ptr.is_null() {
-                return 0;
-            }
+        // Re-insert all entries from old table
+        *(map_ptr as *mut i64) = new_capacity;
+        *((map_ptr as *mut i64).offset(1)) = 0;
+        *((map_ptr as *mut i64).offset(2)) = new_entries_ptr as i64;
 
-            // Zero out new entries
-            std::ptr::write_bytes(new_entries_ptr, 0, new_entries_size as usize);
+        for i in 0..old_capacity {
+            let entry_ptr = (old_entries_ptr as *const u8)
+                .offset(i as isize * HASHMAP_ENTRY_SIZE as isize)
+                as *const i64;
+            let occupied = *entry_ptr.offset(3);
 
-            // Update header with new capacity and entries (reset length, re-insert all)
-            *(map_ptr as *mut i64) = new_capacity;
-            *((map_ptr as *mut i64).offset(1)) = 0;
-            *((map_ptr as *mut i64).offset(2)) = new_entries_ptr as i64;
+            if occupied != 0 {
+                let key = *entry_ptr;
+                let value = *entry_ptr.offset(1);
 
-            // Re-insert all entries from old table
-            for i in 0..old_capacity {
-                let entry_ptr = (old_entries_ptr as *const u8).offset(i as isize * HASHMAP_ENTRY_SIZE as isize) as *const i64;
-                let occupied = *entry_ptr.offset(3);
+                // Insert into new table (call without recursion risk since we doubled capacity)
+                let hash = hash_i64(key);
+                let mut idx = (hash & (new_capacity - 1)) as isize;
 
-                if occupied != 0 {
-                    let key = *entry_ptr;
-                    let value = *entry_ptr.offset(1);
+                loop {
+                    let new_entry_ptr =
+                        new_entries_ptr.offset(idx * HASHMAP_ENTRY_SIZE as isize) as *mut i64;
+                    let new_occupied = *new_entry_ptr.offset(3);
 
-                    // Insert into new table (call without recursion risk since we doubled capacity)
-                    let hash = hash_i64(key);
-                    let mut idx = (hash & (new_capacity - 1)) as isize;
+                    if new_occupied == 0 {
+                        *new_entry_ptr = key;
+                        *new_entry_ptr.offset(1) = value;
+                        *new_entry_ptr.offset(2) = hash;
+                        *new_entry_ptr.offset(3) = 1;
 
-                    loop {
-                        let new_entry_ptr = (new_entries_ptr as *mut u8).offset(idx * HASHMAP_ENTRY_SIZE as isize) as *mut i64;
-                        let new_occupied = *new_entry_ptr.offset(3);
-
-                        if new_occupied == 0 {
-                            *new_entry_ptr = key;
-                            *new_entry_ptr.offset(1) = value;
-                            *new_entry_ptr.offset(2) = hash;
-                            *new_entry_ptr.offset(3) = 1;
-
-                            let len = *((map_ptr as *const i64).offset(1));
-                            *((map_ptr as *mut i64).offset(1)) = len + 1;
-                            break;
-                        }
-
-                        idx = (idx + 1) & (new_capacity as isize - 1);
+                        let len = *((map_ptr as *const i64).offset(1));
+                        *((map_ptr as *mut i64).offset(1)) = len + 1;
+                        break;
                     }
+
+                    idx = (idx + 1) & (new_capacity as isize - 1);
                 }
             }
-
-            1
         }
-    })
+
+        std::alloc::dealloc(old_entries_ptr as *mut u8, old_entries_layout);
+        1
+    }
 }
 
 /// Get a value from the HashMap. Returns 0 if not found (use contains to check).
@@ -950,7 +954,8 @@ extern "C" fn bunker_hashmap_get(map_ptr: i64, key: i64) -> i64 {
         let start_idx = idx;
 
         loop {
-            let entry_ptr = (entries_ptr as *const u8).offset(idx * HASHMAP_ENTRY_SIZE as isize) as *const i64;
+            let entry_ptr =
+                (entries_ptr as *const u8).offset(idx * HASHMAP_ENTRY_SIZE as isize) as *const i64;
             let occupied = *entry_ptr.offset(3);
 
             if occupied == 0 {
@@ -985,7 +990,8 @@ extern "C" fn bunker_hashmap_contains(map_ptr: i64, key: i64) -> i64 {
         let start_idx = idx;
 
         loop {
-            let entry_ptr = (entries_ptr as *const u8).offset(idx * HASHMAP_ENTRY_SIZE as isize) as *const i64;
+            let entry_ptr =
+                (entries_ptr as *const u8).offset(idx * HASHMAP_ENTRY_SIZE as isize) as *const i64;
             let occupied = *entry_ptr.offset(3);
 
             if occupied == 0 {
@@ -1017,7 +1023,8 @@ extern "C" fn bunker_hashmap_remove(map_ptr: i64, key: i64) -> i64 {
         let start_idx = idx;
 
         loop {
-            let entry_ptr = (entries_ptr as *mut u8).offset(idx * HASHMAP_ENTRY_SIZE as isize) as *mut i64;
+            let entry_ptr =
+                (entries_ptr as *mut u8).offset(idx * HASHMAP_ENTRY_SIZE as isize) as *mut i64;
             let occupied = *entry_ptr.offset(3);
 
             if occupied == 0 {
@@ -1047,9 +1054,7 @@ extern "C" fn bunker_hashmap_len(map_ptr: i64) -> i64 {
         return 0;
     }
 
-    unsafe {
-        *((map_ptr as *const i64).offset(1))
-    }
+    unsafe { *((map_ptr as *const i64).offset(1)) }
 }
 
 /// Clear all entries in the HashMap.
@@ -1086,7 +1091,9 @@ extern "C" fn bunker_hashmap_keys(map_ptr: i64) -> i64 {
         let entries_ptr = *((map_ptr as *const i64).offset(2)) as *const i64;
 
         for i in 0..capacity {
-            let entry_ptr = (entries_ptr as *const u8).offset(i as isize * HASHMAP_ENTRY_SIZE as isize) as *const i64;
+            let entry_ptr = (entries_ptr as *const u8)
+                .offset(i as isize * HASHMAP_ENTRY_SIZE as isize)
+                as *const i64;
             let occupied = *entry_ptr.offset(3);
 
             if occupied != 0 {
@@ -1217,6 +1224,7 @@ pub fn run_kernel_main_flex(file: &ast::File) -> Result<MainResult> {
     }
 }
 
+#[allow(dead_code)]
 pub fn run_kernel_main(file: &ast::File) -> Result<i32> {
     // Legacy function for backwards compatibility
     let main_ok = file.kernels.iter().any(|k| {
@@ -1239,7 +1247,7 @@ pub fn run_kernel_main(file: &ast::File) -> Result<i32> {
     jit.run_main_i32()
 }
 
-// Runtime allocation function using the thread-local arena.
+// Runtime allocation function for heap values that can outlive block scopes.
 extern "C" fn bunker_alloc(size: i64, align: i64) -> i64 {
     let Ok(size) = usize::try_from(size) else {
         std::process::abort();
@@ -1252,7 +1260,11 @@ extern "C" fn bunker_alloc(size: i64, align: i64) -> i64 {
         return 0;
     }
 
-    let ptr = JIT_ARENA.with(|arena| arena.borrow_mut().alloc(size, align));
+    let layout = match std::alloc::Layout::from_size_align(size, align) {
+        Ok(layout) => layout,
+        Err(_) => std::process::abort(),
+    };
+    let ptr = unsafe { std::alloc::alloc_zeroed(layout) };
     if ptr.is_null() {
         std::process::abort();
     }
@@ -1268,11 +1280,26 @@ pub struct KernelJit {
     alloc_func: FuncId,
     arena_push_func: FuncId,
     arena_pop_func: FuncId,
-    read_file_func: FuncId,
-    write_file_func: FuncId,
-    file_exists_func: FuncId,
-    str_eq_func: FuncId,
+    _read_file_func: FuncId,
+    _write_file_func: FuncId,
+    _file_exists_func: FuncId,
+    _str_eq_func: FuncId,
     constants: HashMap<String, (ast::Type, ast::Expr)>,
+}
+
+fn register_runtime_builtin(
+    functions: &mut HashMap<String, FuncId>,
+    fn_sigs: &mut HashMap<String, (Vec<ast::Type>, Option<ast::Type>)>,
+    name: &str,
+    func_id: FuncId,
+) -> Result<()> {
+    let Some(signature) = builtins::runtime_signature(name) else {
+        return Err(anyhow!("Missing runtime builtin signature for {}", name));
+    };
+
+    functions.insert(name.to_string(), func_id);
+    fn_sigs.insert(name.to_string(), signature);
+    Ok(())
 }
 
 impl KernelJit {
@@ -1329,14 +1356,20 @@ impl KernelJit {
         builder.symbol("bunker_result_is_ok", bunker_result_is_ok as *const u8);
         builder.symbol("bunker_result_is_err", bunker_result_is_err as *const u8);
         builder.symbol("bunker_result_unwrap", bunker_result_unwrap as *const u8);
-        builder.symbol("bunker_result_unwrap_err", bunker_result_unwrap_err as *const u8);
+        builder.symbol(
+            "bunker_result_unwrap_err",
+            bunker_result_unwrap_err as *const u8,
+        );
         builder.symbol("bunker_result_tag", bunker_result_tag as *const u8);
         builder.symbol("bunker_result_value", bunker_result_value as *const u8);
         // HashMap operations
         builder.symbol("bunker_hashmap_new", bunker_hashmap_new as *const u8);
         builder.symbol("bunker_hashmap_insert", bunker_hashmap_insert as *const u8);
         builder.symbol("bunker_hashmap_get", bunker_hashmap_get as *const u8);
-        builder.symbol("bunker_hashmap_contains", bunker_hashmap_contains as *const u8);
+        builder.symbol(
+            "bunker_hashmap_contains",
+            bunker_hashmap_contains as *const u8,
+        );
         builder.symbol("bunker_hashmap_remove", bunker_hashmap_remove as *const u8);
         builder.symbol("bunker_hashmap_len", bunker_hashmap_len as *const u8);
         builder.symbol("bunker_hashmap_clear", bunker_hashmap_clear as *const u8);
@@ -1391,103 +1424,49 @@ impl KernelJit {
 
         // Initialize with builtin functions
         let mut functions = HashMap::new();
-        // File I/O
-        functions.insert("read_file".to_string(), read_file_func);
-        functions.insert("write_file".to_string(), write_file_func);
-        functions.insert("file_exists".to_string(), file_exists_func);
-        // String operations
-        functions.insert("char_at".to_string(), char_at_func);
-        functions.insert("substring".to_string(), substring_func);
-        functions.insert("contains".to_string(), contains_func);
-        functions.insert("starts_with".to_string(), starts_with_func);
-        functions.insert("ends_with".to_string(), ends_with_func);
-        functions.insert("trim".to_string(), trim_func);
-        functions.insert("parse_int".to_string(), parse_int_func);
-        functions.insert("int_to_string".to_string(), int_to_string_func);
-        functions.insert("char_code".to_string(), char_code_func);
-        functions.insert("from_char_code".to_string(), from_char_code_func);
-        functions.insert("str_eq".to_string(), str_eq_func);
-        // Vec operations
-        functions.insert("vec_new".to_string(), vec_new_func);
-        functions.insert("vec_push".to_string(), vec_push_func);
-        functions.insert("vec_pop".to_string(), vec_pop_func);
-        functions.insert("vec_len".to_string(), vec_len_func);
-        functions.insert("vec_capacity".to_string(), vec_capacity_func);
-        functions.insert("vec_get".to_string(), vec_get_func);
-        functions.insert("vec_set".to_string(), vec_set_func);
-        functions.insert("vec_clear".to_string(), vec_clear_func);
-        // Result operations
-        functions.insert("result_ok".to_string(), result_ok_func);
-        functions.insert("result_err".to_string(), result_err_func);
-        functions.insert("result_is_ok".to_string(), result_is_ok_func);
-        functions.insert("result_is_err".to_string(), result_is_err_func);
-        functions.insert("result_unwrap".to_string(), result_unwrap_func);
-        functions.insert("result_unwrap_err".to_string(), result_unwrap_err_func);
-        functions.insert("result_tag".to_string(), result_tag_func);
-        functions.insert("result_value".to_string(), result_value_func);
-        // HashMap operations
-        functions.insert("hashmap_new".to_string(), hashmap_new_func);
-        functions.insert("hashmap_insert".to_string(), hashmap_insert_func);
-        functions.insert("hashmap_get".to_string(), hashmap_get_func);
-        functions.insert("hashmap_contains".to_string(), hashmap_contains_func);
-        functions.insert("hashmap_remove".to_string(), hashmap_remove_func);
-        functions.insert("hashmap_len".to_string(), hashmap_len_func);
-        functions.insert("hashmap_clear".to_string(), hashmap_clear_func);
-        functions.insert("hashmap_keys".to_string(), hashmap_keys_func);
-
         let mut fn_sigs = HashMap::new();
-        // File I/O signatures
-        fn_sigs.insert("read_file".to_string(), (vec![ast::Type::Str], Some(ast::Type::Str)));
-        fn_sigs.insert("write_file".to_string(), (vec![ast::Type::Str, ast::Type::Str], Some(ast::Type::Bool)));
-        fn_sigs.insert("file_exists".to_string(), (vec![ast::Type::Str], Some(ast::Type::Bool)));
-        // String operation signatures
-        fn_sigs.insert("char_at".to_string(), (vec![ast::Type::Str, ast::Type::I64], Some(ast::Type::Str)));
-        fn_sigs.insert("substring".to_string(), (vec![ast::Type::Str, ast::Type::I64, ast::Type::I64], Some(ast::Type::Str)));
-        fn_sigs.insert("contains".to_string(), (vec![ast::Type::Str, ast::Type::Str], Some(ast::Type::Bool)));
-        fn_sigs.insert("starts_with".to_string(), (vec![ast::Type::Str, ast::Type::Str], Some(ast::Type::Bool)));
-        fn_sigs.insert("ends_with".to_string(), (vec![ast::Type::Str, ast::Type::Str], Some(ast::Type::Bool)));
-        fn_sigs.insert("trim".to_string(), (vec![ast::Type::Str], Some(ast::Type::Str)));
-        fn_sigs.insert("parse_int".to_string(), (vec![ast::Type::Str], Some(ast::Type::I64)));
-        fn_sigs.insert("int_to_string".to_string(), (vec![ast::Type::I64], Some(ast::Type::Str)));
-        fn_sigs.insert("char_code".to_string(), (vec![ast::Type::Str], Some(ast::Type::I64)));
-        fn_sigs.insert("from_char_code".to_string(), (vec![ast::Type::I64], Some(ast::Type::Str)));
-        fn_sigs.insert("str_eq".to_string(), (vec![ast::Type::Str, ast::Type::Str], Some(ast::Type::Bool)));
-        // Vec operation signatures (Vec is represented as I64 pointer at runtime)
-        // vec_new() -> Vec<T> (returns pointer)
-        fn_sigs.insert("vec_new".to_string(), (vec![], Some(ast::Type::I64)));
-        // vec_push(vec, elem) -> I64 (returns new length)
-        fn_sigs.insert("vec_push".to_string(), (vec![ast::Type::I64, ast::Type::I64], Some(ast::Type::I64)));
-        // vec_pop(vec) -> I64 (returns element)
-        fn_sigs.insert("vec_pop".to_string(), (vec![ast::Type::I64], Some(ast::Type::I64)));
-        // vec_len(vec) -> I64
-        fn_sigs.insert("vec_len".to_string(), (vec![ast::Type::I64], Some(ast::Type::I64)));
-        // vec_capacity(vec) -> I64
-        fn_sigs.insert("vec_capacity".to_string(), (vec![ast::Type::I64], Some(ast::Type::I64)));
-        // vec_get(vec, idx) -> I64
-        fn_sigs.insert("vec_get".to_string(), (vec![ast::Type::I64, ast::Type::I64], Some(ast::Type::I64)));
-        // vec_set(vec, idx, val) -> Bool (success)
-        fn_sigs.insert("vec_set".to_string(), (vec![ast::Type::I64, ast::Type::I64, ast::Type::I64], Some(ast::Type::Bool)));
-        // vec_clear(vec) -> ()
-        fn_sigs.insert("vec_clear".to_string(), (vec![ast::Type::I64], None));
-        // Result operation signatures (Result is represented as I64 pointer at runtime)
-        fn_sigs.insert("result_ok".to_string(), (vec![ast::Type::I64], Some(ast::Type::I64)));
-        fn_sigs.insert("result_err".to_string(), (vec![ast::Type::I64], Some(ast::Type::I64)));
-        fn_sigs.insert("result_is_ok".to_string(), (vec![ast::Type::I64], Some(ast::Type::Bool)));
-        fn_sigs.insert("result_is_err".to_string(), (vec![ast::Type::I64], Some(ast::Type::Bool)));
-        fn_sigs.insert("result_unwrap".to_string(), (vec![ast::Type::I64], Some(ast::Type::I64)));
-        fn_sigs.insert("result_unwrap_err".to_string(), (vec![ast::Type::I64], Some(ast::Type::I64)));
-        fn_sigs.insert("result_tag".to_string(), (vec![ast::Type::I64], Some(ast::Type::I64)));
-        fn_sigs.insert("result_value".to_string(), (vec![ast::Type::I64], Some(ast::Type::I64)));
-        // HashMap operation signatures (HashMap is represented as I64 pointer at runtime)
-        fn_sigs.insert("hashmap_new".to_string(), (vec![], Some(ast::Type::I64)));
-        fn_sigs.insert("hashmap_insert".to_string(), (vec![ast::Type::I64, ast::Type::I64, ast::Type::I64], Some(ast::Type::Bool)));
-        fn_sigs.insert("hashmap_get".to_string(), (vec![ast::Type::I64, ast::Type::I64], Some(ast::Type::I64)));
-        fn_sigs.insert("hashmap_contains".to_string(), (vec![ast::Type::I64, ast::Type::I64], Some(ast::Type::Bool)));
-        fn_sigs.insert("hashmap_remove".to_string(), (vec![ast::Type::I64, ast::Type::I64], Some(ast::Type::Bool)));
-        fn_sigs.insert("hashmap_len".to_string(), (vec![ast::Type::I64], Some(ast::Type::I64)));
-        fn_sigs.insert("hashmap_clear".to_string(), (vec![ast::Type::I64], None));
-        fn_sigs.insert("hashmap_keys".to_string(), (vec![ast::Type::I64], Some(ast::Type::I64)));
-
+        for (name, func_id) in [
+            ("read_file", read_file_func),
+            ("write_file", write_file_func),
+            ("file_exists", file_exists_func),
+            ("char_at", char_at_func),
+            ("substring", substring_func),
+            ("contains", contains_func),
+            ("starts_with", starts_with_func),
+            ("ends_with", ends_with_func),
+            ("trim", trim_func),
+            ("parse_int", parse_int_func),
+            ("int_to_string", int_to_string_func),
+            ("char_code", char_code_func),
+            ("from_char_code", from_char_code_func),
+            ("str_eq", str_eq_func),
+            ("vec_new", vec_new_func),
+            ("vec_push", vec_push_func),
+            ("vec_pop", vec_pop_func),
+            ("vec_len", vec_len_func),
+            ("vec_capacity", vec_capacity_func),
+            ("vec_get", vec_get_func),
+            ("vec_set", vec_set_func),
+            ("vec_clear", vec_clear_func),
+            ("result_ok", result_ok_func),
+            ("result_err", result_err_func),
+            ("result_is_ok", result_is_ok_func),
+            ("result_is_err", result_is_err_func),
+            ("result_unwrap", result_unwrap_func),
+            ("result_unwrap_err", result_unwrap_err_func),
+            ("result_tag", result_tag_func),
+            ("result_value", result_value_func),
+            ("hashmap_new", hashmap_new_func),
+            ("hashmap_insert", hashmap_insert_func),
+            ("hashmap_get", hashmap_get_func),
+            ("hashmap_contains", hashmap_contains_func),
+            ("hashmap_remove", hashmap_remove_func),
+            ("hashmap_len", hashmap_len_func),
+            ("hashmap_clear", hashmap_clear_func),
+            ("hashmap_keys", hashmap_keys_func),
+        ] {
+            register_runtime_builtin(&mut functions, &mut fn_sigs, name, func_id)?;
+        }
         Ok(Self {
             module,
             ctx,
@@ -1497,10 +1476,10 @@ impl KernelJit {
             alloc_func,
             arena_push_func,
             arena_pop_func,
-            read_file_func,
-            write_file_func,
-            file_exists_func,
-            str_eq_func,
+            _read_file_func: read_file_func,
+            _write_file_func: write_file_func,
+            _file_exists_func: file_exists_func,
+            _str_eq_func: str_eq_func,
             constants: HashMap::new(),
         })
     }
@@ -1514,7 +1493,8 @@ impl KernelJit {
                     self.structs.insert(s.name.clone(), layout);
                 }
                 ast::KernelItem::Const(c) => {
-                    self.constants.insert(c.name.clone(), (c.ty.clone(), c.value.clone()));
+                    self.constants
+                        .insert(c.name.clone(), (c.ty.clone(), c.value.clone()));
                 }
                 _ => {}
             }
@@ -1523,24 +1503,18 @@ impl KernelJit {
         // Second pass: collect signatures + declare all runtime functions
         // (comptime functions are evaluated at compile time, not compiled to native code)
         for item in &kernel.items {
-            match item {
-                ast::KernelItem::Function(func) => {
-                    let params = func.params.iter().map(|p| p.ty.clone()).collect();
-                    self.fn_sigs
-                        .insert(func.name.clone(), (params, func.return_type.clone()));
-                    self.declare_function(func)?;
-                }
-                _ => {}
+            if let ast::KernelItem::Function(func) = item {
+                let params = func.params.iter().map(|p| p.ty.clone()).collect();
+                self.fn_sigs
+                    .insert(func.name.clone(), (params, func.return_type.clone()));
+                self.declare_function(func)?;
             }
         }
 
         // Third pass: define all runtime functions
         for item in &kernel.items {
-            match item {
-                ast::KernelItem::Function(func) => {
-                    self.compile_function(func)?;
-                }
-                _ => {}
+            if let ast::KernelItem::Function(func) = item {
+                self.compile_function(func)?;
             }
         }
 
@@ -1624,7 +1598,7 @@ impl KernelJit {
                 // Compile constant value - for now, only handle literals
                 if let ast::Expr::Literal(lit) = value {
                     let val = match lit {
-                        ast::Literal::Int(n) => builder.ins().iconst(cr_type, *n as i64),
+                        ast::Literal::Int(n) => builder.ins().iconst(cr_type, *n),
                         ast::Literal::Float(f) => {
                             if cr_type == types::F64 {
                                 builder.ins().f64const(*f)
@@ -1632,7 +1606,9 @@ impl KernelJit {
                                 builder.ins().f32const(*f as f32)
                             }
                         }
-                        ast::Literal::Bool(b) => builder.ins().iconst(types::I32, if *b { 1 } else { 0 }),
+                        ast::Literal::Bool(b) => {
+                            builder.ins().iconst(types::I32, if *b { 1 } else { 0 })
+                        }
                         _ => continue, // Skip non-simple constants
                     };
                     builder.def_var(var, val);
@@ -1643,7 +1619,7 @@ impl KernelJit {
 
             let mut returned = false;
             let mut defer_stack: Vec<Vec<ast::Block>> = Vec::new();
-            compile_block_inline(
+            compile_block_inline_inner(
                 &mut builder,
                 &mut self.module,
                 self.alloc_func,
@@ -1660,6 +1636,7 @@ impl KernelJit {
                 &mut defer_stack,
                 None, // loop_exit - not in a loop
                 None, // loop_continue - not in a loop
+                false,
             )?;
 
             if !returned {
@@ -1714,21 +1691,18 @@ impl KernelJit {
                     Ok(f())
                 }
                 1 => {
-                    let f =
-                        std::mem::transmute::<*const u8, extern "C" fn(i32) -> i32>(code_ptr);
+                    let f = std::mem::transmute::<*const u8, extern "C" fn(i32) -> i32>(code_ptr);
                     Ok(f(args[0]))
                 }
                 2 => {
-                    let f = std::mem::transmute::<*const u8, extern "C" fn(i32, i32) -> i32>(
-                        code_ptr,
-                    );
+                    let f =
+                        std::mem::transmute::<*const u8, extern "C" fn(i32, i32) -> i32>(code_ptr);
                     Ok(f(args[0], args[1]))
                 }
                 3 => {
-                    let f =
-                        std::mem::transmute::<*const u8, extern "C" fn(i32, i32, i32) -> i32>(
-                            code_ptr,
-                        );
+                    let f = std::mem::transmute::<*const u8, extern "C" fn(i32, i32, i32) -> i32>(
+                        code_ptr,
+                    );
                     Ok(f(args[0], args[1], args[2]))
                 }
                 4 => {
@@ -1761,21 +1735,18 @@ impl KernelJit {
                     Ok(f())
                 }
                 1 => {
-                    let f =
-                        std::mem::transmute::<*const u8, extern "C" fn(i64) -> i64>(code_ptr);
+                    let f = std::mem::transmute::<*const u8, extern "C" fn(i64) -> i64>(code_ptr);
                     Ok(f(args[0]))
                 }
                 2 => {
-                    let f = std::mem::transmute::<*const u8, extern "C" fn(i64, i64) -> i64>(
-                        code_ptr,
-                    );
+                    let f =
+                        std::mem::transmute::<*const u8, extern "C" fn(i64, i64) -> i64>(code_ptr);
                     Ok(f(args[0], args[1]))
                 }
                 3 => {
-                    let f =
-                        std::mem::transmute::<*const u8, extern "C" fn(i64, i64, i64) -> i64>(
-                            code_ptr,
-                        );
+                    let f = std::mem::transmute::<*const u8, extern "C" fn(i64, i64, i64) -> i64>(
+                        code_ptr,
+                    );
                     Ok(f(args[0], args[1], args[2]))
                 }
                 4 => {
@@ -1808,21 +1779,18 @@ impl KernelJit {
                     Ok(f())
                 }
                 1 => {
-                    let f =
-                        std::mem::transmute::<*const u8, extern "C" fn(f64) -> f64>(code_ptr);
+                    let f = std::mem::transmute::<*const u8, extern "C" fn(f64) -> f64>(code_ptr);
                     Ok(f(args[0]))
                 }
                 2 => {
-                    let f = std::mem::transmute::<*const u8, extern "C" fn(f64, f64) -> f64>(
-                        code_ptr,
-                    );
+                    let f =
+                        std::mem::transmute::<*const u8, extern "C" fn(f64, f64) -> f64>(code_ptr);
                     Ok(f(args[0], args[1]))
                 }
                 3 => {
-                    let f =
-                        std::mem::transmute::<*const u8, extern "C" fn(f64, f64, f64) -> f64>(
-                            code_ptr,
-                        );
+                    let f = std::mem::transmute::<*const u8, extern "C" fn(f64, f64, f64) -> f64>(
+                        code_ptr,
+                    );
                     Ok(f(args[0], args[1], args[2]))
                 }
                 4 => {
@@ -1856,14 +1824,11 @@ impl KernelJit {
                     Ok(f() != 0)
                 }
                 1 => {
-                    let f =
-                        std::mem::transmute::<*const u8, extern "C" fn(i8) -> i8>(code_ptr);
+                    let f = std::mem::transmute::<*const u8, extern "C" fn(i8) -> i8>(code_ptr);
                     Ok(f(args[0] as i8) != 0)
                 }
                 2 => {
-                    let f = std::mem::transmute::<*const u8, extern "C" fn(i8, i8) -> i8>(
-                        code_ptr,
-                    );
+                    let f = std::mem::transmute::<*const u8, extern "C" fn(i8, i8) -> i8>(code_ptr);
                     Ok(f(args[0] as i8, args[1] as i8) != 0)
                 }
                 _ => Err(anyhow!(
@@ -1895,9 +1860,52 @@ fn compile_block_inline(
     loop_exit: Option<Block>,
     loop_continue: Option<Block>,
 ) -> Result<()> {
+    compile_block_inline_inner(
+        builder,
+        module,
+        alloc_func,
+        arena_push_func,
+        arena_pop_func,
+        functions,
+        structs,
+        fn_sigs,
+        variables,
+        var_types,
+        var_index,
+        block,
+        returned,
+        defer_stack,
+        loop_exit,
+        loop_continue,
+        true,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn compile_block_inline_inner(
+    builder: &mut FunctionBuilder,
+    module: &mut JITModule,
+    alloc_func: FuncId,
+    arena_push_func: FuncId,
+    arena_pop_func: FuncId,
+    functions: &HashMap<String, FuncId>,
+    structs: &HashMap<String, StructLayout>,
+    fn_sigs: &HashMap<String, (Vec<ast::Type>, Option<ast::Type>)>,
+    variables: &mut HashMap<String, Variable>,
+    var_types: &mut HashMap<String, ast::Type>,
+    var_index: &mut u32,
+    block: &ast::Block,
+    returned: &mut bool,
+    defer_stack: &mut Vec<Vec<ast::Block>>,
+    loop_exit: Option<Block>,
+    loop_continue: Option<Block>,
+    track_arena_scope: bool,
+) -> Result<()> {
     // Arena scope: save watermark at block entry
-    let push_ref = module.declare_func_in_func(arena_push_func, builder.func);
-    builder.ins().call(push_ref, &[]);
+    if track_arena_scope {
+        let push_ref = module.declare_func_in_func(arena_push_func, builder.func);
+        builder.ins().call(push_ref, &[]);
+    }
 
     defer_stack.push(Vec::new());
     for stmt in &block.statements {
@@ -1942,8 +1950,10 @@ fn compile_block_inline(
             )?;
         }
         // Arena scope: restore watermark after defers, before leaving block
-        let pop_ref = module.declare_func_in_func(arena_pop_func, builder.func);
-        builder.ins().call(pop_ref, &[]);
+        if track_arena_scope {
+            let pop_ref = module.declare_func_in_func(arena_pop_func, builder.func);
+            builder.ins().call(pop_ref, &[]);
+        }
     }
     defer_stack.pop();
     Ok(())
@@ -2268,15 +2278,42 @@ fn compile_stmt_inline(
         }
         ast::Stmt::For { var, iter, body } => {
             // Check if iterator is a range expression
-            if let ast::Expr::Range { start, end, inclusive } = iter {
+            if let ast::Expr::Range {
+                start,
+                end,
+                inclusive,
+            } = iter
+            {
                 // Range-based for loop: for i in start..end or start..=end
                 let start_val = compile_expr_inline(
-                    builder, module, alloc_func, arena_push_func, arena_pop_func, functions, structs, fn_sigs,
-                    variables, var_types, var_index, defer_stack, start,
+                    builder,
+                    module,
+                    alloc_func,
+                    arena_push_func,
+                    arena_pop_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    defer_stack,
+                    start,
                 )?;
                 let end_val = compile_expr_inline(
-                    builder, module, alloc_func, arena_push_func, arena_pop_func, functions, structs, fn_sigs,
-                    variables, var_types, var_index, defer_stack, end,
+                    builder,
+                    module,
+                    alloc_func,
+                    arena_push_func,
+                    arena_pop_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    defer_stack,
+                    end,
                 )?;
 
                 // Infer the element type from the start expression
@@ -2326,9 +2363,22 @@ fn compile_stmt_inline(
 
                 let mut body_returned = false;
                 compile_block_inline(
-                    builder, module, alloc_func, arena_push_func, arena_pop_func, functions, structs, fn_sigs,
-                    variables, var_types, var_index, body, &mut body_returned, defer_stack,
-                    Some(exit_bb), Some(continue_bb),
+                    builder,
+                    module,
+                    alloc_func,
+                    arena_push_func,
+                    arena_pop_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    body,
+                    &mut body_returned,
+                    defer_stack,
+                    Some(exit_bb),
+                    Some(continue_bb),
                 )?;
 
                 if !body_returned {
@@ -2349,8 +2399,19 @@ fn compile_stmt_inline(
             } else {
                 // Array-based for loop (existing implementation)
                 let arr_ptr = compile_expr_inline(
-                    builder, module, alloc_func, arena_push_func, arena_pop_func, functions, structs, fn_sigs,
-                    variables, var_types, var_index, defer_stack, iter,
+                    builder,
+                    module,
+                    alloc_func,
+                    arena_push_func,
+                    arena_pop_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    defer_stack,
+                    iter,
                 )?;
 
                 let Some(elem_ty) = infer_array_elem_type(iter, var_types, structs, fn_sigs) else {
@@ -2376,7 +2437,9 @@ fn compile_stmt_inline(
                 builder.switch_to_block(loop_bb);
                 let idx_val = builder.use_var(idx_var);
                 let len_val = builder.ins().iconst(types::I64, len as i64);
-                let cond = builder.ins().icmp(IntCC::UnsignedLessThan, idx_val, len_val);
+                let cond = builder
+                    .ins()
+                    .icmp(IntCC::UnsignedLessThan, idx_val, len_val);
                 builder.ins().brif(cond, body_bb, &[], exit_bb, &[]);
 
                 builder.switch_to_block(body_bb);
@@ -2394,16 +2457,30 @@ fn compile_stmt_inline(
                 let elem_size_val = builder.ins().iconst(types::I64, elem_size);
                 let offset = builder.ins().imul(idx_val, elem_size_val);
                 let elem_addr = builder.ins().iadd(arr_ptr, offset);
-                let elem_val = builder
-                    .ins()
-                    .load(convert_ast_type(&elem_ty), MemFlags::new(), elem_addr, 0);
+                let elem_val =
+                    builder
+                        .ins()
+                        .load(convert_ast_type(&elem_ty), MemFlags::new(), elem_addr, 0);
                 builder.def_var(loop_var, elem_val);
 
                 let mut body_returned = false;
                 compile_block_inline(
-                    builder, module, alloc_func, arena_push_func, arena_pop_func, functions, structs, fn_sigs,
-                    variables, var_types, var_index, body, &mut body_returned, defer_stack,
-                    Some(exit_bb), Some(continue_bb),
+                    builder,
+                    module,
+                    alloc_func,
+                    arena_push_func,
+                    arena_pop_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    body,
+                    &mut body_returned,
+                    defer_stack,
+                    Some(exit_bb),
+                    Some(continue_bb),
                 )?;
 
                 if !body_returned {
@@ -2511,8 +2588,8 @@ fn compile_stmt_inline(
                 body,
                 &mut body_returned,
                 defer_stack,
-                Some(exit_bb),      // break jumps to exit
-                Some(loop_header),  // continue jumps to loop header (re-check condition)
+                Some(exit_bb),     // break jumps to exit
+                Some(loop_header), // continue jumps to loop header (re-check condition)
             )?;
 
             if !body_returned {
@@ -2584,7 +2661,11 @@ fn compile_stmt_inline(
                     compile_pattern_cond(builder, match_val, &arm.pattern)?
                 };
                 let is_last = i == arm_blocks.len() - 1;
-                let fallthrough = if is_last { default_bb } else { builder.create_block() };
+                let fallthrough = if is_last {
+                    default_bb
+                } else {
+                    builder.create_block()
+                };
                 builder.ins().brif(cond, *arm_bb, &[], fallthrough, &[]);
                 if !is_last {
                     builder.switch_to_block(fallthrough);
@@ -2627,9 +2708,8 @@ fn compile_stmt_inline(
                                 *var_index += 1;
                                 let inner_ty = convert_ast_type(inner);
                                 builder.declare_var(var, inner_ty);
-                                let loaded = builder
-                                    .ins()
-                                    .load(inner_ty, MemFlags::new(), match_val, 0);
+                                let loaded =
+                                    builder.ins().load(inner_ty, MemFlags::new(), match_val, 0);
                                 builder.def_var(var, loaded);
                                 local_vars.insert(name.clone(), var);
                                 local_types.insert(name.clone(), inner.as_ref().clone());
@@ -2804,7 +2884,9 @@ fn emit_defer_blocks(
         )?;
 
         if local_returned {
-            return Err(anyhow!("return or break/continue inside defer is not supported"));
+            return Err(anyhow!(
+                "return or break/continue inside defer is not supported"
+            ));
         }
 
         *variables = saved_vars;
@@ -2984,6 +3066,7 @@ fn zero_value(builder: &mut FunctionBuilder, ty: types::Type) -> Value {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn compile_expr_inline(
     builder: &mut FunctionBuilder,
     module: &mut JITModule,
@@ -3095,7 +3178,8 @@ fn compile_expr_inline(
                 )?;
 
                 // Call bunker_str_eq runtime function
-                let str_eq_func = functions.get("str_eq")
+                let str_eq_func = functions
+                    .get("str_eq")
                     .ok_or_else(|| anyhow!("str_eq function not found"))?;
                 let func_ref = module.declare_func_in_func(*str_eq_func, builder.func);
                 let call = builder.ins().call(func_ref, &[lhs, rhs]);
@@ -3158,7 +3242,7 @@ fn compile_expr_inline(
                 (lhs, rhs)
             };
 
-            let is_float = common_ty.map_or(false, is_float_type);
+            let is_float = common_ty.is_some_and(is_float_type);
             let result = match op {
                 ast::BinaryOp::Add => {
                     if is_float {
@@ -3240,7 +3324,9 @@ fn compile_expr_inline(
                     let b = if is_float {
                         builder.ins().fcmp(FloatCC::GreaterThanOrEqual, lhs, rhs)
                     } else {
-                        builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, lhs, rhs)
+                        builder
+                            .ins()
+                            .icmp(IntCC::SignedGreaterThanOrEqual, lhs, rhs)
                     };
                     b
                 }
@@ -3280,11 +3366,8 @@ fn compile_expr_inline(
                     }
                 }
                 ast::UnaryOp::Not => {
-                    if builder.func.dfg.value_type(val) == types::I8 {
-                        builder.ins().icmp_imm(IntCC::Equal, val, 0)
-                    } else {
-                        builder.ins().bnot(val)
-                    }
+                    let bool_val = bool_value_to_i8(builder, val)?;
+                    builder.ins().icmp_imm(IntCC::Equal, bool_val, 0)
                 }
             };
             Ok(result)
@@ -3363,7 +3446,10 @@ fn compile_expr_inline(
         ast::Expr::Call { func, args } => {
             if let ast::Expr::Ident(name) = func.as_ref() {
                 // Built-in functions
-                if matches!(name.as_str(), "log" | "print" | "println" | "panic" | "assert") {
+                if matches!(
+                    name.as_str(),
+                    "log" | "print" | "println" | "panic" | "assert"
+                ) {
                     return Ok(builder.ins().iconst(types::I32, 0));
                 }
                 // strlen builtin: returns the length of a string
@@ -3529,12 +3615,9 @@ fn compile_expr_inline(
             let idx_ext = builder.ins().sextend(types::I64, idx);
             let offset = builder.ins().imul(idx_ext, elem_size);
             let elem_addr = builder.ins().iadd(arr_ptr, offset);
-            Ok(builder.ins().load(
-                convert_ast_type(&elem_ty),
-                MemFlags::new(),
-                elem_addr,
-                0,
-            ))
+            Ok(builder
+                .ins()
+                .load(convert_ast_type(&elem_ty), MemFlags::new(), elem_addr, 0))
         }
         ast::Expr::Field { expr: obj, field } => {
             let obj_ptr = compile_expr_inline(
@@ -3554,7 +3637,9 @@ fn compile_expr_inline(
             )?;
             if let Some((offset, ty)) = resolve_field(structs, obj, field, var_types) {
                 let elem_type = convert_ast_type(&ty);
-                return Ok(builder.ins().load(elem_type, MemFlags::new(), obj_ptr, offset as i32));
+                return Ok(builder
+                    .ins()
+                    .load(elem_type, MemFlags::new(), obj_ptr, offset as i32));
             }
             Ok(builder.ins().iconst(types::I32, 0))
         }
@@ -3600,7 +3685,11 @@ fn compile_expr_inline(
                     compile_pattern_cond(builder, match_val, &arm.pattern)?
                 };
                 let is_last = i == arm_blocks.len() - 1;
-                let fallthrough = if is_last { default_bb } else { builder.create_block() };
+                let fallthrough = if is_last {
+                    default_bb
+                } else {
+                    builder.create_block()
+                };
                 builder.ins().brif(cond, *arm_bb, &[], fallthrough, &[]);
                 if !is_last {
                     builder.switch_to_block(fallthrough);
@@ -3642,9 +3731,8 @@ fn compile_expr_inline(
                                 *var_index += 1;
                                 let inner_ty = convert_ast_type(inner);
                                 builder.declare_var(var, inner_ty);
-                                let loaded = builder
-                                    .ins()
-                                    .load(inner_ty, MemFlags::new(), match_val, 0);
+                                let loaded =
+                                    builder.ins().load(inner_ty, MemFlags::new(), match_val, 0);
                                 builder.def_var(var, loaded);
                                 local_vars.insert(name.clone(), var);
                                 local_types.insert(name.clone(), inner.as_ref().clone());
@@ -3844,7 +3932,6 @@ fn compile_expr_inline(
                 defer_stack,
                 expr,
             )?;
-            let target_cr_type = convert_ast_type(target_type);
             let source_ty = infer_expr_type(expr, var_types, structs, fn_sigs);
             let result = emit_type_cast(builder, val, &source_ty, target_type)?;
             Ok(result)
@@ -3870,9 +3957,11 @@ fn compile_expr_inline(
 
             match &inner_ty {
                 // Primitives: already value types, just return
-                ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64 | ast::Type::Bool => {
-                    Ok(val)
-                }
+                ast::Type::I32
+                | ast::Type::I64
+                | ast::Type::F32
+                | ast::Type::F64
+                | ast::Type::Bool => Ok(val),
                 // Structs: allocate new memory and copy bytes
                 ast::Type::Named(name) => {
                     if let Some(layout) = structs.get(name) {
@@ -3893,7 +3982,8 @@ fn compile_expr_inline(
                     let elem_size = type_size(elem_ty, structs) as i64;
                     let total_size = elem_size * (*len as i64);
                     if total_size > 0 {
-                        let new_ptr = emit_alloc(builder, module, alloc_func, total_size, elem_size.max(8))?;
+                        let new_ptr =
+                            emit_alloc(builder, module, alloc_func, total_size, elem_size.max(8))?;
                         let len_val = builder.ins().iconst(types::I64, total_size);
                         let copy_var_idx = 20000 + (*var_index as usize);
                         *var_index += 1;
@@ -4031,7 +4121,9 @@ fn compile_string_literal(
     // Store each byte of the string
     for (i, byte) in s.bytes().enumerate() {
         let byte_val = builder.ins().iconst(types::I8, byte as i64);
-        builder.ins().store(MemFlags::new(), byte_val, ptr, (8 + i) as i32);
+        builder
+            .ins()
+            .store(MemFlags::new(), byte_val, ptr, (8 + i) as i32);
     }
 
     // Return the pointer (which points to the length-prefixed string)
@@ -4073,7 +4165,9 @@ fn emit_string_concat(
     let result_ptr = builder.inst_results(call)[0];
 
     // Store the new length
-    builder.ins().store(MemFlags::new(), total_len, result_ptr, 0);
+    builder
+        .ins()
+        .store(MemFlags::new(), total_len, result_ptr, 0);
 
     // Copy first string bytes using a loop
     // For simplicity, we'll use individual byte copies (can be optimized later)
@@ -4280,6 +4374,17 @@ fn infer_expr_type(
         }
         ast::Expr::Call { func, .. } => {
             if let ast::Expr::Ident(name) = func.as_ref() {
+                let arg_types = if let ast::Expr::Call { args, .. } = expr {
+                    args.iter()
+                        .map(|arg| infer_expr_type(arg, var_types, structs, fn_sigs))
+                        .collect::<Vec<_>>()
+                } else {
+                    Vec::new()
+                };
+                if let Some(ty) = builtins::infer_special_builtin_call_type(name, &arg_types, None)
+                {
+                    return ty;
+                }
                 if let Some((_, ret)) = fn_sigs.get(name) {
                     return ret.clone().unwrap_or(ast::Type::I32);
                 }
@@ -4338,8 +4443,7 @@ fn infer_expr_type(
         }
         ast::Expr::Match { arms, .. } => infer_match_expr_type(arms, var_types, structs, fn_sigs),
         ast::Expr::Block(block) => {
-            infer_block_value_type(block, var_types, structs, fn_sigs)
-                .unwrap_or(ast::Type::I32)
+            infer_block_value_type(block, var_types, structs, fn_sigs).unwrap_or(ast::Type::I32)
         }
         ast::Expr::Some(inner) => {
             let inner_ty = infer_expr_type(inner, var_types, structs, fn_sigs);
@@ -4489,6 +4593,21 @@ fn merge_types(left: &ast::Type, right: &ast::Type) -> ast::Type {
     if let (Option(a), Option(b)) = (left, right) {
         return Option(Box::new(merge_types(a, b)));
     }
+    if let (Vec(a), Vec(b)) = (left, right) {
+        return Vec(Box::new(merge_types(a, b)));
+    }
+    if let (HashMap(key_a, value_a), HashMap(key_b, value_b)) = (left, right) {
+        return HashMap(
+            Box::new(merge_types(key_a, key_b)),
+            Box::new(merge_types(value_a, value_b)),
+        );
+    }
+    if let (Result(ok_a, err_a), Result(ok_b, err_b)) = (left, right) {
+        return Result(
+            Box::new(merge_types(ok_a, ok_b)),
+            Box::new(merge_types(err_a, err_b)),
+        );
+    }
     if let (Array(a, len_a), Array(b, len_b)) = (left, right) {
         if len_a == len_b {
             return Array(Box::new(merge_types(a, b)), *len_a);
@@ -4515,13 +4634,24 @@ fn types_compatible_ast(expected: &ast::Type, actual: &ast::Type) -> bool {
     if expected == actual {
         return true;
     }
-    if matches!(expected, ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64)
-        && matches!(actual, ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64)
-    {
+    if matches!(
+        expected,
+        ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64
+    ) && matches!(
+        actual,
+        ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64
+    ) {
         return true;
     }
     match (expected, actual) {
         (ast::Type::Option(e1), ast::Type::Option(e2)) => types_compatible_ast(e1, e2),
+        (ast::Type::Vec(e1), ast::Type::Vec(e2)) => types_compatible_ast(e1, e2),
+        (ast::Type::HashMap(key1, value1), ast::Type::HashMap(key2, value2)) => {
+            types_compatible_ast(key1, key2) && types_compatible_ast(value1, value2)
+        }
+        (ast::Type::Result(ok1, err1), ast::Type::Result(ok2, err2)) => {
+            types_compatible_ast(ok1, ok2) && types_compatible_ast(err1, err2)
+        }
         (ast::Type::Array(e1, _), ast::Type::Array(e2, _)) => types_compatible_ast(e1, e2),
         _ => false,
     }
@@ -4535,8 +4665,9 @@ fn resolve_field(
 ) -> Option<(u32, ast::Type)> {
     let base_ty = match expr {
         ast::Expr::Ident(name) => var_types.get(name).cloned(),
-        ast::Expr::Field { expr, field } => resolve_field(structs, expr, field, var_types)
-            .map(|(_, ty)| ty),
+        ast::Expr::Field { expr, field } => {
+            resolve_field(structs, expr, field, var_types).map(|(_, ty)| ty)
+        }
         _ => None,
     };
 

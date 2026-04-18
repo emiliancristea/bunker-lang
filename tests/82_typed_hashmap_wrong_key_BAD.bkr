@@ -1,0 +1,11 @@
+// Test 82: Typed HashMap Wrong Key
+// Purpose: HashMap<K, V> should reject incompatible key types.
+// Expected: Type check rejection
+
+kernel TypedHashMapWrongKey {
+    fn main() -> i32 {
+        let map: HashMap<i32, str> = hashmap_new();
+        hashmap_insert(map, "wrong", "value");
+        return 0;
+    }
+}

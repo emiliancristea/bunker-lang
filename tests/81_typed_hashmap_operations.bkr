@@ -1,0 +1,41 @@
+// Test 81: Typed HashMap Operations
+// Purpose: Ensure HashMap<K, V> annotations drive stricter builtin typing.
+// Expected: JIT returns 42
+
+kernel TypedHashMapOps {
+    fn main() -> i32 {
+        let map: HashMap<i32, str> = hashmap_new();
+
+        if !hashmap_insert(map, 1, "one") {
+            return 1;
+        }
+
+        if !hashmap_insert(map, 2, "two") {
+            return 2;
+        }
+
+        let value: str = hashmap_get(map, 1);
+        if len(value) != 3 {
+            return 3;
+        }
+
+        if !hashmap_contains(map, 2) {
+            return 4;
+        }
+
+        let keys: Vec<i32> = hashmap_keys(map);
+        if vec_len(keys) != 2 {
+            return 5;
+        }
+
+        if !hashmap_remove(map, 1) {
+            return 6;
+        }
+
+        if hashmap_contains(map, 1) {
+            return 7;
+        }
+
+        return 42;
+    }
+}

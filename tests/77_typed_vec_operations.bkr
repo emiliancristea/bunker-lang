@@ -1,0 +1,30 @@
+// Test 77: Typed Vec Operations
+// Purpose: Ensure Vec<T> annotations drive stricter builtin typing.
+// Expected: JIT returns 42
+
+kernel TypedVecOps {
+    fn main() -> i32 {
+        let values: Vec<i32> = vec_new();
+
+        vec_push(values, 10);
+        vec_push(values, 20);
+
+        let first: i32 = vec_get(values, 0);
+        if first != 10 {
+            return 1;
+        }
+
+        let popped: i32 = vec_pop(values);
+        if popped != 20 {
+            return 2;
+        }
+
+        vec_push(values, 32);
+        let current: i32 = vec_get(values, 1);
+        if current != 32 {
+            return 3;
+        }
+
+        return 42;
+    }
+}

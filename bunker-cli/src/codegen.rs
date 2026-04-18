@@ -5,8 +5,8 @@ use cranelift::prelude::*;
 use cranelift_module::{FuncId, Linkage, Module};
 use cranelift_object::{ObjectBuilder, ObjectModule};
 
-use crate::ast;
 use crate::shell_codegen::ShellCompiler;
+use crate::{ast, builtins};
 
 // Free function to convert types (avoids borrow issues)
 fn convert_ast_type(ty: &ast::Type) -> types::Type {
@@ -32,9 +32,7 @@ fn type_size(ty: &ast::Type, structs: &HashMap<String, StructLayout>) -> u32 {
         ast::Type::Option(_) => 8,
         // Arrays are represented as pointers in codegen today.
         ast::Type::Array(_, _) => 8,
-        ast::Type::Named(name) => {
-            structs.get(name).map(|s| s.size).unwrap_or(8)
-        }
+        ast::Type::Named(name) => structs.get(name).map(|s| s.size).unwrap_or(8),
         _ => 8, // Default pointer size
     }
 }
@@ -45,23 +43,26 @@ pub struct StructLayout {
     pub fields: Vec<(String, u32, ast::Type)>, // (name, offset, type)
 }
 
-fn compute_struct_layout(def: &ast::StructDef, structs: &HashMap<String, StructLayout>) -> StructLayout {
+fn compute_struct_layout(
+    def: &ast::StructDef,
+    structs: &HashMap<String, StructLayout>,
+) -> StructLayout {
     let mut offset = 0u32;
     let mut fields = Vec::new();
-    
+
     for field in &def.fields {
         let size = type_size(&field.ty, structs);
         // Simple alignment: align to type size (max 8)
         let align = size.min(8);
         offset = (offset + align - 1) & !(align - 1);
-        
+
         fields.push((field.name.clone(), offset, field.ty.clone()));
         offset += size;
     }
-    
+
     // Align total size to 8 bytes
     let size = (offset + 7) & !7;
-    
+
     StructLayout { size, fields }
 }
 
@@ -78,25 +79,25 @@ impl Compiler {
     pub fn new() -> Result<Self> {
         let mut flag_builder = settings::builder();
         flag_builder.set("opt_level", "speed").unwrap();
-        
+
         let isa_builder = cranelift_native::builder()
             .map_err(|e| anyhow!("Failed to create ISA builder: {}", e))?;
-        
+
         let isa = isa_builder
             .finish(settings::Flags::new(flag_builder))
             .map_err(|e| anyhow!("Failed to create ISA: {}", e))?;
-        
+
         let builder = ObjectBuilder::new(
             isa,
             "bunker_module",
             cranelift_module::default_libcall_names(),
         )
         .map_err(|e| anyhow!("Failed to create object builder: {}", e))?;
-        
+
         let mut module = ObjectModule::new(builder);
         let alloc_func = declare_alloc_func(&mut module)?;
         let ctx = module.make_context();
-        
+
         Ok(Self {
             module,
             ctx,
@@ -106,7 +107,7 @@ impl Compiler {
             alloc_func,
         })
     }
-    
+
     pub fn compile_kernel(&mut self, kernel: &ast::Kernel) -> Result<()> {
         // First pass: collect struct definitions
         for item in &kernel.items {
@@ -115,7 +116,7 @@ impl Compiler {
                 self.structs.insert(s.name.clone(), layout);
             }
         }
-        
+
         // Second pass: collect function signatures and declare all functions
         for item in &kernel.items {
             if let ast::KernelItem::Function(func) = item {
@@ -125,66 +126,75 @@ impl Compiler {
                 self.declare_function(func)?;
             }
         }
-        
+
         // Third pass: define all functions
         for item in &kernel.items {
             if let ast::KernelItem::Function(func) = item {
                 self.compile_function(func)?;
             }
         }
-        
+
         Ok(())
     }
-    
+
     fn declare_function(&mut self, func: &ast::Function) -> Result<FuncId> {
         let mut sig = self.module.make_signature();
-        
+
         for param in &func.params {
             sig.params.push(AbiParam::new(convert_ast_type(&param.ty)));
         }
-        
+
         if let Some(ref ret_ty) = func.return_type {
             sig.returns.push(AbiParam::new(convert_ast_type(ret_ty)));
         }
-        
+
         let linkage = if func.name == "main" {
             Linkage::Export
         } else {
             Linkage::Local
         };
-        
-        let func_id = self.module
+
+        let func_id = self
+            .module
             .declare_function(&func.name, linkage, &sig)
             .map_err(|e| anyhow!("Failed to declare function {}: {}", func.name, e))?;
-        
+
         self.functions.insert(func.name.clone(), func_id);
         Ok(func_id)
     }
-    
+
     fn compile_function(&mut self, func: &ast::Function) -> Result<()> {
-        let func_id = *self.functions.get(&func.name)
+        let func_id = *self
+            .functions
+            .get(&func.name)
             .ok_or_else(|| anyhow!("Function {} not declared", func.name))?;
-        
-        self.ctx.func.signature = self.module.declarations()
-            .get_function_decl(func_id).signature.clone();
-        
-        let param_types: Vec<_> = func.params.iter()
+
+        self.ctx.func.signature = self
+            .module
+            .declarations()
+            .get_function_decl(func_id)
+            .signature
+            .clone();
+
+        let param_types: Vec<_> = func
+            .params
+            .iter()
             .map(|p| convert_ast_type(&p.ty))
             .collect();
-        
+
         let mut builder_ctx = FunctionBuilderContext::new();
         {
             let mut builder = FunctionBuilder::new(&mut self.ctx.func, &mut builder_ctx);
-            
+
             let entry_block = builder.create_block();
             builder.append_block_params_for_function_params(entry_block);
             builder.switch_to_block(entry_block);
             // Don't seal here - seal all at once after finalize
-            
+
             let mut variables: HashMap<String, Variable> = HashMap::new();
             let mut var_index = 0u32;
             let mut var_types: HashMap<String, ast::Type> = HashMap::new();
-            
+
             for (i, param) in func.params.iter().enumerate() {
                 let var = Variable::new(var_index as usize);
                 var_index += 1;
@@ -194,7 +204,7 @@ impl Compiler {
                 variables.insert(param.name.clone(), var);
                 var_types.insert(param.name.clone(), param.ty.clone());
             }
-            
+
             // Compile the body inline (no separate struct to avoid borrow issues)
             let mut returned = false;
             let mut defer_stack: Vec<Vec<ast::Block>> = Vec::new();
@@ -214,37 +224,36 @@ impl Compiler {
                 None, // loop_exit - not in a loop
                 None, // loop_continue - not in a loop
             )?;
-            
+
             // Add fallback return if needed (only if no explicit return was emitted)
             if !returned {
                 builder.ins().return_(&[]);
             }
-            
+
             // Seal all blocks at once
             builder.seal_all_blocks();
             builder.finalize();
         }
-        
+
         self.module
             .define_function(func_id, &mut self.ctx)
             .map_err(|e| anyhow!("Failed to define function {}: {:?}", func.name, e))?;
-        
+
         self.module.clear_context(&mut self.ctx);
         Ok(())
     }
 
     pub fn compile_shell(&mut self, shell: &ast::Shell) -> Result<()> {
-        let mut shell_compiler = ShellCompiler::new(
-            &mut self.module,
-            &mut self.ctx,
-            &self.functions,
-        );
+        let mut shell_compiler =
+            ShellCompiler::new(&mut self.module, &mut self.ctx, &self.functions);
         shell_compiler.compile_shell(shell)
     }
-    
+
     pub fn finish(self) -> Result<Vec<u8>> {
         let product = self.module.finish();
-        product.emit().map_err(|e| anyhow!("Failed to emit object: {}", e))
+        product
+            .emit()
+            .map_err(|e| anyhow!("Failed to emit object: {}", e))
     }
 }
 
@@ -290,16 +299,8 @@ fn compile_block_inline(
     if !*returned {
         if let Some(defers) = defer_stack.last() {
             emit_defer_blocks(
-                builder,
-                module,
-                alloc_func,
-                functions,
-                structs,
-                fn_sigs,
-                variables,
-                var_types,
-                var_index,
-                defers,
+                builder, module, alloc_func, functions, structs, fn_sigs, variables, var_types,
+                var_index, defers,
             )?;
         }
     }
@@ -341,7 +342,7 @@ fn compile_stmt_inline(
             )?;
             let var = Variable::new(*var_index as usize);
             *var_index += 1;
-            
+
             let inferred_type = if let Some(t) = ty {
                 t.clone()
             } else {
@@ -356,7 +357,7 @@ fn compile_stmt_inline(
             };
 
             val = cast_value(builder, val, var_type);
-            
+
             builder.declare_var(var, var_type);
             builder.def_var(var, val);
             variables.insert(name.clone(), var);
@@ -540,15 +541,38 @@ fn compile_stmt_inline(
         }
         ast::Stmt::For { var, iter, body } => {
             // Check if iterator is a range expression
-            if let ast::Expr::Range { start, end, inclusive } = iter {
+            if let ast::Expr::Range {
+                start,
+                end,
+                inclusive,
+            } = iter
+            {
                 // Range-based for loop: for i in start..end or start..=end
                 let start_val = compile_expr_inline(
-                    builder, module, alloc_func, functions, structs, fn_sigs,
-                    variables, var_types, var_index, defer_stack, start,
+                    builder,
+                    module,
+                    alloc_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    defer_stack,
+                    start,
                 )?;
                 let end_val = compile_expr_inline(
-                    builder, module, alloc_func, functions, structs, fn_sigs,
-                    variables, var_types, var_index, defer_stack, end,
+                    builder,
+                    module,
+                    alloc_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    defer_stack,
+                    end,
                 )?;
 
                 // Infer the element type from the start expression
@@ -598,9 +622,20 @@ fn compile_stmt_inline(
 
                 let mut body_returned = false;
                 compile_block_inline(
-                    builder, module, alloc_func, functions, structs, fn_sigs,
-                    variables, var_types, var_index, body, &mut body_returned, defer_stack,
-                    Some(exit_bb), Some(continue_bb),
+                    builder,
+                    module,
+                    alloc_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    body,
+                    &mut body_returned,
+                    defer_stack,
+                    Some(exit_bb),
+                    Some(continue_bb),
                 )?;
 
                 if !body_returned {
@@ -621,8 +656,17 @@ fn compile_stmt_inline(
             } else {
                 // Array-based for loop (existing implementation)
                 let arr_ptr = compile_expr_inline(
-                    builder, module, alloc_func, functions, structs, fn_sigs,
-                    variables, var_types, var_index, defer_stack, iter,
+                    builder,
+                    module,
+                    alloc_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    defer_stack,
+                    iter,
                 )?;
 
                 let Some(elem_ty) = infer_array_elem_type(iter, var_types, structs, fn_sigs) else {
@@ -648,7 +692,9 @@ fn compile_stmt_inline(
                 builder.switch_to_block(loop_bb);
                 let idx_val = builder.use_var(idx_var);
                 let len_val = builder.ins().iconst(types::I64, len as i64);
-                let cond = builder.ins().icmp(IntCC::UnsignedLessThan, idx_val, len_val);
+                let cond = builder
+                    .ins()
+                    .icmp(IntCC::UnsignedLessThan, idx_val, len_val);
                 builder.ins().brif(cond, body_bb, &[], exit_bb, &[]);
 
                 builder.switch_to_block(body_bb);
@@ -666,16 +712,28 @@ fn compile_stmt_inline(
                 let elem_size_val = builder.ins().iconst(types::I64, elem_size);
                 let offset = builder.ins().imul(idx_val, elem_size_val);
                 let elem_addr = builder.ins().iadd(arr_ptr, offset);
-                let elem_val = builder
-                    .ins()
-                    .load(convert_ast_type(&elem_ty), MemFlags::new(), elem_addr, 0);
+                let elem_val =
+                    builder
+                        .ins()
+                        .load(convert_ast_type(&elem_ty), MemFlags::new(), elem_addr, 0);
                 builder.def_var(loop_var, elem_val);
 
                 let mut body_returned = false;
                 compile_block_inline(
-                    builder, module, alloc_func, functions, structs, fn_sigs,
-                    variables, var_types, var_index, body, &mut body_returned, defer_stack,
-                    Some(exit_bb), Some(continue_bb),
+                    builder,
+                    module,
+                    alloc_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    body,
+                    &mut body_returned,
+                    defer_stack,
+                    Some(exit_bb),
+                    Some(continue_bb),
                 )?;
 
                 if !body_returned {
@@ -777,8 +835,8 @@ fn compile_stmt_inline(
                 body,
                 &mut body_returned,
                 defer_stack,
-                Some(exit_bb),      // break jumps to exit
-                Some(loop_header),  // continue jumps to loop header (re-check condition)
+                Some(exit_bb),     // break jumps to exit
+                Some(loop_header), // continue jumps to loop header (re-check condition)
             )?;
 
             if !body_returned {
@@ -842,7 +900,11 @@ fn compile_stmt_inline(
                     compile_pattern_cond(builder, match_val, &arm.pattern)?
                 };
                 let is_last = i == arm_blocks.len() - 1;
-                let fallthrough = if is_last { default_bb } else { builder.create_block() };
+                let fallthrough = if is_last {
+                    default_bb
+                } else {
+                    builder.create_block()
+                };
                 builder.ins().brif(cond, *arm_bb, &[], fallthrough, &[]);
                 if !is_last {
                     builder.switch_to_block(fallthrough);
@@ -885,9 +947,8 @@ fn compile_stmt_inline(
                                 *var_index += 1;
                                 let inner_ty = convert_ast_type(inner);
                                 builder.declare_var(var, inner_ty);
-                                let loaded = builder
-                                    .ins()
-                                    .load(inner_ty, MemFlags::new(), match_val, 0);
+                                let loaded =
+                                    builder.ins().load(inner_ty, MemFlags::new(), match_val, 0);
                                 builder.def_var(var, loaded);
                                 local_vars.insert(name.clone(), var);
                                 local_types.insert(name.clone(), inner.as_ref().clone());
@@ -1036,16 +1097,8 @@ fn emit_defer_stack(
 ) -> Result<()> {
     for scope in defer_stack.iter().rev() {
         emit_defer_blocks(
-            builder,
-            module,
-            alloc_func,
-            functions,
-            structs,
-            fn_sigs,
-            variables,
-            var_types,
-            var_index,
-            scope,
+            builder, module, alloc_func, functions, structs, fn_sigs, variables, var_types,
+            var_index, scope,
         )?;
     }
     Ok(())
@@ -1088,7 +1141,9 @@ fn emit_defer_blocks(
         )?;
 
         if local_returned {
-            return Err(anyhow!("return or break/continue inside defer is not supported"));
+            return Err(anyhow!(
+                "return or break/continue inside defer is not supported"
+            ));
         }
 
         *variables = saved_vars;
@@ -1260,6 +1315,7 @@ fn zero_value(builder: &mut FunctionBuilder, ty: types::Type) -> Value {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn compile_expr_inline(
     builder: &mut FunctionBuilder,
     module: &mut ObjectModule,
@@ -1323,7 +1379,7 @@ fn compile_expr_inline(
                 (lhs, rhs)
             };
 
-            let is_float = common_ty.map_or(false, is_float_type);
+            let is_float = common_ty.is_some_and(is_float_type);
             let result = match op {
                 ast::BinaryOp::Add => {
                     if is_float {
@@ -1400,7 +1456,9 @@ fn compile_expr_inline(
                     if is_float {
                         builder.ins().fcmp(FloatCC::GreaterThanOrEqual, lhs, rhs)
                     } else {
-                        builder.ins().icmp(IntCC::SignedGreaterThanOrEqual, lhs, rhs)
+                        builder
+                            .ins()
+                            .icmp(IntCC::SignedGreaterThanOrEqual, lhs, rhs)
                     }
                 }
                 ast::BinaryOp::And => builder.ins().band(lhs, rhs),
@@ -1437,11 +1495,8 @@ fn compile_expr_inline(
                     }
                 }
                 ast::UnaryOp::Not => {
-                    if builder.func.dfg.value_type(val) == types::I8 {
-                        builder.ins().icmp_imm(IntCC::Equal, val, 0)
-                    } else {
-                        builder.ins().bnot(val)
-                    }
+                    let bool_val = bool_value_to_i8(builder, val)?;
+                    builder.ins().icmp_imm(IntCC::Equal, bool_val, 0)
                 }
             };
             Ok(result)
@@ -1449,7 +1504,10 @@ fn compile_expr_inline(
         ast::Expr::Call { func, args } => {
             if let ast::Expr::Ident(name) = func.as_ref() {
                 // Skip built-in functions for now
-                if matches!(name.as_str(), "log" | "print" | "println" | "panic" | "assert") {
+                if matches!(
+                    name.as_str(),
+                    "log" | "print" | "println" | "panic" | "assert"
+                ) {
                     return Ok(builder.ins().iconst(types::I32, 0));
                 }
                 // strlen builtin: returns the length of a string
@@ -1471,7 +1529,9 @@ fn compile_expr_inline(
                         &args[0],
                     )?;
                     // Read the length from offset 0 of the string (i64)
-                    let len = builder.ins().load(types::I64, MemFlags::trusted(), str_ptr, 0);
+                    let len = builder
+                        .ins()
+                        .load(types::I64, MemFlags::trusted(), str_ptr, 0);
                     // Convert to i32 for return
                     return Ok(builder.ins().ireduce(types::I32, len));
                 }
@@ -1501,7 +1561,10 @@ fn compile_expr_inline(
                                 defer_stack,
                                 &args[0],
                             )?;
-                            let len = builder.ins().load(types::I64, MemFlags::trusted(), str_ptr, 0);
+                            let len =
+                                builder
+                                    .ins()
+                                    .load(types::I64, MemFlags::trusted(), str_ptr, 0);
                             return Ok(builder.ins().ireduce(types::I32, len));
                         }
                         _ => {
@@ -1523,7 +1586,7 @@ fn compile_expr_inline(
                     };
 
                     let func_ref = module.declare_func_in_func(func_id, builder.func);
-                    
+
                     let mut arg_vals = vec![];
                     for (i, arg) in args.iter().enumerate() {
                         let Some(param_ty) = param_types.get(i).copied() else {
@@ -1550,10 +1613,10 @@ fn compile_expr_inline(
                         )?;
                         arg_vals.push(cast_value(builder, val, param_ty));
                     }
-                    
+
                     let call = builder.ins().call(func_ref, &arg_vals);
                     let results = builder.inst_results(call);
-                    
+
                     if !has_return || results.is_empty() {
                         Ok(builder.ins().iconst(types::I32, 0))
                     } else {
@@ -1627,7 +1690,9 @@ fn compile_expr_inline(
             )?;
             if let Some((offset, ty)) = resolve_field(structs, obj, field, var_types) {
                 let elem_type = convert_ast_type(&ty);
-                return Ok(builder.ins().load(elem_type, MemFlags::new(), obj_ptr, offset as i32));
+                return Ok(builder
+                    .ins()
+                    .load(elem_type, MemFlags::new(), obj_ptr, offset as i32));
             }
             Ok(builder.ins().iconst(types::I32, 0))
         }
@@ -1671,7 +1736,11 @@ fn compile_expr_inline(
                     compile_pattern_cond(builder, match_val, &arm.pattern)?
                 };
                 let is_last = i == arm_blocks.len() - 1;
-                let fallthrough = if is_last { default_bb } else { builder.create_block() };
+                let fallthrough = if is_last {
+                    default_bb
+                } else {
+                    builder.create_block()
+                };
                 builder.ins().brif(cond, *arm_bb, &[], fallthrough, &[]);
                 if !is_last {
                     builder.switch_to_block(fallthrough);
@@ -1713,9 +1782,8 @@ fn compile_expr_inline(
                                 *var_index += 1;
                                 let inner_ty = convert_ast_type(inner);
                                 builder.declare_var(var, inner_ty);
-                                let loaded = builder
-                                    .ins()
-                                    .load(inner_ty, MemFlags::new(), match_val, 0);
+                                let loaded =
+                                    builder.ins().load(inner_ty, MemFlags::new(), match_val, 0);
                                 builder.def_var(var, loaded);
                                 local_vars.insert(name.clone(), var);
                                 local_types.insert(name.clone(), inner.as_ref().clone());
@@ -1827,19 +1895,19 @@ fn compile_expr_inline(
             });
             if !is_all_zero {
                 for (i, elem) in elements.iter().enumerate() {
-                let val = compile_expr_inline(
-                    builder,
-                    module,
-                    alloc_func,
-                    functions,
-                    structs,
-                    fn_sigs,
-                    variables,
-                    var_types,
-                    var_index,
-                    defer_stack,
-                    elem,
-                )?;
+                    let val = compile_expr_inline(
+                        builder,
+                        module,
+                        alloc_func,
+                        functions,
+                        structs,
+                        fn_sigs,
+                        variables,
+                        var_types,
+                        var_index,
+                        defer_stack,
+                        elem,
+                    )?;
                     let val = cast_value(builder, val, convert_ast_type(&elem_ty));
                     let offset = (i as i32).saturating_mul(elem_size as i32);
                     builder.ins().store(MemFlags::new(), val, ptr, offset);
@@ -1886,6 +1954,23 @@ fn compile_expr_inline(
 
             Ok(ptr)
         }
+        ast::Expr::Cast { expr, target_type } => {
+            let val = compile_expr_inline(
+                builder,
+                module,
+                alloc_func,
+                functions,
+                structs,
+                fn_sigs,
+                variables,
+                var_types,
+                var_index,
+                defer_stack,
+                expr,
+            )?;
+            let source_ty = infer_expr_type(expr, var_types, structs, fn_sigs);
+            emit_type_cast(builder, val, &source_ty, target_type)
+        }
         ast::Expr::Copy(inner) => {
             // Deep copy: for primitives, return value as-is; for composites, allocate and copy
             let inner_ty = infer_expr_type(inner, var_types, structs, fn_sigs);
@@ -1905,9 +1990,11 @@ fn compile_expr_inline(
 
             match &inner_ty {
                 // Primitives: already value types, just return
-                ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64 | ast::Type::Bool => {
-                    Ok(val)
-                }
+                ast::Type::I32
+                | ast::Type::I64
+                | ast::Type::F32
+                | ast::Type::F64
+                | ast::Type::Bool => Ok(val),
                 // Structs: allocate new memory and copy bytes
                 ast::Type::Named(name) => {
                     if let Some(layout) = structs.get(name) {
@@ -1928,7 +2015,8 @@ fn compile_expr_inline(
                     let elem_size = type_size(elem_ty, structs) as i64;
                     let total_size = elem_size * (*len as i64);
                     if total_size > 0 {
-                        let new_ptr = emit_alloc(builder, module, alloc_func, total_size, elem_size.max(8))?;
+                        let new_ptr =
+                            emit_alloc(builder, module, alloc_func, total_size, elem_size.max(8))?;
                         let len_val = builder.ins().iconst(types::I64, total_size);
                         let copy_var_idx = 20000 + (*var_index as usize);
                         *var_index += 1;
@@ -1960,6 +2048,50 @@ fn compile_literal_inline(builder: &mut FunctionBuilder, lit: &ast::Literal) -> 
         ast::Literal::Float(f) => Ok(builder.ins().f64const(*f)),
         ast::Literal::Bool(b) => Ok(builder.ins().iconst(types::I8, if *b { 1 } else { 0 })),
         _ => Ok(builder.ins().iconst(types::I32, 0)),
+    }
+}
+
+fn emit_type_cast(
+    builder: &mut FunctionBuilder,
+    val: Value,
+    source_type: &ast::Type,
+    target_type: &ast::Type,
+) -> Result<Value> {
+    use ast::Type;
+
+    match (source_type, target_type) {
+        (a, b) if a == b => Ok(val),
+        (Type::I32, Type::I64) => Ok(builder.ins().sextend(types::I64, val)),
+        (Type::I64, Type::I32) => Ok(builder.ins().ireduce(types::I32, val)),
+        (Type::I32 | Type::I64, Type::F64) => {
+            let i64_val = if matches!(source_type, Type::I32) {
+                builder.ins().sextend(types::I64, val)
+            } else {
+                val
+            };
+            Ok(builder.ins().fcvt_from_sint(types::F64, i64_val))
+        }
+        (Type::F64, Type::I32) => {
+            let i64_val = builder.ins().fcvt_to_sint(types::I64, val);
+            Ok(builder.ins().ireduce(types::I32, i64_val))
+        }
+        (Type::F64, Type::I64) => Ok(builder.ins().fcvt_to_sint(types::I64, val)),
+        (Type::Bool, Type::I32 | Type::I64) => {
+            if matches!(target_type, Type::I64) {
+                Ok(builder.ins().uextend(types::I64, val))
+            } else {
+                Ok(builder.ins().uextend(types::I32, val))
+            }
+        }
+        (Type::I32 | Type::I64, Type::Bool) => {
+            let zero = if matches!(source_type, Type::I64) {
+                builder.ins().iconst(types::I64, 0)
+            } else {
+                builder.ins().iconst(types::I32, 0)
+            };
+            Ok(builder.ins().icmp(IntCC::NotEqual, val, zero))
+        }
+        _ => Ok(cast_value(builder, val, convert_ast_type(target_type))),
     }
 }
 
@@ -2051,9 +2183,11 @@ fn infer_expr_type(
             let left_ty = infer_expr_type(left, var_types, structs, fn_sigs);
             let right_ty = infer_expr_type(right, var_types, structs, fn_sigs);
             match op {
-                ast::BinaryOp::Add | ast::BinaryOp::Sub | ast::BinaryOp::Mul | ast::BinaryOp::Div | ast::BinaryOp::Mod => {
-                    merge_numeric_types(&left_ty, &right_ty)
-                }
+                ast::BinaryOp::Add
+                | ast::BinaryOp::Sub
+                | ast::BinaryOp::Mul
+                | ast::BinaryOp::Div
+                | ast::BinaryOp::Mod => merge_numeric_types(&left_ty, &right_ty),
                 ast::BinaryOp::Eq
                 | ast::BinaryOp::Ne
                 | ast::BinaryOp::Lt
@@ -2079,6 +2213,17 @@ fn infer_expr_type(
         }
         ast::Expr::Call { func, .. } => {
             if let ast::Expr::Ident(name) = func.as_ref() {
+                let arg_types = if let ast::Expr::Call { args, .. } = expr {
+                    args.iter()
+                        .map(|arg| infer_expr_type(arg, var_types, structs, fn_sigs))
+                        .collect::<Vec<_>>()
+                } else {
+                    Vec::new()
+                };
+                if let Some(ty) = builtins::infer_special_builtin_call_type(name, &arg_types, None)
+                {
+                    return ty;
+                }
                 if let Some((_, ret)) = fn_sigs.get(name) {
                     return ret.clone().unwrap_or(ast::Type::I32);
                 }
@@ -2104,7 +2249,11 @@ fn infer_expr_type(
             ast::Type::Array(Box::new(elem_ty), elements.len())
         }
         ast::Expr::Struct { name, .. } => ast::Type::Named(name.clone()),
-        ast::Expr::If { then_expr, else_expr, .. } => {
+        ast::Expr::If {
+            then_expr,
+            else_expr,
+            ..
+        } => {
             let then_is_none = matches!(then_expr.as_ref(), ast::Expr::None)
                 || matches!(
                     then_expr.as_ref(),
@@ -2133,8 +2282,7 @@ fn infer_expr_type(
         }
         ast::Expr::Match { arms, .. } => infer_match_expr_type(arms, var_types, structs, fn_sigs),
         ast::Expr::Block(block) => {
-            infer_block_value_type(block, var_types, structs, fn_sigs)
-                .unwrap_or(ast::Type::I32)
+            infer_block_value_type(block, var_types, structs, fn_sigs).unwrap_or(ast::Type::I32)
         }
         ast::Expr::Some(inner) => {
             let inner_ty = infer_expr_type(inner, var_types, structs, fn_sigs);
@@ -2283,6 +2431,21 @@ fn merge_types(left: &ast::Type, right: &ast::Type) -> ast::Type {
     if let (Option(a), Option(b)) = (left, right) {
         return Option(Box::new(merge_types(a, b)));
     }
+    if let (Vec(a), Vec(b)) = (left, right) {
+        return Vec(Box::new(merge_types(a, b)));
+    }
+    if let (HashMap(key_a, value_a), HashMap(key_b, value_b)) = (left, right) {
+        return HashMap(
+            Box::new(merge_types(key_a, key_b)),
+            Box::new(merge_types(value_a, value_b)),
+        );
+    }
+    if let (Result(ok_a, err_a), Result(ok_b, err_b)) = (left, right) {
+        return Result(
+            Box::new(merge_types(ok_a, ok_b)),
+            Box::new(merge_types(err_a, err_b)),
+        );
+    }
     if let (Array(a, len_a), Array(b, len_b)) = (left, right) {
         if len_a == len_b {
             return Array(Box::new(merge_types(a, b)), *len_a);
@@ -2309,13 +2472,24 @@ fn types_compatible_ast(expected: &ast::Type, actual: &ast::Type) -> bool {
     if expected == actual {
         return true;
     }
-    if matches!(expected, ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64)
-        && matches!(actual, ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64)
-    {
+    if matches!(
+        expected,
+        ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64
+    ) && matches!(
+        actual,
+        ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64
+    ) {
         return true;
     }
     match (expected, actual) {
         (ast::Type::Option(e1), ast::Type::Option(e2)) => types_compatible_ast(e1, e2),
+        (ast::Type::Vec(e1), ast::Type::Vec(e2)) => types_compatible_ast(e1, e2),
+        (ast::Type::HashMap(key1, value1), ast::Type::HashMap(key2, value2)) => {
+            types_compatible_ast(key1, key2) && types_compatible_ast(value1, value2)
+        }
+        (ast::Type::Result(ok1, err1), ast::Type::Result(ok2, err2)) => {
+            types_compatible_ast(ok1, ok2) && types_compatible_ast(err1, err2)
+        }
         (ast::Type::Array(e1, _), ast::Type::Array(e2, _)) => types_compatible_ast(e1, e2),
         _ => false,
     }
@@ -2329,8 +2503,9 @@ fn resolve_field(
 ) -> Option<(u32, ast::Type)> {
     let base_ty = match expr {
         ast::Expr::Ident(name) => var_types.get(name).cloned(),
-        ast::Expr::Field { expr, field } => resolve_field(structs, expr, field, var_types)
-            .map(|(_, ty)| ty),
+        ast::Expr::Field { expr, field } => {
+            resolve_field(structs, expr, field, var_types).map(|(_, ty)| ty)
+        }
         _ => None,
     };
 

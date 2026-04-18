@@ -12,16 +12,24 @@
 //! bunker-cli check --smt myfile.bkr
 //! ```
 
-use std::collections::{BTreeMap, HashMap, HashSet};
+#![cfg_attr(not(feature = "smt"), allow(dead_code))]
+
+use std::collections::{BTreeMap, HashSet};
 use std::time::Duration;
 
-use anyhow::{anyhow, Result};
+#[cfg(feature = "smt")]
+use std::collections::HashMap;
+
+#[cfg(feature = "smt")]
+use anyhow::anyhow;
+use anyhow::Result;
 
 use crate::ast;
 use crate::verify::VerifyError;
 
 /// Result of SMT verification for a single postcondition.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum SmtResult {
     /// Postcondition is mathematically proven to hold.
     Verified,
@@ -35,6 +43,7 @@ pub enum SmtResult {
 
 /// A counterexample showing variable assignments that violate the postcondition.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct Counterexample {
     /// Variable name -> value mappings
     pub assignments: BTreeMap<String, CounterexampleValue>,
@@ -44,6 +53,7 @@ pub struct Counterexample {
 
 /// Value types in counterexamples.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum CounterexampleValue {
     Int(i64),
     Float(f64),
@@ -62,6 +72,7 @@ impl std::fmt::Display for CounterexampleValue {
 
 /// Configuration for SMT verification.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub struct SmtConfig {
     /// Timeout for Z3 solver (default: 5 seconds)
     pub timeout: Duration,
@@ -93,7 +104,11 @@ pub fn smt_available() -> bool {
 ///
 /// Returns errors for any postconditions that cannot be proven.
 #[cfg(feature = "smt")]
-pub fn verify_file_smt(file: &ast::File, config: &SmtConfig, verbose: bool) -> Result<Vec<VerifyError>> {
+pub fn verify_file_smt(
+    file: &ast::File,
+    config: &SmtConfig,
+    verbose: bool,
+) -> Result<Vec<VerifyError>> {
     let mut errors = Vec::new();
 
     for kernel in &file.kernels {
@@ -104,7 +119,10 @@ pub fn verify_file_smt(file: &ast::File, config: &SmtConfig, verbose: bool) -> R
             };
 
             let has_contracts = func.attributes.iter().any(|attr| {
-                matches!(attr, ast::Attribute::Requires(_) | ast::Attribute::Ensures(_))
+                matches!(
+                    attr,
+                    ast::Attribute::Requires(_) | ast::Attribute::Ensures(_)
+                )
             });
             if !has_contracts {
                 continue;
@@ -123,7 +141,11 @@ pub fn verify_file_smt(file: &ast::File, config: &SmtConfig, verbose: bool) -> R
 }
 
 #[cfg(not(feature = "smt"))]
-pub fn verify_file_smt(_file: &ast::File, _config: &SmtConfig, _verbose: bool) -> Result<Vec<VerifyError>> {
+pub fn verify_file_smt(
+    _file: &ast::File,
+    _config: &SmtConfig,
+    _verbose: bool,
+) -> Result<Vec<VerifyError>> {
     Ok(vec![VerifyError {
         message: "SMT verification not available: compile with --features smt".to_string(),
         location: "compiler".to_string(),
@@ -138,7 +160,7 @@ fn verify_function_smt(
     config: &SmtConfig,
     verbose: bool,
 ) -> Result<Vec<VerifyError>> {
-    use z3::{Config as Z3Config, Context, Solver, SatResult};
+    use z3::{Config as Z3Config, Context, SatResult, Solver};
 
     let location = format!("{}.{}", kernel.name, func.name);
 
@@ -212,12 +234,17 @@ fn verify_function_smt(
             match encoder.encode_expr(req, false) {
                 Ok(cond) => solver.assert(&cond.as_bool().unwrap_or_else(|| {
                     // If not bool, treat as comparison with 0
-                    cond.as_int().map(|i| i._eq(&ctx.from_i64(0).into()))
+                    cond.as_int()
+                        .map(|i| i._eq(&ctx.from_i64(0).into()))
                         .unwrap_or_else(|| ctx.from_bool(true).into())
                 })),
                 Err(e) => {
                     if verbose {
-                        println!("  Precondition ({}): SKIPPED ({})", format_expr_brief(req), e);
+                        println!(
+                            "  Precondition ({}): SKIPPED ({})",
+                            format_expr_brief(req),
+                            e
+                        );
                     }
                 }
             }
@@ -234,10 +261,16 @@ fn verify_function_smt(
                             i._eq(&ctx.from_i64(0).into())
                         } else {
                             if verbose {
-                                println!("  Postcondition ({}): SKIPPED (not a boolean expression)", ens_desc);
+                                println!(
+                                    "  Postcondition ({}): SKIPPED (not a boolean expression)",
+                                    ens_desc
+                                );
                             }
                             errors.push(VerifyError {
-                                message: format!("Postcondition must be a boolean expression: {}", ens_desc),
+                                message: format!(
+                                    "Postcondition must be a boolean expression: {}",
+                                    ens_desc
+                                ),
                                 location: location.clone(),
                             });
                             continue;
@@ -266,13 +299,19 @@ fn verify_function_smt(
                         }
 
                         errors.push(VerifyError {
-                            message: format!("Contract violated: postcondition fails with {}", cex.summary),
+                            message: format!(
+                                "Contract violated: postcondition fails with {}",
+                                cex.summary
+                            ),
                             location: location.clone(),
                         });
                     }
                     SatResult::Unknown => {
                         if verbose {
-                            println!("  Postcondition ({}): UNKNOWN (Z3 timeout/resource limit)", ens_desc);
+                            println!(
+                                "  Postcondition ({}): UNKNOWN (Z3 timeout/resource limit)",
+                                ens_desc
+                            );
                         }
                         errors.push(VerifyError {
                             message: format!("Verification inconclusive: Z3 could not determine satisfiability for postcondition"),
@@ -366,7 +405,11 @@ impl<'ctx> SmtEncoder<'ctx> {
             }
             ast::Stmt::Return(_) => Ok(()),
             ast::Stmt::Expr(_) => Ok(()),
-            ast::Stmt::If { condition: _, then_block, else_block } => {
+            ast::Stmt::If {
+                condition: _,
+                then_block,
+                else_block,
+            } => {
                 // Simple path: just execute then block (conservative)
                 // TODO: proper path merging with ite
                 self.execute_block(then_block)?;
@@ -386,19 +429,23 @@ impl<'ctx> SmtEncoder<'ctx> {
     fn encode_expr(&self, expr: &ast::Expr, use_initial: bool) -> Result<z3::ast::Dynamic<'ctx>> {
         use z3::ast::{Ast, Bool, Int, Real};
 
-        let vars = if use_initial { &self.initial_vars } else { &self.current_vars };
+        let vars = if use_initial {
+            &self.initial_vars
+        } else {
+            &self.current_vars
+        };
 
         match expr {
             ast::Expr::Literal(lit) => self.encode_literal(lit),
 
-            ast::Expr::Ident(name) => {
-                vars.get(name)
-                    .cloned()
-                    .ok_or_else(|| anyhow!("unknown variable: {}", name))
-            }
+            ast::Expr::Ident(name) => vars
+                .get(name)
+                .cloned()
+                .ok_or_else(|| anyhow!("unknown variable: {}", name)),
 
             ast::Expr::Field { .. } => {
-                let place = place_key(expr).ok_or_else(|| anyhow!("unsupported field expression"))?;
+                let place =
+                    place_key(expr).ok_or_else(|| anyhow!("unsupported field expression"))?;
                 vars.get(&place)
                     .cloned()
                     .ok_or_else(|| anyhow!("unknown field: {}", place))
@@ -445,9 +492,15 @@ impl<'ctx> SmtEncoder<'ctx> {
                 Err(anyhow!("unsupported function call in contracts"))
             }
 
-            ast::Expr::If { condition, then_expr, else_expr } => {
+            ast::Expr::If {
+                condition,
+                then_expr,
+                else_expr,
+            } => {
                 let cond = self.encode_expr(condition, use_initial)?;
-                let cond_bool = cond.as_bool().ok_or_else(|| anyhow!("condition must be boolean"))?;
+                let cond_bool = cond
+                    .as_bool()
+                    .ok_or_else(|| anyhow!("condition must be boolean"))?;
                 let then_val = self.encode_expr(then_expr, use_initial)?;
                 let else_val = self.encode_expr(else_expr, use_initial)?;
 
@@ -480,7 +533,12 @@ impl<'ctx> SmtEncoder<'ctx> {
         }
     }
 
-    fn encode_binary(&self, op: ast::BinaryOp, left: z3::ast::Dynamic<'ctx>, right: z3::ast::Dynamic<'ctx>) -> Result<z3::ast::Dynamic<'ctx>> {
+    fn encode_binary(
+        &self,
+        op: ast::BinaryOp,
+        left: z3::ast::Dynamic<'ctx>,
+        right: z3::ast::Dynamic<'ctx>,
+    ) -> Result<z3::ast::Dynamic<'ctx>> {
         use z3::ast::{Ast, Bool, Int, Real};
 
         match op {
@@ -635,7 +693,10 @@ impl<'ctx> SmtEncoder<'ctx> {
             .collect::<Vec<_>>()
             .join(", ");
 
-        Counterexample { assignments, summary }
+        Counterexample {
+            assignments,
+            summary,
+        }
     }
 }
 
@@ -646,7 +707,9 @@ impl<'ctx> SmtEncoder<'ctx> {
 fn place_key(expr: &ast::Expr) -> Option<String> {
     match expr {
         ast::Expr::Ident(name) => Some(name.clone()),
-        ast::Expr::Field { expr, field } => place_key(expr.as_ref()).map(|base| format!("{}.{}", base, field)),
+        ast::Expr::Field { expr, field } => {
+            place_key(expr.as_ref()).map(|base| format!("{}.{}", base, field))
+        }
         _ => None,
     }
 }
@@ -671,7 +734,11 @@ fn collect_places_in_stmt(stmt: &ast::Stmt, out: &mut HashSet<String>) {
             collect_places_in_expr(value, out);
         }
         ast::Stmt::Return(Some(expr)) | ast::Stmt::Expr(expr) => collect_places_in_expr(expr, out),
-        ast::Stmt::If { condition, then_block, else_block } => {
+        ast::Stmt::If {
+            condition,
+            then_block,
+            else_block,
+        } => {
             collect_places_in_expr(condition, out);
             collect_places_in_block(then_block, out);
             if let Some(else_block) = else_block {
@@ -705,7 +772,11 @@ fn collect_places_in_expr(expr: &ast::Expr, out: &mut HashSet<String>) {
                 collect_places_in_expr(arg, out);
             }
         }
-        ast::Expr::If { condition, then_expr, else_expr } => {
+        ast::Expr::If {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
             collect_places_in_expr(condition, out);
             collect_places_in_expr(then_expr, out);
             collect_places_in_expr(else_expr, out);
@@ -732,7 +803,12 @@ fn format_expr_brief(expr: &ast::Expr) -> String {
                 ast::BinaryOp::Or => "||",
                 _ => "?",
             };
-            format!("{} {} {}", format_expr_brief(left), op_str, format_expr_brief(right))
+            format!(
+                "{} {} {}",
+                format_expr_brief(left),
+                op_str,
+                format_expr_brief(right)
+            )
         }
         ast::Expr::Ident(name) => name.clone(),
         ast::Expr::Field { expr, field } => format!("{}.{}", format_expr_brief(expr), field),
