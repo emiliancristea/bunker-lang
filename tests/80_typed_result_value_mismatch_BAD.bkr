@@ -1,0 +1,10 @@
+// Test 80: Typed Result Value Mismatch
+// Purpose: result_ok should respect the annotated Ok type.
+// Expected: Type check rejection
+
+kernel TypedResultMismatch {
+    fn main() -> i32 {
+        let wrong: Result<i32, str> = result_ok("oops");
+        return 0;
+    }
+}

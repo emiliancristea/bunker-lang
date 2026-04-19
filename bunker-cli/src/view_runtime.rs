@@ -158,7 +158,8 @@ fn render_component(
     let indent = "  ".repeat(depth);
     match component.name.as_str() {
         "Window" => {
-            let title = get_prop_string(component, "title", vm).unwrap_or_else(|| "Untitled".to_string());
+            let title =
+                get_prop_string(component, "title", vm).unwrap_or_else(|| "Untitled".to_string());
             let width = get_prop_int(component, "width", vm).unwrap_or(0);
             let height = get_prop_int(component, "height", vm).unwrap_or(0);
             println!("{indent}Window \"{title}\" ({width}x{height})");
@@ -189,15 +190,20 @@ fn render_component(
             }
         }
         "Label" => {
-            let text = get_prop_string(component, "text", vm).unwrap_or_else(|| "".to_string());
+            let text = get_prop_string(component, "text", vm).unwrap_or_default();
             println!("{indent}Label: {text}");
         }
         "Button" => {
-            let label = get_prop_string(component, "text", vm).unwrap_or_else(|| "Button".to_string());
+            let label =
+                get_prop_string(component, "text", vm).unwrap_or_else(|| "Button".to_string());
             let on_click = get_prop_expr(component, "on_click").cloned();
             let id = buttons.len();
             println!("{indent}Button[{id}]: {label}");
-            buttons.push(Button { id, label, on_click });
+            buttons.push(Button {
+                id,
+                label,
+                on_click,
+            });
         }
         other => {
             println!("{indent}{other}");
@@ -242,7 +248,9 @@ fn exec_view_action(expr: &ast::Expr, vm: &mut ShellVm) -> Result<()> {
         } => {
             let msg_val = eval_view_expr(message, vm)?;
             let Value::Str(message) = msg_val else {
-                return Err(anyhow!("View send message must be a string, got {msg_val:?}"));
+                return Err(anyhow!(
+                    "View send message must be a string, got {msg_val:?}"
+                ));
             };
 
             let agent = resolve_target_agent(target, vm.shell_name())?;
@@ -443,13 +451,22 @@ fn eval_binary(op: ast::BinaryOp, left: Value, right: Value) -> Result<Value> {
 }
 
 #[cfg(windows)]
+#[allow(
+    dead_code,
+    non_camel_case_types,
+    non_snake_case,
+    clippy::needless_lifetimes,
+    clippy::upper_case_acronyms
+)]
 mod win32_graphics {
     use std::ffi::c_void;
 
     use anyhow::{anyhow, Result};
 
-    use super::{ast, exec_view_action, eval_view_expr, get_prop_expr, get_prop_int, get_prop_string};
     use super::ShellVm;
+    use super::{
+        ast, eval_view_expr, exec_view_action, get_prop_expr, get_prop_int, get_prop_string,
+    };
 
     // ==========================================================================
     // Layout System
@@ -477,7 +494,9 @@ mod win32_graphics {
             "Button" => BUTTON_HEIGHT,
             "Row" => {
                 // Row height is the max height of its children
-                component.children.iter()
+                component
+                    .children
+                    .iter()
                     .map(estimate_height)
                     .max()
                     .unwrap_or(BUTTON_HEIGHT)
@@ -504,23 +523,29 @@ mod win32_graphics {
         available: LayoutRect,
         vm: &ShellVm,
     ) -> Vec<LayoutRect> {
-        let spacing = get_prop_int(component, "spacing", vm).unwrap_or(DEFAULT_SPACING as i64) as i32;
-        let padding = get_prop_int(component, "padding", vm).unwrap_or(DEFAULT_PADDING as i64) as i32;
+        let spacing =
+            get_prop_int(component, "spacing", vm).unwrap_or(DEFAULT_SPACING as i64) as i32;
+        let padding =
+            get_prop_int(component, "padding", vm).unwrap_or(DEFAULT_PADDING as i64) as i32;
 
         let mut y = available.y + padding;
         let child_width = available.width - 2 * padding;
 
-        component.children.iter().map(|child| {
-            let height = estimate_height(child);
-            let rect = LayoutRect {
-                x: available.x + padding,
-                y,
-                width: child_width,
-                height,
-            };
-            y += height + spacing;
-            rect
-        }).collect()
+        component
+            .children
+            .iter()
+            .map(|child| {
+                let height = estimate_height(child);
+                let rect = LayoutRect {
+                    x: available.x + padding,
+                    y,
+                    width: child_width,
+                    height,
+                };
+                y += height + spacing;
+                rect
+            })
+            .collect()
     }
 
     /// Layout children horizontally (Row layout).
@@ -529,7 +554,8 @@ mod win32_graphics {
         available: LayoutRect,
         vm: &ShellVm,
     ) -> Vec<LayoutRect> {
-        let spacing = get_prop_int(component, "spacing", vm).unwrap_or(DEFAULT_SPACING as i64) as i32;
+        let spacing =
+            get_prop_int(component, "spacing", vm).unwrap_or(DEFAULT_SPACING as i64) as i32;
         let padding = get_prop_int(component, "padding", vm).unwrap_or(0) as i32;
 
         let child_count = component.children.len() as i32;
@@ -542,16 +568,20 @@ mod win32_graphics {
         let child_height = available.height - 2 * padding;
 
         let mut x = available.x + padding;
-        component.children.iter().map(|_| {
-            let rect = LayoutRect {
-                x,
-                y: available.y + padding,
-                width: child_width,
-                height: child_height,
-            };
-            x += child_width + spacing;
-            rect
-        }).collect()
+        component
+            .children
+            .iter()
+            .map(|_| {
+                let rect = LayoutRect {
+                    x,
+                    y: available.y + padding,
+                    width: child_width,
+                    height: child_height,
+                };
+                x += child_width + spacing;
+                rect
+            })
+            .collect()
     }
 
     /// Layout children in a grid.
@@ -561,8 +591,10 @@ mod win32_graphics {
         vm: &ShellVm,
     ) -> Vec<LayoutRect> {
         let columns = get_prop_int(component, "columns", vm).unwrap_or(2) as i32;
-        let spacing = get_prop_int(component, "spacing", vm).unwrap_or(DEFAULT_SPACING as i64) as i32;
-        let padding = get_prop_int(component, "padding", vm).unwrap_or(DEFAULT_PADDING as i64) as i32;
+        let spacing =
+            get_prop_int(component, "spacing", vm).unwrap_or(DEFAULT_SPACING as i64) as i32;
+        let padding =
+            get_prop_int(component, "padding", vm).unwrap_or(DEFAULT_PADDING as i64) as i32;
 
         let child_count = component.children.len() as i32;
         if child_count == 0 || columns <= 0 {
@@ -573,16 +605,21 @@ mod win32_graphics {
         let cell_width = (available.width - 2 * padding - spacing * (columns - 1)) / columns;
         let cell_height = (available.height - 2 * padding - spacing * (rows - 1)) / rows;
 
-        component.children.iter().enumerate().map(|(i, _)| {
-            let col = i as i32 % columns;
-            let row = i as i32 / columns;
-            LayoutRect {
-                x: available.x + padding + col * (cell_width + spacing),
-                y: available.y + padding + row * (cell_height + spacing),
-                width: cell_width,
-                height: cell_height,
-            }
-        }).collect()
+        component
+            .children
+            .iter()
+            .enumerate()
+            .map(|(i, _)| {
+                let col = i as i32 % columns;
+                let row = i as i32 / columns;
+                LayoutRect {
+                    x: available.x + padding + col * (cell_width + spacing),
+                    y: available.y + padding + row * (cell_height + spacing),
+                    width: cell_width,
+                    height: cell_height,
+                }
+            })
+            .collect()
     }
 
     type BOOL = i32;
@@ -673,8 +710,12 @@ mod win32_graphics {
         fn DefWindowProcW(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT;
         fn ShowWindow(hwnd: HWND, nCmdShow: i32) -> BOOL;
         fn UpdateWindow(hwnd: HWND) -> BOOL;
-        fn GetMessageW(lpMsg: *mut MSG, hWnd: HWND, wMsgFilterMin: UINT, wMsgFilterMax: UINT)
-            -> BOOL;
+        fn GetMessageW(
+            lpMsg: *mut MSG,
+            hWnd: HWND,
+            wMsgFilterMin: UINT,
+            wMsgFilterMax: UINT,
+        ) -> BOOL;
         fn TranslateMessage(lpMsg: *const MSG) -> BOOL;
         fn DispatchMessageW(lpMsg: *const MSG) -> LRESULT;
         fn PostQuitMessage(nExitCode: i32);
@@ -927,7 +968,10 @@ mod win32_graphics {
             if hwnd == 0 {
                 return Err(anyhow!("Failed to create STATIC control"));
             }
-            app.labels.push(LabelWidget { hwnd, text_expr: expr });
+            app.labels.push(LabelWidget {
+                hwnd,
+                text_expr: expr,
+            });
         }
         Ok(())
     }
@@ -939,8 +983,8 @@ mod win32_graphics {
         hinstance: HINSTANCE,
         next_id: &mut u16,
     ) -> Result<()> {
-        let label = get_prop_string(component, "text", &app.vm)
-            .unwrap_or_else(|| "Button".to_string());
+        let label =
+            get_prop_string(component, "text", &app.vm).unwrap_or_else(|| "Button".to_string());
         let on_click = get_prop_expr(component, "on_click").cloned();
 
         unsafe {
@@ -1015,7 +1059,12 @@ mod win32_graphics {
         }
     }
 
-    unsafe extern "system" fn wndproc(hwnd: HWND, msg: UINT, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    unsafe extern "system" fn wndproc(
+        hwnd: HWND,
+        msg: UINT,
+        wparam: WPARAM,
+        lparam: LPARAM,
+    ) -> LRESULT {
         match msg {
             WM_COMMAND => {
                 let code = ((wparam >> 16) & 0xFFFF) as u16;
@@ -1027,7 +1076,12 @@ mod win32_graphics {
                         if let Err(e) = app.handle_button_click(id) {
                             let text = to_wide(&format!("{e}"));
                             let caption = to_wide("Bunker View Error");
-                            let _ = MessageBoxW(hwnd, text.as_ptr(), caption.as_ptr(), MB_OK | MB_ICONERROR);
+                            let _ = MessageBoxW(
+                                hwnd,
+                                text.as_ptr(),
+                                caption.as_ptr(),
+                                MB_OK | MB_ICONERROR,
+                            );
                         }
                     }
                 }

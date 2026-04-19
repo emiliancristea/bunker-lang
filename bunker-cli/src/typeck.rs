@@ -1,12 +1,20 @@
-use std::collections::{HashMap, HashSet};
+use crate::ast::{self, BinaryOp, Expr, Literal, Stmt, Type, UnaryOp};
+use crate::builtins::{self, BuiltinArgRule};
 use anyhow::Result;
-use crate::ast::{self, Type, Expr, Stmt, BinaryOp, UnaryOp, Literal};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Debug, Clone)]
 pub struct TypeError {
     pub message: String,
     pub location: String,
 }
+
+type AgentMessageParams = HashMap<String, Vec<(String, ast::Type)>>;
+type ShellAgentMessages = HashMap<String, AgentMessageParams>;
+type AgentStateFields = HashMap<String, ast::Type>;
+type ShellAgentState = HashMap<String, AgentStateFields>;
+type ViewAgentMessages = HashMap<String, ShellAgentMessages>;
+type ViewAgentState = HashMap<String, ShellAgentState>;
 
 pub struct TypeChecker {
     // Type environment: variable name -> type
@@ -37,11 +45,16 @@ impl TypeChecker {
             moved_locations: HashMap::new(),
         };
         // Register built-in functions
-        tc.functions.insert("log".to_string(), (vec![Type::Str], None));
-        tc.functions.insert("print".to_string(), (vec![Type::Str], None));
-        tc.functions.insert("println".to_string(), (vec![Type::Str], None));
-        tc.functions.insert("panic".to_string(), (vec![Type::Str], None));
-        tc.functions.insert("assert".to_string(), (vec![Type::Bool], None));
+        tc.functions
+            .insert("log".to_string(), (vec![Type::Str], None));
+        tc.functions
+            .insert("print".to_string(), (vec![Type::Str], None));
+        tc.functions
+            .insert("println".to_string(), (vec![Type::Str], None));
+        tc.functions
+            .insert("panic".to_string(), (vec![Type::Str], None));
+        tc.functions
+            .insert("assert".to_string(), (vec![Type::Bool], None));
         tc
     }
 
@@ -50,16 +63,17 @@ impl TypeChecker {
         for item in &kernel.items {
             match item {
                 ast::KernelItem::Struct(s) => {
-                    let fields: Vec<(String, Type)> = s.fields.iter()
+                    let fields: Vec<(String, Type)> = s
+                        .fields
+                        .iter()
                         .map(|f| (f.name.clone(), f.ty.clone()))
                         .collect();
                     self.structs.insert(s.name.clone(), fields);
                 }
                 ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f) => {
-                    let param_types: Vec<Type> = f.params.iter()
-                        .map(|p| p.ty.clone())
-                        .collect();
-                    self.functions.insert(f.name.clone(), (param_types, f.return_type.clone()));
+                    let param_types: Vec<Type> = f.params.iter().map(|p| p.ty.clone()).collect();
+                    self.functions
+                        .insert(f.name.clone(), (param_types, f.return_type.clone()));
                 }
                 ast::KernelItem::Const(c) => {
                     self.variables.insert(c.name.clone(), c.ty.clone());
@@ -124,11 +138,12 @@ impl TypeChecker {
                         ),
                         location: context.to_string(),
                     });
-                    self.variables.insert(name.clone(), Type::Option(Box::new(Type::I32)));
+                    self.variables
+                        .insert(name.clone(), Type::Option(Box::new(Type::I32)));
                     return Ok(None);
                 }
 
-                let inferred = self.infer_expr(value, context)?;
+                let inferred = self.infer_expr_with_hint(value, context, ty.as_ref())?;
 
                 // Move semantics: if value is a non-copy identifier (not wrapped in `copy`),
                 // mark the source variable as moved
@@ -161,7 +176,7 @@ impl TypeChecker {
             Stmt::Assign { target, value } => {
                 let target_ty = self.infer_expr(target, context)?;
                 let value_ty = self.infer_expr(value, context)?;
-                
+
                 if !self.types_compatible(&target_ty, &value_ty) {
                     self.errors.push(TypeError {
                         message: format!(
@@ -174,13 +189,14 @@ impl TypeChecker {
                 Ok(None)
             }
             Stmt::Return(expr) => {
+                let expected_return = self.current_return_type.clone();
                 let ret_ty = if let Some(e) = expr {
-                    Some(self.infer_expr(e, context)?)
+                    Some(self.infer_expr_with_hint(e, context, expected_return.as_ref())?)
                 } else {
                     None
                 };
 
-                if let Some(expected) = &self.current_return_type {
+                if let Some(expected) = &expected_return {
                     match &ret_ty {
                         Some(actual) if !self.types_compatible(expected, actual) => {
                             self.errors.push(TypeError {
@@ -193,10 +209,7 @@ impl TypeChecker {
                         }
                         None => {
                             self.errors.push(TypeError {
-                                message: format!(
-                                    "Missing return value: expected {:?}",
-                                    expected
-                                ),
+                                message: format!("Missing return value: expected {:?}", expected),
                                 location: context.to_string(),
                             });
                         }
@@ -210,7 +223,11 @@ impl TypeChecker {
                 }
                 Ok(ret_ty)
             }
-            Stmt::If { condition, then_block, else_block } => {
+            Stmt::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
                 let cond_ty = self.infer_expr(condition, context)?;
                 if cond_ty != Type::Bool {
                     self.errors.push(TypeError {
@@ -228,9 +245,7 @@ impl TypeChecker {
                 // Determine element type based on iterator expression
                 let elem_ty = match iter {
                     // Range expressions: the element type is the range bound type
-                    Expr::Range { start, .. } => {
-                        self.infer_expr(start, context)?
-                    }
+                    Expr::Range { start, .. } => self.infer_expr(start, context)?,
                     // For arrays, the element type is the array element type
                     other => {
                         let iter_ty = self.infer_expr(other, context)?;
@@ -238,7 +253,10 @@ impl TypeChecker {
                             Type::Array(elem, _) => (**elem).clone(),
                             _ => {
                                 self.errors.push(TypeError {
-                                    message: format!("for-loop requires an array or range, got {:?}", iter_ty),
+                                    message: format!(
+                                        "for-loop requires an array or range, got {:?}",
+                                        iter_ty
+                                    ),
                                     location: context.to_string(),
                                 });
                                 Type::I32 // fallback
@@ -272,19 +290,27 @@ impl TypeChecker {
     }
 
     fn infer_expr(&mut self, expr: &Expr, context: &str) -> Result<Type> {
+        self.infer_expr_with_hint(expr, context, None)
+    }
+
+    fn infer_expr_with_hint(
+        &mut self,
+        expr: &Expr,
+        context: &str,
+        expected: Option<&Type>,
+    ) -> Result<Type> {
         match expr {
             Expr::Literal(lit) => Ok(self.literal_type(lit)),
             Expr::Ident(name) => {
                 // Check for use-after-move
                 if self.moved_vars.contains(name) {
-                    let moved_at = self.moved_locations.get(name)
+                    let moved_at = self
+                        .moved_locations
+                        .get(name)
                         .cloned()
                         .unwrap_or_else(|| "unknown".to_string());
                     self.errors.push(TypeError {
-                        message: format!(
-                            "Use of moved value '{}' (moved at {})",
-                            name, moved_at
-                        ),
+                        message: format!("Use of moved value '{}' (moved at {})", name, moved_at),
                         location: context.to_string(),
                     });
                     // Still return the type for continued analysis
@@ -315,581 +341,8 @@ impl TypeChecker {
             }
             Expr::Call { func, args } => {
                 if let Expr::Ident(name) = func.as_ref() {
-                    // strlen builtin: string length
-                    if name == "strlen" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("strlen expects 1 argument, got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if !args.is_empty() {
-                            let arg_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(arg_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("strlen expects str, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::I32);
-                    }
-                    // len builtin: works on arrays and strings
-                    if name == "len" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("len expects 1 argument, got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if !args.is_empty() {
-                            let arg_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(arg_ty, Type::Str | Type::Array(_, _)) {
-                                self.errors.push(TypeError {
-                                    message: format!("len expects array or str, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::I32);
-                    }
-                    // read_file builtin: reads file content as string
-                    if name == "read_file" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("read_file expects 1 argument, got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if !args.is_empty() {
-                            let arg_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(arg_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("read_file expects str path, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::Str);
-                    }
-                    // write_file builtin: writes content to file
-                    if name == "write_file" {
-                        if args.len() != 2 {
-                            self.errors.push(TypeError {
-                                message: format!("write_file expects 2 arguments, got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if args.len() >= 1 {
-                            let path_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(path_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("write_file path must be str, got {:?}", path_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        if args.len() >= 2 {
-                            let content_ty = self.infer_expr(&args[1], context)?;
-                            if !matches!(content_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("write_file content must be str, got {:?}", content_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::Bool);
-                    }
-                    // file_exists builtin: checks if file exists
-                    if name == "file_exists" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("file_exists expects 1 argument, got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if !args.is_empty() {
-                            let arg_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(arg_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("file_exists expects str path, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::Bool);
-                    }
-
-                    // String operation builtins
-                    if name == "char_at" {
-                        if args.len() != 2 {
-                            self.errors.push(TypeError {
-                                message: format!("char_at expects 2 arguments (string, index), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if args.len() >= 1 {
-                            let arg_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(arg_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("char_at expects str, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        if args.len() >= 2 {
-                            let arg_ty = self.infer_expr(&args[1], context)?;
-                            if !matches!(arg_ty, Type::I64 | Type::I32) {
-                                self.errors.push(TypeError {
-                                    message: format!("char_at expects i64 index, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::Str);
-                    }
-
-                    if name == "substring" {
-                        if args.len() != 3 {
-                            self.errors.push(TypeError {
-                                message: format!("substring expects 3 arguments (string, start, end), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if args.len() >= 1 {
-                            let arg_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(arg_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("substring expects str, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::Str);
-                    }
-
-                    if name == "contains" {
-                        if args.len() != 2 {
-                            self.errors.push(TypeError {
-                                message: format!("contains expects 2 arguments (string, substring), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if args.len() >= 1 {
-                            let arg_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(arg_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("contains expects str, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        if args.len() >= 2 {
-                            let arg_ty = self.infer_expr(&args[1], context)?;
-                            if !matches!(arg_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("contains expects str substring, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::Bool);
-                    }
-
-                    if name == "starts_with" {
-                        if args.len() != 2 {
-                            self.errors.push(TypeError {
-                                message: format!("starts_with expects 2 arguments (string, prefix), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if args.len() >= 1 {
-                            let arg_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(arg_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("starts_with expects str, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        if args.len() >= 2 {
-                            let arg_ty = self.infer_expr(&args[1], context)?;
-                            if !matches!(arg_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("starts_with expects str prefix, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::Bool);
-                    }
-
-                    if name == "ends_with" {
-                        if args.len() != 2 {
-                            self.errors.push(TypeError {
-                                message: format!("ends_with expects 2 arguments (string, suffix), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if args.len() >= 1 {
-                            let arg_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(arg_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("ends_with expects str, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        if args.len() >= 2 {
-                            let arg_ty = self.infer_expr(&args[1], context)?;
-                            if !matches!(arg_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("ends_with expects str suffix, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::Bool);
-                    }
-
-                    if name == "trim" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("trim expects 1 argument (string), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if !args.is_empty() {
-                            let arg_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(arg_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("trim expects str, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::Str);
-                    }
-
-                    if name == "parse_int" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("parse_int expects 1 argument (string), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if !args.is_empty() {
-                            let arg_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(arg_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("parse_int expects str, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::I64);
-                    }
-
-                    if name == "int_to_string" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("int_to_string expects 1 argument (integer), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if !args.is_empty() {
-                            let arg_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(arg_ty, Type::I64 | Type::I32) {
-                                self.errors.push(TypeError {
-                                    message: format!("int_to_string expects i64 or i32, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::Str);
-                    }
-
-                    if name == "char_code" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("char_code expects 1 argument (string), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if !args.is_empty() {
-                            let arg_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(arg_ty, Type::Str) {
-                                self.errors.push(TypeError {
-                                    message: format!("char_code expects str, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::I64);
-                    }
-
-                    if name == "from_char_code" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("from_char_code expects 1 argument (integer), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        if !args.is_empty() {
-                            let arg_ty = self.infer_expr(&args[0], context)?;
-                            if !matches!(arg_ty, Type::I64 | Type::I32) {
-                                self.errors.push(TypeError {
-                                    message: format!("from_char_code expects i64 or i32, got {:?}", arg_ty),
-                                    location: context.to_string(),
-                                });
-                            }
-                        }
-                        return Ok(Type::Str);
-                    }
-
-                    // Vec operation builtins
-                    if name == "vec_new" {
-                        if !args.is_empty() {
-                            self.errors.push(TypeError {
-                                message: format!("vec_new expects 0 arguments, got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        // Return I64 - Vec is represented as a pointer (i64) at runtime
-                        return Ok(Type::I64);
-                    }
-
-                    if name == "vec_push" {
-                        if args.len() != 2 {
-                            self.errors.push(TypeError {
-                                message: format!("vec_push expects 2 arguments (vec, value), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        // Vec is represented as i64 pointer at runtime
-                        return Ok(Type::I64);
-                    }
-
-                    if name == "vec_pop" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("vec_pop expects 1 argument (vec), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::I64);
-                    }
-
-                    if name == "vec_len" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("vec_len expects 1 argument (vec), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::I64);
-                    }
-
-                    if name == "vec_capacity" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("vec_capacity expects 1 argument (vec), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::I64);
-                    }
-
-                    if name == "vec_get" {
-                        if args.len() != 2 {
-                            self.errors.push(TypeError {
-                                message: format!("vec_get expects 2 arguments (vec, index), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::I64);
-                    }
-
-                    if name == "vec_set" {
-                        if args.len() != 3 {
-                            self.errors.push(TypeError {
-                                message: format!("vec_set expects 3 arguments (vec, index, value), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::Bool);
-                    }
-
-                    if name == "vec_clear" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("vec_clear expects 1 argument (vec), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::I32); // void-like return
-                    }
-
-                    // Result operation builtins
-                    if name == "result_ok" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("result_ok expects 1 argument (value), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::Result(Box::new(Type::I64), Box::new(Type::I64)));
-                    }
-
-                    if name == "result_err" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("result_err expects 1 argument (error), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::Result(Box::new(Type::I64), Box::new(Type::I64)));
-                    }
-
-                    if name == "result_is_ok" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("result_is_ok expects 1 argument (result), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::Bool);
-                    }
-
-                    if name == "result_is_err" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("result_is_err expects 1 argument (result), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::Bool);
-                    }
-
-                    if name == "result_unwrap" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("result_unwrap expects 1 argument (result), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::I64);
-                    }
-
-                    if name == "result_unwrap_err" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("result_unwrap_err expects 1 argument (result), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::I64);
-                    }
-
-                    if name == "result_tag" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("result_tag expects 1 argument (result), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::I64);
-                    }
-
-                    if name == "result_value" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("result_value expects 1 argument (result), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::I64);
-                    }
-
-                    // HashMap operation builtins
-                    if name == "hashmap_new" {
-                        if !args.is_empty() {
-                            self.errors.push(TypeError {
-                                message: format!("hashmap_new expects 0 arguments, got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::I64); // HashMap is represented as i64 pointer
-                    }
-
-                    if name == "hashmap_insert" {
-                        if args.len() != 3 {
-                            self.errors.push(TypeError {
-                                message: format!("hashmap_insert expects 3 arguments (map, key, value), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::Bool);
-                    }
-
-                    if name == "hashmap_get" {
-                        if args.len() != 2 {
-                            self.errors.push(TypeError {
-                                message: format!("hashmap_get expects 2 arguments (map, key), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::I64);
-                    }
-
-                    if name == "hashmap_contains" {
-                        if args.len() != 2 {
-                            self.errors.push(TypeError {
-                                message: format!("hashmap_contains expects 2 arguments (map, key), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::Bool);
-                    }
-
-                    if name == "hashmap_remove" {
-                        if args.len() != 2 {
-                            self.errors.push(TypeError {
-                                message: format!("hashmap_remove expects 2 arguments (map, key), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::Bool);
-                    }
-
-                    if name == "hashmap_len" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("hashmap_len expects 1 argument (map), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::I64);
-                    }
-
-                    if name == "hashmap_clear" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("hashmap_clear expects 1 argument (map), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::I32); // void-like return
-                    }
-
-                    if name == "hashmap_keys" {
-                        if args.len() != 1 {
-                            self.errors.push(TypeError {
-                                message: format!("hashmap_keys expects 1 argument (map), got {}", args.len()),
-                                location: context.to_string(),
-                            });
-                        }
-                        return Ok(Type::I64); // Returns Vec ptr
+                    if let Some(ty) = self.check_builtin_call(name, args, context, expected)? {
+                        return Ok(ty);
                     }
 
                     if let Some((param_types, ret_ty)) = self.functions.get(name).cloned() {
@@ -898,13 +351,16 @@ impl TypeChecker {
                             self.errors.push(TypeError {
                                 message: format!(
                                     "Function {} expects {} arguments, got {}",
-                                    name, param_types.len(), args.len()
+                                    name,
+                                    param_types.len(),
+                                    args.len()
                                 ),
                                 location: context.to_string(),
                             });
                         }
                         // Check argument types
-                        for (i, (arg, expected)) in args.iter().zip(param_types.iter()).enumerate() {
+                        for (i, (arg, expected)) in args.iter().zip(param_types.iter()).enumerate()
+                        {
                             let actual = self.infer_expr(arg, context)?;
                             if !self.types_compatible(expected, &actual) {
                                 self.errors.push(TypeError {
@@ -935,14 +391,14 @@ impl TypeChecker {
             Expr::Index { expr, index } => {
                 let expr_ty = self.infer_expr(expr, context)?;
                 let index_ty = self.infer_expr(index, context)?;
-                
+
                 if !matches!(index_ty, Type::I32 | Type::I64) {
                     self.errors.push(TypeError {
                         message: format!("Index must be integer, got {:?}", index_ty),
                         location: context.to_string(),
                     });
                 }
-                
+
                 match expr_ty {
                     Type::Array(elem, _) => Ok(*elem),
                     _ => {
@@ -968,7 +424,10 @@ impl TypeChecker {
                                 Ok(field_ty.clone())
                             } else {
                                 self.errors.push(TypeError {
-                                    message: format!("No field '{}' on struct {}", field, struct_name),
+                                    message: format!(
+                                        "No field '{}' on struct {}",
+                                        field, struct_name
+                                    ),
                                     location: context.to_string(),
                                 });
                                 Ok(Type::I32)
@@ -990,7 +449,11 @@ impl TypeChecker {
                     }
                 }
             }
-            Expr::If { condition, then_expr, else_expr } => {
+            Expr::If {
+                condition,
+                then_expr,
+                else_expr,
+            } => {
                 let cond_ty = self.infer_expr(condition, context)?;
                 if cond_ty != Type::Bool {
                     self.errors.push(TypeError {
@@ -1022,7 +485,9 @@ impl TypeChecker {
                             self.errors.push(TypeError {
                                 message: format!(
                                     "Array element {} has type {:?}, expected {:?}",
-                                    i + 1, ty, elem_ty
+                                    i + 1,
+                                    ty,
+                                    elem_ty
                                 ),
                                 location: context.to_string(),
                             });
@@ -1035,7 +500,9 @@ impl TypeChecker {
                 if let Some(struct_fields) = self.structs.get(name).cloned() {
                     for (field_name, field_expr) in fields {
                         let actual_ty = self.infer_expr(field_expr, context)?;
-                        if let Some((_, expected_ty)) = struct_fields.iter().find(|(n, _)| n == field_name) {
+                        if let Some((_, expected_ty)) =
+                            struct_fields.iter().find(|(n, _)| n == field_name)
+                        {
                             if !self.types_compatible(expected_ty, &actual_ty) {
                                 self.errors.push(TypeError {
                                     message: format!(
@@ -1047,7 +514,10 @@ impl TypeChecker {
                             }
                         } else {
                             self.errors.push(TypeError {
-                                message: format!("Unknown field '{}' in struct {}", field_name, name),
+                                message: format!(
+                                    "Unknown field '{}' in struct {}",
+                                    field_name, name
+                                ),
                                 location: context.to_string(),
                             });
                         }
@@ -1103,7 +573,10 @@ impl TypeChecker {
                         }
                         ast::MatchBody::Block(block) => {
                             // Block must end with an expression to produce a value
-                            let has_value = block.statements.last().map_or(false, |s| matches!(s, Stmt::Expr(_)));
+                            let has_value = block
+                                .statements
+                                .last()
+                                .is_some_and(|s| matches!(s, Stmt::Expr(_)));
                             if !has_value {
                                 self.errors.push(TypeError {
                                     message: "Match arm block must end with an expression to produce a value".to_string(),
@@ -1126,7 +599,8 @@ impl TypeChecker {
                 for stmt in &block.statements {
                     match stmt {
                         Stmt::Let { name, ty, value } => {
-                            let inferred = self.infer_expr(value, context)?;
+                            let inferred =
+                                self.infer_expr_with_hint(value, context, ty.as_ref())?;
                             if let Some(declared) = ty {
                                 self.variables.insert(name.clone(), declared.clone());
                             } else {
@@ -1149,7 +623,17 @@ impl TypeChecker {
                 // Range type is based on start type
                 self.infer_expr(start, context)
             }
-            _ => Ok(Type::I32) // fallback for unhandled expressions
+            Expr::Cast { expr, target_type } => {
+                let source_ty = self.infer_expr(expr, context)?;
+                if !self.can_cast(&source_ty, target_type) {
+                    self.errors.push(TypeError {
+                        message: format!("Cannot cast {:?} to {:?}", source_ty, target_type),
+                        location: context.to_string(),
+                    });
+                }
+                Ok(target_type.clone())
+            }
+            _ => Ok(Type::I32), // fallback for unhandled expressions
         }
     }
 
@@ -1164,7 +648,13 @@ impl TypeChecker {
         }
     }
 
-    fn binary_result_type(&mut self, op: BinaryOp, left: &Type, right: &Type, context: &str) -> Result<Type> {
+    fn binary_result_type(
+        &mut self,
+        op: BinaryOp,
+        left: &Type,
+        right: &Type,
+        context: &str,
+    ) -> Result<Type> {
         match op {
             BinaryOp::Add => {
                 // String concatenation
@@ -1173,7 +663,10 @@ impl TypeChecker {
                 }
                 if !self.is_numeric(left) || !self.is_numeric(right) {
                     self.errors.push(TypeError {
-                        message: format!("Arithmetic on non-numeric types: {:?} and {:?}", left, right),
+                        message: format!(
+                            "Arithmetic on non-numeric types: {:?} and {:?}",
+                            left, right
+                        ),
                         location: context.to_string(),
                     });
                 }
@@ -1191,7 +684,10 @@ impl TypeChecker {
             BinaryOp::Sub | BinaryOp::Mul | BinaryOp::Div | BinaryOp::Mod => {
                 if !self.is_numeric(left) || !self.is_numeric(right) {
                     self.errors.push(TypeError {
-                        message: format!("Arithmetic on non-numeric types: {:?} and {:?}", left, right),
+                        message: format!(
+                            "Arithmetic on non-numeric types: {:?} and {:?}",
+                            left, right
+                        ),
                         location: context.to_string(),
                     });
                 }
@@ -1206,10 +702,18 @@ impl TypeChecker {
                     Ok(Type::I32)
                 }
             }
-            BinaryOp::Eq | BinaryOp::Ne | BinaryOp::Lt | BinaryOp::Le | BinaryOp::Gt | BinaryOp::Ge => {
+            BinaryOp::Eq
+            | BinaryOp::Ne
+            | BinaryOp::Lt
+            | BinaryOp::Le
+            | BinaryOp::Gt
+            | BinaryOp::Ge => {
                 if !self.types_compatible(left, right) {
                     self.errors.push(TypeError {
-                        message: format!("Comparison of incompatible types: {:?} and {:?}", left, right),
+                        message: format!(
+                            "Comparison of incompatible types: {:?} and {:?}",
+                            left, right
+                        ),
                         location: context.to_string(),
                     });
                 }
@@ -1218,7 +722,10 @@ impl TypeChecker {
             BinaryOp::And | BinaryOp::Or => {
                 if *left != Type::Bool || *right != Type::Bool {
                     self.errors.push(TypeError {
-                        message: format!("Logical operators require bool: {:?} and {:?}", left, right),
+                        message: format!(
+                            "Logical operators require bool: {:?} and {:?}",
+                            left, right
+                        ),
                         location: context.to_string(),
                     });
                 }
@@ -1229,11 +736,18 @@ impl TypeChecker {
                 // For now, just return the left type
                 Ok(left.clone())
             }
-            BinaryOp::BitAnd | BinaryOp::BitOr | BinaryOp::BitXor | BinaryOp::Shl | BinaryOp::Shr => {
+            BinaryOp::BitAnd
+            | BinaryOp::BitOr
+            | BinaryOp::BitXor
+            | BinaryOp::Shl
+            | BinaryOp::Shr => {
                 // Bitwise operators require integers
                 if !self.is_integer(left) || !self.is_integer(right) {
                     self.errors.push(TypeError {
-                        message: format!("Bitwise operators require integers: {:?} and {:?}", left, right),
+                        message: format!(
+                            "Bitwise operators require integers: {:?} and {:?}",
+                            left, right
+                        ),
                         location: context.to_string(),
                     });
                 }
@@ -1270,6 +784,469 @@ impl TypeChecker {
         }
     }
 
+    fn check_builtin_call(
+        &mut self,
+        name: &str,
+        args: &[Expr],
+        context: &str,
+        expected: Option<&Type>,
+    ) -> Result<Option<Type>> {
+        if let Some(ty) = self.check_special_builtin_call(name, args, context, expected)? {
+            return Ok(Some(ty));
+        }
+
+        let Some(spec) = builtins::lookup_typecheck_builtin(name) else {
+            return Ok(None);
+        };
+
+        if args.len() != spec.params.len() {
+            self.errors.push(TypeError {
+                message: format!("{}, got {}", spec.arity_error, args.len()),
+                location: context.to_string(),
+            });
+        }
+
+        for (arg, param) in args.iter().zip(spec.params.iter()) {
+            if matches!(param.rule, BuiltinArgRule::Any) {
+                continue;
+            }
+
+            let arg_ty = self.infer_expr(arg, context)?;
+            if !self.matches_builtin_arg_rule(param.rule, &arg_ty) {
+                self.errors.push(TypeError {
+                    message: format!("{}, got {:?}", param.type_error, arg_ty),
+                    location: context.to_string(),
+                });
+            }
+        }
+
+        Ok(Some(spec.return_type.to_ast_type()))
+    }
+
+    fn check_special_builtin_call(
+        &mut self,
+        name: &str,
+        args: &[Expr],
+        context: &str,
+        expected: Option<&Type>,
+    ) -> Result<Option<Type>> {
+        match name {
+            "vec_new" => {
+                self.check_builtin_arity("vec_new expects 0 arguments", args, 0, context);
+                match expected {
+                    Some(Type::Vec(_)) => Ok(expected.cloned()),
+                    _ => {
+                        self.errors.push(TypeError {
+                            message: "vec_new requires explicit Vec<T> type context".to_string(),
+                            location: context.to_string(),
+                        });
+                        Ok(Some(Type::Vec(Box::new(Type::I32))))
+                    }
+                }
+            }
+            "vec_push" => {
+                self.check_builtin_arity(
+                    "vec_push expects 2 arguments (vec, value)",
+                    args,
+                    2,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_push", vec_ty, context);
+                    if let (Type::Vec(elem), Some(value_ty)) = (vec_ty, arg_types.get(1)) {
+                        if !self.types_compatible(elem, value_ty) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "vec_push value type mismatch: expected {:?}, got {:?}",
+                                    elem, value_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(Some(Type::I64))
+            }
+            "vec_pop" => {
+                self.check_builtin_arity("vec_pop expects 1 argument (vec)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_pop", vec_ty, context);
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "vec_len" => {
+                self.check_builtin_arity("vec_len expects 1 argument (vec)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_len", vec_ty, context);
+                }
+                Ok(Some(Type::I64))
+            }
+            "vec_capacity" => {
+                self.check_builtin_arity("vec_capacity expects 1 argument (vec)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_capacity", vec_ty, context);
+                }
+                Ok(Some(Type::I64))
+            }
+            "vec_get" => {
+                self.check_builtin_arity(
+                    "vec_get expects 2 arguments (vec, index)",
+                    args,
+                    2,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_get", vec_ty, context);
+                }
+                if let Some(index_ty) = arg_types.get(1) {
+                    self.check_vec_index_type("vec_get", index_ty, context);
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "vec_set" => {
+                self.check_builtin_arity(
+                    "vec_set expects 3 arguments (vec, index, value)",
+                    args,
+                    3,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_set", vec_ty, context);
+                    if let Some(index_ty) = arg_types.get(1) {
+                        self.check_vec_index_type("vec_set", index_ty, context);
+                    }
+                    if let (Type::Vec(elem), Some(value_ty)) = (vec_ty, arg_types.get(2)) {
+                        if !self.types_compatible(elem, value_ty) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "vec_set value type mismatch: expected {:?}, got {:?}",
+                                    elem, value_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(Some(Type::Bool))
+            }
+            "vec_clear" => {
+                self.check_builtin_arity("vec_clear expects 1 argument (vec)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_clear", vec_ty, context);
+                }
+                Ok(Some(Type::I32))
+            }
+            "hashmap_new" => {
+                self.check_builtin_arity("hashmap_new expects 0 arguments", args, 0, context);
+                match expected {
+                    Some(Type::HashMap(_, _)) => Ok(expected.cloned()),
+                    _ => {
+                        self.errors.push(TypeError {
+                            message: "hashmap_new requires explicit HashMap<K, V> type context"
+                                .to_string(),
+                            location: context.to_string(),
+                        });
+                        Ok(Some(Type::HashMap(
+                            Box::new(Type::I32),
+                            Box::new(Type::I32),
+                        )))
+                    }
+                }
+            }
+            "hashmap_insert" => {
+                self.check_builtin_arity(
+                    "hashmap_insert expects 3 arguments (map, key, value)",
+                    args,
+                    3,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(map_ty) = arg_types.first() {
+                    self.check_hashmap_handle_type("hashmap_insert", map_ty, context);
+                    if let (Type::HashMap(key, value), Some(key_ty), Some(value_ty)) =
+                        (map_ty, arg_types.get(1), arg_types.get(2))
+                    {
+                        if !self.types_compatible(key, key_ty) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "hashmap_insert key type mismatch: expected {:?}, got {:?}",
+                                    key, key_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                        if !self.types_compatible(value, value_ty) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "hashmap_insert value type mismatch: expected {:?}, got {:?}",
+                                    value, value_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(Some(Type::Bool))
+            }
+            "hashmap_get" => {
+                self.check_builtin_arity(
+                    "hashmap_get expects 2 arguments (map, key)",
+                    args,
+                    2,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(map_ty) = arg_types.first() {
+                    self.check_hashmap_handle_type("hashmap_get", map_ty, context);
+                    if let (Type::HashMap(key, _), Some(key_ty)) = (map_ty, arg_types.get(1)) {
+                        if !self.types_compatible(key, key_ty) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "hashmap_get key type mismatch: expected {:?}, got {:?}",
+                                    key, key_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "hashmap_contains" | "hashmap_remove" => {
+                let arity_error = if name == "hashmap_contains" {
+                    "hashmap_contains expects 2 arguments (map, key)"
+                } else {
+                    "hashmap_remove expects 2 arguments (map, key)"
+                };
+                self.check_builtin_arity(arity_error, args, 2, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(map_ty) = arg_types.first() {
+                    self.check_hashmap_handle_type(name, map_ty, context);
+                    if let (Type::HashMap(key, _), Some(key_ty)) = (map_ty, arg_types.get(1)) {
+                        if !self.types_compatible(key, key_ty) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "{} key type mismatch: expected {:?}, got {:?}",
+                                    name, key, key_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(Some(Type::Bool))
+            }
+            "hashmap_len" => {
+                self.check_builtin_arity("hashmap_len expects 1 argument (map)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(map_ty) = arg_types.first() {
+                    self.check_hashmap_handle_type("hashmap_len", map_ty, context);
+                }
+                Ok(Some(Type::I64))
+            }
+            "hashmap_clear" => {
+                self.check_builtin_arity(
+                    "hashmap_clear expects 1 argument (map)",
+                    args,
+                    1,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(map_ty) = arg_types.first() {
+                    self.check_hashmap_handle_type("hashmap_clear", map_ty, context);
+                }
+                Ok(Some(Type::I32))
+            }
+            "hashmap_keys" => {
+                self.check_builtin_arity("hashmap_keys expects 1 argument (map)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(map_ty) = arg_types.first() {
+                    self.check_hashmap_handle_type("hashmap_keys", map_ty, context);
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "result_ok" => {
+                self.check_builtin_arity("result_ok expects 1 argument (value)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let (Some(Type::Result(ok_ty, _)), Some(value_ty)) =
+                    (expected, arg_types.first())
+                {
+                    if !self.types_compatible(ok_ty, value_ty) {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "result_ok value type mismatch: expected {:?}, got {:?}",
+                                ok_ty, value_ty
+                            ),
+                            location: context.to_string(),
+                        });
+                    }
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "result_err" => {
+                self.check_builtin_arity("result_err expects 1 argument (error)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let (Some(Type::Result(_, err_ty)), Some(value_ty)) =
+                    (expected, arg_types.first())
+                {
+                    if !self.types_compatible(err_ty, value_ty) {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "result_err value type mismatch: expected {:?}, got {:?}",
+                                err_ty, value_ty
+                            ),
+                            location: context.to_string(),
+                        });
+                    }
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "result_is_ok" | "result_is_err" | "result_unwrap" | "result_unwrap_err"
+            | "result_tag" | "result_value" => {
+                let arity_error = match name {
+                    "result_is_ok" => "result_is_ok expects 1 argument (result)",
+                    "result_is_err" => "result_is_err expects 1 argument (result)",
+                    "result_unwrap" => "result_unwrap expects 1 argument (result)",
+                    "result_unwrap_err" => "result_unwrap_err expects 1 argument (result)",
+                    "result_tag" => "result_tag expects 1 argument (result)",
+                    _ => "result_value expects 1 argument (result)",
+                };
+                self.check_builtin_arity(arity_error, args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(result_ty) = arg_types.first() {
+                    self.check_result_handle_type(name, result_ty, context);
+                    if let ("result_value", Type::Result(ok_ty, err_ty)) = (name, result_ty) {
+                        if ok_ty != err_ty {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "result_value requires Result<T, T>, got Result<{:?}, {:?}>",
+                                    ok_ty, err_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(
+                    builtins::infer_special_builtin_call_type(name, &arg_types, expected).or_else(
+                        || {
+                            builtins::lookup_typecheck_builtin(name)
+                                .map(|spec| spec.return_type.to_ast_type())
+                        },
+                    ),
+                )
+            }
+            _ => Ok(None),
+        }
+    }
+
+    fn infer_builtin_arg_types(&mut self, args: &[Expr], context: &str) -> Result<Vec<Type>> {
+        args.iter()
+            .map(|arg| self.infer_expr(arg, context))
+            .collect::<Result<Vec<_>>>()
+    }
+
+    fn check_builtin_arity(
+        &mut self,
+        message: &str,
+        args: &[Expr],
+        expected_len: usize,
+        context: &str,
+    ) {
+        if args.len() != expected_len {
+            self.errors.push(TypeError {
+                message: format!("{}, got {}", message, args.len()),
+                location: context.to_string(),
+            });
+        }
+    }
+
+    fn check_vec_handle_type(&mut self, builtin: &str, ty: &Type, context: &str) {
+        if !matches!(ty, Type::Vec(_)) {
+            self.errors.push(TypeError {
+                message: format!("{} expects Vec<T>, got {:?}", builtin, ty),
+                location: context.to_string(),
+            });
+        }
+    }
+
+    fn check_vec_index_type(&mut self, builtin: &str, ty: &Type, context: &str) {
+        if !self.is_integer(ty) {
+            self.errors.push(TypeError {
+                message: format!("{} expects integer index, got {:?}", builtin, ty),
+                location: context.to_string(),
+            });
+        }
+    }
+
+    fn check_result_handle_type(&mut self, builtin: &str, ty: &Type, context: &str) {
+        if !matches!(ty, Type::Result(_, _)) {
+            self.errors.push(TypeError {
+                message: format!("{} expects Result<T, E>, got {:?}", builtin, ty),
+                location: context.to_string(),
+            });
+        }
+    }
+
+    fn check_hashmap_handle_type(&mut self, builtin: &str, ty: &Type, context: &str) {
+        if !matches!(ty, Type::HashMap(_, _)) {
+            self.errors.push(TypeError {
+                message: format!("{} expects HashMap<K, V>, got {:?}", builtin, ty),
+                location: context.to_string(),
+            });
+        }
+    }
+
+    fn can_cast(&self, source: &Type, target: &Type) -> bool {
+        if source == target {
+            return true;
+        }
+        if (self.is_numeric(source) || *source == Type::Bool)
+            && (self.is_numeric(target) || *target == Type::Bool)
+        {
+            return true;
+        }
+        if (*source == Type::I64 && self.is_handle_type(target))
+            || (self.is_handle_type(source) && *target == Type::I64)
+        {
+            return true;
+        }
+        self.is_handle_type(source) && self.is_handle_type(target)
+    }
+
+    fn is_handle_type(&self, ty: &Type) -> bool {
+        matches!(
+            ty,
+            Type::Str
+                | Type::Option(_)
+                | Type::Result(_, _)
+                | Type::Vec(_)
+                | Type::HashMap(_, _)
+                | Type::Array(_, _)
+                | Type::Ref { .. }
+                | Type::Named(_)
+        )
+    }
+
     fn is_numeric(&self, ty: &Type) -> bool {
         matches!(ty, Type::I32 | Type::I64 | Type::F32 | Type::F64)
     }
@@ -1277,11 +1254,23 @@ impl TypeChecker {
     /// Check if a type is implicitly copyable (primitives).
     /// Non-copy types (structs, arrays, strings) require explicit `copy` to avoid moving.
     fn is_copy_type(&self, ty: &Type) -> bool {
-        matches!(ty, Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool)
+        matches!(
+            ty,
+            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool
+        )
     }
 
     fn is_integer(&self, ty: &Type) -> bool {
         matches!(ty, Type::I32 | Type::I64)
+    }
+
+    fn matches_builtin_arg_rule(&self, rule: BuiltinArgRule, ty: &Type) -> bool {
+        match rule {
+            BuiltinArgRule::Any => true,
+            BuiltinArgRule::Str => matches!(ty, Type::Str),
+            BuiltinArgRule::Integer => self.is_integer(ty),
+            BuiltinArgRule::StrOrArray => matches!(ty, Type::Str | Type::Array(_, _)),
+        }
     }
 
     fn check_pattern_type(&mut self, pattern: &ast::Pattern, expr_ty: &Type, context: &str) {
@@ -1339,10 +1328,7 @@ impl TypeChecker {
             ast::Pattern::Some(_) => {
                 if !matches!(expr_ty, Type::Option(_)) {
                     self.errors.push(TypeError {
-                        message: format!(
-                            "Some pattern cannot match non-Option type {:?}",
-                            expr_ty
-                        ),
+                        message: format!("Some pattern cannot match non-Option type {:?}", expr_ty),
                         location: context.to_string(),
                     });
                 }
@@ -1350,10 +1336,7 @@ impl TypeChecker {
             ast::Pattern::None => {
                 if !matches!(expr_ty, Type::Option(_)) {
                     self.errors.push(TypeError {
-                        message: format!(
-                            "None pattern cannot match non-Option type {:?}",
-                            expr_ty
-                        ),
+                        message: format!("None pattern cannot match non-Option type {:?}", expr_ty),
                         location: context.to_string(),
                     });
                 }
@@ -1391,6 +1374,18 @@ impl TypeChecker {
         if let (Type::Option(e1), Type::Option(e2)) = (expected, actual) {
             return self.types_compatible(e1, e2);
         }
+        // Vec types with compatible element types
+        if let (Type::Vec(e1), Type::Vec(e2)) = (expected, actual) {
+            return self.types_compatible(e1, e2);
+        }
+        // Result types with compatible Ok/Err types
+        if let (Type::Result(ok1, err1), Type::Result(ok2, err2)) = (expected, actual) {
+            return self.types_compatible(ok1, ok2) && self.types_compatible(err1, err2);
+        }
+        // HashMap types with compatible key/value types
+        if let (Type::HashMap(key1, value1), Type::HashMap(key2, value2)) = (expected, actual) {
+            return self.types_compatible(key1, key2) && self.types_compatible(value1, value2);
+        }
         false
     }
 }
@@ -1419,17 +1414,15 @@ pub fn check_file(file: &ast::File) -> Result<Vec<TypeError>> {
     Ok(all_errors)
 }
 
-/// Message signature: (message_name, parameters)
-type MessageSignature = (String, Vec<(String, ast::Type)>);
-
 /// Collect all message signatures from a shell
-fn collect_message_signatures(shell: &ast::Shell) -> HashMap<String, HashMap<String, Vec<(String, ast::Type)>>> {
-    let mut agent_messages: HashMap<String, HashMap<String, Vec<(String, ast::Type)>>> = HashMap::new();
+fn collect_message_signatures(shell: &ast::Shell) -> ShellAgentMessages {
+    let mut agent_messages: ShellAgentMessages = HashMap::new();
 
     for agent in &shell.agents {
         let mut messages: HashMap<String, Vec<(String, ast::Type)>> = HashMap::new();
         for handler in &agent.handlers {
-            let params: Vec<(String, ast::Type)> = handler.params
+            let params: Vec<(String, ast::Type)> = handler
+                .params
                 .iter()
                 .map(|p| (p.name.clone(), p.ty.clone()))
                 .collect();
@@ -1442,8 +1435,8 @@ fn collect_message_signatures(shell: &ast::Shell) -> HashMap<String, HashMap<Str
 }
 
 /// Collect agent state fields
-fn collect_agent_state(shell: &ast::Shell) -> HashMap<String, HashMap<String, ast::Type>> {
-    let mut agent_state: HashMap<String, HashMap<String, ast::Type>> = HashMap::new();
+fn collect_agent_state(shell: &ast::Shell) -> ShellAgentState {
+    let mut agent_state: ShellAgentState = HashMap::new();
 
     for agent in &shell.agents {
         let mut state: HashMap<String, ast::Type> = HashMap::new();
@@ -1494,7 +1487,7 @@ fn check_shell(shell: &ast::Shell, _file: &ast::File) -> Result<Vec<TypeError>> 
 /// Check a block for send statement validation
 fn check_shell_block(
     block: &ast::Block,
-    agent_messages: &HashMap<String, HashMap<String, Vec<(String, ast::Type)>>>,
+    agent_messages: &ShellAgentMessages,
     shell_name: &str,
     errors: &mut Vec<TypeError>,
 ) {
@@ -1506,12 +1499,16 @@ fn check_shell_block(
 /// Check a statement for send validation
 fn check_shell_stmt(
     stmt: &ast::Stmt,
-    agent_messages: &HashMap<String, HashMap<String, Vec<(String, ast::Type)>>>,
+    agent_messages: &ShellAgentMessages,
     shell_name: &str,
     errors: &mut Vec<TypeError>,
 ) {
     match stmt {
-        ast::Stmt::Send { message, target, args } => {
+        ast::Stmt::Send {
+            message,
+            target,
+            args,
+        } => {
             // Get message name from expression
             let msg_name = match message {
                 ast::Expr::Literal(ast::Literal::String(s)) => s.trim_matches('"').to_string(),
@@ -1531,7 +1528,10 @@ fn check_shell_stmt(
                         errors.push(TypeError {
                             message: format!(
                                 "Message '{}' to {} expects {} argument(s), got {}",
-                                msg_name, target, expected_params.len(), args.len()
+                                msg_name,
+                                target,
+                                expected_params.len(),
+                                args.len()
                             ),
                             location: shell_name.to_string(),
                         });
@@ -1563,7 +1563,10 @@ fn check_shell_stmt(
                     }
                 } else {
                     errors.push(TypeError {
-                        message: format!("Agent {} has no handler for message '{}'", target, msg_name),
+                        message: format!(
+                            "Agent {} has no handler for message '{}'",
+                            target, msg_name
+                        ),
                         location: shell_name.to_string(),
                     });
                 }
@@ -1574,7 +1577,11 @@ fn check_shell_stmt(
                 });
             }
         }
-        ast::Stmt::If { then_block, else_block, .. } => {
+        ast::Stmt::If {
+            then_block,
+            else_block,
+            ..
+        } => {
             check_shell_block(then_block, agent_messages, shell_name, errors);
             if let Some(eb) = else_block {
                 check_shell_block(eb, agent_messages, shell_name, errors);
@@ -1585,9 +1592,8 @@ fn check_shell_stmt(
         }
         ast::Stmt::Match { arms, .. } => {
             for arm in arms {
-                match &arm.body {
-                    ast::MatchBody::Block(b) => check_shell_block(b, agent_messages, shell_name, errors),
-                    _ => {}
+                if let ast::MatchBody::Block(b) = &arm.body {
+                    check_shell_block(b, agent_messages, shell_name, errors);
                 }
             }
         }
@@ -1604,7 +1610,12 @@ fn types_are_compatible(expected: &ast::Type, actual: &ast::Type) -> bool {
         return true;
     }
     // Allow numeric coercions
-    let is_numeric = |t: &ast::Type| matches!(t, ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64);
+    let is_numeric = |t: &ast::Type| {
+        matches!(
+            t,
+            ast::Type::I32 | ast::Type::I64 | ast::Type::F32 | ast::Type::F64
+        )
+    };
     if is_numeric(expected) && is_numeric(actual) {
         return true;
     }
@@ -1616,8 +1627,8 @@ fn check_view(view: &ast::View, file: &ast::File) -> Result<Vec<TypeError>> {
     let mut errors = Vec::new();
 
     // Collect all shell information
-    let mut all_agent_messages: HashMap<String, HashMap<String, HashMap<String, Vec<(String, ast::Type)>>>> = HashMap::new();
-    let mut all_agent_state: HashMap<String, HashMap<String, HashMap<String, ast::Type>>> = HashMap::new();
+    let mut all_agent_messages: ViewAgentMessages = HashMap::new();
+    let mut all_agent_state: ViewAgentState = HashMap::new();
 
     for shell in &file.shells {
         all_agent_messages.insert(shell.name.clone(), collect_message_signatures(shell));
@@ -1626,7 +1637,13 @@ fn check_view(view: &ast::View, file: &ast::File) -> Result<Vec<TypeError>> {
 
     // Check each component
     for component in &view.components {
-        check_view_component(component, &all_agent_messages, &all_agent_state, &view.name, &mut errors);
+        check_view_component(
+            component,
+            &all_agent_messages,
+            &all_agent_state,
+            &view.name,
+            &mut errors,
+        );
     }
 
     Ok(errors)
@@ -1635,32 +1652,48 @@ fn check_view(view: &ast::View, file: &ast::File) -> Result<Vec<TypeError>> {
 /// Check a view component for type errors
 fn check_view_component(
     component: &ast::Component,
-    all_agent_messages: &HashMap<String, HashMap<String, HashMap<String, Vec<(String, ast::Type)>>>>,
-    all_agent_state: &HashMap<String, HashMap<String, HashMap<String, ast::Type>>>,
+    all_agent_messages: &ViewAgentMessages,
+    all_agent_state: &ViewAgentState,
     view_name: &str,
     errors: &mut Vec<TypeError>,
 ) {
     // Check properties
     for prop in &component.properties {
-        check_view_expr(&prop.value, all_agent_messages, all_agent_state, view_name, errors);
+        check_view_expr(
+            &prop.value,
+            all_agent_messages,
+            all_agent_state,
+            view_name,
+            errors,
+        );
     }
 
     // Check children recursively
     for child in &component.children {
-        check_view_component(child, all_agent_messages, all_agent_state, view_name, errors);
+        check_view_component(
+            child,
+            all_agent_messages,
+            all_agent_state,
+            view_name,
+            errors,
+        );
     }
 }
 
 /// Check a view expression for type errors
 fn check_view_expr(
     expr: &ast::Expr,
-    all_agent_messages: &HashMap<String, HashMap<String, HashMap<String, Vec<(String, ast::Type)>>>>,
-    all_agent_state: &HashMap<String, HashMap<String, HashMap<String, ast::Type>>>,
+    all_agent_messages: &ViewAgentMessages,
+    all_agent_state: &ViewAgentState,
     view_name: &str,
     errors: &mut Vec<TypeError>,
 ) {
     match expr {
-        ast::Expr::Send { message, target, args } => {
+        ast::Expr::Send {
+            message,
+            target,
+            args,
+        } => {
             // Validate send expression against shell message signatures
             // target is Vec<String> like ["App", "Worker"]
             if target.len() >= 2 {
@@ -1681,7 +1714,11 @@ fn check_view_expr(
                                 errors.push(TypeError {
                                     message: format!(
                                         "Send '{}' to {}.{} expects {} argument(s), got {}",
-                                        msg_name, shell_name, agent_name, expected_params.len(), args.len()
+                                        msg_name,
+                                        shell_name,
+                                        agent_name,
+                                        expected_params.len(),
+                                        args.len()
                                     ),
                                     location: view_name.to_string(),
                                 });
@@ -1689,7 +1726,9 @@ fn check_view_expr(
 
                             // Check argument types
                             for (expected_name, expected_ty) in expected_params {
-                                if let Some((_, arg_expr)) = args.iter().find(|(n, _)| n == expected_name) {
+                                if let Some((_, arg_expr)) =
+                                    args.iter().find(|(n, _)| n == expected_name)
+                                {
                                     let actual_ty = infer_literal_type(arg_expr);
                                     if !types_are_compatible(expected_ty, &actual_ty) {
                                         errors.push(TypeError {
@@ -1709,7 +1748,11 @@ fn check_view_expr(
         }
         ast::Expr::Field { expr: inner, field } => {
             // Check for Shell.Agent.field bindings
-            if let ast::Expr::Field { expr: inner2, field: agent_name } = inner.as_ref() {
+            if let ast::Expr::Field {
+                expr: inner2,
+                field: agent_name,
+            } = inner.as_ref()
+            {
                 if let ast::Expr::Ident(shell_name) = inner2.as_ref() {
                     // This is a Shell.Agent.field access
                     if let Some(shell_state) = all_agent_state.get(shell_name) {
@@ -1733,14 +1776,32 @@ fn check_view_expr(
                 }
             }
             // Recurse into inner expression
-            check_view_expr(inner, all_agent_messages, all_agent_state, view_name, errors);
+            check_view_expr(
+                inner,
+                all_agent_messages,
+                all_agent_state,
+                view_name,
+                errors,
+            );
         }
         ast::Expr::Binary { left, right, .. } => {
             check_view_expr(left, all_agent_messages, all_agent_state, view_name, errors);
-            check_view_expr(right, all_agent_messages, all_agent_state, view_name, errors);
+            check_view_expr(
+                right,
+                all_agent_messages,
+                all_agent_state,
+                view_name,
+                errors,
+            );
         }
         ast::Expr::Unary { expr: inner, .. } => {
-            check_view_expr(inner, all_agent_messages, all_agent_state, view_name, errors);
+            check_view_expr(
+                inner,
+                all_agent_messages,
+                all_agent_state,
+                view_name,
+                errors,
+            );
         }
         ast::Expr::Call { args, .. } => {
             for arg in args {

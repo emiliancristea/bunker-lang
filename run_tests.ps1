@@ -6,6 +6,11 @@ param(
     [switch]$JitOnly
 )
 
+if ($env:GITHUB_ACTIONS -ne "true") {
+    Write-Error "Local test execution is disabled. Run Bunker builds/tests through GitHub Actions to protect this workstation."
+    exit 1
+}
+
 $ErrorActionPreference = "Continue"
 $bunker = ".\bunker-cli\target\release\bunker-cli.exe"
 
@@ -61,6 +66,10 @@ $expectedResults = @{
     "74_vec_operations" = 42
     "75_result_type" = 42
     "76_hashmap_operations" = 42
+    "77_typed_vec_operations" = 42
+    "79_typed_result_operations" = 42
+    "81_typed_hashmap_operations" = 42
+    "85_result_handle_roundtrip" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -204,6 +213,82 @@ foreach ($file in $testFiles) {
             }
         }
     }
+}
+
+if (-not $JitOnly) {
+    $selfHostTmp = Join-Path $env:TEMP "bunker-self-host-test"
+    New-Item -ItemType Directory -Force -Path $selfHostTmp | Out-Null
+
+    Write-Host -NoNewline "Testing self_host_compile_subset... "
+    $selfHostSubset = @(
+        "tests\01_basic_math.bkr",
+        "tests\14_kernel_if_branching.bkr",
+        "tests\38_kernel_while_loop.bkr",
+        "tests\39_kernel_while_break.bkr"
+    )
+
+    $subsetOk = $true
+    foreach ($subsetFile in $selfHostSubset) {
+        $subsetOut = Join-Path $selfHostTmp ([IO.Path]::GetFileNameWithoutExtension($subsetFile) + ".c")
+        $compileResult = & $bunker self-host-compile $subsetFile -o $subsetOut 2>&1 | Out-String
+        $compileExitCode = $LASTEXITCODE
+        if ($compileExitCode -ne 0 -or -not (Test-Path $subsetOut)) {
+            Write-Host "FAIL" -ForegroundColor Red -NoNewline
+            Write-Host " (self-host compile failed for $subsetFile)"
+            if ($Verbose) {
+                Write-Host "  $compileResult" -ForegroundColor DarkGray
+            }
+            $subsetOk = $false
+            break
+        }
+
+        $generated = Get-Content $subsetOut -Raw
+        if ($generated -notlike "*int main(void)*") {
+            Write-Host "FAIL" -ForegroundColor Red -NoNewline
+            Write-Host " (unexpected generated C for $subsetFile)"
+            $subsetOk = $false
+            break
+        }
+    }
+
+    if ($subsetOk) {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (self-host compile subset accepted)"
+        $passed++
+    } else {
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing self_host_compile_basic... "
+    $selfHostOut = Join-Path $selfHostTmp "basic_math.c"
+    $compileResult = & $bunker self-host-compile "tests\01_basic_math.bkr" -o $selfHostOut 2>&1 | Out-String
+    $compileExitCode = $LASTEXITCODE
+
+    if ($compileExitCode -eq 0 -and (Test-Path $selfHostOut)) {
+        $generated = Get-Content $selfHostOut -Raw
+        if ($generated -like "*bkr_i32 _v4(void)*" -and $generated -like "*return (int)_v4();*") {
+            Write-Host "PASS" -ForegroundColor Green -NoNewline
+            Write-Host " (Bunker compiler emitted C)"
+            $passed++
+        } else {
+            Write-Host "FAIL" -ForegroundColor Red -NoNewline
+            Write-Host " (unexpected generated C)"
+            if ($Verbose) {
+                Write-Host "  $generated" -ForegroundColor DarkGray
+            }
+            $failed++
+        }
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (self-host compile failed)"
+        if ($Verbose) {
+            Write-Host "  $compileResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    if ($selfHostOut) { Remove-Item -Path $selfHostOut -ErrorAction SilentlyContinue }
+    if ($selfHostTmp) { Remove-Item -Path $selfHostTmp -ErrorAction SilentlyContinue -Recurse -Force }
 }
 
 Write-Host ""

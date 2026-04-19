@@ -60,11 +60,7 @@ impl LinExpr {
 
     fn neg(&self) -> Self {
         let mut out = Self {
-            terms: self
-                .terms
-                .iter()
-                .map(|(k, v)| (k.clone(), -*v))
-                .collect(),
+            terms: self.terms.iter().map(|(k, v)| (k.clone(), -*v)).collect(),
             constant: -self.constant,
         };
         out.normalize();
@@ -156,6 +152,7 @@ pub fn verify_file(file: &ast::File) -> Result<Vec<VerifyError>> {
     verify_file_with_output(file, false)
 }
 
+#[allow(dead_code)]
 pub fn verify_file_verbose(file: &ast::File) -> Result<Vec<VerifyError>> {
     verify_file_with_output(file, true)
 }
@@ -171,7 +168,10 @@ fn verify_file_with_output(file: &ast::File, verbose: bool) -> Result<Vec<Verify
             };
 
             let has_contracts = func.attributes.iter().any(|attr| {
-                matches!(attr, ast::Attribute::Requires(_) | ast::Attribute::Ensures(_))
+                matches!(
+                    attr,
+                    ast::Attribute::Requires(_) | ast::Attribute::Ensures(_)
+                )
             });
             if !has_contracts {
                 continue;
@@ -189,11 +189,16 @@ fn verify_file_with_output(file: &ast::File, verbose: bool) -> Result<Vec<Verify
     Ok(errors)
 }
 
+#[allow(dead_code)]
 fn verify_kernel_function(kernel: &ast::Kernel, func: &ast::Function) -> Result<Vec<VerifyError>> {
     verify_kernel_function_verbose(kernel, func, false)
 }
 
-fn verify_kernel_function_verbose(kernel: &ast::Kernel, func: &ast::Function, verbose: bool) -> Result<Vec<VerifyError>> {
+fn verify_kernel_function_verbose(
+    kernel: &ast::Kernel,
+    func: &ast::Function,
+    verbose: bool,
+) -> Result<Vec<VerifyError>> {
     let location = format!("{}.{}", kernel.name, func.name);
 
     let requires: Vec<&ast::Expr> = func
@@ -302,7 +307,9 @@ fn verify_kernel_function_verbose(kernel: &ast::Kernel, func: &ast::Function, ve
                     println!("  Postcondition ({}): SKIPPED (unsupported form)", ens_desc);
                 }
                 errors.push(VerifyError {
-                    message: format!("Unsupported postcondition form for verification today: {other:?}"),
+                    message: format!(
+                        "Unsupported postcondition form for verification today: {other:?}"
+                    ),
                     location: location.clone(),
                 });
             }
@@ -330,7 +337,12 @@ fn format_expr_brief(expr: &ast::Expr) -> String {
                 ast::BinaryOp::Or => "||",
                 _ => "?",
             };
-            format!("{} {} {}", format_expr_brief(left), op_str, format_expr_brief(right))
+            format!(
+                "{} {} {}",
+                format_expr_brief(left),
+                op_str,
+                format_expr_brief(right)
+            )
         }
         ast::Expr::Ident(name) => name.clone(),
         ast::Expr::Field { expr, field } => format!("{}.{}", format_expr_brief(expr), field),
@@ -564,7 +576,9 @@ fn eval_lin(
                     return eval_lin(&args[0], initial, initial);
                 }
             }
-            Err(anyhow!("unsupported call expression in contracts: {expr:?}"))
+            Err(anyhow!(
+                "unsupported call expression in contracts: {expr:?}"
+            ))
         }
         other => Err(anyhow!("unsupported expression in contracts: {other:?}")),
     }
@@ -573,7 +587,9 @@ fn eval_lin(
 fn place_key(expr: &ast::Expr) -> Option<String> {
     match expr {
         ast::Expr::Ident(name) => Some(name.clone()),
-        ast::Expr::Field { expr, field } => place_key(expr.as_ref()).map(|base| format!("{base}.{field}")),
+        ast::Expr::Field { expr, field } => {
+            place_key(expr.as_ref()).map(|base| format!("{base}.{field}"))
+        }
         _ => None,
     }
 }
@@ -709,7 +725,11 @@ fn build_counterexample(diff: &LinExpr, bounds: &[Bound]) -> BTreeMap<String, i1
 ///
 /// If `use_smt` is true and Z3 is available, uses SMT solving.
 /// Otherwise, falls back to lightweight linear expression verification.
-pub fn verify_file_with_mode(file: &ast::File, use_smt: bool, verbose: bool) -> Result<Vec<VerifyError>> {
+pub fn verify_file_with_mode(
+    file: &ast::File,
+    use_smt: bool,
+    verbose: bool,
+) -> Result<Vec<VerifyError>> {
     if use_smt {
         if smt::smt_available() {
             let config = smt::SmtConfig::default();

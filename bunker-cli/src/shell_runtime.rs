@@ -148,7 +148,10 @@ pub(crate) struct ShellVm<'a> {
 
 impl<'a> ShellVm<'a> {
     pub(crate) fn new(file: &'a ast::File, max_steps: usize) -> Result<Self> {
-        let shell = file.shells.first().ok_or_else(|| anyhow!("No Shell blocks found"))?;
+        let shell = file
+            .shells
+            .first()
+            .ok_or_else(|| anyhow!("No Shell blocks found"))?;
 
         let mut exec = Executor::new(file);
         let mut init_queue = VecDeque::new();
@@ -266,7 +269,10 @@ impl<'a> ShellVm<'a> {
 
         self.steps += 1;
         if self.steps > self.max_steps {
-            return Err(anyhow!("Shell run exceeded step limit ({})", self.max_steps));
+            return Err(anyhow!(
+                "Shell run exceeded step limit ({})",
+                self.max_steps
+            ));
         }
 
         // Minimal convention: messages sent to `System` are treated as sink/termination.
@@ -302,7 +308,8 @@ impl<'a> ShellVm<'a> {
             env.insert(param.name.clone(), val);
         }
 
-        self.exec.exec_block(&handler.body, &mut env, &mut self.queue)?;
+        self.exec
+            .exec_block(&handler.body, &mut env, &mut self.queue)?;
 
         // Write back state variables.
         for key in &agent.state_keys {
@@ -500,7 +507,11 @@ impl<'a> Executor<'a> {
             ast::Stmt::For { var, iter, body } => {
                 // Evaluate the iterator expression
                 match iter {
-                    ast::Expr::Range { start, end, inclusive } => {
+                    ast::Expr::Range {
+                        start,
+                        end,
+                        inclusive,
+                    } => {
                         let start_val = self.eval_expr(start, env, queue)?;
                         let end_val = self.eval_expr(end, env, queue)?;
 
@@ -596,10 +607,16 @@ impl<'a> Executor<'a> {
                 // Return in shell agent handler - just stop the handler
                 Ok(ControlFlow::Break)
             }
-            ast::Stmt::Send { message, target, args } => {
+            ast::Stmt::Send {
+                message,
+                target,
+                args,
+            } => {
                 let msg_val = self.eval_expr(message, env, queue)?;
                 let Value::Str(message) = msg_val else {
-                    return Err(anyhow!("Shell send message must be a string, got {msg_val:?}"));
+                    return Err(anyhow!(
+                        "Shell send message must be a string, got {msg_val:?}"
+                    ));
                 };
 
                 let mut evaluated_args = HashMap::new();
@@ -698,10 +715,16 @@ impl<'a> Executor<'a> {
             }
             ast::Expr::Block(block) => self.eval_block_expr(block, env, queue),
             ast::Expr::Use { path, args } => self.eval_use(path, args, env, queue),
-            ast::Expr::Send { message, target, args } => {
+            ast::Expr::Send {
+                message,
+                target,
+                args,
+            } => {
                 let msg_val = self.eval_expr(message, env, queue)?;
                 let Value::Str(message) = msg_val else {
-                    return Err(anyhow!("Shell send message must be a string, got {msg_val:?}"));
+                    return Err(anyhow!(
+                        "Shell send message must be a string, got {msg_val:?}"
+                    ));
                 };
 
                 let Some(target_name) = target.last().cloned() else {
@@ -730,7 +753,7 @@ impl<'a> Executor<'a> {
                                 for (name, val) in bindings {
                                     arm_env.insert(name, val);
                                 }
-                                self.eval_expr(expr, &mut arm_env, queue)
+                                self.eval_expr(expr, &arm_env, queue)
                             }
                             ast::MatchBody::Block(block) => {
                                 let mut scoped_env = env.clone();
@@ -757,7 +780,8 @@ impl<'a> Executor<'a> {
             ast::Expr::Struct { name: _, fields } => {
                 let mut field_values = HashMap::new();
                 for (field_name, field_expr) in fields {
-                    field_values.insert(field_name.clone(), self.eval_expr(field_expr, env, queue)?);
+                    field_values
+                        .insert(field_name.clone(), self.eval_expr(field_expr, env, queue)?);
                 }
                 Ok(Value::Struct(field_values))
             }
@@ -800,9 +824,9 @@ impl<'a> Executor<'a> {
                 }
             }
             // Range expression (for iteration, not direct eval)
-            ast::Expr::Range { .. } => {
-                Err(anyhow!("Range expressions cannot be evaluated directly in shell"))
-            }
+            ast::Expr::Range { .. } => Err(anyhow!(
+                "Range expressions cannot be evaluated directly in shell"
+            )),
             // Lambda (not supported in shell runtime)
             ast::Expr::Lambda { .. } => {
                 Err(anyhow!("Lambda expressions not supported in shell runtime"))
@@ -888,7 +912,9 @@ impl<'a> Executor<'a> {
                     path.push(LValueStep::Index(*idx));
                     Ok((root, path))
                 } else {
-                    Err(anyhow!("Complex index expressions in lvalue not yet supported"))
+                    Err(anyhow!(
+                        "Complex index expressions in lvalue not yet supported"
+                    ))
                 }
             }
             ast::Expr::Field { expr, field } => {
@@ -901,7 +927,11 @@ impl<'a> Executor<'a> {
     }
 
     /// Navigate a path of steps to get a mutable reference
-    fn navigate_path_mut<'v>(&self, root: &'v mut Value, path: &[LValueStep]) -> Result<&'v mut Value> {
+    fn navigate_path_mut<'v>(
+        &self,
+        root: &'v mut Value,
+        path: &[LValueStep],
+    ) -> Result<&'v mut Value> {
         let mut current = root;
         for step in path {
             current = match step {
@@ -1316,7 +1346,10 @@ fn build_entry_args(
     let mut args = HashMap::new();
     for param in params {
         let Some(text) = raw.get(&param.name) else {
-            return Err(anyhow!("Missing message arg '{}' for entry handler", param.name));
+            return Err(anyhow!(
+                "Missing message arg '{}' for entry handler",
+                param.name
+            ));
         };
         let value = parse_value_for_type(&param.ty, text)?;
         args.insert(param.name.clone(), value);
@@ -1326,27 +1359,39 @@ fn build_entry_args(
 
 fn parse_value_for_type(ty: &ast::Type, text: &str) -> Result<Value> {
     match ty {
-        ast::Type::I32 | ast::Type::I64 => Ok(Value::Int(text.parse::<i64>().map_err(|e| {
-            anyhow!("Failed to parse integer '{text}': {e}")
-        })?)),
+        ast::Type::I32 | ast::Type::I64 => {
+            Ok(Value::Int(text.parse::<i64>().map_err(|e| {
+                anyhow!("Failed to parse integer '{text}': {e}")
+            })?))
+        }
         ast::Type::Bool => Ok(Value::Bool(match text {
             "true" => true,
             "false" => false,
-            _ => return Err(anyhow!("Failed to parse bool '{text}' (expected true/false)")),
+            _ => {
+                return Err(anyhow!(
+                    "Failed to parse bool '{text}' (expected true/false)"
+                ))
+            }
         })),
-        ast::Type::F32 | ast::Type::F64 => Ok(Value::Float(text.parse::<f64>().map_err(|e| {
-            anyhow!("Failed to parse float '{text}': {e}")
-        })?)),
+        ast::Type::F32 | ast::Type::F64 => {
+            Ok(Value::Float(text.parse::<f64>().map_err(|e| {
+                anyhow!("Failed to parse float '{text}': {e}")
+            })?))
+        }
         ast::Type::Str => Ok(Value::Str(text.to_string())),
         ast::Type::Option(inner) => {
             if text == "None" {
                 return Ok(Value::Option(None));
             }
             let Some(rest) = text.strip_prefix("Some(") else {
-                return Err(anyhow!("Failed to parse Option '{text}' (expected None or Some(...))"));
+                return Err(anyhow!(
+                    "Failed to parse Option '{text}' (expected None or Some(...))"
+                ));
             };
             let Some(inner_text) = rest.strip_suffix(')') else {
-                return Err(anyhow!("Failed to parse Option '{text}' (expected None or Some(...))"));
+                return Err(anyhow!(
+                    "Failed to parse Option '{text}' (expected None or Some(...))"
+                ));
             };
             let inner_val = parse_value_for_type(inner, inner_text.trim())?;
             Ok(Value::Option(Some(Box::new(inner_val))))

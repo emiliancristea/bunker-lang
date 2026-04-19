@@ -44,15 +44,16 @@ kernel CCodeGen {
     const TYPE_STR: i64 = 4;
 
     // Code generator state: [lines_vec, indent]
-    fn cgen_new() -> i64 {
-        let state = vec_new();
-        vec_push(state, vec_new());  // lines
+    fn cgen_new() -> Vec<i64> {
+        let state: Vec<i64> = vec_new();
+        let lines: Vec<str> = vec_new();
+        vec_push(state, lines as i64);
         vec_push(state, 0);          // indent
         return state;
     }
 
-    fn cgen_add_line(state: i64, line: str) -> i64 {
-        let lines = vec_get(state, 0);
+    fn cgen_add_line(state: Vec<i64>, line: str) -> Vec<i64> {
+        let lines = vec_get(state, 0) as Vec<str>;
         let indent = vec_get(state, 1);
         let prefix: str = "";
         let i: i64 = 0;
@@ -64,20 +65,20 @@ kernel CCodeGen {
         return state;
     }
 
-    fn cgen_indent(state: i64) -> i64 {
+    fn cgen_indent(state: Vec<i64>) -> Vec<i64> {
         let level = vec_get(state, 1);
         vec_set(state, 1, level + 1);
         return state;
     }
 
-    fn cgen_dedent(state: i64) -> i64 {
+    fn cgen_dedent(state: Vec<i64>) -> Vec<i64> {
         let level = vec_get(state, 1);
         vec_set(state, 1, level - 1);
         return state;
     }
 
-    fn cgen_get_lines(state: i64) -> i64 {
-        return vec_get(state, 0);
+    fn cgen_get_lines(state: Vec<i64>) -> Vec<str> {
+        return vec_get(state, 0) as Vec<str>;
     }
 
     // Name from index
@@ -134,7 +135,7 @@ kernel CCodeGen {
     }
 
     // Generate expression
-    fn gen_expr(expr: i64) -> str {
+    fn gen_expr(expr: Vec<i64>) -> str {
         let node_type = vec_get(expr, 0);
 
         if node_type == NODE_INT_LIT {
@@ -159,8 +160,8 @@ kernel CCodeGen {
 
         if node_type == NODE_BINARY {
             let op = vec_get(expr, 1);
-            let left = vec_get(expr, 2);
-            let right = vec_get(expr, 3);
+            let left = vec_get(expr, 2) as Vec<i64>;
+            let right = vec_get(expr, 3) as Vec<i64>;
             let left_c = gen_expr(left);
             let right_c = gen_expr(right);
             return "(" + left_c + op_to_c(op) + right_c + ")";
@@ -168,7 +169,7 @@ kernel CCodeGen {
 
         if node_type == NODE_UNARY {
             let op = vec_get(expr, 1);
-            let operand = vec_get(expr, 2);
+            let operand = vec_get(expr, 2) as Vec<i64>;
             let operand_c = gen_expr(operand);
             if op == TOK_NOT { return "(!" + operand_c + ")"; }
             if op == TOK_MINUS { return "(-" + operand_c + ")"; }
@@ -185,7 +186,7 @@ kernel CCodeGen {
     }
 
     // Generate statement
-    fn gen_stmt(state: i64, stmt: i64) -> i64 {
+    fn gen_stmt(state: Vec<i64>, stmt: Vec<i64>) -> Vec<i64> {
         let node_type = vec_get(stmt, 0);
 
         if node_type == NODE_LET {
@@ -195,7 +196,8 @@ kernel CCodeGen {
 
             let c_type: str = "bkr_i64";
             if type_node != 0 {
-                let kind = vec_get(type_node, 1);
+                let type_node_vec = type_node as Vec<i64>;
+                let kind = vec_get(type_node_vec, 1);
                 c_type = type_to_c(kind);
             }
 
@@ -203,7 +205,7 @@ kernel CCodeGen {
             let line: str = c_type + " " + name;
 
             if init_expr != 0 {
-                let init_c = gen_expr(init_expr);
+                let init_c = gen_expr(init_expr as Vec<i64>);
                 line = line + " = " + init_c;
             }
 
@@ -215,7 +217,7 @@ kernel CCodeGen {
             let ret_expr = vec_get(stmt, 1);
             let line: str = "return";
             if ret_expr != 0 {
-                let expr_c = gen_expr(ret_expr);
+                let expr_c = gen_expr(ret_expr as Vec<i64>);
                 line = line + " " + expr_c;
             }
             cgen_add_line(state, line + ";");
@@ -223,8 +225,8 @@ kernel CCodeGen {
         }
 
         if node_type == NODE_IF {
-            let cond = vec_get(stmt, 1);
-            let then_block = vec_get(stmt, 2);
+            let cond = vec_get(stmt, 1) as Vec<i64>;
+            let then_block = vec_get(stmt, 2) as Vec<i64>;
             let else_block = vec_get(stmt, 3);
 
             let cond_c = gen_expr(cond);
@@ -236,7 +238,7 @@ kernel CCodeGen {
             if else_block != 0 {
                 cgen_add_line(state, "} else {");
                 cgen_indent(state);
-                gen_block_body(state, else_block);
+                gen_block_body(state, else_block as Vec<i64>);
                 cgen_dedent(state);
             }
 
@@ -245,8 +247,8 @@ kernel CCodeGen {
         }
 
         if node_type == NODE_WHILE {
-            let cond = vec_get(stmt, 1);
-            let body = vec_get(stmt, 2);
+            let cond = vec_get(stmt, 1) as Vec<i64>;
+            let body = vec_get(stmt, 2) as Vec<i64>;
 
             let cond_c = gen_expr(cond);
             cgen_add_line(state, "while (" + cond_c + ") {");
@@ -258,8 +260,8 @@ kernel CCodeGen {
         }
 
         if node_type == NODE_ASSIGN {
-            let target = vec_get(stmt, 1);
-            let value = vec_get(stmt, 2);
+            let target = vec_get(stmt, 1) as Vec<i64>;
+            let value = vec_get(stmt, 2) as Vec<i64>;
             let target_c = gen_expr(target);
             let value_c = gen_expr(value);
             cgen_add_line(state, target_c + " = " + value_c + ";");
@@ -270,10 +272,10 @@ kernel CCodeGen {
     }
 
     // Generate block body
-    fn gen_block_body(state: i64, block: i64) -> i64 {
+    fn gen_block_body(state: Vec<i64>, block: Vec<i64>) -> Vec<i64> {
         let i: i64 = 1;
         while i < vec_len(block) {
-            let stmt = vec_get(block, i);
+            let stmt = vec_get(block, i) as Vec<i64>;
             gen_stmt(state, stmt);
             i = i + 1;
         }
@@ -281,14 +283,15 @@ kernel CCodeGen {
     }
 
     // Generate function
-    fn gen_fn(state: i64, fn_node: i64, prefix: str) -> i64 {
+    fn gen_fn(state: Vec<i64>, fn_node: Vec<i64>, prefix: str) -> Vec<i64> {
         let name_idx = vec_get(fn_node, 1);
         let ret_type_node = vec_get(fn_node, 3);
-        let body = vec_get(fn_node, 4);
+        let body = vec_get(fn_node, 4) as Vec<i64>;
 
         let ret_type: str = "void";
         if ret_type_node != 0 {
-            let kind = vec_get(ret_type_node, 1);
+            let ret_type_vec = ret_type_node as Vec<i64>;
+            let kind = vec_get(ret_type_vec, 1);
             ret_type = type_to_c(kind);
         }
 
@@ -304,14 +307,14 @@ kernel CCodeGen {
     }
 
     // Generate kernel
-    fn gen_kernel(state: i64, kernel: i64) -> i64 {
+    fn gen_kernel(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
         let name_idx = vec_get(kernel, 1);
-        let funcs = vec_get(kernel, 2);
+        let funcs = vec_get(kernel, 2) as Vec<i64>;
         let prefix = name_from_idx(name_idx);
 
         let i: i64 = 0;
         while i < vec_len(funcs) {
-            let fn_node = vec_get(funcs, i);
+            let fn_node = vec_get(funcs, i) as Vec<i64>;
             gen_fn(state, fn_node, prefix);
             i = i + 1;
         }
@@ -320,8 +323,8 @@ kernel CCodeGen {
     }
 
     // Generate full C program (returns line count)
-    fn gen_program(kernel: i64) -> i64 {
-        let state = cgen_new();
+    fn gen_program(kernel: Vec<i64>) -> Vec<str> {
+        let state: Vec<i64> = cgen_new();
 
         // Header - we'll need quotes handled separately
         cgen_add_line(state, "/* Generated by Bunker Compiler */");
@@ -341,38 +344,39 @@ kernel CCodeGen {
 
     fn main() -> i32 {
         // Test: Generate C code for a simple AST
-        let ret_expr = vec_new();
+        let ret_expr: Vec<i64> = vec_new();
         vec_push(ret_expr, NODE_INT_LIT);
         vec_push(ret_expr, 42);
 
-        let ret_stmt = vec_new();
+        let ret_stmt: Vec<i64> = vec_new();
         vec_push(ret_stmt, NODE_RETURN);
-        vec_push(ret_stmt, ret_expr);
+        vec_push(ret_stmt, ret_expr as i64);
 
-        let block = vec_new();
+        let block: Vec<i64> = vec_new();
         vec_push(block, NODE_BLOCK);
-        vec_push(block, ret_stmt);
+        vec_push(block, ret_stmt as i64);
 
-        let ret_type = vec_new();
+        let ret_type: Vec<i64> = vec_new();
         vec_push(ret_type, NODE_TYPE);
         vec_push(ret_type, TYPE_I32);
 
-        let fn_node = vec_new();
+        let fn_node: Vec<i64> = vec_new();
         vec_push(fn_node, NODE_FN);
         vec_push(fn_node, 1);
-        vec_push(fn_node, vec_new());
-        vec_push(fn_node, ret_type);
-        vec_push(fn_node, block);
+        let params: Vec<i64> = vec_new();
+        vec_push(fn_node, params as i64);
+        vec_push(fn_node, ret_type as i64);
+        vec_push(fn_node, block as i64);
 
-        let funcs = vec_new();
-        vec_push(funcs, fn_node);
+        let funcs: Vec<i64> = vec_new();
+        vec_push(funcs, fn_node as i64);
 
-        let kernel = vec_new();
+        let kernel: Vec<i64> = vec_new();
         vec_push(kernel, NODE_KERNEL);
         vec_push(kernel, 1);
-        vec_push(kernel, funcs);
+        vec_push(kernel, funcs as i64);
 
-        let lines = gen_program(kernel);
+        let lines: Vec<str> = gen_program(kernel);
 
         // Check we have some output
         if vec_len(lines) < 5 { return 1; }

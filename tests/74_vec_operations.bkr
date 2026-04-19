@@ -5,7 +5,7 @@
 kernel VecOps {
     fn main() -> i32 {
         // Create a new vector
-        let v = vec_new();
+        let v: Vec<i32> = vec_new();
 
         // Test push and len
         vec_push(v, 10);

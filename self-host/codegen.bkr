@@ -63,52 +63,54 @@ kernel CodeGen {
     const TOK_NE: i64 = 86;
 
     // Code generator state: [bytecode, locals, local_count]
-    fn codegen_new() -> i64 {
-        let state = vec_new();
-        vec_push(state, vec_new());  // bytecode
-        vec_push(state, vec_new());  // locals table
+    fn codegen_new() -> Vec<i64> {
+        let state: Vec<i64> = vec_new();
+        let bytecode: Vec<i64> = vec_new();
+        let locals: Vec<i64> = vec_new();
+        vec_push(state, bytecode as i64);
+        vec_push(state, locals as i64);
         vec_push(state, 0);          // local count
         return state;
     }
 
-    fn codegen_bytecode(state: i64) -> i64 {
-        return vec_get(state, 0);
+    fn codegen_bytecode(state: Vec<i64>) -> Vec<i64> {
+        return vec_get(state, 0) as Vec<i64>;
     }
 
-    fn emit(state: i64, op: i64) -> i64 {
+    fn emit(state: Vec<i64>, op: i64) -> Vec<i64> {
         let bc = codegen_bytecode(state);
         vec_push(bc, op);
         return state;
     }
 
-    fn emit2(state: i64, op: i64, arg: i64) -> i64 {
+    fn emit2(state: Vec<i64>, op: i64, arg: i64) -> Vec<i64> {
         let bc = codegen_bytecode(state);
         vec_push(bc, op);
         vec_push(bc, arg);
         return state;
     }
 
-    fn bytecode_len(state: i64) -> i64 {
+    fn bytecode_len(state: Vec<i64>) -> i64 {
         return vec_len(codegen_bytecode(state));
     }
 
-    fn patch_jump(state: i64, addr: i64, target: i64) -> i64 {
+    fn patch_jump(state: Vec<i64>, addr: i64, target: i64) -> Vec<i64> {
         let bc = codegen_bytecode(state);
         vec_set(bc, addr + 1, target);
         return state;
     }
 
     // Local variable management
-    fn add_local(state: i64, name_idx: i64) -> i64 {
-        let locals = vec_get(state, 1);
+    fn add_local(state: Vec<i64>, name_idx: i64) -> i64 {
+        let locals = vec_get(state, 1) as Vec<i64>;
         let slot = vec_get(state, 2);
         vec_push(locals, name_idx);
         vec_set(state, 2, slot + 1);
         return slot;
     }
 
-    fn lookup_local(state: i64, name_idx: i64) -> i64 {
-        let locals = vec_get(state, 1);
+    fn lookup_local(state: Vec<i64>, name_idx: i64) -> i64 {
+        let locals = vec_get(state, 1) as Vec<i64>;
         let i: i64 = 0;
         let found: i64 = 0;
         let searching = true;
@@ -125,7 +127,7 @@ kernel CodeGen {
     }
 
     // Generate code for expression
-    fn gen_expr(state: i64, expr: i64) -> i64 {
+    fn gen_expr(state: Vec<i64>, expr: Vec<i64>) -> Vec<i64> {
         let node_type = vec_get(expr, 0);
 
         if node_type == NODE_INT_LIT {
@@ -149,8 +151,8 @@ kernel CodeGen {
 
         if node_type == NODE_BINARY {
             let op = vec_get(expr, 1);
-            let left = vec_get(expr, 2);
-            let right = vec_get(expr, 3);
+            let left = vec_get(expr, 2) as Vec<i64>;
+            let right = vec_get(expr, 3) as Vec<i64>;
 
             gen_expr(state, left);
             gen_expr(state, right);
@@ -173,7 +175,7 @@ kernel CodeGen {
 
         if node_type == NODE_UNARY {
             let op = vec_get(expr, 1);
-            let operand = vec_get(expr, 2);
+            let operand = vec_get(expr, 2) as Vec<i64>;
 
             gen_expr(state, operand);
 
@@ -193,7 +195,7 @@ kernel CodeGen {
     }
 
     // Generate code for statement
-    fn gen_stmt(state: i64, stmt: i64) -> i64 {
+    fn gen_stmt(state: Vec<i64>, stmt: Vec<i64>) -> Vec<i64> {
         let node_type = vec_get(stmt, 0);
 
         if node_type == NODE_LET {
@@ -203,7 +205,7 @@ kernel CodeGen {
             let slot = add_local(state, name_idx);
 
             if init_expr != 0 {
-                gen_expr(state, init_expr);
+                gen_expr(state, init_expr as Vec<i64>);
                 emit2(state, OP_STORE_LOCAL, slot);
             }
 
@@ -213,15 +215,15 @@ kernel CodeGen {
         if node_type == NODE_RETURN {
             let ret_expr = vec_get(stmt, 1);
             if ret_expr != 0 {
-                gen_expr(state, ret_expr);
+                gen_expr(state, ret_expr as Vec<i64>);
             }
             emit(state, OP_RETURN);
             return state;
         }
 
         if node_type == NODE_IF {
-            let cond = vec_get(stmt, 1);
-            let then_block = vec_get(stmt, 2);
+            let cond = vec_get(stmt, 1) as Vec<i64>;
+            let then_block = vec_get(stmt, 2) as Vec<i64>;
             let else_block = vec_get(stmt, 3);
 
             gen_expr(state, cond);
@@ -237,11 +239,12 @@ kernel CodeGen {
                 let else_start = bytecode_len(state);
                 patch_jump(state, jump_addr, else_start);
 
-                let else_type = vec_get(else_block, 0);
+                let else_node = else_block as Vec<i64>;
+                let else_type = vec_get(else_node, 0);
                 if else_type == NODE_BLOCK {
-                    gen_block(state, else_block);
+                    gen_block(state, else_node);
                 } else if else_type == NODE_IF {
-                    gen_stmt(state, else_block);
+                    gen_stmt(state, else_node);
                 }
 
                 let end_addr = bytecode_len(state);
@@ -255,8 +258,8 @@ kernel CodeGen {
         }
 
         if node_type == NODE_WHILE {
-            let cond = vec_get(stmt, 1);
-            let body = vec_get(stmt, 2);
+            let cond = vec_get(stmt, 1) as Vec<i64>;
+            let body = vec_get(stmt, 2) as Vec<i64>;
 
             let loop_start = bytecode_len(state);
             gen_expr(state, cond);
@@ -275,15 +278,15 @@ kernel CodeGen {
         }
 
         if node_type == NODE_EXPR_STMT {
-            let expr = vec_get(stmt, 1);
+            let expr = vec_get(stmt, 1) as Vec<i64>;
             gen_expr(state, expr);
             emit(state, OP_POP);
             return state;
         }
 
         if node_type == NODE_ASSIGN {
-            let target = vec_get(stmt, 1);
-            let value = vec_get(stmt, 2);
+            let target = vec_get(stmt, 1) as Vec<i64>;
+            let value = vec_get(stmt, 2) as Vec<i64>;
 
             gen_expr(state, value);
 
@@ -301,12 +304,12 @@ kernel CodeGen {
     }
 
     // Generate code for block
-    fn gen_block(state: i64, block: i64) -> i64 {
+    fn gen_block(state: Vec<i64>, block: Vec<i64>) -> Vec<i64> {
         let i: i64 = 1;
         let continuing = true;
 
         while continuing && i < vec_len(block) {
-            let stmt = vec_get(block, i);
+            let stmt = vec_get(block, i) as Vec<i64>;
             gen_stmt(state, stmt);
             i = i + 1;
         }
@@ -315,37 +318,38 @@ kernel CodeGen {
     }
 
     // Generate code for function
-    fn gen_fn(state: i64, fn_node: i64) -> i64 {
-        let body = vec_get(fn_node, 4);
+    fn gen_fn(state: Vec<i64>, fn_node: Vec<i64>) -> Vec<i64> {
+        let body = vec_get(fn_node, 4) as Vec<i64>;
         gen_block(state, body);
         return state;
     }
 
     fn main() -> i32 {
         // Test: Generate code for "return 42;"
-        let ret_expr = vec_new();
+        let ret_expr: Vec<i64> = vec_new();
         vec_push(ret_expr, NODE_INT_LIT);
         vec_push(ret_expr, 42);
 
-        let ret_stmt = vec_new();
+        let ret_stmt: Vec<i64> = vec_new();
         vec_push(ret_stmt, NODE_RETURN);
-        vec_push(ret_stmt, ret_expr);
+        vec_push(ret_stmt, ret_expr as i64);
 
-        let block = vec_new();
+        let block: Vec<i64> = vec_new();
         vec_push(block, NODE_BLOCK);
-        vec_push(block, ret_stmt);
+        vec_push(block, ret_stmt as i64);
 
-        let fn_node = vec_new();
+        let fn_node: Vec<i64> = vec_new();
         vec_push(fn_node, NODE_FN);
         vec_push(fn_node, 1);
-        vec_push(fn_node, vec_new());
+        let params: Vec<i64> = vec_new();
+        vec_push(fn_node, params as i64);
         vec_push(fn_node, 0);
-        vec_push(fn_node, block);
+        vec_push(fn_node, block as i64);
 
-        let state = codegen_new();
+        let state: Vec<i64> = codegen_new();
         gen_fn(state, fn_node);
 
-        let bc = codegen_bytecode(state);
+        let bc: Vec<i64> = codegen_bytecode(state);
 
         // Expected: OP_PUSH_I64, 42, OP_RETURN
         if vec_len(bc) != 3 { return 1; }
@@ -354,40 +358,41 @@ kernel CodeGen {
         if vec_get(bc, 2) != OP_RETURN { return 4; }
 
         // Test 2: Generate code for "let x = 10; return x;"
-        let state2 = codegen_new();
+        let state2: Vec<i64> = codegen_new();
 
-        let init_expr = vec_new();
+        let init_expr: Vec<i64> = vec_new();
         vec_push(init_expr, NODE_INT_LIT);
         vec_push(init_expr, 10);
 
-        let let_stmt = vec_new();
+        let let_stmt: Vec<i64> = vec_new();
         vec_push(let_stmt, NODE_LET);
         vec_push(let_stmt, 5);  // name_idx for 'x'
         vec_push(let_stmt, 0);  // no type annotation
-        vec_push(let_stmt, init_expr);
+        vec_push(let_stmt, init_expr as i64);
 
-        let ident = vec_new();
+        let ident: Vec<i64> = vec_new();
         vec_push(ident, NODE_IDENT);
         vec_push(ident, 5);  // same name_idx
 
-        let ret_stmt2 = vec_new();
+        let ret_stmt2: Vec<i64> = vec_new();
         vec_push(ret_stmt2, NODE_RETURN);
-        vec_push(ret_stmt2, ident);
+        vec_push(ret_stmt2, ident as i64);
 
-        let block2 = vec_new();
+        let block2: Vec<i64> = vec_new();
         vec_push(block2, NODE_BLOCK);
-        vec_push(block2, let_stmt);
-        vec_push(block2, ret_stmt2);
+        vec_push(block2, let_stmt as i64);
+        vec_push(block2, ret_stmt2 as i64);
 
-        let fn_node2 = vec_new();
+        let fn_node2: Vec<i64> = vec_new();
         vec_push(fn_node2, NODE_FN);
         vec_push(fn_node2, 1);
-        vec_push(fn_node2, vec_new());
+        let params2: Vec<i64> = vec_new();
+        vec_push(fn_node2, params2 as i64);
         vec_push(fn_node2, 0);
-        vec_push(fn_node2, block2);
+        vec_push(fn_node2, block2 as i64);
 
         gen_fn(state2, fn_node2);
-        let bc2 = codegen_bytecode(state2);
+        let bc2: Vec<i64> = codegen_bytecode(state2);
 
         // Expected: PUSH 10, STORE 0, LOAD 0, RETURN (7 elements total)
         if vec_len(bc2) != 7 { return 10 + vec_len(bc2); }

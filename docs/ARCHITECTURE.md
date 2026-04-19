@@ -10,7 +10,7 @@ This repo currently contains a single Rust crate (`bunker-cli`) implementing the
 
 1. **Parse**: Pest PEG grammar (`bunker-cli/src/grammar/bunker.pest`) parses `.bkr` into a parse tree.
 2. **AST build**: `bunker-cli/src/ast_builder.rs` lowers the parse tree into `bunker-cli/src/ast.rs`.
-3. **Type checking (Kernel-only)**: `bunker-cli/src/typeck.rs` validates Kernel blocks.
+3. **Type checking**: `bunker-cli/src/typeck.rs` fully validates Kernel blocks and performs lighter Shell/View validation.
 4. **Code generation**:
    - Kernel codegen via Cranelift (`bunker-cli/src/codegen.rs`) emits an object file.
    - Shell codegen (`bunker-cli/src/shell_codegen.rs`) emits VM bytecode structures used by the runtime.
@@ -46,10 +46,11 @@ To run Shell and View, the project includes a small runtime implementation (Rust
 
 ## Current Test Coverage
 
-- **Total Tests:** 64 passing
-- **JIT-Enabled:** 50 tests (Kernel `fn main`)
-- **Negative Tests:** 9 tests (type errors, move errors)
-- **Shell Execution:** 5 tests (agent VM)
+- **Total Tests:** 92 passing
+- **JIT-Enabled:** 57 tests (validated by `run_tests.ps1`)
+- **Negative Tests:** 16 tests (type errors, move errors)
+- **Shell-Bearing Files:** 14 tests
+- **View-Bearing Files:** 7 tests
 
 ## Implementation Status
 

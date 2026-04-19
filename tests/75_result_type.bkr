@@ -1,11 +1,11 @@
 // Test 75: Result Type Operations
-// Purpose: Test Result<T, E> type builtins for error handling.
+// Purpose: Test Result<T, E> builtins, including Result<T, T> value extraction.
 // Expected: JIT returns 42
 
 kernel ResultOps {
     fn main() -> i32 {
         // Create an Ok result
-        let ok_result = result_ok(100);
+        let ok_result: Result<i32, i32> = result_ok(100);
 
         // Test is_ok
         let is_ok = result_is_ok(ok_result);
@@ -26,7 +26,7 @@ kernel ResultOps {
         }
 
         // Create an Err result
-        let err_result = result_err(42);
+        let err_result: Result<i32, i32> = result_err(42);
 
         // Test is_ok (should be false for Err)
         let err_is_ok = result_is_ok(err_result);

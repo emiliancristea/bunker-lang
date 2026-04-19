@@ -5,6 +5,7 @@ edition = "2021"
 authors = ["Bunker Corporation"]
 description = "The Bunker Language Compiler"
 license = "MIT"
+build = "build.rs"
 
 [dependencies]
 # Parser

@@ -1,0 +1,14 @@
+// Test 84: Raw HashMap Handle Rejected
+// Purpose: Collection builtins should reject raw i64 HashMap handles.
+// Expected: Type checker rejects hashmap_contains(raw, ...)
+
+kernel RawHashMapHandleBad {
+    fn main() -> i32 {
+        let map: HashMap<i32, i32> = hashmap_new();
+        let raw: i64 = map as i64;
+        if hashmap_contains(raw, 1) {
+            return 1;
+        }
+        return 0;
+    }
+}

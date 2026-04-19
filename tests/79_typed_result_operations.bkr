@@ -1,0 +1,30 @@
+// Test 79: Typed Result Operations
+// Purpose: Ensure Result<T, E> builtins preserve annotated Ok/Err types.
+// Expected: JIT returns 42
+
+kernel TypedResultOps {
+    fn main() -> i32 {
+        let ok: Result<i32, str> = result_ok(7);
+        let err: Result<i32, str> = result_err("oops");
+
+        if !result_is_ok(ok) {
+            return 1;
+        }
+
+        if !result_is_err(err) {
+            return 2;
+        }
+
+        let ok_value: i32 = result_unwrap(ok);
+        if ok_value != 7 {
+            return 3;
+        }
+
+        let err_value: str = result_unwrap_err(err);
+        if len(err_value) != 4 {
+            return 4;
+        }
+
+        return 42;
+    }
+}
