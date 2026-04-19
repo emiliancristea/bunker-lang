@@ -223,8 +223,13 @@ if (-not $JitOnly) {
     $selfHostSubset = @(
         "tests\01_basic_math.bkr",
         "tests\14_kernel_if_branching.bkr",
+        "tests\16_kernel_match_block_expr.bkr",
+        "tests\19_kernel_match_binding.bkr",
+        "tests\20_kernel_option_basic.bkr",
+        "tests\21_kernel_option_if_infer.bkr",
         "tests\38_kernel_while_loop.bkr",
-        "tests\39_kernel_while_break.bkr"
+        "tests\39_kernel_while_break.bkr",
+        "tests\52_kernel_option_match.bkr"
     )
 
     $subsetOk = $true
