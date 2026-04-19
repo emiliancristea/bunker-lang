@@ -905,8 +905,10 @@ fn self_host_compile(
     let output_abs = absolute_from_current(output)?;
     let compiler_abs = absolute_from_current(compiler)?;
 
-    let input_source = fs::read_to_string(&input_abs)
-        .with_context(|| format!("Failed to read input file: {}", input_abs.display()))?;
+    // The compiler kernel runs from an isolated temp directory. Expand input
+    // imports before execution so modular inputs do not depend on cwd layout.
+    let input_source = load_self_host_compiler_source(&input_abs)
+        .with_context(|| format!("Failed to load input file: {}", input_abs.display()))?;
     let compiler_source = load_self_host_compiler_source(&compiler_abs)?;
     let compiler_path = compiler_abs.display().to_string();
 

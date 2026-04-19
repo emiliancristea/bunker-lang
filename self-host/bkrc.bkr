@@ -2372,7 +2372,11 @@ kernel BunkerCompiler {
 
     fn append_expanded_line(output: str, line: str) -> str {
         if is_import_line(line) {
-            let imported = read_file(import_path_from_line(line));
+            let import_path = import_path_from_line(line);
+            if !file_exists(import_path) {
+                return output + "// Missing import: " + import_path + from_char_code(10);
+            }
+            let imported = read_file(import_path);
             let result = output + imported;
             if len(result) > 0 && char_code_at(result, len(result) - 1) != 10 {
                 result = result + from_char_code(10);
@@ -2405,7 +2409,49 @@ kernel BunkerCompiler {
         return output;
     }
 
+    fn missing_import_in_line(line: str) -> str {
+        if is_import_line(line) {
+            let import_path = import_path_from_line(line);
+            if !file_exists(import_path) {
+                return import_path;
+            }
+        }
+        return "";
+    }
+
+    fn first_missing_import_path(source: str) -> str {
+        let start: i64 = 0;
+        let pos: i64 = 0;
+        let source_len = len(source);
+
+        while pos < source_len {
+            if char_code_at(source, pos) == 10 {
+                let missing = missing_import_in_line(substring(source, start, pos));
+                if len(missing) > 0 {
+                    return missing;
+                }
+                pos = pos + 1;
+                start = pos;
+            } else {
+                pos = pos + 1;
+            }
+        }
+
+        if start < source_len {
+            return missing_import_in_line(substring(source, start, source_len));
+        }
+
+        return "";
+    }
+
     fn compile_to_c(source: str) -> str {
+        let missing_import = first_missing_import_path(source);
+        if len(missing_import) > 0 {
+            return "/* Import error: missing module " + missing_import +
+                ". AI repair hint: copy the imported Bunker module next to self_host_input.bkr or pre-expand imports before running bkrc. */" +
+                from_char_code(10);
+        }
+
         let expanded_source = expand_imports(source);
         let lex_result: Vec<i64> = tokenize(expanded_source);
         let p: Vec<i64> = parser_new(lex_result);
