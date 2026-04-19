@@ -28,6 +28,7 @@ Current bootstrap state after the latest self-host work:
 
 - Self-host `bkrc.bkr` can self-compile through stage1 and stage2 in GitHub Actions.
 - CI gates arithmetic, functions, control flow, structs, arrays, strings, constants, recursion, bitwise ops, ternary, match, Option, Result, Vec, and HashMap fixtures through generated and stage2 compilers.
+- CI compares selected self-host outputs against Rust JIT results and checks stage1/stage2 generated C determinism.
 - The Rust compiler is still the production compiler and the bootstrap driver.
 - The self-host compiler is now partially modular: lexer, parser, and C codegen live in imported Bunker modules, while the driver still lives in `bkrc.bkr` and the AST still uses raw `Vec<i64>` nodes.
 - The language is not yet production-complete.
@@ -62,7 +63,7 @@ These are the next concrete PR-sized slices.
 | Q-007 | DONE | Move parser into Bunker module. | Stage2 compiler uses Bunker parser module and passes current self-host smoke. |
 | Q-008 | DONE | Move C codegen into Bunker module. | Stage2 compiler uses Bunker codegen module and passes current self-host smoke. |
 | Q-009 | PARTIAL | Add machine-readable self-host diagnostics. | Self-host parse/import errors emit JSON diagnostics with spans and repair hints; type/codegen diagnostics still need dedicated phases. |
-| Q-010 | TODO | Add self-host golden output tests. | CI compares selected Rust compiler output vs self-host compiler output for stable fixtures. |
+| Q-010 | DONE | Add self-host golden output tests. | CI compares selected Rust compiler output vs self-host compiler output for stable fixtures. |
 
 ## Language Core
 
@@ -225,12 +226,12 @@ These are the next concrete PR-sized slices.
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
 | SH-001 | PARTIAL | P0 | Self-host smoke gate. | Current stage1/stage2 CI remains green after every change. |
-| SH-002 | TODO | P0 | Split `bkrc.bkr` into modules. | Compiler source is multiple Bunker files with imports. |
+| SH-002 | DONE | P0 | Split `bkrc.bkr` into modules. | Compiler source is multiple Bunker files with imports. |
 | SH-003 | TODO | P0 | Typed AST in self-host compiler. | Raw numeric tags are replaced by Bunker types. |
 | SH-004 | TODO | P0 | Enums for token/node kinds. | Token and AST tags use language enums. |
 | SH-005 | TODO | P0 | Real generic collections in self-host compiler. | `Vec<T>` and maps preserve element/key/value types. |
 | SH-006 | TODO | P0 | Stage0/Stage1/Stage2 docs. | Bootstrap chain is documented and reproducible. |
-| SH-007 | TODO | P0 | Golden tests vs Rust compiler. | Outputs/diagnostics match for selected fixtures or known differences are logged. |
+| SH-007 | DONE | P0 | Golden tests vs Rust compiler. | Outputs/diagnostics match for selected fixtures or known differences are logged. |
 | SH-008 | TODO | P0 | Rust module migration map. | Each Rust compiler subsystem has a Bunker replacement target. |
 | SH-009 | BLOCKED | P0 | Build compiler without Rust. | Requires modules, stdlib, diagnostics, and typed compiler structures. |
 | SH-010 | TODO | P1 | Reproducible self-host artifacts. | CI uploads deterministic stage artifacts with checksums. |
@@ -331,3 +332,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-04-19 | Moved the self-host parser into a Bunker module. | `self-host/bkrc.bkr` imports `self-host/modules/parser.bkr`; generated and stage2 `bkrc` expand flat module imports in CI. |
 | 2026-04-19 | Moved the self-host C codegen into a Bunker module. | `self-host/bkrc.bkr` imports `self-host/modules/c_codegen.bkr`; the driver remains in the entrypoint. |
 | 2026-04-19 | Added machine-readable self-host parse diagnostics. | Invalid generated/stage2 `bkrc` inputs include `BUNKER_DIAGNOSTIC_JSON` with source offsets, line/column, expected/actual, and repair hints. |
+| 2026-04-19 | Added self-host golden output tests. | CI compares selected fixture results against Rust JIT output and diffs stage1 vs stage2 generated C. |
