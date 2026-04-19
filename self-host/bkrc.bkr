@@ -292,6 +292,9 @@ kernel BunkerCompiler {
         vec_push(state, vec_get(lex_result, 3));  // strings
         vec_push(state, 0);                       // position (token index / 3)
         vec_push(state, 0);                       // error flag
+        vec_push(state, -1);                      // first error position
+        vec_push(state, TOK_EOF);                 // first expected token
+        vec_push(state, TOK_EOF);                 // first actual token
         return state;
     }
 
@@ -320,8 +323,18 @@ kernel BunkerCompiler {
             parser_advance(p);
             return true;
         }
-        vec_set(p, 5, 1);  // set error
+        parser_mark_error(p, expected);
         return false;
+    }
+
+    fn parser_mark_error(p: Vec<i64>, expected: i64) -> Vec<i64> {
+        vec_set(p, 5, 1);
+        if vec_get(p, 6) < 0 {
+            vec_set(p, 6, vec_get(p, 4));
+            vec_set(p, 7, expected);
+            vec_set(p, 8, parser_peek(p));
+        }
+        return p;
     }
 
     fn parser_get_name(p: Vec<i64>, idx: i64) -> str {
@@ -343,6 +356,65 @@ kernel BunkerCompiler {
         return vec_get(p, 5) != 0;
     }
 
+    fn parser_error_position(p: Vec<i64>) -> i64 {
+        return vec_get(p, 6);
+    }
+
+    fn parser_error_expected(p: Vec<i64>) -> i64 {
+        return vec_get(p, 7);
+    }
+
+    fn parser_error_actual(p: Vec<i64>) -> i64 {
+        return vec_get(p, 8);
+    }
+
+    fn token_name(tok: i64) -> str {
+        if tok == TOK_EOF { return "EOF"; }
+        if tok == TOK_IDENT { return "identifier"; }
+        if tok == TOK_INT { return "integer"; }
+        if tok == TOK_STR { return "string"; }
+        if tok == TOK_TRUE { return "true"; }
+        if tok == TOK_FALSE { return "false"; }
+        if tok == TOK_KERNEL { return "kernel"; }
+        if tok == TOK_FN { return "fn"; }
+        if tok == TOK_LET { return "let"; }
+        if tok == TOK_IF { return "if"; }
+        if tok == TOK_ELSE { return "else"; }
+        if tok == TOK_WHILE { return "while"; }
+        if tok == TOK_BREAK { return "break"; }
+        if tok == TOK_CONTINUE { return "continue"; }
+        if tok == TOK_RETURN { return "return"; }
+        if tok == TOK_CONST { return "const"; }
+        if tok == TOK_I32 { return "i32"; }
+        if tok == TOK_I64 { return "i64"; }
+        if tok == TOK_BOOL { return "bool"; }
+        if tok == TOK_STR_TYPE { return "str"; }
+        if tok == TOK_PLUS { return "+"; }
+        if tok == TOK_MINUS { return "-"; }
+        if tok == TOK_STAR { return "*"; }
+        if tok == TOK_SLASH { return "/"; }
+        if tok == TOK_PERCENT { return "%"; }
+        if tok == TOK_EQ { return "=="; }
+        if tok == TOK_NE { return "!="; }
+        if tok == TOK_LT { return "<"; }
+        if tok == TOK_GT { return ">"; }
+        if tok == TOK_LE { return "<="; }
+        if tok == TOK_GE { return ">="; }
+        if tok == TOK_AND { return "&&"; }
+        if tok == TOK_OR { return "||"; }
+        if tok == TOK_NOT { return "!"; }
+        if tok == TOK_ASSIGN { return "="; }
+        if tok == TOK_ARROW { return "->"; }
+        if tok == TOK_LPAREN { return "("; }
+        if tok == TOK_RPAREN { return ")"; }
+        if tok == TOK_LBRACE { return "{"; }
+        if tok == TOK_RBRACE { return "}"; }
+        if tok == TOK_COMMA { return ","; }
+        if tok == TOK_SEMICOLON { return ";"; }
+        if tok == TOK_COLON { return ":"; }
+        return "token " + int_to_string(tok);
+    }
+
     fn is_name_token(tok: i64) -> bool {
         return tok == TOK_IDENT || tok == TOK_KERNEL || tok == TOK_FN || tok == TOK_LET ||
                tok == TOK_IF || tok == TOK_ELSE || tok == TOK_WHILE || tok == TOK_BREAK ||
@@ -355,7 +427,7 @@ kernel BunkerCompiler {
             parser_advance(p);
             return value;
         }
-        vec_set(p, 5, 1);
+        parser_mark_error(p, TOK_IDENT);
         return value;
     }
 
@@ -1518,7 +1590,11 @@ kernel BunkerCompiler {
         let ast: Vec<i64> = parse_kernel(p);
 
         if parser_has_error(p) {
-            return "/* Parse error */" + from_char_code(10);
+            let msg = "/* Parse error at token " + int_to_string(parser_error_position(p)) +
+                ": expected " + token_name(parser_error_expected(p)) +
+                ", got " + token_name(parser_error_actual(p)) +
+                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, fn, const, let, if, else, while, break, continue, return, primitive types, Vec<T> handles, calls, casts, and basic expressions. */";
+            return msg + from_char_code(10);
         }
 
         return gen_c_program(ast);
