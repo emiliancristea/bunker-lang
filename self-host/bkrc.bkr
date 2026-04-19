@@ -1698,6 +1698,14 @@ kernel BunkerCompiler {
         if raw == "read_file" { return TYPE_STR; }
         if raw == "write_file" { return TYPE_BOOL; }
         if raw == "file_exists" { return TYPE_BOOL; }
+        if raw == "result_ok" { return TYPE_I64; }
+        if raw == "result_err" { return TYPE_I64; }
+        if raw == "result_is_ok" { return TYPE_BOOL; }
+        if raw == "result_is_err" { return TYPE_BOOL; }
+        if raw == "result_unwrap" { return TYPE_I64; }
+        if raw == "result_unwrap_err" { return TYPE_I64; }
+        if raw == "result_tag" { return TYPE_I64; }
+        if raw == "result_value" { return TYPE_I64; }
         return TYPE_UNKNOWN;
     }
 
@@ -1836,7 +1844,7 @@ kernel BunkerCompiler {
 
         let line = c_type + " " + name;
         if init != 0 {
-            line = line + " = " + gen_c_expr(state, init as Vec<i64>);
+            line = line + " = " + gen_c_init_expr_for_type(state, type_node, init as Vec<i64>);
         }
         return line + "; ";
     }
@@ -1942,6 +1950,33 @@ kernel BunkerCompiler {
         }
 
         return result + result_name + "; })";
+    }
+
+    fn is_result_payload_call(state: Vec<i64>, expr: Vec<i64>) -> bool {
+        if vec_get(expr, 0) != NODE_CALL {
+            return false;
+        }
+        let name_idx = vec_get(expr, 1);
+        let names = vec_get(state, 3) as Vec<str>;
+        let raw = name_from_table(names, name_idx);
+        return raw == "result_unwrap" || raw == "result_unwrap_err" || raw == "result_value";
+    }
+
+    fn gen_c_result_arg(state: Vec<i64>, expr: Vec<i64>) -> str {
+        let result = gen_c_expr(state, expr);
+        let kind = infer_c_expr_type(state, expr);
+        if kind == TYPE_STR {
+            return "((bkr_i64)(intptr_t)" + result + ")";
+        }
+        return result;
+    }
+
+    fn gen_c_init_expr_for_type(state: Vec<i64>, type_node: i64, init: Vec<i64>) -> str {
+        let result = gen_c_expr(state, init);
+        if type_node != 0 && type_node_kind(type_node) == TYPE_STR && is_result_payload_call(state, init) {
+            return "(bkr_str)(intptr_t)(" + result + ")";
+        }
+        return result;
     }
 
     fn gen_c_expr(state: Vec<i64>, expr: Vec<i64>) -> str {
@@ -2068,6 +2103,36 @@ kernel BunkerCompiler {
             if raw == "Some" && vec_len(args) == 1 {
                 return "(((" + gen_c_expr(state, vec_get(args, 0) as Vec<i64>) + ") << 1) | 1)";
             }
+            if raw == "result_ok" && vec_len(args) == 1 {
+                let arg = gen_c_result_arg(state, vec_get(args, 0) as Vec<i64>);
+                return "bkr_result_ok(" + arg + ")";
+            }
+            if raw == "result_err" && vec_len(args) == 1 {
+                let arg2 = gen_c_result_arg(state, vec_get(args, 0) as Vec<i64>);
+                return "bkr_result_err(" + arg2 + ")";
+            }
+            if raw == "result_is_ok" && vec_len(args) == 1 {
+                let arg3 = gen_c_expr(state, vec_get(args, 0) as Vec<i64>);
+                return "bkr_result_is_ok(" + arg3 + ")";
+            }
+            if raw == "result_is_err" && vec_len(args) == 1 {
+                let arg4 = gen_c_expr(state, vec_get(args, 0) as Vec<i64>);
+                return "bkr_result_is_err(" + arg4 + ")";
+            }
+            if raw == "result_tag" && vec_len(args) == 1 {
+                let arg5 = gen_c_expr(state, vec_get(args, 0) as Vec<i64>);
+                return "bkr_result_tag(" + arg5 + ")";
+            }
+            if (raw == "result_unwrap" || raw == "result_unwrap_err" || raw == "result_value") && vec_len(args) == 1 {
+                let arg6 = gen_c_expr(state, vec_get(args, 0) as Vec<i64>);
+                if raw == "result_unwrap" {
+                    return "bkr_result_unwrap(" + arg6 + ")";
+                }
+                if raw == "result_unwrap_err" {
+                    return "bkr_result_unwrap_err(" + arg6 + ")";
+                }
+                return "bkr_result_value(" + arg6 + ")";
+            }
             if raw == "len" && vec_len(args) == 1 {
                 let arg = vec_get(args, 0) as Vec<i64>;
                 if vec_get(arg, 0) == NODE_IDENT {
@@ -2128,7 +2193,7 @@ kernel BunkerCompiler {
             }
             let line = c_type + " " + name;
             if init != 0 {
-                line = line + " = " + gen_c_expr(state, init as Vec<i64>);
+                line = line + " = " + gen_c_init_expr_for_type(state, type_node, init as Vec<i64>);
             }
             cgen_emit(state, line + ";");
             cgen_add_local_type(state, vec_get(stmt, 1), kind);
@@ -2493,7 +2558,7 @@ kernel BunkerCompiler {
             let msg = "/* Parse error at token " + int_to_string(parser_error_position(p)) +
                 ": expected " + token_name(parser_error_expected(p)) +
                 ", got " + token_name(parser_error_actual(p)) +
-                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, match expressions, Option<T> via Some/None, for-in ranges, while, loop, break, continue, return, primitive types, Vec<T> handles, calls, casts, ternary expressions, bitwise operators, and basic expressions. */";
+                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, match expressions, Option<T> via Some/None, Result<T,E> via result_* builtins, for-in ranges, while, loop, break, continue, return, primitive types, Vec<T> handles, calls, casts, ternary expressions, bitwise operators, and basic expressions. */";
             return msg + from_char_code(10);
         }
 

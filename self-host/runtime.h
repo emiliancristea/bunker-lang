@@ -143,6 +143,59 @@ static inline bkr_bool bkr_str_eq(bkr_str a, bkr_str b) {
 }
 
 /* ============================================
+ * Result
+ * ============================================ */
+
+typedef struct {
+    bkr_i64 tag;   /* 0 = Ok, 1 = Err */
+    bkr_i64 value;
+} BkrResult;
+
+static inline bkr_i64 bkr_result_ok(bkr_i64 value) {
+    BkrResult* r = (BkrResult*)malloc(sizeof(BkrResult));
+    r->tag = 0;
+    r->value = value;
+    return (bkr_i64)(intptr_t)r;
+}
+
+static inline bkr_i64 bkr_result_err(bkr_i64 value) {
+    BkrResult* r = (BkrResult*)malloc(sizeof(BkrResult));
+    r->tag = 1;
+    r->value = value;
+    return (bkr_i64)(intptr_t)r;
+}
+
+static inline bkr_bool bkr_result_is_ok(bkr_i64 handle) {
+    BkrResult* r = (BkrResult*)(intptr_t)handle;
+    return r && r->tag == 0 ? BKR_TRUE : BKR_FALSE;
+}
+
+static inline bkr_bool bkr_result_is_err(bkr_i64 handle) {
+    BkrResult* r = (BkrResult*)(intptr_t)handle;
+    return r && r->tag == 1 ? BKR_TRUE : BKR_FALSE;
+}
+
+static inline bkr_i64 bkr_result_unwrap(bkr_i64 handle) {
+    BkrResult* r = (BkrResult*)(intptr_t)handle;
+    return r ? r->value : 0;
+}
+
+static inline bkr_i64 bkr_result_unwrap_err(bkr_i64 handle) {
+    BkrResult* r = (BkrResult*)(intptr_t)handle;
+    return r ? r->value : 0;
+}
+
+static inline bkr_i64 bkr_result_tag(bkr_i64 handle) {
+    BkrResult* r = (BkrResult*)(intptr_t)handle;
+    return r ? r->tag : 1;
+}
+
+static inline bkr_i64 bkr_result_value(bkr_i64 handle) {
+    BkrResult* r = (BkrResult*)(intptr_t)handle;
+    return r ? r->value : 0;
+}
+
+/* ============================================
  * I/O Operations
  * ============================================ */
 
