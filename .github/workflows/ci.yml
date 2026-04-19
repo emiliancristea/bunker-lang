@@ -194,6 +194,22 @@ jobs:
           echo "39_kernel_while_break exited $status, expected 15"
           test "$status" -eq 15
 
+      - name: Compile with imported self-host compiler modules
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/01_basic_math.bkr \
+            --compiler fixtures/self-host-import/driver.bkr \
+            -o /tmp/imported_compiler.c
+          test -s /tmp/imported_compiler.c
+          cc -std=c11 /tmp/imported_compiler.c -o /tmp/imported_compiler
+          set +e
+          timeout --kill-after=5s 60s /tmp/imported_compiler
+          status=$?
+          set -e
+          echo "imported_compiler exited $status, expected 42"
+          test "$status" -eq 42
+
       - name: Compile and run bkrc through self-host compiler
         timeout-minutes: 10
         run: |
