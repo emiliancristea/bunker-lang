@@ -138,7 +138,7 @@ jobs:
           cp self-host/runtime.h /tmp/runtime.h
           cc -std=c11 /tmp/99_incremental_2.c -o /tmp/99_incremental_2
 
-      - name: Compile bkrc through self-host compiler
+      - name: Compile and run bkrc through self-host compiler
         timeout-minutes: 5
         run: |
           timeout --kill-after=5s 240s ./bunker-cli/target/release/bunker-cli self-host-compile \
@@ -148,6 +148,17 @@ jobs:
           ! grep -q "Parse error" /tmp/bkrc.c
           cp self-host/runtime.h /tmp/runtime.h
           cc -std=c11 /tmp/bkrc.c -o /tmp/bkrc
+          mkdir -p /tmp/bkrc-run
+          cp tests/01_basic_math.bkr /tmp/bkrc-run/self_host_input.bkr
+          set +e
+          (cd /tmp/bkrc-run && timeout --kill-after=5s 60s /tmp/bkrc)
+          bkrc_status=$?
+          set -e
+          test "$bkrc_status" -eq 42
+          test -s /tmp/bkrc-run/self_host_output.c
+          ! grep -q "Parse error" /tmp/bkrc-run/self_host_output.c
+          cp self-host/runtime.h /tmp/bkrc-run/runtime.h
+          cc -std=c11 /tmp/bkrc-run/self_host_output.c -o /tmp/bkrc-run/basic_from_generated_bkrc
 
   self-host-incremental-canary:
     name: Self-host incremental canary
