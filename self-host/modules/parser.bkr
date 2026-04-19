@@ -1,0 +1,1038 @@
+    // ========================================
+    // PARSER
+    // ========================================
+
+    fn parser_new(lex_result: Vec<i64>) -> Vec<i64> {
+        let state: Vec<i64> = vec_new();
+        vec_push(state, vec_get(lex_result, 0));  // tokens
+        vec_push(state, vec_get(lex_result, 1));  // names
+        vec_push(state, vec_get(lex_result, 2));  // values
+        vec_push(state, vec_get(lex_result, 3));  // strings
+        vec_push(state, 0);                       // position (token index / 3)
+        vec_push(state, 0);                       // error flag
+        vec_push(state, -1);                      // first error position
+        vec_push(state, TOK_EOF);                 // first expected token
+        vec_push(state, TOK_EOF);                 // first actual token
+        return state;
+    }
+    fn parser_peek(p: Vec<i64>) -> i64 {
+        let tokens = vec_get(p, 0) as Vec<i64>;
+        let pos = vec_get(p, 4);
+        let idx = pos * 3;
+        if idx >= vec_len(tokens) { return TOK_EOF; }
+        return vec_get(tokens, idx);
+    }
+    fn parser_peek_value(p: Vec<i64>) -> i64 {
+        let tokens = vec_get(p, 0) as Vec<i64>;
+        let pos = vec_get(p, 4);
+        return vec_get(tokens, pos * 3 + 1);
+    }
+
+    fn parser_peek_at(p: Vec<i64>, offset: i64) -> i64 {
+        let tokens = vec_get(p, 0) as Vec<i64>;
+        let pos = vec_get(p, 4) + offset;
+        let idx = pos * 3;
+        if idx >= vec_len(tokens) { return TOK_EOF; }
+        return vec_get(tokens, idx);
+    }
+
+    fn parser_advance(p: Vec<i64>) -> i64 {
+        let pos = vec_get(p, 4);
+        vec_set(p, 4, pos + 1);
+        return parser_peek(p);
+    }
+
+    fn parser_expect(p: Vec<i64>, expected: i64) -> bool {
+        if parser_peek(p) == expected {
+            parser_advance(p);
+            return true;
+        }
+        parser_mark_error(p, expected);
+        return false;
+    }
+
+    fn parser_mark_error(p: Vec<i64>, expected: i64) -> Vec<i64> {
+        vec_set(p, 5, 1);
+        if vec_get(p, 6) < 0 {
+            vec_set(p, 6, vec_get(p, 4));
+            vec_set(p, 7, expected);
+            vec_set(p, 8, parser_peek(p));
+        }
+        return p;
+    }
+
+    fn parser_get_name(p: Vec<i64>, idx: i64) -> str {
+        let names = vec_get(p, 1) as Vec<str>;
+        return vec_get(names, idx);
+    }
+
+    fn parser_get_value(p: Vec<i64>, idx: i64) -> i64 {
+        let values = vec_get(p, 2) as Vec<i64>;
+        return vec_get(values, idx);
+    }
+
+    fn parser_get_string(p: Vec<i64>, idx: i64) -> str {
+        let strings = vec_get(p, 3) as Vec<str>;
+        return vec_get(strings, idx);
+    }
+
+    fn parser_has_error(p: Vec<i64>) -> bool {
+        return vec_get(p, 5) != 0;
+    }
+
+    fn parser_error_position(p: Vec<i64>) -> i64 {
+        return vec_get(p, 6);
+    }
+
+    fn parser_error_expected(p: Vec<i64>) -> i64 {
+        return vec_get(p, 7);
+    }
+
+    fn parser_error_actual(p: Vec<i64>) -> i64 {
+        return vec_get(p, 8);
+    }
+
+    fn token_name(tok: i64) -> str {
+        if tok == TOK_EOF { return "EOF"; }
+        if tok == TOK_IDENT { return "identifier"; }
+        if tok == TOK_INT { return "integer"; }
+        if tok == TOK_STR { return "string"; }
+        if tok == TOK_FLOAT { return "float"; }
+        if tok == TOK_TRUE { return "true"; }
+        if tok == TOK_FALSE { return "false"; }
+        if tok == TOK_KERNEL { return "kernel"; }
+        if tok == TOK_STRUCT { return "struct"; }
+        if tok == TOK_FN { return "fn"; }
+        if tok == TOK_LET { return "let"; }
+        if tok == TOK_IF { return "if"; }
+        if tok == TOK_ELSE { return "else"; }
+        if tok == TOK_FOR { return "for"; }
+        if tok == TOK_IN { return "in"; }
+        if tok == TOK_WHILE { return "while"; }
+        if tok == TOK_BREAK { return "break"; }
+        if tok == TOK_CONTINUE { return "continue"; }
+        if tok == TOK_LOOP { return "loop"; }
+        if tok == TOK_RETURN { return "return"; }
+        if tok == TOK_MATCH { return "match"; }
+        if tok == TOK_CONST { return "const"; }
+        if tok == TOK_I32 { return "i32"; }
+        if tok == TOK_I64 { return "i64"; }
+        if tok == TOK_F64 { return "f64"; }
+        if tok == TOK_BOOL { return "bool"; }
+        if tok == TOK_STR_TYPE { return "str"; }
+        if tok == TOK_PLUS { return "+"; }
+        if tok == TOK_MINUS { return "-"; }
+        if tok == TOK_STAR { return "*"; }
+        if tok == TOK_SLASH { return "/"; }
+        if tok == TOK_PERCENT { return "%"; }
+        if tok == TOK_EQ { return "=="; }
+        if tok == TOK_NE { return "!="; }
+        if tok == TOK_LT { return "<"; }
+        if tok == TOK_GT { return ">"; }
+        if tok == TOK_LE { return "<="; }
+        if tok == TOK_GE { return ">="; }
+        if tok == TOK_AND { return "&&"; }
+        if tok == TOK_OR { return "||"; }
+        if tok == TOK_NOT { return "!"; }
+        if tok == TOK_BIT_AND { return "&"; }
+        if tok == TOK_BIT_OR { return "|"; }
+        if tok == TOK_BIT_XOR { return "^"; }
+        if tok == TOK_SHL { return "<<"; }
+        if tok == TOK_SHR { return ">>"; }
+        if tok == TOK_ASSIGN { return "="; }
+        if tok == TOK_ARROW { return "->"; }
+        if tok == TOK_FAT_ARROW { return "=>"; }
+        if tok == TOK_DOT_DOT { return ".."; }
+        if tok == TOK_DOT_DOT_EQ { return "..="; }
+        if tok == TOK_DOT { return "."; }
+        if tok == TOK_LPAREN { return "("; }
+        if tok == TOK_RPAREN { return ")"; }
+        if tok == TOK_LBRACE { return "{"; }
+        if tok == TOK_RBRACE { return "}"; }
+        if tok == TOK_LBRACKET { return "["; }
+        if tok == TOK_RBRACKET { return "]"; }
+        if tok == TOK_COMMA { return ","; }
+        if tok == TOK_SEMICOLON { return ";"; }
+        if tok == TOK_COLON { return ":"; }
+        if tok == TOK_QUESTION { return "?"; }
+        return "token " + int_to_string(tok);
+    }
+
+    fn is_name_token(tok: i64) -> bool {
+        return tok == TOK_IDENT || tok == TOK_KERNEL || tok == TOK_STRUCT ||
+               tok == TOK_FN || tok == TOK_LET ||
+               tok == TOK_IF || tok == TOK_ELSE || tok == TOK_FOR || tok == TOK_IN ||
+               tok == TOK_WHILE || tok == TOK_BREAK || tok == TOK_CONTINUE ||
+               tok == TOK_LOOP || tok == TOK_RETURN || tok == TOK_MATCH || tok == TOK_CONST ||
+               tok == TOK_I32 || tok == TOK_I64 || tok == TOK_F64 || tok == TOK_BOOL ||
+               tok == TOK_STR_TYPE;
+    }
+
+    fn parser_expect_name(p: Vec<i64>) -> i64 {
+        let value = parser_peek_value(p);
+        if is_name_token(parser_peek(p)) {
+            parser_advance(p);
+            return value;
+        }
+        parser_mark_error(p, TOK_IDENT);
+        return value;
+    }
+
+    fn parser_peek_ident_is(p: Vec<i64>, name: str) -> bool {
+        if parser_peek(p) != TOK_IDENT {
+            return false;
+        }
+        return parser_get_name(p, parser_peek_value(p)) == name;
+    }
+
+    fn skip_type_tail(p: Vec<i64>) -> Vec<i64> {
+        if parser_peek(p) == TOK_LT {
+            let depth: i64 = 0;
+            while parser_peek(p) != TOK_EOF {
+                let tok = parser_peek(p);
+                if tok == TOK_LT {
+                    depth = depth + 1;
+                }
+                if tok == TOK_GT {
+                    depth = depth - 1;
+                }
+                parser_advance(p);
+                if depth <= 0 {
+                    return p;
+                }
+            }
+        }
+        return p;
+    }
+
+    // Parse type
+    fn parse_type(p: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_TYPE);
+        let tok = parser_peek(p);
+        let kind: i64 = TYPE_I64;
+        let consumed = false;
+        if tok == TOK_LBRACKET {
+            parser_advance(p);
+            let elem_type: Vec<i64> = parse_type(p);
+            parser_expect(p, TOK_SEMICOLON);
+            let len_value: i64 = 0;
+            if parser_peek(p) == TOK_INT {
+                len_value = parser_get_value(p, parser_peek_value(p));
+                parser_advance(p);
+            } else {
+                parser_mark_error(p, TOK_INT);
+            }
+            parser_expect(p, TOK_RBRACKET);
+            vec_push(node, TYPE_ARRAY);
+            vec_push(node, vec_get(elem_type, 1));
+            vec_push(node, len_value);
+            return node;
+        }
+        if tok == TOK_I32 { kind = TYPE_I32; parser_advance(p); consumed = true; }
+        if tok == TOK_I64 { kind = TYPE_I64; parser_advance(p); consumed = true; }
+        if tok == TOK_F64 { kind = TYPE_F64; parser_advance(p); consumed = true; }
+        if tok == TOK_BOOL { kind = TYPE_BOOL; parser_advance(p); consumed = true; }
+        if tok == TOK_STR_TYPE { kind = TYPE_STR; parser_advance(p); consumed = true; }
+        if tok == TOK_IDENT {
+            let name_idx = parser_peek_value(p);
+            parser_advance(p);
+            if parser_peek(p) == TOK_LT {
+                // Bootstrap generics such as Vec<i64> are represented as handles.
+                skip_type_tail(p);
+                consumed = true;
+            } else {
+                vec_push(node, TYPE_STRUCT);
+                vec_push(node, name_idx);
+                return node;
+            }
+        }
+        if !consumed && tok != TOK_EOF {
+            parser_advance(p);
+        }
+        vec_push(node, kind);
+        return node;
+    }
+
+    fn parse_match_pattern(p: Vec<i64>) -> Vec<i64> {
+        let pattern: Vec<i64> = vec_new();
+        let tok = parser_peek(p);
+
+        if tok == TOK_INT {
+            let val_idx = parser_peek_value(p);
+            let val = parser_get_value(p, val_idx);
+            parser_advance(p);
+            vec_push(pattern, PAT_INT);
+            vec_push(pattern, val);
+            return pattern;
+        }
+
+        if tok == TOK_TRUE {
+            parser_advance(p);
+            vec_push(pattern, PAT_BOOL);
+            vec_push(pattern, 1);
+            return pattern;
+        }
+
+        if tok == TOK_FALSE {
+            parser_advance(p);
+            vec_push(pattern, PAT_BOOL);
+            vec_push(pattern, 0);
+            return pattern;
+        }
+
+        if is_name_token(tok) {
+            let name_idx = parser_peek_value(p);
+            let raw_name = parser_get_name(p, name_idx);
+            parser_advance(p);
+
+            if raw_name == "_" {
+                vec_push(pattern, PAT_WILDCARD);
+                vec_push(pattern, 0);
+                return pattern;
+            }
+
+            if raw_name == "Some" && parser_peek(p) == TOK_LPAREN {
+                parser_advance(p);
+                let bind_idx = parser_expect_name(p);
+                parser_expect(p, TOK_RPAREN);
+                vec_push(pattern, PAT_SOME);
+                vec_push(pattern, bind_idx);
+                return pattern;
+            }
+
+            if raw_name == "None" {
+                vec_push(pattern, PAT_NONE);
+                vec_push(pattern, 0);
+                return pattern;
+            }
+
+            vec_push(pattern, PAT_BIND);
+            vec_push(pattern, name_idx);
+            return pattern;
+        }
+
+        parser_mark_error(p, TOK_IDENT);
+        if tok != TOK_EOF {
+            parser_advance(p);
+        }
+        vec_push(pattern, PAT_WILDCARD);
+        vec_push(pattern, 0);
+        return pattern;
+    }
+
+    fn parse_match_expr(p: Vec<i64>) -> Vec<i64> {
+        parser_expect(p, TOK_MATCH);
+        let scrutinee: Vec<i64> = parse_expr(p);
+        parser_expect(p, TOK_LBRACE);
+
+        let patterns: Vec<i64> = vec_new();
+        let bodies: Vec<i64> = vec_new();
+
+        while parser_peek(p) != TOK_RBRACE && parser_peek(p) != TOK_EOF {
+            let pattern: Vec<i64> = parse_match_pattern(p);
+            parser_expect(p, TOK_FAT_ARROW);
+
+            let body: Vec<i64> = vec_new();
+            if parser_peek(p) == TOK_LBRACE {
+                body = parse_block(p);
+                if parser_peek(p) == TOK_SEMICOLON || parser_peek(p) == TOK_COMMA {
+                    parser_advance(p);
+                }
+            } else {
+                body = parse_expr(p);
+                parser_expect(p, TOK_SEMICOLON);
+            }
+
+            vec_push(patterns, pattern as i64);
+            vec_push(bodies, body as i64);
+        }
+
+        parser_expect(p, TOK_RBRACE);
+
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_MATCH);
+        vec_push(node, scrutinee as i64);
+        vec_push(node, patterns as i64);
+        vec_push(node, bodies as i64);
+        return node;
+    }
+
+    fn parse_atom(p: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        let tok = parser_peek(p);
+
+        if tok == TOK_MATCH {
+            return parse_match_expr(p);
+        }
+
+        if tok == TOK_INT {
+            let val_idx = parser_peek_value(p);
+            let val = parser_get_value(p, val_idx);
+            parser_advance(p);
+            vec_push(node, NODE_INT_LIT);
+            vec_push(node, val);
+            return node;
+        }
+
+        if tok == TOK_FLOAT {
+            let str_idx = parser_peek_value(p);
+            parser_advance(p);
+            vec_push(node, NODE_FLOAT_LIT);
+            vec_push(node, parser_get_string(p, str_idx) as i64);
+            return node;
+        }
+
+        if tok == TOK_TRUE {
+            parser_advance(p);
+            vec_push(node, NODE_BOOL_LIT);
+            vec_push(node, 1);
+            return node;
+        }
+
+        if tok == TOK_FALSE {
+            parser_advance(p);
+            vec_push(node, NODE_BOOL_LIT);
+            vec_push(node, 0);
+            return node;
+        }
+
+        if tok == TOK_STR {
+            let str_idx = parser_peek_value(p);
+            parser_advance(p);
+            vec_push(node, NODE_STR_LIT);
+            vec_push(node, parser_get_string(p, str_idx) as i64);
+            return node;
+        }
+
+        if tok == TOK_LPAREN {
+            parser_advance(p);
+            let expr = parse_expr(p);
+            parser_expect(p, TOK_RPAREN);
+            return expr;
+        }
+
+        if tok == TOK_LBRACKET {
+            parser_advance(p);
+            let elements: Vec<i64> = vec_new();
+            while parser_peek(p) != TOK_RBRACKET && parser_peek(p) != TOK_EOF {
+                let elem: Vec<i64> = parse_expr(p);
+                vec_push(elements, elem as i64);
+                if parser_peek(p) == TOK_COMMA {
+                    parser_advance(p);
+                }
+            }
+            parser_expect(p, TOK_RBRACKET);
+            vec_push(node, NODE_ARRAY_LIT);
+            vec_push(node, elements as i64);
+            return node;
+        }
+
+        if is_name_token(tok) {
+            let name_idx = parser_peek_value(p);
+            parser_advance(p);
+
+            let raw_name = parser_get_name(p, name_idx);
+            let is_type_name = len(raw_name) > 0 && char_code_at(raw_name, 0) >= 65 && char_code_at(raw_name, 0) <= 90;
+            let after_lbrace = parser_peek_at(p, 1);
+            let after_field = parser_peek_at(p, 2);
+            let looks_like_struct_literal = parser_peek(p) == TOK_LBRACE && is_type_name &&
+                (after_lbrace == TOK_RBRACE || (is_name_token(after_lbrace) && after_field == TOK_COLON));
+            if looks_like_struct_literal {
+                parser_advance(p);
+                let field_names: Vec<i64> = vec_new();
+                let field_values: Vec<i64> = vec_new();
+                while parser_peek(p) != TOK_RBRACE && parser_peek(p) != TOK_EOF {
+                    let field_name = parser_expect_name(p);
+                    parser_expect(p, TOK_COLON);
+                    let field_value: Vec<i64> = parse_expr(p);
+                    vec_push(field_names, field_name);
+                    vec_push(field_values, field_value as i64);
+                    if parser_peek(p) == TOK_COMMA {
+                        parser_advance(p);
+                    }
+                }
+                parser_expect(p, TOK_RBRACE);
+                vec_push(node, NODE_STRUCT_LIT);
+                vec_push(node, name_idx);
+                vec_push(node, field_names as i64);
+                vec_push(node, field_values as i64);
+                return node;
+            }
+
+            // Check for function call with simple args
+            if parser_peek(p) == TOK_LPAREN {
+                parser_advance(p);
+                let args: Vec<i64> = vec_new();
+
+                // Parse function call arguments as full expressions
+                while parser_peek(p) != TOK_RPAREN && parser_peek(p) != TOK_EOF {
+                    let arg: Vec<i64> = parse_expr(p);
+                    vec_push(args, arg as i64);
+                    if parser_peek(p) == TOK_COMMA {
+                        parser_advance(p);
+                    }
+                }
+                parser_expect(p, TOK_RPAREN);
+
+                vec_push(node, NODE_CALL);
+                vec_push(node, name_idx);
+                vec_push(node, args as i64);
+                return node;
+            }
+
+            vec_push(node, NODE_IDENT);
+            vec_push(node, name_idx);
+            return node;
+        }
+
+        if tok == TOK_NOT {
+            parser_advance(p);
+            let operand: Vec<i64> = parse_atom(p);
+            vec_push(node, NODE_UNARY);
+            vec_push(node, TOK_NOT);
+            vec_push(node, operand as i64);
+            return node;
+        }
+
+        if tok == TOK_MINUS {
+            parser_advance(p);
+            let operand: Vec<i64> = parse_atom(p);
+            vec_push(node, NODE_UNARY);
+            vec_push(node, TOK_MINUS);
+            vec_push(node, operand as i64);
+            return node;
+        }
+
+        // Default: consume the unexpected token so callers always make progress.
+        if tok != TOK_EOF {
+            parser_advance(p);
+        }
+        vec_push(node, NODE_INT_LIT);
+        vec_push(node, 0);
+        return node;
+    }
+
+    fn parse_postfix(p: Vec<i64>) -> Vec<i64> {
+        let base: Vec<i64> = parse_atom(p);
+        while parser_peek(p) == TOK_LBRACKET {
+            parser_advance(p);
+            let idx: Vec<i64> = parse_expr(p);
+            parser_expect(p, TOK_RBRACKET);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_INDEX);
+            vec_push(node, base as i64);
+            vec_push(node, idx as i64);
+            base = node;
+        }
+        while parser_peek(p) == TOK_DOT {
+            parser_advance(p);
+            let field_name = parser_expect_name(p);
+            let node2: Vec<i64> = vec_new();
+            vec_push(node2, NODE_FIELD_ACCESS);
+            vec_push(node2, base as i64);
+            vec_push(node2, field_name);
+            base = node2;
+        }
+        return base;
+    }
+
+    fn parse_mul(p: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_postfix(p);
+        while parser_peek(p) == TOK_STAR || parser_peek(p) == TOK_SLASH || parser_peek(p) == TOK_PERCENT {
+            let op = parser_peek(p);
+            parser_advance(p);
+            let right: Vec<i64> = parse_postfix(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_BINARY);
+            vec_push(node, op);
+            vec_push(node, left as i64);
+            vec_push(node, right as i64);
+            left = node;
+        }
+        return left;
+    }
+
+    fn parse_add(p: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_mul(p);
+        while parser_peek(p) == TOK_PLUS || parser_peek(p) == TOK_MINUS {
+            let op = parser_peek(p);
+            parser_advance(p);
+            let right: Vec<i64> = parse_mul(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_BINARY);
+            vec_push(node, op);
+            vec_push(node, left as i64);
+            vec_push(node, right as i64);
+            left = node;
+        }
+        return left;
+    }
+
+    fn parse_shift(p: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_add(p);
+        while parser_peek(p) == TOK_SHL || parser_peek(p) == TOK_SHR {
+            let op = parser_peek(p);
+            parser_advance(p);
+            let right: Vec<i64> = parse_add(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_BINARY);
+            vec_push(node, op);
+            vec_push(node, left as i64);
+            vec_push(node, right as i64);
+            left = node;
+        }
+        return left;
+    }
+
+    fn parse_bit_and(p: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_shift(p);
+        while parser_peek(p) == TOK_BIT_AND {
+            parser_advance(p);
+            let right: Vec<i64> = parse_shift(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_BINARY);
+            vec_push(node, TOK_BIT_AND);
+            vec_push(node, left as i64);
+            vec_push(node, right as i64);
+            left = node;
+        }
+        return left;
+    }
+
+    fn parse_bit_xor(p: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_bit_and(p);
+        while parser_peek(p) == TOK_BIT_XOR {
+            parser_advance(p);
+            let right: Vec<i64> = parse_bit_and(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_BINARY);
+            vec_push(node, TOK_BIT_XOR);
+            vec_push(node, left as i64);
+            vec_push(node, right as i64);
+            left = node;
+        }
+        return left;
+    }
+
+    fn parse_bit_or(p: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_bit_xor(p);
+        while parser_peek(p) == TOK_BIT_OR {
+            parser_advance(p);
+            let right: Vec<i64> = parse_bit_xor(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_BINARY);
+            vec_push(node, TOK_BIT_OR);
+            vec_push(node, left as i64);
+            vec_push(node, right as i64);
+            left = node;
+        }
+        return left;
+    }
+
+    fn parse_comparison(p: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_bit_or(p);
+        let tok = parser_peek(p);
+        if tok == TOK_EQ || tok == TOK_NE || tok == TOK_LT || tok == TOK_GT || tok == TOK_LE || tok == TOK_GE {
+            parser_advance(p);
+            let right: Vec<i64> = parse_bit_or(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_BINARY);
+            vec_push(node, tok);
+            vec_push(node, left as i64);
+            vec_push(node, right as i64);
+            return node;
+        }
+        return left;
+    }
+
+    fn parse_and(p: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_comparison(p);
+        while parser_peek(p) == TOK_AND {
+            parser_advance(p);
+            let right: Vec<i64> = parse_comparison(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_BINARY);
+            vec_push(node, TOK_AND);
+            vec_push(node, left as i64);
+            vec_push(node, right as i64);
+            left = node;
+        }
+        return left;
+    }
+
+    fn parse_or(p: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_and(p);
+        while parser_peek(p) == TOK_OR {
+            parser_advance(p);
+            let right: Vec<i64> = parse_and(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_BINARY);
+            vec_push(node, TOK_OR);
+            vec_push(node, left as i64);
+            vec_push(node, right as i64);
+            left = node;
+        }
+        return left;
+    }
+
+    fn parse_ternary(p: Vec<i64>) -> Vec<i64> {
+        let cond: Vec<i64> = parse_or(p);
+        if parser_peek(p) == TOK_QUESTION {
+            parser_advance(p);
+            let then_expr: Vec<i64> = parse_expr(p);
+            parser_expect(p, TOK_COLON);
+            let else_expr: Vec<i64> = parse_expr(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_TERNARY);
+            vec_push(node, cond as i64);
+            vec_push(node, then_expr as i64);
+            vec_push(node, else_expr as i64);
+            return node;
+        }
+        return cond;
+    }
+
+    fn parse_expr(p: Vec<i64>) -> Vec<i64> {
+        let expr: Vec<i64> = parse_ternary(p);
+        while parser_peek_ident_is(p, "as") {
+            parser_advance(p);
+            parse_type(p);
+        }
+        return expr;
+    }
+
+    fn parse_let_stmt(p: Vec<i64>) -> Vec<i64> {
+        parser_advance(p);
+        let name_idx = parser_expect_name(p);
+
+        let type_node: i64 = 0;
+        if parser_peek(p) == TOK_COLON {
+            parser_advance(p);
+            type_node = parse_type(p) as i64;
+        }
+
+        let init: i64 = 0;
+        if parser_peek(p) == TOK_ASSIGN {
+            parser_advance(p);
+            init = parse_expr(p) as i64;
+        }
+        parser_expect(p, TOK_SEMICOLON);
+
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_LET);
+        vec_push(node, name_idx);
+        vec_push(node, type_node);
+        vec_push(node, init);
+        return node;
+    }
+
+    fn parse_return_stmt(p: Vec<i64>) -> Vec<i64> {
+        parser_advance(p);
+        let expr: i64 = 0;
+        if parser_peek(p) != TOK_SEMICOLON {
+            expr = parse_expr(p) as i64;
+        }
+        parser_expect(p, TOK_SEMICOLON);
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_RETURN);
+        vec_push(node, expr);
+        return node;
+    }
+
+    // Simplified statement that doesn't recurse into blocks
+    fn parse_simple_stmt(p: Vec<i64>) -> Vec<i64> {
+        let tok = parser_peek(p);
+
+        if tok == TOK_LET {
+            return parse_let_stmt(p);
+        }
+
+        if tok == TOK_RETURN {
+            return parse_return_stmt(p);
+        }
+
+        if tok == TOK_BREAK {
+            parser_advance(p);
+            parser_expect(p, TOK_SEMICOLON);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_BREAK);
+            return node;
+        }
+
+        if tok == TOK_CONTINUE {
+            parser_advance(p);
+            parser_expect(p, TOK_SEMICOLON);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_CONTINUE);
+            return node;
+        }
+
+        // Expression statement or assignment
+        let expr: Vec<i64> = parse_expr(p);
+        if parser_peek(p) == TOK_ASSIGN {
+            parser_advance(p);
+            let value: Vec<i64> = parse_expr(p);
+            parser_expect(p, TOK_SEMICOLON);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_ASSIGN);
+            vec_push(node, expr as i64);
+            vec_push(node, value as i64);
+            return node;
+        }
+
+        if !parser_expect(p, TOK_SEMICOLON) {
+            // Recovery: consume tokens until the next statement boundary
+            while parser_peek(p) != TOK_SEMICOLON && parser_peek(p) != TOK_RBRACE && parser_peek(p) != TOK_EOF {
+                parser_advance(p);
+            }
+            if parser_peek(p) == TOK_SEMICOLON {
+                parser_advance(p);
+            }
+        }
+
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_EXPR_STMT);
+        vec_push(node, expr as i64);
+        return node;
+    }
+
+    fn parse_if_stmt(p: Vec<i64>) -> Vec<i64> {
+        parser_expect(p, TOK_IF);
+        let cond: Vec<i64> = parse_expr(p);
+        let then_block: Vec<i64> = parse_block(p);
+        let else_block: i64 = 0;
+        if parser_peek(p) == TOK_ELSE {
+            parser_advance(p);
+            if parser_peek(p) == TOK_IF {
+                let nested_if: Vec<i64> = parse_if_stmt(p);
+                let wrapper: Vec<i64> = vec_new();
+                vec_push(wrapper, NODE_BLOCK);
+                vec_push(wrapper, nested_if as i64);
+                else_block = wrapper as i64;
+            } else {
+                else_block = parse_block(p) as i64;
+            }
+        }
+        let if_node: Vec<i64> = vec_new();
+        vec_push(if_node, NODE_IF);
+        vec_push(if_node, cond as i64);
+        vec_push(if_node, then_block as i64);
+        vec_push(if_node, else_block);
+        return if_node;
+    }
+
+    fn parse_for_stmt(p: Vec<i64>) -> Vec<i64> {
+        parser_expect(p, TOK_FOR);
+        let name_idx = parser_expect_name(p);
+        parser_expect(p, TOK_IN);
+        let start_expr: Vec<i64> = parse_expr(p);
+
+        let inclusive: i64 = 0;
+        if parser_peek(p) == TOK_DOT_DOT_EQ {
+            inclusive = 1;
+            parser_advance(p);
+        } else {
+            parser_expect(p, TOK_DOT_DOT);
+        }
+
+        let end_expr: Vec<i64> = parse_expr(p);
+        let body: Vec<i64> = parse_block(p);
+
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_FOR);
+        vec_push(node, name_idx);
+        vec_push(node, start_expr as i64);
+        vec_push(node, end_expr as i64);
+        vec_push(node, inclusive);
+        vec_push(node, body as i64);
+        return node;
+    }
+
+    // Parse a block (handles if/while inside)
+    fn parse_block(p: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_BLOCK);
+        parser_expect(p, TOK_LBRACE);
+
+        while parser_peek(p) != TOK_RBRACE && parser_peek(p) != TOK_EOF {
+            let tok = parser_peek(p);
+
+            if tok == TOK_IF {
+                let if_node: Vec<i64> = parse_if_stmt(p);
+                vec_push(node, if_node as i64);
+            } else if tok == TOK_FOR {
+                let for_node: Vec<i64> = parse_for_stmt(p);
+                vec_push(node, for_node as i64);
+            } else if tok == TOK_WHILE {
+                parser_advance(p);
+                let cond: Vec<i64> = parse_expr(p);
+                let body: Vec<i64> = parse_block(p);
+                let while_node: Vec<i64> = vec_new();
+                vec_push(while_node, NODE_WHILE);
+                vec_push(while_node, cond as i64);
+                vec_push(while_node, body as i64);
+                vec_push(node, while_node as i64);
+            } else if tok == TOK_LOOP {
+                parser_advance(p);
+                let body: Vec<i64> = parse_block(p);
+                let loop_node: Vec<i64> = vec_new();
+                vec_push(loop_node, NODE_LOOP);
+                vec_push(loop_node, body as i64);
+                vec_push(node, loop_node as i64);
+            } else {
+                let stmt: Vec<i64> = parse_simple_stmt(p);
+                vec_push(node, stmt as i64);
+            }
+        }
+        parser_expect(p, TOK_RBRACE);
+        return node;
+    }
+
+    fn parse_params(p: Vec<i64>) -> Vec<i64> {
+        let params: Vec<i64> = vec_new();
+        parser_expect(p, TOK_LPAREN);
+        if parser_peek(p) != TOK_RPAREN {
+            // First param
+            let name_idx = parser_expect_name(p);
+            parser_expect(p, TOK_COLON);
+            let ptype: Vec<i64> = parse_type(p);
+
+            let param: Vec<i64> = vec_new();
+            vec_push(param, NODE_PARAM);
+            vec_push(param, name_idx);
+            vec_push(param, ptype as i64);
+            vec_push(params, param as i64);
+
+            while parser_peek(p) == TOK_COMMA {
+                parser_advance(p);
+                let name_idx2 = parser_expect_name(p);
+                parser_expect(p, TOK_COLON);
+                let ptype2: Vec<i64> = parse_type(p);
+
+                let param2: Vec<i64> = vec_new();
+                vec_push(param2, NODE_PARAM);
+                vec_push(param2, name_idx2);
+                vec_push(param2, ptype2 as i64);
+                vec_push(params, param2 as i64);
+            }
+        }
+        parser_expect(p, TOK_RPAREN);
+        return params;
+    }
+
+    fn parse_fn(p: Vec<i64>) -> Vec<i64> {
+        parser_expect(p, TOK_FN);
+        let name_idx = parser_expect_name(p);
+        let params: Vec<i64> = parse_params(p);
+
+        let ret_type: i64 = 0;
+        if parser_peek(p) == TOK_ARROW {
+            parser_advance(p);
+            ret_type = parse_type(p) as i64;
+        }
+
+        let body: Vec<i64> = parse_block(p);
+
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_FN);
+        vec_push(node, name_idx);
+        vec_push(node, params as i64);
+        vec_push(node, ret_type);
+        vec_push(node, body as i64);
+        return node;
+    }
+
+    fn parse_const(p: Vec<i64>) -> Vec<i64> {
+        parser_expect(p, TOK_CONST);
+        let name_idx = parser_expect_name(p);
+
+        let type_node: i64 = 0;
+        if parser_peek(p) == TOK_COLON {
+            parser_advance(p);
+            type_node = parse_type(p) as i64;
+        }
+
+        let value: i64 = 0;
+        if parser_peek(p) == TOK_ASSIGN {
+            parser_advance(p);
+            value = parse_expr(p) as i64;
+        }
+
+        parser_expect(p, TOK_SEMICOLON);
+
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_CONST);
+        vec_push(node, name_idx);
+        vec_push(node, type_node);
+        vec_push(node, value);
+        return node;
+    }
+
+    fn parse_struct(p: Vec<i64>) -> Vec<i64> {
+        parser_expect(p, TOK_STRUCT);
+        let name_idx = parser_expect_name(p);
+        parser_expect(p, TOK_LBRACE);
+
+        let fields: Vec<i64> = vec_new();
+        while parser_peek(p) != TOK_RBRACE && parser_peek(p) != TOK_EOF {
+            let field_name = parser_expect_name(p);
+            parser_expect(p, TOK_COLON);
+            let field_type: Vec<i64> = parse_type(p);
+
+            let field: Vec<i64> = vec_new();
+            vec_push(field, NODE_FIELD);
+            vec_push(field, field_name);
+            vec_push(field, field_type as i64);
+            vec_push(fields, field as i64);
+
+            if parser_peek(p) == TOK_COMMA {
+                parser_advance(p);
+            }
+        }
+
+        parser_expect(p, TOK_RBRACE);
+
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_STRUCT);
+        vec_push(node, name_idx);
+        vec_push(node, fields as i64);
+        return node;
+    }
+
+    fn parse_kernel(p: Vec<i64>) -> Vec<i64> {
+        parser_expect(p, TOK_KERNEL);
+        let name_idx = parser_expect_name(p);
+        parser_expect(p, TOK_LBRACE);
+
+        let items: Vec<i64> = vec_new();
+        let main_name_idx: i64 = -1;
+        while parser_peek(p) != TOK_RBRACE && parser_peek(p) != TOK_EOF {
+            let tok = parser_peek(p);
+            if tok == TOK_FN {
+                let fn_node: Vec<i64> = parse_fn(p);
+                let fn_name_idx = vec_get(fn_node, 1);
+                if parser_get_name(p, fn_name_idx) == "main" {
+                    main_name_idx = fn_name_idx;
+                }
+                vec_push(items, fn_node as i64);
+            } else if tok == TOK_CONST {
+                let const_node: Vec<i64> = parse_const(p);
+                vec_push(items, const_node as i64);
+            } else if tok == TOK_STRUCT {
+                let struct_node: Vec<i64> = parse_struct(p);
+                vec_push(items, struct_node as i64);
+            } else {
+                parser_advance(p);  // skip unknown
+            }
+        }
+        parser_expect(p, TOK_RBRACE);
+
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_KERNEL);
+        vec_push(node, name_idx);
+        vec_push(node, items as i64);
+        vec_push(node, main_name_idx);
+        vec_push(node, vec_get(p, 1));  // names table for C codegen
+        return node;
+    }
