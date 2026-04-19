@@ -58,7 +58,7 @@ These are the next concrete PR-sized slices.
 | Q-003 | DONE | Add self-host coverage for arena fixtures if bootstrap syntax allows it. | Arena fixture subset compiles/runs through generated and stage2 `bkrc`; `tests/02_arena_memory.bkr` blockers are logged in `self-host/bootstrap_subset.md`. |
 | Q-004 | DONE | Split `self-host/bkrc.bkr` into module-ready sections without changing behavior. | Module boundary contract exists; CI still passes with generated/stage2 compiler behavior unchanged. |
 | Q-005 | DONE | Add multi-file self-host compile support. | `self-host-compile` can compile a root Bunker compiler entrypoint plus imported Bunker modules in CI. |
-| Q-006 | TODO | Move lexer into Bunker module. | Stage2 compiler uses Bunker lexer module and passes current self-host smoke. |
+| Q-006 | DONE | Move lexer into Bunker module. | Stage2 compiler uses `self-host/modules/lexer.bkr` through import expansion and passes current self-host smoke. |
 | Q-007 | TODO | Move parser into Bunker module. | Stage2 compiler uses Bunker parser module and passes current self-host smoke. |
 | Q-008 | TODO | Move C codegen into Bunker module. | Stage2 compiler uses Bunker codegen module and passes current self-host smoke. |
 | Q-009 | TODO | Add machine-readable self-host diagnostics. | Parse/type/codegen errors emit JSON diagnostics with spans and repair hints. |
@@ -327,3 +327,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-04-19 | Added self-host arena fixture subset coverage. | `tests/63_arena_loop_reuse.bkr`, `tests/64_arena_nested_blocks.bkr`, and `tests/65_arena_if_branches.bkr` added to generated and stage2 `bkrc` CI gates; `tests/02_arena_memory.bkr` blockers logged. |
 | 2026-04-19 | Made `bkrc.bkr` module-ready without behavior changes. | `self-host/MODULE_BOUNDARIES.md` defines extraction order, exports, dependencies, and Q-005 handoff. |
 | 2026-04-19 | Added multi-file self-host compiler entrypoint imports. | `self-host-compile --compiler fixtures/self-host-import/driver.bkr` expands `import "helper.bkr";` in CI. |
+| 2026-04-19 | Moved the self-host lexer into a Bunker module. | `self-host/bkrc.bkr` imports `self-host/modules/lexer.bkr`; generated and stage2 `bkrc` expand imports in CI. |

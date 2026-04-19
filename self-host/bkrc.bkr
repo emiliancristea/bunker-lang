@@ -122,246 +122,7 @@ kernel BunkerCompiler {
     const TYPE_STRUCT: i64 = 7;
     const TYPE_UNKNOWN: i64 = 99;
 
-    // ========================================
-    // LEXER
-    // ========================================
-
-    // Token: [type, value_or_start, end, ...]
-    // For strings: [type, start, end] where source[start:end] is the value
-
-    fn is_alpha(c: i64) -> bool {
-        return (c >= 97 && c <= 122) || (c >= 65 && c <= 90) || c == 95;
-    }
-
-    fn is_digit(c: i64) -> bool {
-        return c >= 48 && c <= 57;
-    }
-
-    fn is_alnum(c: i64) -> bool {
-        return is_alpha(c) || is_digit(c);
-    }
-
-    fn skip_whitespace(source: str, pos: i64) -> i64 {
-        let src_len = len(source);
-        while pos < src_len {
-            let c = char_code_at(source, pos);
-            if c == 32 || c == 9 || c == 10 || c == 13 {
-                pos = pos + 1;
-            } else if c == 47 && pos + 1 < src_len {
-                // Check for // comment
-                let next = char_code_at(source, pos + 1);
-                if next == 47 {
-                    pos = pos + 2;
-                    while pos < src_len && char_code_at(source, pos) != 10 {
-                        pos = pos + 1;
-                    }
-                } else {
-                    return pos;
-                }
-            } else {
-                return pos;
-            }
-        }
-        return pos;
-    }
-
-    fn intern_name(names: Vec<str>, word: str) -> i64 {
-        let i: i64 = 0;
-        while i < vec_len(names) {
-            if vec_get(names, i) == word {
-                return i;
-            }
-            i = i + 1;
-        }
-        let idx = vec_len(names);
-        vec_push(names, word);
-        return idx;
-    }
-
-    fn tokenize(source: str) -> Vec<i64> {
-        let tokens: Vec<i64> = vec_new();  // [type, start, end, type, start, end, ...]
-        let names: Vec<str> = vec_new();   // identifier/keyword strings
-        let values: Vec<i64> = vec_new();  // integer values
-        let strings: Vec<str> = vec_new(); // string literal values
-
-        let pos: i64 = 0;
-        let src_len = len(source);
-
-        while pos < src_len {
-            pos = skip_whitespace(source, pos);
-            if pos >= src_len {
-                vec_push(tokens, TOK_EOF);
-                vec_push(tokens, pos);
-                vec_push(tokens, pos);
-                let result: Vec<i64> = vec_new();
-                vec_push(result, tokens as i64);
-                vec_push(result, names as i64);
-                vec_push(result, values as i64);
-                vec_push(result, strings as i64);
-                return result;
-            }
-
-            let start = pos;
-            let c = char_code_at(source, pos);
-            let tok_type: i64 = 0;
-            let handled = false;
-
-            // Identifier or keyword
-            if is_alpha(c) {
-                while pos < src_len && is_alnum(char_code_at(source, pos)) {
-                    pos = pos + 1;
-                }
-                let word = substring(source, start, pos);
-                tok_type = TOK_IDENT;
-
-                if word == "kernel" { tok_type = TOK_KERNEL; }
-                if word == "struct" { tok_type = TOK_STRUCT; }
-                if word == "fn" { tok_type = TOK_FN; }
-                if word == "let" { tok_type = TOK_LET; }
-                if word == "if" { tok_type = TOK_IF; }
-                if word == "else" { tok_type = TOK_ELSE; }
-                if word == "for" { tok_type = TOK_FOR; }
-                if word == "in" { tok_type = TOK_IN; }
-                if word == "while" { tok_type = TOK_WHILE; }
-                if word == "break" { tok_type = TOK_BREAK; }
-                if word == "continue" { tok_type = TOK_CONTINUE; }
-                if word == "loop" { tok_type = TOK_LOOP; }
-                if word == "return" { tok_type = TOK_RETURN; }
-                if word == "match" { tok_type = TOK_MATCH; }
-                if word == "const" { tok_type = TOK_CONST; }
-                if word == "true" { tok_type = TOK_TRUE; }
-                if word == "false" { tok_type = TOK_FALSE; }
-                if word == "i32" { tok_type = TOK_I32; }
-                if word == "i64" { tok_type = TOK_I64; }
-                if word == "f64" { tok_type = TOK_F64; }
-                if word == "bool" { tok_type = TOK_BOOL; }
-                if word == "str" { tok_type = TOK_STR_TYPE; }
-
-                let token_value = intern_name(names, word);
-                vec_push(tokens, tok_type);
-                vec_push(tokens, token_value);
-                vec_push(tokens, pos);
-                handled = true;
-            }
-
-            // Number
-            if !handled && is_digit(c) {
-                while pos < src_len && is_digit(char_code_at(source, pos)) {
-                    pos = pos + 1;
-                }
-                if pos + 1 < src_len && char_code_at(source, pos) == 46 && is_digit(char_code_at(source, pos + 1)) {
-                    pos = pos + 1;
-                    while pos < src_len && is_digit(char_code_at(source, pos)) {
-                        pos = pos + 1;
-                    }
-                    let float_str = substring(source, start, pos);
-                    vec_push(tokens, TOK_FLOAT);
-                    vec_push(tokens, vec_len(strings));
-                    vec_push(tokens, pos);
-                    vec_push(strings, float_str);
-                } else {
-                    let num_str = substring(source, start, pos);
-                    let num_val = parse_int(num_str);
-                    vec_push(tokens, TOK_INT);
-                    vec_push(tokens, vec_len(values));  // value index
-                    vec_push(tokens, pos);
-                    vec_push(values, num_val);
-                }
-                handled = true;
-            }
-
-            // String literal
-            if !handled && c == 34 {  // "
-                pos = pos + 1;  // skip opening quote
-                let str_start = pos;
-                while pos < src_len && char_code_at(source, pos) != 34 {
-                    pos = pos + 1;
-                }
-                let str_val = substring(source, str_start, pos);
-                pos = pos + 1;  // skip closing quote
-                vec_push(tokens, TOK_STR);
-                vec_push(tokens, vec_len(strings));  // string index
-                vec_push(tokens, pos);
-                vec_push(strings, str_val);
-                handled = true;
-            }
-
-            // Three-char operators
-            if !handled && pos + 2 < src_len {
-                let c2 = char_code_at(source, pos + 1);
-                let c3 = char_code_at(source, pos + 2);
-                if c == 46 && c2 == 46 && c3 == 61 { tok_type = TOK_DOT_DOT_EQ; pos = pos + 3; handled = true; }
-                if handled {
-                    vec_push(tokens, tok_type);
-                    vec_push(tokens, start);
-                    vec_push(tokens, pos);
-                }
-            }
-
-            // Two-char operators
-            if !handled && pos + 1 < src_len {
-                let c2 = char_code_at(source, pos + 1);
-                if c == 45 && c2 == 62 { tok_type = TOK_ARROW; pos = pos + 2; handled = true; }
-                if !handled && c == 61 && c2 == 62 { tok_type = TOK_FAT_ARROW; pos = pos + 2; handled = true; }
-                if !handled && c == 46 && c2 == 46 { tok_type = TOK_DOT_DOT; pos = pos + 2; handled = true; }
-                if !handled && c == 61 && c2 == 61 { tok_type = TOK_EQ; pos = pos + 2; handled = true; }
-                if !handled && c == 33 && c2 == 61 { tok_type = TOK_NE; pos = pos + 2; handled = true; }
-                if !handled && c == 60 && c2 == 61 { tok_type = TOK_LE; pos = pos + 2; handled = true; }
-                if !handled && c == 62 && c2 == 61 { tok_type = TOK_GE; pos = pos + 2; handled = true; }
-                if !handled && c == 60 && c2 == 60 { tok_type = TOK_SHL; pos = pos + 2; handled = true; }
-                if !handled && c == 62 && c2 == 62 { tok_type = TOK_SHR; pos = pos + 2; handled = true; }
-                if !handled && c == 38 && c2 == 38 { tok_type = TOK_AND; pos = pos + 2; handled = true; }
-                if !handled && c == 124 && c2 == 124 { tok_type = TOK_OR; pos = pos + 2; handled = true; }
-                if handled {
-                    vec_push(tokens, tok_type);
-                    vec_push(tokens, start);
-                    vec_push(tokens, pos);
-                }
-            }
-
-            // Single-char operators
-            if !handled {
-                if c == 43 { tok_type = TOK_PLUS; }
-                if c == 45 { tok_type = TOK_MINUS; }
-                if c == 42 { tok_type = TOK_STAR; }
-                if c == 47 { tok_type = TOK_SLASH; }
-                if c == 37 { tok_type = TOK_PERCENT; }
-                if c == 60 { tok_type = TOK_LT; }
-                if c == 62 { tok_type = TOK_GT; }
-                if c == 33 { tok_type = TOK_NOT; }
-                if c == 38 { tok_type = TOK_BIT_AND; }
-                if c == 124 { tok_type = TOK_BIT_OR; }
-                if c == 94 { tok_type = TOK_BIT_XOR; }
-                if c == 46 { tok_type = TOK_DOT; }
-                if c == 61 { tok_type = TOK_ASSIGN; }
-                if c == 40 { tok_type = TOK_LPAREN; }
-                if c == 41 { tok_type = TOK_RPAREN; }
-                if c == 123 { tok_type = TOK_LBRACE; }
-                if c == 125 { tok_type = TOK_RBRACE; }
-                if c == 91 { tok_type = TOK_LBRACKET; }
-                if c == 93 { tok_type = TOK_RBRACKET; }
-                if c == 44 { tok_type = TOK_COMMA; }
-                if c == 59 { tok_type = TOK_SEMICOLON; }
-                if c == 58 { tok_type = TOK_COLON; }
-                if c == 63 { tok_type = TOK_QUESTION; }
-                pos = pos + 1;
-                vec_push(tokens, tok_type);
-                vec_push(tokens, start);
-                vec_push(tokens, pos);
-            }
-        }
-
-        vec_push(tokens, TOK_EOF);
-        vec_push(tokens, pos);
-        vec_push(tokens, pos);
-
-        let result: Vec<i64> = vec_new();
-        vec_push(result, tokens as i64);
-        vec_push(result, names as i64);
-        vec_push(result, values as i64);
-        vec_push(result, strings as i64);
-        return result;
-    }
+    import "modules/lexer.bkr";
 
     // ========================================
     // PARSER
@@ -2593,8 +2354,60 @@ kernel BunkerCompiler {
     // COMPILER DRIVER
     // ========================================
 
+    fn is_import_line(line: str) -> bool {
+        let trimmed_line = trim(line);
+        let n = len(trimmed_line);
+        if n < 11 { return false; }
+        if !starts_with(trimmed_line, "import ") { return false; }
+        if char_code_at(trimmed_line, 7) != 34 { return false; }
+        if char_code_at(trimmed_line, n - 2) != 34 { return false; }
+        if char_code_at(trimmed_line, n - 1) != 59 { return false; }
+        return true;
+    }
+
+    fn import_path_from_line(line: str) -> str {
+        let trimmed_line = trim(line);
+        return substring(trimmed_line, 8, len(trimmed_line) - 2);
+    }
+
+    fn append_expanded_line(output: str, line: str) -> str {
+        if is_import_line(line) {
+            let imported = read_file(import_path_from_line(line));
+            let result = output + imported;
+            if len(result) > 0 && char_code_at(result, len(result) - 1) != 10 {
+                result = result + from_char_code(10);
+            }
+            return result;
+        }
+        return output + line + from_char_code(10);
+    }
+
+    fn expand_imports(source: str) -> str {
+        let output = "";
+        let start: i64 = 0;
+        let pos: i64 = 0;
+        let source_len = len(source);
+
+        while pos < source_len {
+            if char_code_at(source, pos) == 10 {
+                output = append_expanded_line(output, substring(source, start, pos));
+                pos = pos + 1;
+                start = pos;
+            } else {
+                pos = pos + 1;
+            }
+        }
+
+        if start < source_len {
+            output = append_expanded_line(output, substring(source, start, source_len));
+        }
+
+        return output;
+    }
+
     fn compile_to_c(source: str) -> str {
-        let lex_result: Vec<i64> = tokenize(source);
+        let expanded_source = expand_imports(source);
+        let lex_result: Vec<i64> = tokenize(expanded_source);
         let p: Vec<i64> = parser_new(lex_result);
         let ast: Vec<i64> = parse_kernel(p);
 

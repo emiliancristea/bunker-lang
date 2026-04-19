@@ -688,7 +688,7 @@ fn self_host_check(dir: &PathBuf, use_smt: bool, format: OutputFormat) -> Result
 
     for path in files {
         let file_path = path.display().to_string();
-        let diagnostics = match fs::read_to_string(&path) {
+        let diagnostics = match load_self_host_compiler_source(&path) {
             Ok(source) => collect_diagnostics_for_source(&file_path, &source, use_smt)?,
             Err(err) => vec![Diagnostic::error(
                 codes::PARSE_ERROR,

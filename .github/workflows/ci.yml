@@ -315,7 +315,9 @@ jobs:
 
           self_compile_dir="/tmp/bkrc-self"
           mkdir -p "$self_compile_dir"
+          mkdir -p "$self_compile_dir/modules"
           cp self-host/bkrc.bkr "$self_compile_dir/self_host_input.bkr"
+          cp self-host/modules/*.bkr "$self_compile_dir/modules/"
           set +e
           (cd "$self_compile_dir" && timeout --kill-after=5s 240s /tmp/bkrc)
           bkrc_self_status=$?

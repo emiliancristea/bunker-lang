@@ -9,7 +9,7 @@ The production self-host compiler remains `bkrc.bkr` until Q-005 adds imports. D
 | Order | Future Module | Current Section | Responsibility |
 |---:|---|---|---|
 | 1 | `constants.bkr` | Token, AST, pattern, and type constants | Shared numeric tags used by all later modules. |
-| 2 | `lexer.bkr` | `LEXER` | Convert source text into token/name/value/string tables. |
+| 2 | `modules/lexer.bkr` | `LEXER` | Convert source text into token/name/value/string tables. |
 | 3 | `parser.bkr` | `PARSER` | Build raw `Vec<i64>` AST nodes from lexer tables. |
 | 4 | `c_codegen.bkr` | `C CODE GENERATOR` | Infer enough expression types for C emission and generate C source. |
 | 5 | `driver.bkr` | `COMPILER DRIVER` | Orchestrate lex, parse, codegen, diagnostics, file I/O, and process exit. |
@@ -19,7 +19,7 @@ The production self-host compiler remains `bkrc.bkr` until Q-005 adds imports. D
 | Future Module | Required Exports |
 |---|---|
 | `constants.bkr` | All `TOK_*`, `NODE_*`, `PAT_*`, and `TYPE_*` constants. |
-| `lexer.bkr` | `tokenize`, `intern_name`, character helpers needed by tokenization. |
+| `modules/lexer.bkr` | `tokenize`, `intern_name`, character helpers needed by tokenization. |
 | `parser.bkr` | `parser_new`, parser accessors, `parse_kernel`, parse error accessors. |
 | `c_codegen.bkr` | `gen_c_program`, C escaping/name helpers, type inference helpers used by codegen. |
 | `driver.bkr` | `compile_to_c`, `main`. |
