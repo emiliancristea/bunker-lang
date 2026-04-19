@@ -9,6 +9,7 @@ The authoritative gate is the GitHub Actions `self-host-smoke` job. Local builds
 - Strings, string concatenation, `strlen`/`len`, and core string helpers (`char_at`, `char_code_at`, `substring`, `contains`, `starts_with`, `ends_with`, `trim`, `parse_int`, `int_to_string`)
 - Bitwise operators, modulo, unary negation, comparisons, bool logic, and ternary expressions
 - Fixed arrays, indexing, structs, struct literals, and field access
+- Arena-behavior struct/control-flow fixtures that fit the bootstrap subset (`63`, `64`, `65`)
 - Runtime `Vec<T>` handles via `vec_new`, `vec_push`, `vec_get`, `vec_set`, `vec_pop`, and `vec_len`
 - Runtime `HashMap<i32,V>` handles via insert/get/contains/remove/keys helpers
 - File I/O helpers via `read_file`, `write_file`, and `file_exists`
@@ -16,6 +17,9 @@ The authoritative gate is the GitHub Actions `self-host-smoke` job. Local builds
 - Packed `Option<i32>`/`Option<i64>` values via `Some(value)` and `None`
 - Runtime `Result<T,E>` handles via `result_ok`, `result_err`, status checks, tag/value access, and unwrap helpers
 - Self-compilation from stage1 `bkrc` to stage2 `bkrc2`
+
+## Known Bootstrap Blockers
+- `tests/02_arena_memory.bkr` is not yet in self-host smoke because it uses `defer log(...)`, fixed-array repeat literal syntax (`[0; 1000]`), and nested array-field assignment (`buf.data[0] = 42`), which are outside the current self-host compiler subset.
 
 ## Bootstrap Representation Notes
 - Generic handles such as `Vec<T>`, `Option<T>`, and `Result<T,E>` currently lower to integer handles in the self-host compiler.
