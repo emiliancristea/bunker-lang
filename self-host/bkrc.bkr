@@ -56,6 +56,8 @@ kernel BunkerCompiler {
     const TOK_RPAREN: i64 = 111;
     const TOK_LBRACE: i64 = 112;
     const TOK_RBRACE: i64 = 113;
+    const TOK_LBRACKET: i64 = 114;
+    const TOK_RBRACKET: i64 = 115;
     const TOK_COMMA: i64 = 116;
     const TOK_SEMICOLON: i64 = 117;
     const TOK_COLON: i64 = 118;
@@ -87,6 +89,8 @@ kernel BunkerCompiler {
     const NODE_CONST: i64 = 27;
     const NODE_TERNARY: i64 = 28;
     const NODE_FLOAT_LIT: i64 = 29;
+    const NODE_ARRAY_LIT: i64 = 30;
+    const NODE_INDEX: i64 = 31;
 
     // ===== Type Constants =====
     const TYPE_I32: i64 = 0;
@@ -95,6 +99,7 @@ kernel BunkerCompiler {
     const TYPE_BOOL: i64 = 3;
     const TYPE_STR: i64 = 4;
     const TYPE_VOID: i64 = 5;
+    const TYPE_ARRAY: i64 = 6;
     const TYPE_UNKNOWN: i64 = 99;
 
     // ========================================
@@ -309,6 +314,8 @@ kernel BunkerCompiler {
                 if c == 41 { tok_type = TOK_RPAREN; }
                 if c == 123 { tok_type = TOK_LBRACE; }
                 if c == 125 { tok_type = TOK_RBRACE; }
+                if c == 91 { tok_type = TOK_LBRACKET; }
+                if c == 93 { tok_type = TOK_RBRACKET; }
                 if c == 44 { tok_type = TOK_COMMA; }
                 if c == 59 { tok_type = TOK_SEMICOLON; }
                 if c == 58 { tok_type = TOK_COLON; }
@@ -473,6 +480,8 @@ kernel BunkerCompiler {
         if tok == TOK_RPAREN { return ")"; }
         if tok == TOK_LBRACE { return "{"; }
         if tok == TOK_RBRACE { return "}"; }
+        if tok == TOK_LBRACKET { return "["; }
+        if tok == TOK_RBRACKET { return "]"; }
         if tok == TOK_COMMA { return ","; }
         if tok == TOK_SEMICOLON { return ";"; }
         if tok == TOK_COLON { return ":"; }
@@ -484,7 +493,9 @@ kernel BunkerCompiler {
         return tok == TOK_IDENT || tok == TOK_KERNEL || tok == TOK_FN || tok == TOK_LET ||
                tok == TOK_IF || tok == TOK_ELSE || tok == TOK_FOR || tok == TOK_IN ||
                tok == TOK_WHILE || tok == TOK_BREAK || tok == TOK_CONTINUE ||
-               tok == TOK_LOOP || tok == TOK_RETURN || tok == TOK_CONST;
+               tok == TOK_LOOP || tok == TOK_RETURN || tok == TOK_CONST ||
+               tok == TOK_I32 || tok == TOK_I64 || tok == TOK_F64 || tok == TOK_BOOL ||
+               tok == TOK_STR_TYPE;
     }
 
     fn parser_expect_name(p: Vec<i64>) -> i64 {
@@ -531,6 +542,23 @@ kernel BunkerCompiler {
         let tok = parser_peek(p);
         let kind: i64 = TYPE_I64;
         let consumed = false;
+        if tok == TOK_LBRACKET {
+            parser_advance(p);
+            let elem_type: Vec<i64> = parse_type(p);
+            parser_expect(p, TOK_SEMICOLON);
+            let len_value: i64 = 0;
+            if parser_peek(p) == TOK_INT {
+                len_value = parser_get_value(p, parser_peek_value(p));
+                parser_advance(p);
+            } else {
+                parser_mark_error(p, TOK_INT);
+            }
+            parser_expect(p, TOK_RBRACKET);
+            vec_push(node, TYPE_ARRAY);
+            vec_push(node, vec_get(elem_type, 1));
+            vec_push(node, len_value);
+            return node;
+        }
         if tok == TOK_I32 { kind = TYPE_I32; parser_advance(p); consumed = true; }
         if tok == TOK_I64 { kind = TYPE_I64; parser_advance(p); consumed = true; }
         if tok == TOK_F64 { kind = TYPE_F64; parser_advance(p); consumed = true; }
@@ -599,6 +627,22 @@ kernel BunkerCompiler {
             return expr;
         }
 
+        if tok == TOK_LBRACKET {
+            parser_advance(p);
+            let elements: Vec<i64> = vec_new();
+            while parser_peek(p) != TOK_RBRACKET && parser_peek(p) != TOK_EOF {
+                let elem: Vec<i64> = parse_expr(p);
+                vec_push(elements, elem as i64);
+                if parser_peek(p) == TOK_COMMA {
+                    parser_advance(p);
+                }
+            }
+            parser_expect(p, TOK_RBRACKET);
+            vec_push(node, NODE_ARRAY_LIT);
+            vec_push(node, elements as i64);
+            return node;
+        }
+
         if is_name_token(tok) {
             let name_idx = parser_peek_value(p);
             parser_advance(p);
@@ -656,12 +700,27 @@ kernel BunkerCompiler {
         return node;
     }
 
+    fn parse_postfix(p: Vec<i64>) -> Vec<i64> {
+        let base: Vec<i64> = parse_atom(p);
+        while parser_peek(p) == TOK_LBRACKET {
+            parser_advance(p);
+            let idx: Vec<i64> = parse_expr(p);
+            parser_expect(p, TOK_RBRACKET);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_INDEX);
+            vec_push(node, base as i64);
+            vec_push(node, idx as i64);
+            base = node;
+        }
+        return base;
+    }
+
     fn parse_mul(p: Vec<i64>) -> Vec<i64> {
-        let left: Vec<i64> = parse_atom(p);
+        let left: Vec<i64> = parse_postfix(p);
         while parser_peek(p) == TOK_STAR || parser_peek(p) == TOK_SLASH || parser_peek(p) == TOK_PERCENT {
             let op = parser_peek(p);
             parser_advance(p);
-            let right: Vec<i64> = parse_atom(p);
+            let right: Vec<i64> = parse_postfix(p);
             let node: Vec<i64> = vec_new();
             vec_push(node, NODE_BINARY);
             vec_push(node, op);
@@ -1201,7 +1260,7 @@ kernel BunkerCompiler {
         return name_to_c_from_names(names, idx);
     }
 
-    // C codegen state: [output_lines, indent, kernel_name, names, local_names, local_types, fn_names, fn_types, global_names, global_types]
+    // C codegen state: [output_lines, indent, kernel_name, names, local_names, local_types, fn_names, fn_types, global_names, global_types, array_names, array_lengths, array_elem_types]
     fn cgen_new(kernel_name: str, names: Vec<str>) -> Vec<i64> {
         let state: Vec<i64> = vec_new();
         let lines: Vec<str> = vec_new();
@@ -1211,6 +1270,9 @@ kernel BunkerCompiler {
         let fn_types: Vec<i64> = vec_new();
         let global_names: Vec<i64> = vec_new();
         let global_types: Vec<i64> = vec_new();
+        let array_names: Vec<i64> = vec_new();
+        let array_lengths: Vec<i64> = vec_new();
+        let array_elem_types: Vec<i64> = vec_new();
         vec_push(state, lines as i64);
         vec_push(state, 0);          // indent
         vec_push(state, kernel_name as i64);
@@ -1221,6 +1283,9 @@ kernel BunkerCompiler {
         vec_push(state, fn_types as i64);
         vec_push(state, global_names as i64);
         vec_push(state, global_types as i64);
+        vec_push(state, array_names as i64);
+        vec_push(state, array_lengths as i64);
+        vec_push(state, array_elem_types as i64);
         return state;
     }
 
@@ -1255,11 +1320,39 @@ kernel BunkerCompiler {
         return vec_get(type_node_vec, 1);
     }
 
+    fn type_node_array_elem_kind(type_node: i64) -> i64 {
+        if type_node == 0 {
+            return TYPE_UNKNOWN;
+        }
+        let type_node_vec = type_node as Vec<i64>;
+        if vec_len(type_node_vec) > 2 && vec_get(type_node_vec, 1) == TYPE_ARRAY {
+            return vec_get(type_node_vec, 2);
+        }
+        return TYPE_UNKNOWN;
+    }
+
+    fn type_node_array_len(type_node: i64) -> i64 {
+        if type_node == 0 {
+            return -1;
+        }
+        let type_node_vec = type_node as Vec<i64>;
+        if vec_len(type_node_vec) > 3 && vec_get(type_node_vec, 1) == TYPE_ARRAY {
+            return vec_get(type_node_vec, 3);
+        }
+        return -1;
+    }
+
     fn cgen_clear_locals(state: Vec<i64>) -> Vec<i64> {
         let local_names: Vec<i64> = vec_new();
         let local_types: Vec<i64> = vec_new();
+        let array_names: Vec<i64> = vec_new();
+        let array_lengths: Vec<i64> = vec_new();
+        let array_elem_types: Vec<i64> = vec_new();
         vec_set(state, 4, local_names as i64);
         vec_set(state, 5, local_types as i64);
+        vec_set(state, 10, array_names as i64);
+        vec_set(state, 11, array_lengths as i64);
+        vec_set(state, 12, array_elem_types as i64);
         return state;
     }
 
@@ -1285,6 +1378,44 @@ kernel BunkerCompiler {
         vec_push(global_names, name_idx);
         vec_push(global_types, kind);
         return state;
+    }
+
+    fn cgen_add_array_type(state: Vec<i64>, name_idx: i64, elem_kind: i64, len_value: i64) -> Vec<i64> {
+        let array_names = vec_get(state, 10) as Vec<i64>;
+        let array_lengths = vec_get(state, 11) as Vec<i64>;
+        let array_elem_types = vec_get(state, 12) as Vec<i64>;
+        vec_push(array_names, name_idx);
+        vec_push(array_lengths, len_value);
+        vec_push(array_elem_types, elem_kind);
+        return state;
+    }
+
+    fn cgen_lookup_array_length(state: Vec<i64>, name_idx: i64) -> i64 {
+        let array_names = vec_get(state, 10) as Vec<i64>;
+        let array_lengths = vec_get(state, 11) as Vec<i64>;
+        let result: i64 = -1;
+        let i: i64 = 0;
+        while i < vec_len(array_names) {
+            if vec_get(array_names, i) == name_idx {
+                result = vec_get(array_lengths, i);
+            }
+            i = i + 1;
+        }
+        return result;
+    }
+
+    fn cgen_lookup_array_elem_type(state: Vec<i64>, name_idx: i64) -> i64 {
+        let array_names = vec_get(state, 10) as Vec<i64>;
+        let array_elem_types = vec_get(state, 12) as Vec<i64>;
+        let result: i64 = TYPE_UNKNOWN;
+        let i: i64 = 0;
+        while i < vec_len(array_names) {
+            if vec_get(array_names, i) == name_idx {
+                result = vec_get(array_elem_types, i);
+            }
+            i = i + 1;
+        }
+        return result;
     }
 
     fn cgen_lookup_pair(names: Vec<i64>, types: Vec<i64>, name_idx: i64) -> i64 {
@@ -1356,8 +1487,24 @@ kernel BunkerCompiler {
             return TYPE_STR;
         }
 
+        if node_type == NODE_ARRAY_LIT {
+            let elems = vec_get(expr, 1) as Vec<i64>;
+            if vec_len(elems) > 0 {
+                return infer_c_expr_type(state, vec_get(elems, 0) as Vec<i64>);
+            }
+            return TYPE_UNKNOWN;
+        }
+
         if node_type == NODE_IDENT {
             return cgen_lookup_name_type(state, vec_get(expr, 1));
+        }
+
+        if node_type == NODE_INDEX {
+            let base = vec_get(expr, 1) as Vec<i64>;
+            if vec_get(base, 0) == NODE_IDENT {
+                return cgen_lookup_array_elem_type(state, vec_get(base, 1));
+            }
+            return TYPE_UNKNOWN;
         }
 
         if node_type == NODE_BINARY {
@@ -1423,9 +1570,27 @@ kernel BunkerCompiler {
             return c_escape_string(raw);
         }
 
+        if node_type == NODE_ARRAY_LIT {
+            let elems = vec_get(expr, 1) as Vec<i64>;
+            let result = "{";
+            let i: i64 = 0;
+            while i < vec_len(elems) {
+                if i > 0 { result = result + ", "; }
+                result = result + gen_c_expr(state, vec_get(elems, i) as Vec<i64>);
+                i = i + 1;
+            }
+            return result + "}";
+        }
+
         if node_type == NODE_IDENT {
             let name_idx = vec_get(expr, 1);
             return name_to_c(state, name_idx);
+        }
+
+        if node_type == NODE_INDEX {
+            let base = vec_get(expr, 1) as Vec<i64>;
+            let idx = vec_get(expr, 2) as Vec<i64>;
+            return gen_c_expr(state, base) + "[" + gen_c_expr(state, idx) + "]";
         }
 
         if node_type == NODE_BINARY {
@@ -1472,8 +1637,20 @@ kernel BunkerCompiler {
         }
 
         if node_type == NODE_CALL {
-            let name = name_to_c(state, vec_get(expr, 1));
+            let name_idx = vec_get(expr, 1);
             let args = vec_get(expr, 2) as Vec<i64>;
+            let names = vec_get(state, 3) as Vec<str>;
+            let raw = name_from_table(names, name_idx);
+            if raw == "len" && vec_len(args) == 1 {
+                let arg = vec_get(args, 0) as Vec<i64>;
+                if vec_get(arg, 0) == NODE_IDENT {
+                    let array_len = cgen_lookup_array_length(state, vec_get(arg, 1));
+                    if array_len >= 0 {
+                        return int_to_string(array_len);
+                    }
+                }
+            }
+            let name = name_to_c(state, name_idx);
             let result = name + "(";
             let i: i64 = 0;
             while i < vec_len(args) {
@@ -1494,6 +1671,19 @@ kernel BunkerCompiler {
             let name = name_to_c(state, vec_get(stmt, 1));
             let type_node = vec_get(stmt, 2);
             let init = vec_get(stmt, 3);
+
+            if type_node != 0 && type_node_kind(type_node) == TYPE_ARRAY {
+                let elem_kind = type_node_array_elem_kind(type_node);
+                let array_len = type_node_array_len(type_node);
+                let line = type_to_c(elem_kind) + " " + name + "[" + int_to_string(array_len) + "]";
+                if init != 0 {
+                    line = line + " = " + gen_c_expr(state, init as Vec<i64>);
+                }
+                cgen_emit(state, line + ";");
+                cgen_add_local_type(state, vec_get(stmt, 1), elem_kind);
+                cgen_add_array_type(state, vec_get(stmt, 1), elem_kind, array_len);
+                return state;
+            }
 
             let kind = TYPE_I64;
             if type_node != 0 {
@@ -1841,7 +2031,7 @@ kernel BunkerCompiler {
             let msg = "/* Parse error at token " + int_to_string(parser_error_position(p)) +
                 ": expected " + token_name(parser_error_expected(p)) +
                 ", got " + token_name(parser_error_actual(p)) +
-                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, fn, const, let, if, else, for-in ranges, while, loop, break, continue, return, primitive types, Vec<T> handles, calls, casts, ternary expressions, bitwise operators, and basic expressions. */";
+                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, fn, const, let, fixed arrays, if, else, for-in ranges, while, loop, break, continue, return, primitive types, Vec<T> handles, calls, casts, ternary expressions, bitwise operators, and basic expressions. */";
             return msg + from_char_code(10);
         }
 
