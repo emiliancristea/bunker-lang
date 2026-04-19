@@ -233,6 +233,21 @@ static TYPECHECK_BUILTINS: &[TypecheckBuiltinSpec] = &[
         return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
     },
     TypecheckBuiltinSpec {
+        name: "char_code_at",
+        arity_error: "char_code_at expects 2 arguments (string, index)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "char_code_at expects str",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Integer,
+                type_error: "char_code_at expects i64 index",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
         name: "from_char_code",
         arity_error: "from_char_code expects 1 argument (integer)",
         params: &[BuiltinParamSpec {
@@ -566,6 +581,11 @@ static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
     RuntimeBuiltinSpec {
         name: "char_code",
         params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "char_code_at",
+        params: &[RuntimeBuiltinType::Str, RuntimeBuiltinType::I64],
         return_type: Some(RuntimeBuiltinType::I64),
     },
     RuntimeBuiltinSpec {

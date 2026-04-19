@@ -433,6 +433,23 @@ extern "C" fn bunker_char_code(str_ptr: i64) -> i64 {
     }
 }
 
+/// Get the byte character code at an index without allocating a one-character string.
+extern "C" fn bunker_char_code_at(str_ptr: i64, index: i64) -> i64 {
+    if str_ptr == 0 || index < 0 {
+        return 0;
+    }
+
+    unsafe {
+        let ptr = str_ptr as *const u8;
+        let len = *(ptr as *const i64) as usize;
+        let index = index as usize;
+        if index >= len {
+            return 0;
+        }
+        *ptr.add(8 + index) as i64
+    }
+}
+
 /// Create a single-character string from a character code.
 extern "C" fn bunker_from_char_code(code: i64) -> i64 {
     if !(0..=255).contains(&code) {
@@ -1341,6 +1358,7 @@ impl KernelJit {
         builder.symbol("bunker_parse_int", bunker_parse_int as *const u8);
         builder.symbol("bunker_int_to_string", bunker_int_to_string as *const u8);
         builder.symbol("bunker_char_code", bunker_char_code as *const u8);
+        builder.symbol("bunker_char_code_at", bunker_char_code_at as *const u8);
         builder.symbol("bunker_from_char_code", bunker_from_char_code as *const u8);
         builder.symbol("bunker_str_eq", bunker_str_eq as *const u8);
         // Vec operations
@@ -1393,6 +1411,7 @@ impl KernelJit {
         let parse_int_func = declare_parse_int_func(&mut module)?;
         let int_to_string_func = declare_int_to_string_func(&mut module)?;
         let char_code_func = declare_char_code_func(&mut module)?;
+        let char_code_at_func = declare_char_code_at_func(&mut module)?;
         let from_char_code_func = declare_from_char_code_func(&mut module)?;
         let str_eq_func = declare_str_eq_func(&mut module)?;
         // Vec operations
@@ -1440,6 +1459,7 @@ impl KernelJit {
             ("parse_int", parse_int_func),
             ("int_to_string", int_to_string_func),
             ("char_code", char_code_func),
+            ("char_code_at", char_code_at_func),
             ("from_char_code", from_char_code_func),
             ("str_eq", str_eq_func),
             ("vec_new", vec_new_func),
@@ -4852,6 +4872,17 @@ fn declare_char_code_func(module: &mut JITModule) -> Result<FuncId> {
     module
         .declare_function("bunker_char_code", Linkage::Import, &sig)
         .map_err(|e| anyhow!("Failed to declare runtime bunker_char_code: {}", e))
+}
+
+fn declare_char_code_at_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64)); // string ptr
+    sig.params.push(AbiParam::new(types::I64)); // index
+    sig.returns.push(AbiParam::new(types::I64)); // char code
+
+    module
+        .declare_function("bunker_char_code_at", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_char_code_at: {}", e))
 }
 
 fn declare_from_char_code_func(module: &mut JITModule) -> Result<FuncId> {

@@ -10,6 +10,10 @@ kernel StringMethods {
         if len(ch) != 1 {
             return 1;  // char_at failed
         }
+        let code = char_code_at(hello, 0);
+        if code != 72 {
+            return 9;  // char_code_at failed
+        }
 
         // Test substring
         let world = "Hello World";

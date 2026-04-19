@@ -87,7 +87,7 @@ kernel Compiler {
             // Skip whitespace
             let skipping = true;
             while skipping && pos < src_len {
-                let code = char_code(char_at(source, pos));
+                let code = char_code_at(source, pos);
                 if code == 32 || code == 9 || code == 10 || code == 13 {
                     pos = pos + 1;
                 } else {
@@ -106,13 +106,13 @@ kernel Compiler {
 
             // Identifier/keyword
             if !handled {
-                let code = char_code(char_at(source, pos));
+                let code = char_code_at(source, pos);
                 let is_alpha = (code >= 97 && code <= 122) || (code >= 65 && code <= 90) || code == 95;
                 if is_alpha {
                     let start = pos;
                     let scanning = true;
                     while scanning && pos < src_len {
-                        let pc = char_code(char_at(source, pos));
+                        let pc = char_code_at(source, pos);
                         let is_alnum = (pc >= 97 && pc <= 122) || (pc >= 65 && pc <= 90) || pc == 95 || (pc >= 48 && pc <= 57);
                         if is_alnum { pos = pos + 1; }
                         else { scanning = false; }
@@ -136,11 +136,11 @@ kernel Compiler {
 
             // Number
             if !handled {
-                let code = char_code(char_at(source, pos));
+                let code = char_code_at(source, pos);
                 if code >= 48 && code <= 57 {
                     let scanning = true;
                     while scanning && pos < src_len {
-                        let dc = char_code(char_at(source, pos));
+                        let dc = char_code_at(source, pos);
                         if dc >= 48 && dc <= 57 { pos = pos + 1; }
                         else { scanning = false; }
                     }

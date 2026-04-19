@@ -1202,6 +1202,7 @@ WHITESPACE      ::= [ \t\n\r]+
 | `println` | `fn println(s: str) -> ()` | Print with newline |
 | `assert` | `fn assert(cond: bool) -> ()` | Runtime assertion |
 | `panic` | `fn panic(msg: str) -> !` | Abort with message |
+| `char_code_at` | `fn char_code_at(s: str, index: i64) -> i64` | Byte code at string index, or `0` when out of range |
 
 ## A.5 Standard Attributes
 

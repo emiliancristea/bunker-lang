@@ -90,6 +90,17 @@ static inline bkr_i64 char_code(bkr_str s) {
     return (bkr_i64)(unsigned char)s[0];
 }
 
+static inline bkr_i64 char_code_at(bkr_str s, bkr_i64 index) {
+    if (s == NULL || index < 0) {
+        return 0;
+    }
+    bkr_i64 len = (bkr_i64)strlen(s);
+    if (index >= len) {
+        return 0;
+    }
+    return (bkr_i64)(unsigned char)s[index];
+}
+
 static inline bkr_str substring(bkr_str s, bkr_i64 start, bkr_i64 end) {
     bkr_i64 len = end - start;
     char* result = (char*)malloc(len + 1);
