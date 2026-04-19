@@ -187,10 +187,7 @@ kernel BunkerCompiler {
                 if word == "bool" { tok_type = TOK_BOOL; }
                 if word == "str" { tok_type = TOK_STR_TYPE; }
 
-                let token_value = start;
-                if tok_type == TOK_IDENT {
-                    token_value = intern_name(names, word);
-                }
+                let token_value = intern_name(names, word);
                 vec_push(tokens, tok_type);
                 vec_push(tokens, token_value);
                 vec_push(tokens, pos);
@@ -344,6 +341,22 @@ kernel BunkerCompiler {
         return vec_get(p, 5) != 0;
     }
 
+    fn is_name_token(tok: i64) -> bool {
+        return tok == TOK_IDENT || tok == TOK_KERNEL || tok == TOK_FN || tok == TOK_LET ||
+               tok == TOK_IF || tok == TOK_ELSE || tok == TOK_WHILE || tok == TOK_BREAK ||
+               tok == TOK_CONTINUE || tok == TOK_RETURN || tok == TOK_CONST;
+    }
+
+    fn parser_expect_name(p: Vec<i64>) -> i64 {
+        let value = parser_peek_value(p);
+        if is_name_token(parser_peek(p)) {
+            parser_advance(p);
+            return value;
+        }
+        vec_set(p, 5, 1);
+        return value;
+    }
+
     fn parser_peek_ident_is(p: Vec<i64>, name: str) -> bool {
         if parser_peek(p) != TOK_IDENT {
             return false;
@@ -437,7 +450,7 @@ kernel BunkerCompiler {
             return expr;
         }
 
-        if tok == TOK_IDENT {
+        if is_name_token(tok) {
             let name_idx = parser_peek_value(p);
             parser_advance(p);
 
@@ -583,8 +596,7 @@ kernel BunkerCompiler {
 
     fn parse_let_stmt(p: Vec<i64>) -> Vec<i64> {
         parser_advance(p);
-        let name_idx = parser_peek_value(p);
-        parser_expect(p, TOK_IDENT);
+        let name_idx = parser_expect_name(p);
 
         let type_node: i64 = 0;
         if parser_peek(p) == TOK_COLON {
@@ -737,8 +749,7 @@ kernel BunkerCompiler {
         parser_expect(p, TOK_LPAREN);
         if parser_peek(p) != TOK_RPAREN {
             // First param
-            let name_idx = parser_peek_value(p);
-            parser_expect(p, TOK_IDENT);
+            let name_idx = parser_expect_name(p);
             parser_expect(p, TOK_COLON);
             let ptype: Vec<i64> = parse_type(p);
 
@@ -750,8 +761,7 @@ kernel BunkerCompiler {
 
             while parser_peek(p) == TOK_COMMA {
                 parser_advance(p);
-                let name_idx2 = parser_peek_value(p);
-                parser_expect(p, TOK_IDENT);
+                let name_idx2 = parser_expect_name(p);
                 parser_expect(p, TOK_COLON);
                 let ptype2: Vec<i64> = parse_type(p);
 
@@ -768,8 +778,7 @@ kernel BunkerCompiler {
 
     fn parse_fn(p: Vec<i64>) -> Vec<i64> {
         parser_expect(p, TOK_FN);
-        let name_idx = parser_peek_value(p);
-        parser_expect(p, TOK_IDENT);
+        let name_idx = parser_expect_name(p);
         let params: Vec<i64> = parse_params(p);
 
         let ret_type: i64 = 0;
@@ -791,8 +800,7 @@ kernel BunkerCompiler {
 
     fn parse_kernel(p: Vec<i64>) -> Vec<i64> {
         parser_expect(p, TOK_KERNEL);
-        let name_idx = parser_peek_value(p);
-        parser_expect(p, TOK_IDENT);
+        let name_idx = parser_expect_name(p);
         parser_expect(p, TOK_LBRACE);
 
         let items: Vec<i64> = vec_new();
