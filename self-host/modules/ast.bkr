@@ -25,6 +25,290 @@
         return vec_get(node, index);
     }
 
+    fn ast_type_kind_value(type_node: i64) -> i64 {
+        if type_node == 0 {
+            return TYPE_UNKNOWN;
+        }
+        return vec_get(type_node as Vec<i64>, 1);
+    }
+
+    fn ast_type_struct_name_idx_value(type_node: i64) -> i64 {
+        if type_node == 0 {
+            return -1;
+        }
+        let node = type_node as Vec<i64>;
+        if vec_len(node) > 2 && vec_get(node, 1) == TYPE_STRUCT {
+            return vec_get(node, 2);
+        }
+        return -1;
+    }
+
+    fn ast_type_array_elem_kind_value(type_node: i64) -> i64 {
+        if type_node == 0 {
+            return TYPE_UNKNOWN;
+        }
+        let node = type_node as Vec<i64>;
+        if vec_len(node) > 2 && vec_get(node, 1) == TYPE_ARRAY {
+            return vec_get(node, 2);
+        }
+        return TYPE_UNKNOWN;
+    }
+
+    fn ast_type_array_len_value(type_node: i64) -> i64 {
+        if type_node == 0 {
+            return -1;
+        }
+        let node = type_node as Vec<i64>;
+        if vec_len(node) > 3 && vec_get(node, 1) == TYPE_ARRAY {
+            return vec_get(node, 3);
+        }
+        return -1;
+    }
+
+    fn ast_name_idx(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_value(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_type_node(node: Vec<i64>) -> i64 {
+        return ast_field(node, 2);
+    }
+
+    fn ast_init_expr(node: Vec<i64>) -> i64 {
+        return ast_field(node, 3);
+    }
+
+    fn ast_binary_op(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_binary_left(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_binary_right(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 3) as Vec<i64>;
+    }
+
+    fn ast_unary_op(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_unary_operand(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_call_name_idx(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_call_args(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_array_elements(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 1) as Vec<i64>;
+    }
+
+    fn ast_index_base(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 1) as Vec<i64>;
+    }
+
+    fn ast_index_expr(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_field_base(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 1) as Vec<i64>;
+    }
+
+    fn ast_field_name_idx(node: Vec<i64>) -> i64 {
+        return ast_field(node, 2);
+    }
+
+    fn ast_struct_lit_name_idx(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_struct_lit_field_names(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_struct_lit_field_values(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 3) as Vec<i64>;
+    }
+
+    fn ast_ternary_cond(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 1) as Vec<i64>;
+    }
+
+    fn ast_ternary_then(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_ternary_else(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 3) as Vec<i64>;
+    }
+
+    fn ast_match_scrutinee(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 1) as Vec<i64>;
+    }
+
+    fn ast_match_patterns(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_match_bodies(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 3) as Vec<i64>;
+    }
+
+    fn ast_pattern_kind(pattern: Vec<i64>) -> i64 {
+        return vec_get(pattern, 0);
+    }
+
+    fn ast_pattern_value(pattern: Vec<i64>) -> i64 {
+        return vec_get(pattern, 1);
+    }
+
+    fn ast_let_name_idx(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_let_type_node(node: Vec<i64>) -> i64 {
+        return ast_field(node, 2);
+    }
+
+    fn ast_let_init(node: Vec<i64>) -> i64 {
+        return ast_field(node, 3);
+    }
+
+    fn ast_return_expr(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_if_cond(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 1) as Vec<i64>;
+    }
+
+    fn ast_if_then(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_if_else(node: Vec<i64>) -> i64 {
+        return ast_field(node, 3);
+    }
+
+    fn ast_for_name_idx(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_for_start(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_for_end(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 3) as Vec<i64>;
+    }
+
+    fn ast_for_inclusive(node: Vec<i64>) -> i64 {
+        return ast_field(node, 4);
+    }
+
+    fn ast_for_body(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 5) as Vec<i64>;
+    }
+
+    fn ast_loop_body(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 1) as Vec<i64>;
+    }
+
+    fn ast_while_cond(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 1) as Vec<i64>;
+    }
+
+    fn ast_while_body(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_assign_target(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 1) as Vec<i64>;
+    }
+
+    fn ast_assign_value(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_expr_stmt_expr(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 1) as Vec<i64>;
+    }
+
+    fn ast_param_name_idx(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_param_type_node(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_fn_name_idx(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_fn_params(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_fn_return_type(node: Vec<i64>) -> i64 {
+        return ast_field(node, 3);
+    }
+
+    fn ast_fn_body(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 4) as Vec<i64>;
+    }
+
+    fn ast_const_name_idx(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_const_type_node(node: Vec<i64>) -> i64 {
+        return ast_field(node, 2);
+    }
+
+    fn ast_const_value(node: Vec<i64>) -> i64 {
+        return ast_field(node, 3);
+    }
+
+    fn ast_struct_name_idx(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_struct_fields(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_field_decl_name_idx(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_field_decl_type_node(node: Vec<i64>) -> i64 {
+        return ast_field(node, 2);
+    }
+
+    fn ast_kernel_items(node: Vec<i64>) -> Vec<i64> {
+        return ast_field(node, 2) as Vec<i64>;
+    }
+
+    fn ast_kernel_entry_idx(node: Vec<i64>) -> i64 {
+        return ast_field(node, 3);
+    }
+
+    fn ast_kernel_names(node: Vec<i64>) -> Vec<str> {
+        return ast_field(node, 4) as Vec<str>;
+    }
+
     fn ast_type(kind: i64) -> Vec<i64> {
         let node: Vec<i64> = ast_new(NODE_TYPE);
         ast_push(node, kind);
