@@ -138,6 +138,17 @@ jobs:
           cp self-host/runtime.h /tmp/runtime.h
           cc -std=c11 /tmp/99_incremental_2.c -o /tmp/99_incremental_2
 
+      - name: Compile bkrc through self-host compiler
+        timeout-minutes: 5
+        run: |
+          timeout --kill-after=5s 240s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            self-host/bkrc.bkr \
+            -o /tmp/bkrc.c
+          test -s /tmp/bkrc.c
+          ! grep -q "Parse error" /tmp/bkrc.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/bkrc.c -o /tmp/bkrc
+
   self-host-incremental-canary:
     name: Self-host incremental canary
     if: github.event_name == 'workflow_dispatch'
