@@ -195,7 +195,7 @@ jobs:
           test "$status" -eq 15
 
       - name: Compile and run bkrc through self-host compiler
-        timeout-minutes: 6
+        timeout-minutes: 10
         run: |
           timeout --kill-after=5s 240s ./bunker-cli/target/release/bunker-cli self-host-compile \
             self-host/bkrc.bkr \
@@ -235,6 +235,51 @@ jobs:
           run_generated_bkrc_fixture tests/39_kernel_while_break.bkr while_break 15
           run_generated_bkrc_fixture tests/99_incremental_1.bkr incremental_1 42
           run_generated_bkrc_fixture tests/99_incremental_2.bkr incremental_2 42
+
+          self_compile_dir="/tmp/bkrc-self"
+          mkdir -p "$self_compile_dir"
+          cp self-host/bkrc.bkr "$self_compile_dir/self_host_input.bkr"
+          set +e
+          (cd "$self_compile_dir" && timeout --kill-after=5s 240s /tmp/bkrc)
+          bkrc_self_status=$?
+          set -e
+          echo "generated bkrc self-compile exited $bkrc_self_status, expected 42"
+          test "$bkrc_self_status" -eq 42
+          test -s "$self_compile_dir/self_host_output.c"
+          ! grep -q "Parse error" "$self_compile_dir/self_host_output.c"
+          cp self-host/runtime.h "$self_compile_dir/runtime.h"
+          cc -std=c11 "$self_compile_dir/self_host_output.c" -o "$self_compile_dir/bkrc2"
+
+          run_stage2_bkrc_fixture() {
+            fixture="$1"
+            name="$2"
+            expected_status="$3"
+            run_dir="/tmp/bkrc2-run-$name"
+            mkdir -p "$run_dir"
+            cp "$fixture" "$run_dir/self_host_input.bkr"
+            set +e
+            (cd "$run_dir" && timeout --kill-after=5s 60s "$self_compile_dir/bkrc2")
+            bkrc_status=$?
+            set -e
+            test "$bkrc_status" -eq 42
+            test -s "$run_dir/self_host_output.c"
+            ! grep -q "Parse error" "$run_dir/self_host_output.c"
+            cp self-host/runtime.h "$run_dir/runtime.h"
+            cc -std=c11 "$run_dir/self_host_output.c" -o "$run_dir/$name"
+            set +e
+            timeout --kill-after=5s 60s "$run_dir/$name"
+            program_status=$?
+            set -e
+            echo "stage2 generated $name exited $program_status, expected $expected_status"
+            test "$program_status" -eq "$expected_status"
+          }
+
+          run_stage2_bkrc_fixture tests/01_basic_math.bkr basic 42
+          run_stage2_bkrc_fixture tests/14_kernel_if_branching.bkr branching 42
+          run_stage2_bkrc_fixture tests/38_kernel_while_loop.bkr while_loop 55
+          run_stage2_bkrc_fixture tests/39_kernel_while_break.bkr while_break 15
+          run_stage2_bkrc_fixture tests/99_incremental_1.bkr incremental_1 42
+          run_stage2_bkrc_fixture tests/99_incremental_2.bkr incremental_2 42
 
   self-host-incremental-canary:
     name: Self-host incremental canary
