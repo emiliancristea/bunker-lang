@@ -1,6 +1,8 @@
 // Bunker Compiler Driver (bkrc)
 // Compiles Bunker source to C code
 // Usage: bunker-cli run bkrc.bkr  (compiles test.bkr to test.c)
+// Module-ready layout: keep the Constants, Lexer, Parser, C Codegen, and Driver
+// sections independent so Q-005 can extract them into separate imported files.
 
 kernel BunkerCompiler {
     // ===== Token Constants =====
