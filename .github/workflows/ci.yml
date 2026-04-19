@@ -158,8 +158,38 @@ jobs:
           set -e
           test "$status" -eq 42
 
+      - name: Compile while-loop fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/38_kernel_while_loop.bkr \
+            -o /tmp/38_kernel_while_loop.c
+          test -s /tmp/38_kernel_while_loop.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/38_kernel_while_loop.c -o /tmp/38_kernel_while_loop
+          set +e
+          timeout --kill-after=5s 60s /tmp/38_kernel_while_loop
+          status=$?
+          set -e
+          test "$status" -eq 55
+
+      - name: Compile while-break fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/39_kernel_while_break.bkr \
+            -o /tmp/39_kernel_while_break.c
+          test -s /tmp/39_kernel_while_break.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/39_kernel_while_break.c -o /tmp/39_kernel_while_break
+          set +e
+          timeout --kill-after=5s 60s /tmp/39_kernel_while_break
+          status=$?
+          set -e
+          test "$status" -eq 15
+
       - name: Compile and run bkrc through self-host compiler
-        timeout-minutes: 5
+        timeout-minutes: 6
         run: |
           timeout --kill-after=5s 240s ./bunker-cli/target/release/bunker-cli self-host-compile \
             self-host/bkrc.bkr \
@@ -172,6 +202,7 @@ jobs:
           run_generated_bkrc_fixture() {
             fixture="$1"
             name="$2"
+            expected_status="$3"
             run_dir="/tmp/bkrc-run-$name"
             mkdir -p "$run_dir"
             cp "$fixture" "$run_dir/self_host_input.bkr"
@@ -188,13 +219,15 @@ jobs:
             timeout --kill-after=5s 60s "$run_dir/$name"
             program_status=$?
             set -e
-            test "$program_status" -eq 42
+            test "$program_status" -eq "$expected_status"
           }
 
-          run_generated_bkrc_fixture tests/01_basic_math.bkr basic
-          run_generated_bkrc_fixture tests/14_kernel_if_branching.bkr branching
-          run_generated_bkrc_fixture tests/99_incremental_1.bkr incremental_1
-          run_generated_bkrc_fixture tests/99_incremental_2.bkr incremental_2
+          run_generated_bkrc_fixture tests/01_basic_math.bkr basic 42
+          run_generated_bkrc_fixture tests/14_kernel_if_branching.bkr branching 42
+          run_generated_bkrc_fixture tests/38_kernel_while_loop.bkr while_loop 55
+          run_generated_bkrc_fixture tests/39_kernel_while_break.bkr while_break 15
+          run_generated_bkrc_fixture tests/99_incremental_1.bkr incremental_1 42
+          run_generated_bkrc_fixture tests/99_incremental_2.bkr incremental_2 42
 
   self-host-incremental-canary:
     name: Self-host incremental canary
