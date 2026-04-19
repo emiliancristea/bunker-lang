@@ -6,11 +6,12 @@ The authoritative gate is the GitHub Actions `self-host-smoke` job. Local builds
 - Basic arithmetic and branching
 - Range `for`, `while`, `loop`, `break`, and `continue`
 - Type casts, constants, early returns, recursion, and nested calls
-- Strings, string concatenation, and `strlen`/`len`
+- Strings, string concatenation, `strlen`/`len`, and core string helpers (`char_at`, `char_code_at`, `substring`, `contains`, `starts_with`, `ends_with`, `trim`, `parse_int`, `int_to_string`)
 - Bitwise operators, modulo, unary negation, comparisons, bool logic, and ternary expressions
 - Fixed arrays, indexing, structs, struct literals, and field access
 - Runtime `Vec<T>` handles via `vec_new`, `vec_push`, `vec_get`, `vec_set`, `vec_pop`, and `vec_len`
 - Runtime `HashMap<i32,V>` handles via insert/get/contains/remove/keys helpers
+- File I/O helpers via `read_file`, `write_file`, and `file_exists`
 - `match` expressions with literal, wildcard, binding, `Some`, and `None` patterns
 - Packed `Option<i32>`/`Option<i64>` values via `Some(value)` and `None`
 - Runtime `Result<T,E>` handles via `result_ok`, `result_err`, status checks, tag/value access, and unwrap helpers

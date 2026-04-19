@@ -1480,6 +1480,10 @@ kernel BunkerCompiler {
         if raw == "char_code" { return "char_code"; }
         if raw == "char_code_at" { return "char_code_at"; }
         if raw == "substring" { return "substring"; }
+        if raw == "contains" { return "contains"; }
+        if raw == "starts_with" { return "starts_with"; }
+        if raw == "ends_with" { return "ends_with"; }
+        if raw == "trim" { return "trim"; }
         if raw == "parse_int" { return "parse_int"; }
         if raw == "int_to_string" { return "int_to_string"; }
         if raw == "from_char_code" { return "from_char_code"; }
@@ -1709,6 +1713,10 @@ kernel BunkerCompiler {
         if raw == "parse_int" { return TYPE_I64; }
         if raw == "char_at" { return TYPE_STR; }
         if raw == "substring" { return TYPE_STR; }
+        if raw == "contains" { return TYPE_BOOL; }
+        if raw == "starts_with" { return TYPE_BOOL; }
+        if raw == "ends_with" { return TYPE_BOOL; }
+        if raw == "trim" { return TYPE_STR; }
         if raw == "int_to_string" { return TYPE_STR; }
         if raw == "from_char_code" { return TYPE_STR; }
         if raw == "read_file" { return TYPE_STR; }

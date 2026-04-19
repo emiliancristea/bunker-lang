@@ -54,7 +54,7 @@ These are the next concrete PR-sized slices.
 | ID | Status | Work | Definition Of Done |
 |---|---|---|---|
 | Q-001 | DONE | Add self-host coverage for file I/O fixtures. | `tests/72_file_io.bkr` compiles and runs through generated and stage2 `bkrc` in CI. |
-| Q-002 | TODO | Add self-host coverage for string method fixtures. | `tests/73_string_methods.bkr` compiles and runs through generated and stage2 `bkrc` in CI. |
+| Q-002 | DONE | Add self-host coverage for string method fixtures. | `tests/73_string_methods.bkr` compiles and runs through generated and stage2 `bkrc` in CI. |
 | Q-003 | TODO | Add self-host coverage for arena fixtures if bootstrap syntax allows it. | Arena fixture subset compiles/runs through generated and stage2 `bkrc`, or blockers are logged with exact missing syntax. |
 | Q-004 | TODO | Split `self-host/bkrc.bkr` into module-ready sections without changing behavior. | CI still passes, generated/stage2 compiler behavior unchanged. |
 | Q-005 | TODO | Add multi-file self-host compile support. | `self-host-compile` can compile a root Bunker file plus imported Bunker modules in CI. |
@@ -323,3 +323,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-04-19 | Added self-host Result builtins. | PR #18, CI run passed. |
 | 2026-04-19 | Added self-host Vec and HashMap builtins. | PR #19, CI run passed. |
 | 2026-04-19 | Added self-host file I/O fixture coverage. | `tests/72_file_io.bkr` added to generated and stage2 `bkrc` CI gates. |
+| 2026-04-19 | Added self-host string method runtime coverage. | `tests/73_string_methods.bkr` added to generated and stage2 `bkrc` CI gates. |
