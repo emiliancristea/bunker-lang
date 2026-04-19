@@ -30,7 +30,8 @@ Current bootstrap state after the latest self-host work:
 - CI gates arithmetic, functions, control flow, structs, arrays, strings, constants, recursion, bitwise ops, ternary, match, Option, Result, Vec, and HashMap fixtures through generated and stage2 compilers.
 - CI compares selected self-host outputs against Rust JIT results and checks stage1/stage2 generated C determinism.
 - The Rust compiler is still the production compiler and the bootstrap driver.
-- The self-host compiler entrypoint is now module-composed: constants, lexer, parser, C codegen, and driver live in imported Bunker modules, while the AST still uses raw `Vec<i64>` nodes.
+- The self-host compiler entrypoint is now module-composed: constants, AST helpers, lexer, parser, C codegen, and driver live in imported Bunker modules.
+- AST construction is centralized in Bunker helper functions, but the AST representation still uses raw `Vec<i64>` nodes.
 - The language is not yet production-complete.
 
 ## Critical Path
@@ -65,6 +66,7 @@ These are the next concrete PR-sized slices.
 | Q-009 | PARTIAL | Add machine-readable self-host diagnostics. | Self-host parse/import errors emit JSON diagnostics with spans and repair hints; type/codegen diagnostics still need dedicated phases. |
 | Q-010 | DONE | Add self-host golden output tests. | CI compares selected Rust compiler output vs self-host compiler output for stable fixtures. |
 | Q-011 | DONE | Reduce `bkrc.bkr` to a module-composed entrypoint. | Entry point imports constants, lexer, parser, codegen, and driver modules; CI passes generated/stage2/golden gates. |
+| Q-012 | DONE | Introduce self-host AST layout helpers. | Parser constructs AST nodes through `modules/ast.bkr`; CI passes generated/stage2/golden gates. |
 
 ## Language Core
 
@@ -196,7 +198,7 @@ These are the next concrete PR-sized slices.
 |---|---|---:|---|---|
 | CF-001 | PARTIAL | P0 | Reusable Bunker lexer. | Lexer exists as module, not monolithic embedded code. |
 | CF-002 | PARTIAL | P0 | Reusable Bunker parser. | Parser exists as module with recovery and spans. |
-| CF-003 | TODO | P0 | AST definitions in Bunker. | AST uses structs/enums, not raw `Vec<i64>` tags. |
+| CF-003 | PARTIAL | P0 | AST definitions in Bunker. | AST construction is centralized in Bunker helpers; final gate requires structs/enums instead of raw `Vec<i64>` tags. |
 | CF-004 | TODO | P0 | Source spans on AST nodes. | Every node carries file/line/column/byte offsets. |
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
@@ -228,7 +230,7 @@ These are the next concrete PR-sized slices.
 |---|---|---:|---|---|
 | SH-001 | PARTIAL | P0 | Self-host smoke gate. | Current stage1/stage2 CI remains green after every change. |
 | SH-002 | DONE | P0 | Split `bkrc.bkr` into modules. | Compiler source is multiple Bunker files with imports. |
-| SH-003 | TODO | P0 | Typed AST in self-host compiler. | Raw numeric tags are replaced by Bunker types. |
+| SH-003 | PARTIAL | P0 | Typed AST in self-host compiler. | Parser construction goes through Bunker AST helpers; final gate requires raw numeric tags to be replaced by Bunker types. |
 | SH-004 | TODO | P0 | Enums for token/node kinds. | Token and AST tags use language enums. |
 | SH-005 | TODO | P0 | Real generic collections in self-host compiler. | `Vec<T>` and maps preserve element/key/value types. |
 | SH-006 | TODO | P0 | Stage0/Stage1/Stage2 docs. | Bootstrap chain is documented and reproducible. |
@@ -335,3 +337,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-04-19 | Added machine-readable self-host parse diagnostics. | Invalid generated/stage2 `bkrc` inputs include `BUNKER_DIAGNOSTIC_JSON` with source offsets, line/column, expected/actual, and repair hints. |
 | 2026-04-19 | Added self-host golden output tests. | CI compares selected fixture results against Rust JIT output and diffs stage1 vs stage2 generated C. |
 | 2026-04-19 | Reduced `bkrc.bkr` to a module-composed entrypoint. | The entrypoint imports constants, lexer, parser, C codegen, and compiler driver modules in dependency order. |
+| 2026-04-19 | Introduced self-host AST layout helpers. | Parser node construction now goes through `self-host/modules/ast.bkr`, isolating the raw vector layout behind Bunker functions. |
