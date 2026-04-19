@@ -254,6 +254,14 @@ jobs:
           run_generated_bkrc_fixture tests/14_kernel_if_branching.bkr branching 42
           run_generated_bkrc_fixture tests/38_kernel_while_loop.bkr while_loop 55
           run_generated_bkrc_fixture tests/39_kernel_while_break.bkr while_break 15
+          run_generated_bkrc_fixture tests/43_kernel_modulo.bkr modulo 42
+          run_generated_bkrc_fixture tests/44_kernel_unary_neg.bkr unary_neg 42
+          run_generated_bkrc_fixture tests/45_kernel_nested_calls.bkr nested_calls 42
+          run_generated_bkrc_fixture tests/49_kernel_bool_logic.bkr bool_logic 42
+          run_generated_bkrc_fixture tests/50_kernel_recursive_gcd.bkr recursive_gcd 42
+          run_generated_bkrc_fixture tests/51_kernel_comparisons.bkr comparisons 42
+          run_generated_bkrc_fixture tests/54_kernel_i64_ops.bkr i64_ops 42
+          run_generated_bkrc_fixture tests/55_kernel_const.bkr consts 42
           run_generated_bkrc_fixture tests/99_incremental_1.bkr incremental_1 42
           run_generated_bkrc_fixture tests/99_incremental_2.bkr incremental_2 42
 
@@ -301,6 +309,14 @@ jobs:
           run_stage2_bkrc_fixture tests/14_kernel_if_branching.bkr branching 42
           run_stage2_bkrc_fixture tests/38_kernel_while_loop.bkr while_loop 55
           run_stage2_bkrc_fixture tests/39_kernel_while_break.bkr while_break 15
+          run_stage2_bkrc_fixture tests/43_kernel_modulo.bkr modulo 42
+          run_stage2_bkrc_fixture tests/44_kernel_unary_neg.bkr unary_neg 42
+          run_stage2_bkrc_fixture tests/45_kernel_nested_calls.bkr nested_calls 42
+          run_stage2_bkrc_fixture tests/49_kernel_bool_logic.bkr bool_logic 42
+          run_stage2_bkrc_fixture tests/50_kernel_recursive_gcd.bkr recursive_gcd 42
+          run_stage2_bkrc_fixture tests/51_kernel_comparisons.bkr comparisons 42
+          run_stage2_bkrc_fixture tests/54_kernel_i64_ops.bkr i64_ops 42
+          run_stage2_bkrc_fixture tests/55_kernel_const.bkr consts 42
           run_stage2_bkrc_fixture tests/99_incremental_1.bkr incremental_1 42
           run_stage2_bkrc_fixture tests/99_incremental_2.bkr incremental_2 42
 
