@@ -304,6 +304,20 @@ jobs:
           run_stage2_bkrc_fixture tests/99_incremental_1.bkr incremental_1 42
           run_stage2_bkrc_fixture tests/99_incremental_2.bkr incremental_2 42
 
+          mkdir -p self-host-artifacts
+          cp /tmp/bkrc.c self-host-artifacts/bkrc-stage1.c
+          cp /tmp/bkrc self-host-artifacts/bkrc-stage1
+          cp "$self_compile_dir/self_host_output.c" self-host-artifacts/bkrc-stage2.c
+          cp "$self_compile_dir/bkrc2" self-host-artifacts/bkrc-stage2
+          cp self-host/runtime.h self-host-artifacts/runtime.h
+
+      - name: Upload self-host compiler artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: self-host-bkrc-ubuntu
+          if-no-files-found: error
+          path: self-host-artifacts/
+
   self-host-incremental-canary:
     name: Self-host incremental canary
     if: github.event_name == 'workflow_dispatch'
