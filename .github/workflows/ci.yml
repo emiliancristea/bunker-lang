@@ -282,6 +282,9 @@ jobs:
           run_generated_bkrc_fixture tests/48_kernel_control_flow.bkr control_flow 42
           run_generated_bkrc_fixture tests/56_kernel_early_return.bkr early_return 42
           run_generated_bkrc_fixture tests/57_kernel_multiple_structs.bkr multiple_structs 42
+          run_generated_bkrc_fixture tests/63_arena_loop_reuse.bkr arena_loop_reuse 42
+          run_generated_bkrc_fixture tests/64_arena_nested_blocks.bkr arena_nested_blocks 42
+          run_generated_bkrc_fixture tests/65_arena_if_branches.bkr arena_if_branches 42
           run_generated_bkrc_fixture tests/72_file_io.bkr file_io 42
           run_generated_bkrc_fixture tests/73_string_methods.bkr string_methods 42
           run_generated_bkrc_fixture tests/74_vec_operations.bkr vec_operations 42
@@ -366,6 +369,9 @@ jobs:
           run_stage2_bkrc_fixture tests/48_kernel_control_flow.bkr control_flow 42
           run_stage2_bkrc_fixture tests/56_kernel_early_return.bkr early_return 42
           run_stage2_bkrc_fixture tests/57_kernel_multiple_structs.bkr multiple_structs 42
+          run_stage2_bkrc_fixture tests/63_arena_loop_reuse.bkr arena_loop_reuse 42
+          run_stage2_bkrc_fixture tests/64_arena_nested_blocks.bkr arena_nested_blocks 42
+          run_stage2_bkrc_fixture tests/65_arena_if_branches.bkr arena_if_branches 42
           run_stage2_bkrc_fixture tests/72_file_io.bkr file_io 42
           run_stage2_bkrc_fixture tests/73_string_methods.bkr string_methods 42
           run_stage2_bkrc_fixture tests/74_vec_operations.bkr vec_operations 42
