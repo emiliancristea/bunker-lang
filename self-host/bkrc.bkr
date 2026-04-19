@@ -69,6 +69,7 @@ kernel BunkerCompiler {
     const NODE_INT_LIT: i64 = 24;
     const NODE_BOOL_LIT: i64 = 25;
     const NODE_STR_LIT: i64 = 26;
+    const NODE_CONST: i64 = 27;
 
     // ===== Type Constants =====
     const TYPE_I32: i64 = 0;
@@ -798,6 +799,32 @@ kernel BunkerCompiler {
         return node;
     }
 
+    fn parse_const(p: Vec<i64>) -> Vec<i64> {
+        parser_expect(p, TOK_CONST);
+        let name_idx = parser_expect_name(p);
+
+        let type_node: i64 = 0;
+        if parser_peek(p) == TOK_COLON {
+            parser_advance(p);
+            type_node = parse_type(p) as i64;
+        }
+
+        let value: i64 = 0;
+        if parser_peek(p) == TOK_ASSIGN {
+            parser_advance(p);
+            value = parse_expr(p) as i64;
+        }
+
+        parser_expect(p, TOK_SEMICOLON);
+
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_CONST);
+        vec_push(node, name_idx);
+        vec_push(node, type_node);
+        vec_push(node, value);
+        return node;
+    }
+
     fn parse_kernel(p: Vec<i64>) -> Vec<i64> {
         parser_expect(p, TOK_KERNEL);
         let name_idx = parser_expect_name(p);
@@ -815,11 +842,8 @@ kernel BunkerCompiler {
                 }
                 vec_push(items, fn_node as i64);
             } else if tok == TOK_CONST {
-                // Skip const declarations for now
-                while parser_peek(p) != TOK_SEMICOLON && parser_peek(p) != TOK_EOF {
-                    parser_advance(p);
-                }
-                parser_advance(p);  // skip semicolon
+                let const_node: Vec<i64> = parse_const(p);
+                vec_push(items, const_node as i64);
             } else {
                 parser_advance(p);  // skip unknown
             }
@@ -1178,6 +1202,39 @@ kernel BunkerCompiler {
         return state;
     }
 
+    fn gen_c_const(state: Vec<i64>, const_node: Vec<i64>) -> Vec<i64> {
+        let name = name_to_c(state, vec_get(const_node, 1));
+        let type_node = vec_get(const_node, 2);
+        let value = vec_get(const_node, 3);
+
+        let c_type: str = "bkr_i64";
+        if type_node != 0 {
+            let type_node_vec = type_node as Vec<i64>;
+            c_type = type_to_c(vec_get(type_node_vec, 1));
+        }
+
+        let c_value: str = "0";
+        if value != 0 {
+            c_value = gen_c_expr(state, value as Vec<i64>);
+        }
+
+        cgen_emit(state, "static const " + c_type + " " + name + " = " + c_value + ";");
+        return state;
+    }
+
+    fn gen_c_kernel_consts(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
+        let items = vec_get(kernel, 2) as Vec<i64>;
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if vec_get(item, 0) == NODE_CONST {
+                gen_c_const(state, item);
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
     fn gen_c_kernel_prototypes(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
         let items = vec_get(kernel, 2) as Vec<i64>;
         let i: i64 = 0;
@@ -1214,6 +1271,8 @@ kernel BunkerCompiler {
         cgen_emit(state, "#include " + quote + "runtime.h" + quote);
         cgen_emit(state, "");
 
+        gen_c_kernel_consts(state, kernel);
+        cgen_emit(state, "");
         gen_c_kernel_prototypes(state, kernel);
         cgen_emit(state, "");
         gen_c_kernel(state, kernel);
