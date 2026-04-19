@@ -104,6 +104,8 @@ Use GitHub Actions as the build and verification environment:
 
 Safe local inspection commands are still allowed when a CI-built binary is available: `check`, `parse`, and `self-host-check`. Code-producing or runtime commands such as `build`, `run`, and `self-host-compile` are CI-only.
 
+Required CI runs bounded self-host smoke inputs. Large incremental self-host fixtures are kept behind the manual GitHub Actions canary until the self-host compiler's memory growth is fixed.
+
 ## Usage
 
 ```bash

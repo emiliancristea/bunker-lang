@@ -866,11 +866,17 @@ fn self_host_compile(
         .with_context(|| format!("Failed to read compiler file: {}", compiler_abs.display()))?;
     let compiler_path = compiler_abs.display().to_string();
 
+    if format == OutputFormat::Text {
+        println!("[self-host] checking compiler source");
+    }
     let diagnostics = collect_diagnostics_for_source(&compiler_path, &compiler_source, false)?;
     if !diagnostics.is_empty() {
         print_diagnostics_and_exit(&compiler_path, diagnostics, format);
     }
 
+    if format == OutputFormat::Text {
+        println!("[self-host] building compiler AST");
+    }
     let ast = build_ast_from_source_for_run(&compiler_path, &compiler_source)?;
     let temp_dir = unique_self_host_temp_dir();
     fs::create_dir_all(&temp_dir)
@@ -896,6 +902,9 @@ fn self_host_compile(
         // Intentionally defer arena reset here: some large self-host inputs
         // currently hit allocator behavior at reset due oversized arena blocks
         // in long-running JIT compilation paths. Process exit will reclaim memory.
+        if format == OutputFormat::Text {
+            println!("[self-host] running compiler kernel");
+        }
         jit::run_kernel_main_flex(&ast)?
     };
 
@@ -911,6 +920,9 @@ fn self_host_compile(
         ));
     }
 
+    if format == OutputFormat::Text {
+        println!("[self-host] reading generated output");
+    }
     let generated = fs::read_to_string(&temp_output).with_context(|| {
         format!(
             "Bunker-written compiler did not produce {}",

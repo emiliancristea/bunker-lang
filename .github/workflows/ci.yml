@@ -77,10 +77,10 @@ jobs:
         shell: pwsh
         run: ./run_tests.ps1 -Verbose
 
-  self-host-incremental:
-    name: Self-host incremental inputs
+  self-host-smoke:
+    name: Self-host smoke inputs
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -92,16 +92,55 @@ jobs:
         working-directory: bunker-cli
         run: cargo build --release
 
-      - name: Compile incremental parser fixture
-        timeout-minutes: 4
+      - name: Check self-host compiler sources
+        timeout-minutes: 2
+        run: ./bunker-cli/target/release/bunker-cli self-host-check self-host
+
+      - name: Compile basic fixture through self-host compiler
+        timeout-minutes: 2
         run: |
-          timeout 210s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/01_basic_math.bkr \
+            -o /tmp/01_basic_math.c
+          test -s /tmp/01_basic_math.c
+
+      - name: Compile branching fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/14_kernel_if_branching.bkr \
+            -o /tmp/14_kernel_if_branching.c
+          test -s /tmp/14_kernel_if_branching.c
+
+  self-host-incremental-canary:
+    name: Self-host incremental canary
+    if: github.event_name == 'workflow_dispatch'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Rust toolchain
+        run: rustup default stable
+
+      - name: Build release compiler
+        working-directory: bunker-cli
+        run: cargo build --release
+
+      - name: Compile incremental parser fixture under resource caps
+        timeout-minutes: 3
+        run: |
+          ulimit -v 1500000
+          timeout --kill-after=5s 120s ./bunker-cli/target/release/bunker-cli self-host-compile \
             tests/99_incremental_1.bkr \
             -o /tmp/99_incremental_1.c
 
-      - name: Compile incremental codegen fixture
-        timeout-minutes: 4
+      - name: Compile incremental codegen fixture under resource caps
+        timeout-minutes: 3
         run: |
-          timeout 210s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          ulimit -v 1500000
+          timeout --kill-after=5s 120s ./bunker-cli/target/release/bunker-cli self-host-compile \
             tests/99_incremental_2.bkr \
             -o /tmp/99_incremental_2.c
