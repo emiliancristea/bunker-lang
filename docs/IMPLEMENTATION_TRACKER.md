@@ -1,0 +1,324 @@
+# Bunker Production Implementation Tracker
+
+This is the authoritative implementation tracker for moving Bunker from a bootstrap language into a production language and then into full self-hosting.
+
+Last updated: 2026-04-19
+
+## Operating Rules
+
+- GitHub Actions is the build and test authority.
+- Do not run local builds or test suites on the workstation.
+- Each implementation slice must add or extend CI coverage.
+- Every production feature must have a compiler behavior, runtime behavior if needed, diagnostics, and tests.
+- Self-host work should move Rust responsibilities into Bunker modules only when the Bunker subset can support that module cleanly.
+
+## Status Legend
+
+| Status | Meaning |
+|---|---|
+| DONE | Implemented and covered by CI. |
+| PARTIAL | Some support exists, but not production-complete. |
+| TODO | Not implemented or not usable yet. |
+| BLOCKED | Requires earlier tracker items. |
+| DEFER | Not required for self-hosting, but useful later. |
+
+## Current Baseline
+
+Current bootstrap state after the latest self-host work:
+
+- Self-host `bkrc.bkr` can self-compile through stage1 and stage2 in GitHub Actions.
+- CI gates arithmetic, functions, control flow, structs, arrays, strings, constants, recursion, bitwise ops, ternary, match, Option, Result, Vec, and HashMap fixtures through generated and stage2 compilers.
+- The Rust compiler is still the production compiler and the bootstrap driver.
+- The self-host compiler is still monolithic and uses raw `Vec<i64>` AST nodes.
+- The language is not yet production-complete.
+
+## Critical Path
+
+Implement in this order unless a CI failure forces a repair first.
+
+| Order | Gate | Status | Goal |
+|---:|---|---|---|
+| 1 | Self-host runtime surface | PARTIAL | Finish file I/O, string methods, stdlib handles, and C runtime coverage. |
+| 2 | Modules and multi-file compilation | TODO | Split Bunker compiler source into real modules. |
+| 3 | Typed compiler data structures | TODO | Replace raw numeric AST nodes with Bunker structs/enums. |
+| 4 | Real generics and ADTs | TODO | Replace erased handles and hardcoded Option/Result logic. |
+| 5 | Production diagnostics | PARTIAL | Make compiler errors exact, structured, and AI-repairable. |
+| 6 | Memory/resource model | PARTIAL | Make long-running compiler processes safe and leak-controlled. |
+| 7 | Self-host module migration | TODO | Move lexer, parser, typechecker, and codegen out of Rust. |
+| 8 | Rust removal gate | BLOCKED | Build Bunker compiler with Bunker compiler, with Rust only as bootstrap. |
+
+## Immediate Implementation Queue
+
+These are the next concrete PR-sized slices.
+
+| ID | Status | Work | Definition Of Done |
+|---|---|---|---|
+| Q-001 | TODO | Add self-host coverage for file I/O fixtures. | `tests/72_file_io.bkr` compiles and runs through generated and stage2 `bkrc` in CI. |
+| Q-002 | TODO | Add self-host coverage for string method fixtures. | `tests/73_string_methods.bkr` compiles and runs through generated and stage2 `bkrc` in CI. |
+| Q-003 | TODO | Add self-host coverage for arena fixtures if bootstrap syntax allows it. | Arena fixture subset compiles/runs through generated and stage2 `bkrc`, or blockers are logged with exact missing syntax. |
+| Q-004 | TODO | Split `self-host/bkrc.bkr` into module-ready sections without changing behavior. | CI still passes, generated/stage2 compiler behavior unchanged. |
+| Q-005 | TODO | Add multi-file self-host compile support. | `self-host-compile` can compile a root Bunker file plus imported Bunker modules in CI. |
+| Q-006 | TODO | Move lexer into Bunker module. | Stage2 compiler uses Bunker lexer module and passes current self-host smoke. |
+| Q-007 | TODO | Move parser into Bunker module. | Stage2 compiler uses Bunker parser module and passes current self-host smoke. |
+| Q-008 | TODO | Move C codegen into Bunker module. | Stage2 compiler uses Bunker codegen module and passes current self-host smoke. |
+| Q-009 | TODO | Add machine-readable self-host diagnostics. | Parse/type/codegen errors emit JSON diagnostics with spans and repair hints. |
+| Q-010 | TODO | Add self-host golden output tests. | CI compares selected Rust compiler output vs self-host compiler output for stable fixtures. |
+
+## Language Core
+
+| ID | Status | Priority | Item | Definition Of Done |
+|---|---|---:|---|---|
+| L-001 | TODO | P0 | Real module/import system. | `import` resolves Bunker files with stable module paths, duplicate handling, and CI fixtures. |
+| L-002 | TODO | P0 | Multi-file compilation. | Compiler accepts a root file and compiles/imports dependency files deterministically. |
+| L-003 | TODO | P1 | Public/private visibility. | Symbols can be exported or hidden; invalid access produces diagnostics. |
+| L-004 | TODO | P1 | Namespaces/packages. | Package/module names avoid global collisions. |
+| L-005 | TODO | P1 | Stable grammar versioning. | Source declares or infers language version; parser behavior is reproducible. |
+| L-006 | PARTIAL | P1 | Full expression-oriented blocks. | Blocks can yield typed values consistently outside match arms. |
+| L-007 | PARTIAL | P1 | Statement/expression consistency. | All expression and statement forms have precise grammar and type rules. |
+| L-008 | TODO | P1 | Mutable vs immutable binding rules. | Assignments to immutable bindings are rejected everywhere. |
+| L-009 | PARTIAL | P2 | Constants across modules. | Constants resolve across imported modules and are typechecked. |
+| L-010 | PARTIAL | P2 | Compile-time evaluation. | Comptime works beyond simple current cases with diagnostics and limits. |
+| L-011 | PARTIAL | P2 | Attribute semantics. | Parsed attributes are enforced consistently or rejected when unsupported. |
+| L-012 | TODO | P3 | Documentation comments. | Doc comments are parsed and exposed to docs/LSP tooling. |
+
+## Type System
+
+| ID | Status | Priority | Item | Definition Of Done |
+|---|---|---:|---|---|
+| T-001 | TODO | P0 | Real generics. | Generic types are represented in AST/typechecker, not erased handles. |
+| T-002 | TODO | P0 | Generic functions. | Functions can declare type parameters and instantiate safely. |
+| T-003 | TODO | P0 | Generic structs. | Structs can be parameterized and monomorphized or represented safely. |
+| T-004 | TODO | P1 | Generic constraints. | Generic operations require explicit trait/interface bounds. |
+| T-005 | TODO | P1 | Type aliases. | Aliases preserve diagnostics and compile to the same representation. |
+| T-006 | PARTIAL | P0 | Local type inference. | Let bindings infer robustly for all supported expressions. |
+| T-007 | PARTIAL | P0 | Call-result inference. | Builtins and user functions propagate exact result types. |
+| T-008 | TODO | P0 | Inference for `None`, empty arrays, Vec, HashMap, Ok, Err. | Ambiguous values infer from annotation/context or produce precise errors. |
+| T-009 | TODO | P0 | User-defined enums/sum types. | Users can define enum variants with payloads. |
+| T-010 | TODO | P0 | Exhaustive match checking. | Non-exhaustive matches are rejected with missing cases. |
+| T-011 | PARTIAL | P0 | Pattern type checking. | Match patterns are checked against scrutinee type in Rust and self-host paths. |
+| T-012 | TODO | P1 | Destructuring patterns. | Struct/tuple/enum destructuring works with bound names. |
+| T-013 | TODO | P1 | Nested patterns. | Nested enum/struct patterns typecheck and bind correctly. |
+| T-014 | TODO | P1 | Match guards. | `pattern if condition` works with scoped bindings. |
+| T-015 | TODO | P1 | Tuple types. | Tuples parse, typecheck, codegen, and destructure. |
+| T-016 | TODO | P1 | Unit type. | `()` has consistent syntax and return semantics. |
+| T-017 | TODO | P1 | Never/bottom type. | Diverging expressions typecheck in all contexts. |
+| T-018 | TODO | P2 | Function types. | Functions can be values when needed for higher-order support. |
+| T-019 | TODO | P0 | Trait/interface system. | Shared behavior is expressed without inheritance. |
+| T-020 | TODO | P1 | Method resolution. | `value.method(args)` resolves with clear rules. |
+| T-021 | TODO | P2 | Operator overloading policy. | Either explicitly supported via traits or rejected with diagnostics. |
+| T-022 | PARTIAL | P1 | Numeric promotion rules. | All numeric conversions are specified and tested. |
+| T-023 | PARTIAL | P1 | Cast safety rules. | Safe/unsafe casts are documented, checked, and diagnosed. |
+| T-024 | PARTIAL | P0 | Type diagnostics. | Expected/found types include spans, origins, and repair suggestions. |
+
+## Data Model And Standard Types
+
+| ID | Status | Priority | Item | Definition Of Done |
+|---|---|---:|---|---|
+| D-001 | PARTIAL | P0 | Real `Option<T>`. | Implemented as an ADT or typed runtime representation, not hardcoded compiler cases. |
+| D-002 | PARTIAL | P0 | Real `Result<T,E>`. | Implemented as ADT/runtime type with typed Ok/Err payloads. |
+| D-003 | TODO | P0 | User-defined ADTs. | Option/Result can be expressed in Bunker source. |
+| D-004 | TODO | P1 | Struct methods. | Methods are declared and called with receiver semantics. |
+| D-005 | TODO | P2 | Struct update syntax. | Copy/update syntax works or is intentionally rejected. |
+| D-006 | TODO | P2 | Tuple structs. | Tuple-like structs parse and typecheck. |
+| D-007 | PARTIAL | P1 | Nested structs/arrays. | Deeply nested values codegen and typecheck robustly. |
+| D-008 | TODO | P0 | Slices. | Borrowed views into arrays/Vec have bounds-safe operations. |
+| D-009 | PARTIAL | P0 | Typed Vec. | `Vec<T>` preserves element type through all operations. |
+| D-010 | PARTIAL | P0 | Typed HashMap. | `HashMap<K,V>` preserves key/value types beyond integer-key bootstrap. |
+| D-011 | PARTIAL | P0 | String ownership and encoding. | String allocation/lifetime/Unicode policy is specified and implemented. |
+| D-012 | TODO | P1 | Byte buffers. | Efficient byte arrays exist for compiler and I/O work. |
+| D-013 | TODO | P1 | Path/file types. | File APIs use typed paths/results, not raw strings everywhere. |
+
+## Functions And Functional Features
+
+| ID | Status | Priority | Item | Definition Of Done |
+|---|---|---:|---|---|
+| F-001 | TODO | P2 | Closures. | Closures parse, capture, typecheck, and codegen. |
+| F-002 | TODO | P2 | Lambdas. | Lambda syntax and inference are stable. |
+| F-003 | TODO | P2 | Higher-order functions. | Functions/closures can be passed and returned. |
+| F-004 | TODO | P2 | Captures. | Capture modes are explicit and memory-safe. |
+| F-005 | TODO | P1 | Iterators. | Collections expose safe iteration without manual indexing. |
+| F-006 | TODO | P2 | Standard combinators. | `map`, `filter`, `fold`, `find`, etc. work on iterators. |
+| F-007 | DEFER | P3 | Partial application. | Only implement if proven useful for AI/codegen ergonomics. |
+
+## Control Flow And Errors
+
+| ID | Status | Priority | Item | Definition Of Done |
+|---|---|---:|---|---|
+| C-001 | TODO | P0 | `?` operator. | Result/Option propagation is typed, hygienic, and tested. |
+| C-002 | PARTIAL | P1 | `defer` in self-host path. | Self-host compiler can parse/codegen defer or rejects it clearly. |
+| C-003 | TODO | P2 | Labeled break/continue. | Nested loop exits are explicit and tested. |
+| C-004 | TODO | P0 | Pattern guards. | Guards typecheck and preserve exhaustiveness rules. |
+| C-005 | TODO | P0 | Early-exit cleanup guarantees. | Return/break/continue/? run required cleanup/defer. |
+| C-006 | TODO | P1 | Panic/abort policy. | Runtime failure policy is documented and enforced. |
+| C-007 | PARTIAL | P0 | Recoverable error conventions. | Stdlib APIs consistently return Result/Option. |
+
+## Memory And Resource Model
+
+| ID | Status | Priority | Item | Definition Of Done |
+|---|---|---:|---|---|
+| M-001 | PARTIAL | P0 | Ownership rules. | Move/copy/borrow behavior is specified and enforced. |
+| M-002 | PARTIAL | P0 | Move semantics in self-host path. | Self-host compiler can compile moved/copied values safely. |
+| M-003 | TODO | P0 | Borrow/reference model. | References have safe lifetime/resource behavior or a simpler alternative. |
+| M-004 | TODO | P0 | Region/arena rules. | Arena allocation is available and verified for compiler workloads. |
+| M-005 | TODO | P0 | Destructor/drop semantics. | Resources release deterministically. |
+| M-006 | TODO | P0 | Leak checks. | Long-running compiler tests include leak detection or bounded arena reset. |
+| M-007 | PARTIAL | P1 | Safe handle rules. | Raw handles have typed wrappers or are phased out. |
+| M-008 | PARTIAL | P0 | Null absence guarantees. | Null-like states use Option/Result, not raw zero handles except bootstrap internals. |
+| M-009 | TODO | P1 | Copy vs move for aggregate values. | Struct, array, string, Vec, HashMap semantics are explicit and tested. |
+| M-010 | TODO | P1 | Resource types. | Files, directories, processes, sockets use deterministic cleanup. |
+
+## Runtime And Standard Library
+
+| ID | Status | Priority | Item | Definition Of Done |
+|---|---|---:|---|---|
+| R-001 | PARTIAL | P0 | Complete string library. | CI covers length, indexing, substring, concat, compare, parse, formatting. |
+| R-002 | PARTIAL | P0 | Complete Vec library. | Push/pop/get/set/len/iter/clear/free are typed and tested. |
+| R-003 | PARTIAL | P0 | Complete HashMap library. | Generic keys/values, collision behavior, deletion, iteration tested. |
+| R-004 | PARTIAL | P0 | File I/O in self-host path. | Read/write/exists fixtures run through generated and stage2 compilers. |
+| R-005 | TODO | P1 | Directory/path APIs. | Directory traversal and path joins are typed and cross-platform. |
+| R-006 | TODO | P1 | Environment variables. | Env APIs return Result/Option with diagnostics. |
+| R-007 | TODO | P1 | Process execution policy. | Process APIs are explicit, sandboxable, and disabled where unsafe. |
+| R-008 | TODO | P2 | Time/date. | Time APIs are deterministic where needed for tests. |
+| R-009 | TODO | P0 | JSON parser/writer. | Compiler diagnostics can be built in Bunker. |
+| R-010 | TODO | P1 | CLI argument parser. | Self-host compiler can parse command-line arguments. |
+| R-011 | TODO | P1 | Logging. | Compiler/runtime logs have levels and structured output. |
+| R-012 | TODO | P0 | Diagnostics builder library. | Bunker code can emit structured diagnostics consistently. |
+| R-013 | TODO | P0 | Arena allocator library. | Compiler allocations use bounded arenas. |
+| R-014 | TODO | P1 | Serialization. | AST and diagnostics can be serialized. |
+| R-015 | TODO | P1 | Unicode policy. | Strings specify UTF-8 vs byte semantics and test it. |
+| R-016 | PARTIAL | P0 | Stable C runtime ABI. | Runtime functions are versioned and compatibility-tested. |
+
+## Compiler Frontend
+
+| ID | Status | Priority | Item | Definition Of Done |
+|---|---|---:|---|---|
+| CF-001 | PARTIAL | P0 | Reusable Bunker lexer. | Lexer exists as module, not monolithic embedded code. |
+| CF-002 | PARTIAL | P0 | Reusable Bunker parser. | Parser exists as module with recovery and spans. |
+| CF-003 | TODO | P0 | AST definitions in Bunker. | AST uses structs/enums, not raw `Vec<i64>` tags. |
+| CF-004 | TODO | P0 | Source spans on AST nodes. | Every node carries file/line/column/byte offsets. |
+| CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
+| CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
+| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Typechecker handles bootstrap subset as Bunker module. |
+| CF-008 | TODO | P0 | Name resolver in Bunker. | Symbol tables and scopes are implemented in Bunker. |
+| CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
+| CF-010 | TODO | P0 | Semantic validation passes. | Non-type semantic errors are separate and tested. |
+| CF-011 | TODO | P0 | Exhaustiveness checker. | Match exhaustiveness works for ADTs. |
+| CF-012 | BLOCKED | P0 | Borrow/resource checker. | Depends on selected memory/resource model. |
+
+## Compiler Backend
+
+| ID | Status | Priority | Item | Definition Of Done |
+|---|---|---:|---|---|
+| CB-001 | PARTIAL | P0 | Bunker-written C codegen. | Codegen is modular and handles current self-host fixture set. |
+| CB-002 | TODO | P0 | Typed C emission. | C output is driven by real types, not heuristics. |
+| CB-003 | TODO | P1 | Temporary variable generation. | Temps are hygienic and stable for nested expressions. |
+| CB-004 | PARTIAL | P1 | Portable C output. | GNU-only expressions are removed or CI documents/locks GNU-C requirement. |
+| CB-005 | PARTIAL | P0 | Runtime ABI versioning. | Generated C declares expected runtime version. |
+| CB-006 | TODO | P2 | Debug info/source mapping. | Runtime/compiler errors map back to Bunker spans. |
+| CB-007 | TODO | P2 | Optimization passes. | Constant folding/dead code elimination are implemented where safe. |
+| CB-008 | TODO | P2 | Incremental compilation. | Changed modules compile without full rebuild. |
+| CB-009 | TODO | P2 | Multi-target backend strategy. | C/Cranelift/LLVM roles are explicit and tested. |
+| CB-010 | TODO | P1 | Artifact layout. | Output directories and generated files are deterministic. |
+
+## Self-Hosting
+
+| ID | Status | Priority | Item | Definition Of Done |
+|---|---|---:|---|---|
+| SH-001 | PARTIAL | P0 | Self-host smoke gate. | Current stage1/stage2 CI remains green after every change. |
+| SH-002 | TODO | P0 | Split `bkrc.bkr` into modules. | Compiler source is multiple Bunker files with imports. |
+| SH-003 | TODO | P0 | Typed AST in self-host compiler. | Raw numeric tags are replaced by Bunker types. |
+| SH-004 | TODO | P0 | Enums for token/node kinds. | Token and AST tags use language enums. |
+| SH-005 | TODO | P0 | Real generic collections in self-host compiler. | `Vec<T>` and maps preserve element/key/value types. |
+| SH-006 | TODO | P0 | Stage0/Stage1/Stage2 docs. | Bootstrap chain is documented and reproducible. |
+| SH-007 | TODO | P0 | Golden tests vs Rust compiler. | Outputs/diagnostics match for selected fixtures or known differences are logged. |
+| SH-008 | TODO | P0 | Rust module migration map. | Each Rust compiler subsystem has a Bunker replacement target. |
+| SH-009 | BLOCKED | P0 | Build compiler without Rust. | Requires modules, stdlib, diagnostics, and typed compiler structures. |
+| SH-010 | TODO | P1 | Reproducible self-host artifacts. | CI uploads deterministic stage artifacts with checksums. |
+
+## Tooling
+
+| ID | Status | Priority | Item | Definition Of Done |
+|---|---|---:|---|---|
+| G-001 | TODO | P1 | Formatter. | `bunker fmt` formats files deterministically. |
+| G-002 | TODO | P1 | Linter. | `bunker lint` reports style/safety issues. |
+| G-003 | TODO | P1 | Language server. | LSP supports diagnostics, hover, go-to-definition, completion. |
+| G-004 | TODO | P1 | `bunker test`. | Native test runner discovers and runs Bunker tests. |
+| G-005 | TODO | P2 | `bunker doc`. | Documentation generation from doc comments. |
+| G-006 | TODO | P1 | Package manager. | Local package format, dependencies, and lockfile exist. |
+| G-007 | TODO | P2 | Build cache. | Rebuilds avoid unchanged work safely. |
+| G-008 | TODO | P2 | Watch mode. | File changes trigger rebuilds/tests. |
+| G-009 | TODO | P2 | Debugger hooks. | Generated code can be debugged back to source. |
+| G-010 | TODO | P2 | Profiler hooks. | Runtime/compiler hotspots are measurable. |
+| G-011 | TODO | P2 | Coverage tooling. | Test coverage can be measured. |
+| G-012 | TODO | P2 | Benchmark tooling. | Performance regressions are tracked. |
+
+## AI-Agent Diagnostics
+
+| ID | Status | Priority | Item | Definition Of Done |
+|---|---|---:|---|---|
+| A-001 | PARTIAL | P0 | JSON diagnostics. | Every compiler phase can emit structured JSON diagnostics. |
+| A-002 | PARTIAL | P0 | Stable diagnostic codes. | Codes are documented, unique, and testable. |
+| A-003 | TODO | P0 | Exact spans. | File, line, column, byte offset, and source excerpt are present. |
+| A-004 | PARTIAL | P0 | Expected/found details. | Types/tokens/symbols include expected and actual values. |
+| A-005 | TODO | P0 | Suggested fix edits. | Diagnostics include concrete text edits when safe. |
+| A-006 | TODO | P1 | Confidence levels. | Suggestions carry confidence/applicability. |
+| A-007 | TODO | P1 | Related spans. | Diagnostics link definition/use/origin locations. |
+| A-008 | PARTIAL | P0 | Prompt-ready explanations. | Errors include short AI repair context. |
+| A-009 | TODO | P0 | Multi-error recovery. | Parser/typechecker return multiple useful diagnostics. |
+| A-010 | TODO | P0 | Machine-readable AST dump. | AST can be emitted as JSON for agents. |
+| A-011 | TODO | P0 | Machine-readable type graph. | Type graph can be emitted for agents. |
+| A-012 | TODO | P0 | Machine-readable symbol table. | Symbol table can be emitted for agents. |
+| A-013 | TODO | P0 | Capability report. | Compiler can report supported language subset. |
+
+## Safety And Production Readiness
+
+| ID | Status | Priority | Item | Definition Of Done |
+|---|---|---:|---|---|
+| S-001 | TODO | P0 | Soundness rules. | Spec states what programs are safe and why. |
+| S-002 | TODO | P0 | Undefined behavior policy. | UB is eliminated or explicitly isolated behind unsafe constructs. |
+| S-003 | TODO | P1 | Integer overflow policy. | Debug/release overflow behavior is specified and tested. |
+| S-004 | PARTIAL | P1 | Bounds checking policy. | Array/Vec/HashMap access behavior is consistent and tested. |
+| S-005 | TODO | P0 | Runtime failure policy. | Panics/aborts/results are consistent. |
+| S-006 | TODO | P0 | Security model for APIs. | File/process/network APIs are sandbox-aware. |
+| S-007 | TODO | P0 | Agent-generated code sandboxing. | Dangerous APIs can be restricted by policy. |
+| S-008 | TODO | P1 | Fuzzing. | Lexer/parser/typechecker have fuzz targets. |
+| S-009 | TODO | P1 | Differential tests. | Rust compiler and self-host compiler are compared. |
+| S-010 | TODO | P1 | Property tests. | Core runtime and type rules have property tests. |
+| S-011 | TODO | P1 | Stress tests. | Large files/projects compile in CI. |
+| S-012 | TODO | P1 | Memory leak tests. | Runtime/compiler memory is bounded or leak-checked. |
+| S-013 | PARTIAL | P0 | Cross-platform CI. | Existing CI remains green and expands with self-host features. |
+
+## Ecosystem
+
+| ID | Status | Priority | Item | Definition Of Done |
+|---|---|---:|---|---|
+| E-001 | TODO | P2 | Package registry or local package format. | Packages can be declared, resolved, and versioned. |
+| E-002 | TODO | P1 | Versioning rules. | Language, compiler, stdlib, and ABI versions are explicit. |
+| E-003 | TODO | P1 | Standard library documentation. | Public stdlib APIs have docs and examples. |
+| E-004 | PARTIAL | P1 | Examples for every construct. | `docs/EXAMPLES.md` covers all implemented features. |
+| E-005 | TODO | P2 | Migration guides. | Rust/Python/TypeScript migration docs exist. |
+| E-006 | TODO | P1 | Contribution guide for language changes. | New feature process requires spec, tests, diagnostics, CI. |
+| E-007 | PARTIAL | P0 | Spec kept in sync. | Implementation tracker, spec, roadmap, and tests are cross-linked. |
+| E-008 | TODO | P0 | Roadmap tied to CI gates. | Every roadmap milestone has a CI gate or measurable artifact. |
+
+## Completion Gates
+
+| Gate | Status | Required Evidence |
+|---|---|---|
+| Bootstrap Viable | DONE | Stage1/stage2 self-host smoke compiles and runs current bootstrap fixture set in CI. |
+| Self-Host Modular | TODO | Compiler source is split into Bunker modules and built through imports. |
+| Self-Host Typed | TODO | Compiler AST/types use Bunker structs/enums/generics instead of raw handles. |
+| Self-Host Primary | TODO | Bunker compiler can build a working compiler without Rust for normal development. |
+| Production Language | TODO | Modules, generics, ADTs, diagnostics, memory/resource model, stdlib, tooling, and safety gates are green. |
+| AI-Agent Native | TODO | Diagnostics, capability reports, AST/type/symbol dumps, and repair hints are machine-readable and stable. |
+
+## Work Log
+
+Use this log for major capability jumps. Keep detailed implementation notes in PR descriptions.
+
+| Date | Change | Evidence |
+|---|---|---|
+| 2026-04-19 | Added self-host structs. | GitHub Actions passed before merge. |
+| 2026-04-19 | Added self-host Option and match support. | PR #17, CI run passed. |
+| 2026-04-19 | Added self-host Result builtins. | PR #18, CI run passed. |
+| 2026-04-19 | Added self-host Vec and HashMap builtins. | PR #19, CI run passed. |

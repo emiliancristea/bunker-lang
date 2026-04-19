@@ -311,6 +311,7 @@ Contributions welcome! See [ROADMAP.md](ROADMAP.md) for the implementation plan.
 
 - **`docs/SPECIFICATION.md`** - **The Definitive AI-Native Systems Programming Language Specification** - Complete language design covering grammar theory, type systems, memory models, formal verification, agent semantics, and tooling
 - **`docs/TECHNICAL_SPEC.md`** - **Complete Technical Specification** - In-depth technical reference covering grammar-constrained decoding, type-constrained generation, ownership models, contracts, agent runtime, and cross-layer integration
+- `docs/IMPLEMENTATION_TRACKER.md` - Authoritative production/self-hosting backlog with statuses, priorities, completion gates, and work log
 - `docs/VISION.md` - Language design philosophy and AI collaboration insights
 - `docs/ARCHITECTURE.md` - Compiler pipeline and runtime design
 - `ROADMAP.md` - Implementation phases and milestones
