@@ -407,6 +407,58 @@ jobs:
           run_stage2_bkrc_fixture tests/99_incremental_1.bkr incremental_1 42
           run_stage2_bkrc_fixture tests/99_incremental_2.bkr incremental_2 42
 
+          rust_fixture_result() {
+            fixture="$1"
+            name="$2"
+            log="/tmp/golden-rust-$name.log"
+            NO_COLOR=1 ./bunker-cli/target/release/bunker-cli run "$fixture" > "$log"
+            result="$(sed -r 's/\x1B\[[0-9;]*[mK]//g' "$log" | awk '/Result:/ {print $NF}' | tail -n 1 | tr -d '\r')"
+            test -n "$result"
+            printf '%s' "$result"
+          }
+
+          run_golden_compiler_fixture() {
+            compiler="$1"
+            fixture="$2"
+            name="$3"
+            expected_result="$4"
+            run_dir="$5"
+            mkdir -p "$run_dir"
+            cp "$fixture" "$run_dir/self_host_input.bkr"
+            set +e
+            (cd "$run_dir" && timeout --kill-after=5s 60s "$compiler")
+            bkrc_status=$?
+            set -e
+            test "$bkrc_status" -eq 42
+            test -s "$run_dir/self_host_output.c"
+            ! grep -q "Parse error" "$run_dir/self_host_output.c"
+            cp self-host/runtime.h "$run_dir/runtime.h"
+            cc -std=c11 "$run_dir/self_host_output.c" -o "$run_dir/$name"
+            set +e
+            timeout --kill-after=5s 60s "$run_dir/$name"
+            program_status=$?
+            set -e
+            echo "golden $name produced $program_status, Rust expected $expected_result"
+            test "$program_status" -eq "$expected_result"
+          }
+
+          run_self_host_golden_fixture() {
+            fixture="$1"
+            name="$2"
+            rust_result="$(rust_fixture_result "$fixture" "$name")"
+            stage1_dir="/tmp/golden-stage1-$name"
+            stage2_dir="/tmp/golden-stage2-$name"
+            run_golden_compiler_fixture /tmp/bkrc "$fixture" "$name" "$rust_result" "$stage1_dir"
+            run_golden_compiler_fixture "$self_compile_dir/bkrc2" "$fixture" "$name" "$rust_result" "$stage2_dir"
+            diff -u "$stage1_dir/self_host_output.c" "$stage2_dir/self_host_output.c"
+          }
+
+          run_self_host_golden_fixture tests/01_basic_math.bkr basic
+          run_self_host_golden_fixture tests/14_kernel_if_branching.bkr branching
+          run_self_host_golden_fixture tests/38_kernel_while_loop.bkr while_loop
+          run_self_host_golden_fixture tests/40_kernel_bitwise_ops.bkr bitwise_ops
+          run_self_host_golden_fixture tests/43_kernel_modulo.bkr modulo
+
           mkdir -p self-host-artifacts
           cp /tmp/bkrc.c self-host-artifacts/bkrc-stage1.c
           cp /tmp/bkrc self-host-artifacts/bkrc-stage1
