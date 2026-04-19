@@ -69,6 +69,7 @@ kernel BunkerCompiler {
     const NODE_INT_LIT: i64 = 24;
     const NODE_BOOL_LIT: i64 = 25;
     const NODE_STR_LIT: i64 = 26;
+    const NODE_CONST: i64 = 27;
 
     // ===== Type Constants =====
     const TYPE_I32: i64 = 0;
@@ -187,10 +188,7 @@ kernel BunkerCompiler {
                 if word == "bool" { tok_type = TOK_BOOL; }
                 if word == "str" { tok_type = TOK_STR_TYPE; }
 
-                let token_value = start;
-                if tok_type == TOK_IDENT {
-                    token_value = intern_name(names, word);
-                }
+                let token_value = intern_name(names, word);
                 vec_push(tokens, tok_type);
                 vec_push(tokens, token_value);
                 vec_push(tokens, pos);
@@ -344,16 +342,69 @@ kernel BunkerCompiler {
         return vec_get(p, 5) != 0;
     }
 
+    fn is_name_token(tok: i64) -> bool {
+        return tok == TOK_IDENT || tok == TOK_KERNEL || tok == TOK_FN || tok == TOK_LET ||
+               tok == TOK_IF || tok == TOK_ELSE || tok == TOK_WHILE || tok == TOK_BREAK ||
+               tok == TOK_CONTINUE || tok == TOK_RETURN || tok == TOK_CONST;
+    }
+
+    fn parser_expect_name(p: Vec<i64>) -> i64 {
+        let value = parser_peek_value(p);
+        if is_name_token(parser_peek(p)) {
+            parser_advance(p);
+            return value;
+        }
+        vec_set(p, 5, 1);
+        return value;
+    }
+
+    fn parser_peek_ident_is(p: Vec<i64>, name: str) -> bool {
+        if parser_peek(p) != TOK_IDENT {
+            return false;
+        }
+        return parser_get_name(p, parser_peek_value(p)) == name;
+    }
+
+    fn skip_type_tail(p: Vec<i64>) -> Vec<i64> {
+        if parser_peek(p) == TOK_LT {
+            let depth: i64 = 0;
+            while parser_peek(p) != TOK_EOF {
+                let tok = parser_peek(p);
+                if tok == TOK_LT {
+                    depth = depth + 1;
+                }
+                if tok == TOK_GT {
+                    depth = depth - 1;
+                }
+                parser_advance(p);
+                if depth <= 0 {
+                    return p;
+                }
+            }
+        }
+        return p;
+    }
+
     // Parse type
     fn parse_type(p: Vec<i64>) -> Vec<i64> {
         let node: Vec<i64> = vec_new();
         vec_push(node, NODE_TYPE);
         let tok = parser_peek(p);
         let kind: i64 = TYPE_I64;
-        if tok == TOK_I32 { kind = TYPE_I32; parser_advance(p); }
-        if tok == TOK_I64 { kind = TYPE_I64; parser_advance(p); }
-        if tok == TOK_BOOL { kind = TYPE_BOOL; parser_advance(p); }
-        if tok == TOK_STR_TYPE { kind = TYPE_STR; parser_advance(p); }
+        let consumed = false;
+        if tok == TOK_I32 { kind = TYPE_I32; parser_advance(p); consumed = true; }
+        if tok == TOK_I64 { kind = TYPE_I64; parser_advance(p); consumed = true; }
+        if tok == TOK_BOOL { kind = TYPE_BOOL; parser_advance(p); consumed = true; }
+        if tok == TOK_STR_TYPE { kind = TYPE_STR; parser_advance(p); consumed = true; }
+        if tok == TOK_IDENT {
+            // Bootstrap generics such as Vec<i64> are represented as handles.
+            parser_advance(p);
+            skip_type_tail(p);
+            consumed = true;
+        }
+        if !consumed && tok != TOK_EOF {
+            parser_advance(p);
+        }
         vec_push(node, kind);
         return node;
     }
@@ -400,7 +451,7 @@ kernel BunkerCompiler {
             return expr;
         }
 
-        if tok == TOK_IDENT {
+        if is_name_token(tok) {
             let name_idx = parser_peek_value(p);
             parser_advance(p);
 
@@ -448,7 +499,10 @@ kernel BunkerCompiler {
             return node;
         }
 
-        // Default: return 0
+        // Default: consume the unexpected token so callers always make progress.
+        if tok != TOK_EOF {
+            parser_advance(p);
+        }
         vec_push(node, NODE_INT_LIT);
         vec_push(node, 0);
         return node;
@@ -533,13 +587,17 @@ kernel BunkerCompiler {
     }
 
     fn parse_expr(p: Vec<i64>) -> Vec<i64> {
-        return parse_or(p);
+        let expr: Vec<i64> = parse_or(p);
+        while parser_peek_ident_is(p, "as") {
+            parser_advance(p);
+            parse_type(p);
+        }
+        return expr;
     }
 
     fn parse_let_stmt(p: Vec<i64>) -> Vec<i64> {
         parser_advance(p);
-        let name_idx = parser_peek_value(p);
-        parser_expect(p, TOK_IDENT);
+        let name_idx = parser_expect_name(p);
 
         let type_node: i64 = 0;
         if parser_peek(p) == TOK_COLON {
@@ -632,6 +690,31 @@ kernel BunkerCompiler {
         return node;
     }
 
+    fn parse_if_stmt(p: Vec<i64>) -> Vec<i64> {
+        parser_expect(p, TOK_IF);
+        let cond: Vec<i64> = parse_expr(p);
+        let then_block: Vec<i64> = parse_block(p);
+        let else_block: i64 = 0;
+        if parser_peek(p) == TOK_ELSE {
+            parser_advance(p);
+            if parser_peek(p) == TOK_IF {
+                let nested_if: Vec<i64> = parse_if_stmt(p);
+                let wrapper: Vec<i64> = vec_new();
+                vec_push(wrapper, NODE_BLOCK);
+                vec_push(wrapper, nested_if as i64);
+                else_block = wrapper as i64;
+            } else {
+                else_block = parse_block(p) as i64;
+            }
+        }
+        let if_node: Vec<i64> = vec_new();
+        vec_push(if_node, NODE_IF);
+        vec_push(if_node, cond as i64);
+        vec_push(if_node, then_block as i64);
+        vec_push(if_node, else_block);
+        return if_node;
+    }
+
     // Parse a block (handles if/while inside)
     fn parse_block(p: Vec<i64>) -> Vec<i64> {
         let node: Vec<i64> = vec_new();
@@ -642,19 +725,7 @@ kernel BunkerCompiler {
             let tok = parser_peek(p);
 
             if tok == TOK_IF {
-                parser_advance(p);
-                let cond: Vec<i64> = parse_expr(p);
-                let then_block: Vec<i64> = parse_block(p);
-                let else_block: i64 = 0;
-                if parser_peek(p) == TOK_ELSE {
-                    parser_advance(p);
-                    else_block = parse_block(p) as i64;
-                }
-                let if_node: Vec<i64> = vec_new();
-                vec_push(if_node, NODE_IF);
-                vec_push(if_node, cond as i64);
-                vec_push(if_node, then_block as i64);
-                vec_push(if_node, else_block);
+                let if_node: Vec<i64> = parse_if_stmt(p);
                 vec_push(node, if_node as i64);
             } else if tok == TOK_WHILE {
                 parser_advance(p);
@@ -679,8 +750,7 @@ kernel BunkerCompiler {
         parser_expect(p, TOK_LPAREN);
         if parser_peek(p) != TOK_RPAREN {
             // First param
-            let name_idx = parser_peek_value(p);
-            parser_expect(p, TOK_IDENT);
+            let name_idx = parser_expect_name(p);
             parser_expect(p, TOK_COLON);
             let ptype: Vec<i64> = parse_type(p);
 
@@ -692,8 +762,7 @@ kernel BunkerCompiler {
 
             while parser_peek(p) == TOK_COMMA {
                 parser_advance(p);
-                let name_idx2 = parser_peek_value(p);
-                parser_expect(p, TOK_IDENT);
+                let name_idx2 = parser_expect_name(p);
                 parser_expect(p, TOK_COLON);
                 let ptype2: Vec<i64> = parse_type(p);
 
@@ -710,8 +779,7 @@ kernel BunkerCompiler {
 
     fn parse_fn(p: Vec<i64>) -> Vec<i64> {
         parser_expect(p, TOK_FN);
-        let name_idx = parser_peek_value(p);
-        parser_expect(p, TOK_IDENT);
+        let name_idx = parser_expect_name(p);
         let params: Vec<i64> = parse_params(p);
 
         let ret_type: i64 = 0;
@@ -731,10 +799,35 @@ kernel BunkerCompiler {
         return node;
     }
 
+    fn parse_const(p: Vec<i64>) -> Vec<i64> {
+        parser_expect(p, TOK_CONST);
+        let name_idx = parser_expect_name(p);
+
+        let type_node: i64 = 0;
+        if parser_peek(p) == TOK_COLON {
+            parser_advance(p);
+            type_node = parse_type(p) as i64;
+        }
+
+        let value: i64 = 0;
+        if parser_peek(p) == TOK_ASSIGN {
+            parser_advance(p);
+            value = parse_expr(p) as i64;
+        }
+
+        parser_expect(p, TOK_SEMICOLON);
+
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_CONST);
+        vec_push(node, name_idx);
+        vec_push(node, type_node);
+        vec_push(node, value);
+        return node;
+    }
+
     fn parse_kernel(p: Vec<i64>) -> Vec<i64> {
         parser_expect(p, TOK_KERNEL);
-        let name_idx = parser_peek_value(p);
-        parser_expect(p, TOK_IDENT);
+        let name_idx = parser_expect_name(p);
         parser_expect(p, TOK_LBRACE);
 
         let items: Vec<i64> = vec_new();
@@ -749,11 +842,8 @@ kernel BunkerCompiler {
                 }
                 vec_push(items, fn_node as i64);
             } else if tok == TOK_CONST {
-                // Skip const declarations for now
-                while parser_peek(p) != TOK_SEMICOLON && parser_peek(p) != TOK_EOF {
-                    parser_advance(p);
-                }
-                parser_advance(p);  // skip semicolon
+                let const_node: Vec<i64> = parse_const(p);
+                vec_push(items, const_node as i64);
             } else {
                 parser_advance(p);  // skip unknown
             }
@@ -765,6 +855,7 @@ kernel BunkerCompiler {
         vec_push(node, name_idx);
         vec_push(node, items as i64);
         vec_push(node, main_name_idx);
+        vec_push(node, vec_get(p, 1));  // names table for C codegen
         return node;
     }
 
@@ -798,17 +889,57 @@ kernel BunkerCompiler {
         return " ? ";
     }
 
-    fn name_to_c(idx: i64) -> str {
+    fn name_from_table(names: Vec<str>, idx: i64) -> str {
+        if idx >= 0 && idx < vec_len(names) {
+            return vec_get(names, idx);
+        }
+        return "";
+    }
+
+    fn builtin_to_c(raw: str) -> str {
+        if raw == "len" { return "bkr_len"; }
+        if raw == "print" { return "bkr_print"; }
+        if raw == "println" { return "bkr_println"; }
+        if raw == "read_file" { return "read_file"; }
+        if raw == "write_file" { return "write_file"; }
+        if raw == "file_exists" { return "file_exists"; }
+        if raw == "vec_new" { return "vec_new"; }
+        if raw == "vec_push" { return "vec_push"; }
+        if raw == "vec_get" { return "vec_get"; }
+        if raw == "vec_set" { return "vec_set"; }
+        if raw == "vec_len" { return "vec_len"; }
+        if raw == "char_at" { return "char_at"; }
+        if raw == "char_code" { return "char_code"; }
+        if raw == "char_code_at" { return "char_code_at"; }
+        if raw == "substring" { return "substring"; }
+        if raw == "parse_int" { return "parse_int"; }
+        if raw == "int_to_string" { return "int_to_string"; }
+        if raw == "from_char_code" { return "from_char_code"; }
+        return "";
+    }
+
+    fn name_to_c_from_names(names: Vec<str>, idx: i64) -> str {
+        let raw = name_from_table(names, idx);
+        let builtin = builtin_to_c(raw);
+        if builtin != "" {
+            return builtin;
+        }
         return "_v" + int_to_string(idx);
     }
 
-    // C codegen state: [output_lines, indent, kernel_name]
-    fn cgen_new(kernel_name: str) -> Vec<i64> {
+    fn name_to_c(state: Vec<i64>, idx: i64) -> str {
+        let names = vec_get(state, 3) as Vec<str>;
+        return name_to_c_from_names(names, idx);
+    }
+
+    // C codegen state: [output_lines, indent, kernel_name, names]
+    fn cgen_new(kernel_name: str, names: Vec<str>) -> Vec<i64> {
         let state: Vec<i64> = vec_new();
         let lines: Vec<str> = vec_new();
         vec_push(state, lines as i64);
         vec_push(state, 0);          // indent
         vec_push(state, kernel_name as i64);
+        vec_push(state, names as i64);
         return state;
     }
 
@@ -835,7 +966,7 @@ kernel BunkerCompiler {
         return state;
     }
 
-    fn gen_c_expr(expr: Vec<i64>) -> str {
+    fn gen_c_expr(state: Vec<i64>, expr: Vec<i64>) -> str {
         let node_type = vec_get(expr, 0);
 
         if node_type == NODE_INT_LIT {
@@ -854,7 +985,7 @@ kernel BunkerCompiler {
 
         if node_type == NODE_IDENT {
             let name_idx = vec_get(expr, 1);
-            return name_to_c(name_idx);
+            return name_to_c(state, name_idx);
         }
 
         if node_type == NODE_BINARY {
@@ -867,29 +998,29 @@ kernel BunkerCompiler {
                 let left_type = vec_get(left, 0);
                 let right_type = vec_get(right, 0);
                 if left_type == NODE_STR_LIT || right_type == NODE_STR_LIT {
-                    return "bkr_str_concat(" + gen_c_expr(left) + ", " + gen_c_expr(right) + ")";
+                    return "bkr_str_concat(" + gen_c_expr(state, left) + ", " + gen_c_expr(state, right) + ")";
                 }
             }
 
-            return "(" + gen_c_expr(left) + op_to_c(op) + gen_c_expr(right) + ")";
+            return "(" + gen_c_expr(state, left) + op_to_c(op) + gen_c_expr(state, right) + ")";
         }
 
         if node_type == NODE_UNARY {
             let op = vec_get(expr, 1);
             let operand = vec_get(expr, 2) as Vec<i64>;
-            if op == TOK_NOT { return "(!" + gen_c_expr(operand) + ")"; }
-            if op == TOK_MINUS { return "(-" + gen_c_expr(operand) + ")"; }
-            return gen_c_expr(operand);
+            if op == TOK_NOT { return "(!" + gen_c_expr(state, operand) + ")"; }
+            if op == TOK_MINUS { return "(-" + gen_c_expr(state, operand) + ")"; }
+            return gen_c_expr(state, operand);
         }
 
         if node_type == NODE_CALL {
-            let name = name_to_c(vec_get(expr, 1));
+            let name = name_to_c(state, vec_get(expr, 1));
             let args = vec_get(expr, 2) as Vec<i64>;
             let result = name + "(";
             let i: i64 = 0;
             while i < vec_len(args) {
                 if i > 0 { result = result + ", "; }
-                result = result + gen_c_expr(vec_get(args, i) as Vec<i64>);
+                result = result + gen_c_expr(state, vec_get(args, i) as Vec<i64>);
                 i = i + 1;
             }
             return result + ")";
@@ -902,7 +1033,7 @@ kernel BunkerCompiler {
         let node_type = vec_get(stmt, 0);
 
         if node_type == NODE_LET {
-            let name = name_to_c(vec_get(stmt, 1));
+            let name = name_to_c(state, vec_get(stmt, 1));
             let type_node = vec_get(stmt, 2);
             let init = vec_get(stmt, 3);
 
@@ -915,7 +1046,7 @@ kernel BunkerCompiler {
 
             let line = c_type + " " + name;
             if init != 0 {
-                line = line + " = " + gen_c_expr(init as Vec<i64>);
+                line = line + " = " + gen_c_expr(state, init as Vec<i64>);
             }
             cgen_emit(state, line + ";");
             return state;
@@ -924,7 +1055,7 @@ kernel BunkerCompiler {
         if node_type == NODE_RETURN {
             let expr = vec_get(stmt, 1);
             if expr != 0 {
-                cgen_emit(state, "return " + gen_c_expr(expr as Vec<i64>) + ";");
+                cgen_emit(state, "return " + gen_c_expr(state, expr as Vec<i64>) + ";");
             } else {
                 cgen_emit(state, "return;");
             }
@@ -936,7 +1067,7 @@ kernel BunkerCompiler {
             let then_block = vec_get(stmt, 2) as Vec<i64>;
             let else_block = vec_get(stmt, 3);
 
-            cgen_emit(state, "if (" + gen_c_expr(cond) + ") {");
+            cgen_emit(state, "if (" + gen_c_expr(state, cond) + ") {");
             cgen_indent(state);
             gen_c_block(state, then_block);
             cgen_dedent(state);
@@ -954,7 +1085,7 @@ kernel BunkerCompiler {
         if node_type == NODE_WHILE {
             let cond = vec_get(stmt, 1) as Vec<i64>;
             let body = vec_get(stmt, 2) as Vec<i64>;
-            cgen_emit(state, "while (" + gen_c_expr(cond) + ") {");
+            cgen_emit(state, "while (" + gen_c_expr(state, cond) + ") {");
             cgen_indent(state);
             gen_c_block(state, body);
             cgen_dedent(state);
@@ -965,13 +1096,13 @@ kernel BunkerCompiler {
         if node_type == NODE_ASSIGN {
             let target = vec_get(stmt, 1) as Vec<i64>;
             let value = vec_get(stmt, 2) as Vec<i64>;
-            cgen_emit(state, gen_c_expr(target) + " = " + gen_c_expr(value) + ";");
+            cgen_emit(state, gen_c_expr(state, target) + " = " + gen_c_expr(state, value) + ";");
             return state;
         }
 
         if node_type == NODE_EXPR_STMT {
             let expr = vec_get(stmt, 1) as Vec<i64>;
-            cgen_emit(state, gen_c_expr(expr) + ";");
+            cgen_emit(state, gen_c_expr(state, expr) + ";");
             return state;
         }
 
@@ -1026,11 +1157,10 @@ kernel BunkerCompiler {
         return state;
     }
 
-    fn gen_c_fn(state: Vec<i64>, fn_node: Vec<i64>) -> Vec<i64> {
-        let name = name_to_c(vec_get(fn_node, 1));
+    fn gen_c_signature(state: Vec<i64>, fn_node: Vec<i64>) -> str {
+        let name = name_to_c(state, vec_get(fn_node, 1));
         let params = vec_get(fn_node, 2) as Vec<i64>;
         let ret_type_node = vec_get(fn_node, 3);
-        let body = vec_get(fn_node, 4) as Vec<i64>;
 
         let ret_type: str = "void";
         if ret_type_node != 0 {
@@ -1043,7 +1173,7 @@ kernel BunkerCompiler {
         let i: i64 = 0;
         while i < vec_len(params) {
             let param = vec_get(params, i) as Vec<i64>;
-            let pname = name_to_c(vec_get(param, 1));
+            let pname = name_to_c(state, vec_get(param, 1));
             let ptype = vec_get(param, 2) as Vec<i64>;
             let ptype_c = type_to_c(vec_get(ptype, 1));
             if i > 0 { param_str = param_str + ", "; }
@@ -1052,12 +1182,69 @@ kernel BunkerCompiler {
         }
         if param_str == "" { param_str = "void"; }
 
-        cgen_emit(state, ret_type + " " + name + "(" + param_str + ") {");
+        return ret_type + " " + name + "(" + param_str + ")";
+    }
+
+    fn gen_c_prototype(state: Vec<i64>, fn_node: Vec<i64>) -> Vec<i64> {
+        cgen_emit(state, gen_c_signature(state, fn_node) + ";");
+        return state;
+    }
+
+    fn gen_c_fn(state: Vec<i64>, fn_node: Vec<i64>) -> Vec<i64> {
+        let body = vec_get(fn_node, 4) as Vec<i64>;
+
+        cgen_emit(state, gen_c_signature(state, fn_node) + " {");
         cgen_indent(state);
         gen_c_block(state, body);
         cgen_dedent(state);
         cgen_emit(state, "}");
         cgen_emit(state, "");
+        return state;
+    }
+
+    fn gen_c_const(state: Vec<i64>, const_node: Vec<i64>) -> Vec<i64> {
+        let name = name_to_c(state, vec_get(const_node, 1));
+        let type_node = vec_get(const_node, 2);
+        let value = vec_get(const_node, 3);
+
+        let c_type: str = "bkr_i64";
+        if type_node != 0 {
+            let type_node_vec = type_node as Vec<i64>;
+            c_type = type_to_c(vec_get(type_node_vec, 1));
+        }
+
+        let c_value: str = "0";
+        if value != 0 {
+            c_value = gen_c_expr(state, value as Vec<i64>);
+        }
+
+        cgen_emit(state, "static const " + c_type + " " + name + " = " + c_value + ";");
+        return state;
+    }
+
+    fn gen_c_kernel_consts(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
+        let items = vec_get(kernel, 2) as Vec<i64>;
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if vec_get(item, 0) == NODE_CONST {
+                gen_c_const(state, item);
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn gen_c_kernel_prototypes(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
+        let items = vec_get(kernel, 2) as Vec<i64>;
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if vec_get(item, 0) == NODE_FN {
+                gen_c_prototype(state, item);
+            }
+            i = i + 1;
+        }
         return state;
     }
 
@@ -1075,18 +1262,23 @@ kernel BunkerCompiler {
     }
 
     fn gen_c_program(kernel: Vec<i64>) -> str {
-        let kernel_name = name_to_c(vec_get(kernel, 1));
-        let state: Vec<i64> = cgen_new(kernel_name);
+        let names = vec_get(kernel, 4) as Vec<str>;
+        let kernel_name = name_to_c_from_names(names, vec_get(kernel, 1));
+        let state: Vec<i64> = cgen_new(kernel_name, names);
 
         cgen_emit(state, "/* Generated by Bunker Compiler */");
         let quote = from_char_code(34);
         cgen_emit(state, "#include " + quote + "runtime.h" + quote);
         cgen_emit(state, "");
 
+        gen_c_kernel_consts(state, kernel);
+        cgen_emit(state, "");
+        gen_c_kernel_prototypes(state, kernel);
+        cgen_emit(state, "");
         gen_c_kernel(state, kernel);
 
         let entry_idx = vec_get(kernel, 3);
-        let entry_name = name_to_c(entry_idx);
+        let entry_name = name_to_c(state, entry_idx);
 
         // Main wrapper that calls the parsed Bunker main()
         cgen_emit(state, "int main(void) {");
