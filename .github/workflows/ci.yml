@@ -238,6 +238,11 @@ jobs:
             grep -q "expected" "$run_dir/self_host_output.c"
             grep -q "got" "$run_dir/self_host_output.c"
             grep -q "AI repair hint" "$run_dir/self_host_output.c"
+            grep -q "BUNKER_DIAGNOSTIC_JSON" "$run_dir/self_host_output.c"
+            grep -q "schema_version" "$run_dir/self_host_output.c"
+            grep -q "source_start" "$run_dir/self_host_output.c"
+            grep -q "source_line" "$run_dir/self_host_output.c"
+            grep -q "repair_hint" "$run_dir/self_host_output.c"
           }
 
           run_invalid_bkrc_fixture /tmp/bkrc bkrc-invalid
