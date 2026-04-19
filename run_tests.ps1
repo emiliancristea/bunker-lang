@@ -266,7 +266,10 @@ if (-not $JitOnly) {
 
     if ($compileExitCode -eq 0 -and (Test-Path $selfHostOut)) {
         $generated = Get-Content $selfHostOut -Raw
-        if ($generated -like "*bkr_i32 _v4(void)*" -and $generated -like "*return (int)_v4();*") {
+        $hasI32Entry = $generated -match "bkr_i32\s+_v[0-9]+\(void\)"
+        $hasMainWrapper = $generated -match "int\s+main\(void\)" -and $generated -match "return\s+\(int\)_v[0-9]+\(\);"
+        $hasNoParseError = $generated -notmatch "Parse error"
+        if ($hasI32Entry -and $hasMainWrapper -and $hasNoParseError) {
             Write-Host "PASS" -ForegroundColor Green -NoNewline
             Write-Host " (Bunker compiler emitted C)"
             $passed++
