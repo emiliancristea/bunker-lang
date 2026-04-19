@@ -41,6 +41,11 @@ kernel BunkerCompiler {
     const TOK_AND: i64 = 91;
     const TOK_OR: i64 = 92;
     const TOK_NOT: i64 = 93;
+    const TOK_BIT_AND: i64 = 94;
+    const TOK_BIT_OR: i64 = 95;
+    const TOK_BIT_XOR: i64 = 96;
+    const TOK_SHL: i64 = 97;
+    const TOK_SHR: i64 = 98;
     const TOK_ASSIGN: i64 = 99;
     const TOK_ARROW: i64 = 101;
     const TOK_DOT_DOT: i64 = 102;
@@ -257,6 +262,8 @@ kernel BunkerCompiler {
                 if !handled && c == 33 && c2 == 61 { tok_type = TOK_NE; pos = pos + 2; handled = true; }
                 if !handled && c == 60 && c2 == 61 { tok_type = TOK_LE; pos = pos + 2; handled = true; }
                 if !handled && c == 62 && c2 == 61 { tok_type = TOK_GE; pos = pos + 2; handled = true; }
+                if !handled && c == 60 && c2 == 60 { tok_type = TOK_SHL; pos = pos + 2; handled = true; }
+                if !handled && c == 62 && c2 == 62 { tok_type = TOK_SHR; pos = pos + 2; handled = true; }
                 if !handled && c == 38 && c2 == 38 { tok_type = TOK_AND; pos = pos + 2; handled = true; }
                 if !handled && c == 124 && c2 == 124 { tok_type = TOK_OR; pos = pos + 2; handled = true; }
                 if handled {
@@ -276,6 +283,9 @@ kernel BunkerCompiler {
                 if c == 60 { tok_type = TOK_LT; }
                 if c == 62 { tok_type = TOK_GT; }
                 if c == 33 { tok_type = TOK_NOT; }
+                if c == 38 { tok_type = TOK_BIT_AND; }
+                if c == 124 { tok_type = TOK_BIT_OR; }
+                if c == 94 { tok_type = TOK_BIT_XOR; }
                 if c == 61 { tok_type = TOK_ASSIGN; }
                 if c == 40 { tok_type = TOK_LPAREN; }
                 if c == 41 { tok_type = TOK_RPAREN; }
@@ -429,6 +439,11 @@ kernel BunkerCompiler {
         if tok == TOK_AND { return "&&"; }
         if tok == TOK_OR { return "||"; }
         if tok == TOK_NOT { return "!"; }
+        if tok == TOK_BIT_AND { return "&"; }
+        if tok == TOK_BIT_OR { return "|"; }
+        if tok == TOK_BIT_XOR { return "^"; }
+        if tok == TOK_SHL { return "<<"; }
+        if tok == TOK_SHR { return ">>"; }
         if tok == TOK_ASSIGN { return "="; }
         if tok == TOK_ARROW { return "->"; }
         if tok == TOK_DOT_DOT { return ".."; }
@@ -642,12 +657,73 @@ kernel BunkerCompiler {
         return left;
     }
 
-    fn parse_comparison(p: Vec<i64>) -> Vec<i64> {
+    fn parse_shift(p: Vec<i64>) -> Vec<i64> {
         let left: Vec<i64> = parse_add(p);
+        while parser_peek(p) == TOK_SHL || parser_peek(p) == TOK_SHR {
+            let op = parser_peek(p);
+            parser_advance(p);
+            let right: Vec<i64> = parse_add(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_BINARY);
+            vec_push(node, op);
+            vec_push(node, left as i64);
+            vec_push(node, right as i64);
+            left = node;
+        }
+        return left;
+    }
+
+    fn parse_bit_and(p: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_shift(p);
+        while parser_peek(p) == TOK_BIT_AND {
+            parser_advance(p);
+            let right: Vec<i64> = parse_shift(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_BINARY);
+            vec_push(node, TOK_BIT_AND);
+            vec_push(node, left as i64);
+            vec_push(node, right as i64);
+            left = node;
+        }
+        return left;
+    }
+
+    fn parse_bit_xor(p: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_bit_and(p);
+        while parser_peek(p) == TOK_BIT_XOR {
+            parser_advance(p);
+            let right: Vec<i64> = parse_bit_and(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_BINARY);
+            vec_push(node, TOK_BIT_XOR);
+            vec_push(node, left as i64);
+            vec_push(node, right as i64);
+            left = node;
+        }
+        return left;
+    }
+
+    fn parse_bit_or(p: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_bit_xor(p);
+        while parser_peek(p) == TOK_BIT_OR {
+            parser_advance(p);
+            let right: Vec<i64> = parse_bit_xor(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_BINARY);
+            vec_push(node, TOK_BIT_OR);
+            vec_push(node, left as i64);
+            vec_push(node, right as i64);
+            left = node;
+        }
+        return left;
+    }
+
+    fn parse_comparison(p: Vec<i64>) -> Vec<i64> {
+        let left: Vec<i64> = parse_bit_or(p);
         let tok = parser_peek(p);
         if tok == TOK_EQ || tok == TOK_NE || tok == TOK_LT || tok == TOK_GT || tok == TOK_LE || tok == TOK_GE {
             parser_advance(p);
-            let right: Vec<i64> = parse_add(p);
+            let right: Vec<i64> = parse_bit_or(p);
             let node: Vec<i64> = vec_new();
             vec_push(node, NODE_BINARY);
             vec_push(node, tok);
@@ -1025,6 +1101,11 @@ kernel BunkerCompiler {
         if op == TOK_GE { return " >= "; }
         if op == TOK_AND { return " && "; }
         if op == TOK_OR { return " || "; }
+        if op == TOK_BIT_AND { return " & "; }
+        if op == TOK_BIT_OR { return " | "; }
+        if op == TOK_BIT_XOR { return " ^ "; }
+        if op == TOK_SHL { return " << "; }
+        if op == TOK_SHR { return " >> "; }
         return " ? ";
     }
 
@@ -1037,6 +1118,7 @@ kernel BunkerCompiler {
 
     fn builtin_to_c(raw: str) -> str {
         if raw == "len" { return "bkr_len"; }
+        if raw == "strlen" { return "bkr_len"; }
         if raw == "print" { return "bkr_print"; }
         if raw == "println" { return "bkr_println"; }
         if raw == "read_file" { return "read_file"; }
@@ -1190,6 +1272,7 @@ kernel BunkerCompiler {
 
     fn builtin_return_type(raw: str) -> i64 {
         if raw == "len" { return TYPE_I64; }
+        if raw == "strlen" { return TYPE_I64; }
         if raw == "vec_new" { return TYPE_I64; }
         if raw == "vec_get" { return TYPE_I64; }
         if raw == "vec_len" { return TYPE_I64; }
@@ -1691,7 +1774,7 @@ kernel BunkerCompiler {
             let msg = "/* Parse error at token " + int_to_string(parser_error_position(p)) +
                 ": expected " + token_name(parser_error_expected(p)) +
                 ", got " + token_name(parser_error_actual(p)) +
-                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, fn, const, let, if, else, for-in ranges, while, loop, break, continue, return, primitive types, Vec<T> handles, calls, casts, and basic expressions. */";
+                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, fn, const, let, if, else, for-in ranges, while, loop, break, continue, return, primitive types, Vec<T> handles, calls, casts, bitwise operators, and basic expressions. */";
             return msg + from_char_code(10);
         }
 
