@@ -344,16 +344,53 @@ kernel BunkerCompiler {
         return vec_get(p, 5) != 0;
     }
 
+    fn parser_peek_ident_is(p: Vec<i64>, name: str) -> bool {
+        if parser_peek(p) != TOK_IDENT {
+            return false;
+        }
+        return parser_get_name(p, parser_peek_value(p)) == name;
+    }
+
+    fn skip_type_tail(p: Vec<i64>) -> Vec<i64> {
+        if parser_peek(p) == TOK_LT {
+            let depth: i64 = 0;
+            while parser_peek(p) != TOK_EOF {
+                let tok = parser_peek(p);
+                if tok == TOK_LT {
+                    depth = depth + 1;
+                }
+                if tok == TOK_GT {
+                    depth = depth - 1;
+                }
+                parser_advance(p);
+                if depth <= 0 {
+                    return p;
+                }
+            }
+        }
+        return p;
+    }
+
     // Parse type
     fn parse_type(p: Vec<i64>) -> Vec<i64> {
         let node: Vec<i64> = vec_new();
         vec_push(node, NODE_TYPE);
         let tok = parser_peek(p);
         let kind: i64 = TYPE_I64;
-        if tok == TOK_I32 { kind = TYPE_I32; parser_advance(p); }
-        if tok == TOK_I64 { kind = TYPE_I64; parser_advance(p); }
-        if tok == TOK_BOOL { kind = TYPE_BOOL; parser_advance(p); }
-        if tok == TOK_STR_TYPE { kind = TYPE_STR; parser_advance(p); }
+        let consumed = false;
+        if tok == TOK_I32 { kind = TYPE_I32; parser_advance(p); consumed = true; }
+        if tok == TOK_I64 { kind = TYPE_I64; parser_advance(p); consumed = true; }
+        if tok == TOK_BOOL { kind = TYPE_BOOL; parser_advance(p); consumed = true; }
+        if tok == TOK_STR_TYPE { kind = TYPE_STR; parser_advance(p); consumed = true; }
+        if tok == TOK_IDENT {
+            // Bootstrap generics such as Vec<i64> are represented as handles.
+            parser_advance(p);
+            skip_type_tail(p);
+            consumed = true;
+        }
+        if !consumed && tok != TOK_EOF {
+            parser_advance(p);
+        }
         vec_push(node, kind);
         return node;
     }
@@ -448,7 +485,10 @@ kernel BunkerCompiler {
             return node;
         }
 
-        // Default: return 0
+        // Default: consume the unexpected token so callers always make progress.
+        if tok != TOK_EOF {
+            parser_advance(p);
+        }
         vec_push(node, NODE_INT_LIT);
         vec_push(node, 0);
         return node;
@@ -533,7 +573,12 @@ kernel BunkerCompiler {
     }
 
     fn parse_expr(p: Vec<i64>) -> Vec<i64> {
-        return parse_or(p);
+        let expr: Vec<i64> = parse_or(p);
+        while parser_peek_ident_is(p, "as") {
+            parser_advance(p);
+            parse_type(p);
+        }
+        return expr;
     }
 
     fn parse_let_stmt(p: Vec<i64>) -> Vec<i64> {
@@ -632,6 +677,31 @@ kernel BunkerCompiler {
         return node;
     }
 
+    fn parse_if_stmt(p: Vec<i64>) -> Vec<i64> {
+        parser_expect(p, TOK_IF);
+        let cond: Vec<i64> = parse_expr(p);
+        let then_block: Vec<i64> = parse_block(p);
+        let else_block: i64 = 0;
+        if parser_peek(p) == TOK_ELSE {
+            parser_advance(p);
+            if parser_peek(p) == TOK_IF {
+                let nested_if: Vec<i64> = parse_if_stmt(p);
+                let wrapper: Vec<i64> = vec_new();
+                vec_push(wrapper, NODE_BLOCK);
+                vec_push(wrapper, nested_if as i64);
+                else_block = wrapper as i64;
+            } else {
+                else_block = parse_block(p) as i64;
+            }
+        }
+        let if_node: Vec<i64> = vec_new();
+        vec_push(if_node, NODE_IF);
+        vec_push(if_node, cond as i64);
+        vec_push(if_node, then_block as i64);
+        vec_push(if_node, else_block);
+        return if_node;
+    }
+
     // Parse a block (handles if/while inside)
     fn parse_block(p: Vec<i64>) -> Vec<i64> {
         let node: Vec<i64> = vec_new();
@@ -642,19 +712,7 @@ kernel BunkerCompiler {
             let tok = parser_peek(p);
 
             if tok == TOK_IF {
-                parser_advance(p);
-                let cond: Vec<i64> = parse_expr(p);
-                let then_block: Vec<i64> = parse_block(p);
-                let else_block: i64 = 0;
-                if parser_peek(p) == TOK_ELSE {
-                    parser_advance(p);
-                    else_block = parse_block(p) as i64;
-                }
-                let if_node: Vec<i64> = vec_new();
-                vec_push(if_node, NODE_IF);
-                vec_push(if_node, cond as i64);
-                vec_push(if_node, then_block as i64);
-                vec_push(if_node, else_block);
+                let if_node: Vec<i64> = parse_if_stmt(p);
                 vec_push(node, if_node as i64);
             } else if tok == TOK_WHILE {
                 parser_advance(p);

@@ -112,6 +112,24 @@ jobs:
             -o /tmp/14_kernel_if_branching.c
           test -s /tmp/14_kernel_if_branching.c
 
+      - name: Compile incremental parser fixture through self-host compiler
+        timeout-minutes: 3
+        run: |
+          timeout --kill-after=5s 120s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/99_incremental_1.bkr \
+            -o /tmp/99_incremental_1.c
+          test -s /tmp/99_incremental_1.c
+          ! grep -q "Parse error" /tmp/99_incremental_1.c
+
+      - name: Compile incremental codegen fixture through self-host compiler
+        timeout-minutes: 3
+        run: |
+          timeout --kill-after=5s 120s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/99_incremental_2.bkr \
+            -o /tmp/99_incremental_2.c
+          test -s /tmp/99_incremental_2.c
+          ! grep -q "Parse error" /tmp/99_incremental_2.c
+
   self-host-incremental-canary:
     name: Self-host incremental canary
     if: github.event_name == 'workflow_dispatch'
