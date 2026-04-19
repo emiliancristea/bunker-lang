@@ -30,7 +30,7 @@ Current bootstrap state after the latest self-host work:
 - CI gates arithmetic, functions, control flow, structs, arrays, strings, constants, recursion, bitwise ops, ternary, match, Option, Result, Vec, and HashMap fixtures through generated and stage2 compilers.
 - CI compares selected self-host outputs against Rust JIT results and checks stage1/stage2 generated C determinism.
 - The Rust compiler is still the production compiler and the bootstrap driver.
-- The self-host compiler is now partially modular: lexer, parser, and C codegen live in imported Bunker modules, while the driver still lives in `bkrc.bkr` and the AST still uses raw `Vec<i64>` nodes.
+- The self-host compiler entrypoint is now module-composed: constants, lexer, parser, C codegen, and driver live in imported Bunker modules, while the AST still uses raw `Vec<i64>` nodes.
 - The language is not yet production-complete.
 
 ## Critical Path
@@ -64,6 +64,7 @@ These are the next concrete PR-sized slices.
 | Q-008 | DONE | Move C codegen into Bunker module. | Stage2 compiler uses Bunker codegen module and passes current self-host smoke. |
 | Q-009 | PARTIAL | Add machine-readable self-host diagnostics. | Self-host parse/import errors emit JSON diagnostics with spans and repair hints; type/codegen diagnostics still need dedicated phases. |
 | Q-010 | DONE | Add self-host golden output tests. | CI compares selected Rust compiler output vs self-host compiler output for stable fixtures. |
+| Q-011 | DONE | Reduce `bkrc.bkr` to a module-composed entrypoint. | Entry point imports constants, lexer, parser, codegen, and driver modules; CI passes generated/stage2/golden gates. |
 
 ## Language Core
 
@@ -307,7 +308,7 @@ These are the next concrete PR-sized slices.
 | Gate | Status | Required Evidence |
 |---|---|---|
 | Bootstrap Viable | DONE | Stage1/stage2 self-host smoke compiles and runs current bootstrap fixture set in CI. |
-| Self-Host Modular | TODO | Compiler source is split into Bunker modules and built through imports. |
+| Self-Host Modular | DONE | Compiler source is split into Bunker modules and built through imports. |
 | Self-Host Typed | TODO | Compiler AST/types use Bunker structs/enums/generics instead of raw handles. |
 | Self-Host Primary | TODO | Bunker compiler can build a working compiler without Rust for normal development. |
 | Production Language | TODO | Modules, generics, ADTs, diagnostics, memory/resource model, stdlib, tooling, and safety gates are green. |
@@ -333,3 +334,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-04-19 | Moved the self-host C codegen into a Bunker module. | `self-host/bkrc.bkr` imports `self-host/modules/c_codegen.bkr`; the driver remains in the entrypoint. |
 | 2026-04-19 | Added machine-readable self-host parse diagnostics. | Invalid generated/stage2 `bkrc` inputs include `BUNKER_DIAGNOSTIC_JSON` with source offsets, line/column, expected/actual, and repair hints. |
 | 2026-04-19 | Added self-host golden output tests. | CI compares selected fixture results against Rust JIT output and diffs stage1 vs stage2 generated C. |
+| 2026-04-19 | Reduced `bkrc.bkr` to a module-composed entrypoint. | The entrypoint imports constants, lexer, parser, C codegen, and compiler driver modules in dependency order. |
