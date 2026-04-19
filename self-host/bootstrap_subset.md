@@ -9,6 +9,8 @@ The authoritative gate is the GitHub Actions `self-host-smoke` job. Local builds
 - Strings, string concatenation, and `strlen`/`len`
 - Bitwise operators, modulo, unary negation, comparisons, bool logic, and ternary expressions
 - Fixed arrays, indexing, structs, struct literals, and field access
+- Runtime `Vec<T>` handles via `vec_new`, `vec_push`, `vec_get`, `vec_set`, `vec_pop`, and `vec_len`
+- Runtime `HashMap<i32,V>` handles via insert/get/contains/remove/keys helpers
 - `match` expressions with literal, wildcard, binding, `Some`, and `None` patterns
 - Packed `Option<i32>`/`Option<i64>` values via `Some(value)` and `None`
 - Runtime `Result<T,E>` handles via `result_ok`, `result_err`, status checks, tag/value access, and unwrap helpers
@@ -18,4 +20,5 @@ The authoritative gate is the GitHub Actions `self-host-smoke` job. Local builds
 - Generic handles such as `Vec<T>`, `Option<T>`, and `Result<T,E>` currently lower to integer handles in the self-host compiler.
 - `Option` is represented as a packed integer: `None = 0`, `Some(v) = (v << 1) | 1`.
 - `Result` is represented as a runtime handle with tag `0 = Ok`, tag `1 = Err`, and a raw integer payload.
+- `HashMap` currently supports integer keys in the self-host C runtime; string values are stored as raw pointer payloads.
 - Match expressions lower to scoped C expression blocks so they can be used in `let`, `return`, and nested expressions.

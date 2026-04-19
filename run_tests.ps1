@@ -230,8 +230,12 @@ if (-not $JitOnly) {
         "tests\38_kernel_while_loop.bkr",
         "tests\39_kernel_while_break.bkr",
         "tests\52_kernel_option_match.bkr",
+        "tests\74_vec_operations.bkr",
         "tests\75_result_type.bkr",
+        "tests\76_hashmap_operations.bkr",
+        "tests\77_typed_vec_operations.bkr",
         "tests\79_typed_result_operations.bkr",
+        "tests\81_typed_hashmap_operations.bkr",
         "tests\85_result_handle_roundtrip.bkr"
     )
 
