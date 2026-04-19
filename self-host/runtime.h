@@ -109,6 +109,26 @@ static inline bkr_str substring(bkr_str s, bkr_i64 start, bkr_i64 end) {
     return result;
 }
 
+static inline bkr_i64 parse_int(bkr_str s) {
+    if (s == NULL) return 0;
+    return (bkr_i64)strtoll(s, NULL, 10);
+}
+
+static inline bkr_str int_to_string(bkr_i64 value) {
+    char* result = (char*)malloc(32);
+    if (!result) return "";
+    snprintf(result, 32, "%lld", (long long)value);
+    return result;
+}
+
+static inline bkr_str from_char_code(bkr_i64 code) {
+    char* result = (char*)malloc(2);
+    if (!result) return "";
+    result[0] = (char)(unsigned char)code;
+    result[1] = '\0';
+    return result;
+}
+
 static inline bkr_str bkr_str_concat(bkr_str a, bkr_str b) {
     bkr_i64 len_a = strlen(a);
     bkr_i64 len_b = strlen(b);
@@ -230,6 +250,21 @@ static inline bkr_bool file_write(bkr_str path, bkr_str content) {
     FILE* f = fopen(path, "wb");
     if (!f) return BKR_FALSE;
     fputs(content, f);
+    fclose(f);
+    return BKR_TRUE;
+}
+
+static inline bkr_str read_file(bkr_str path) {
+    return file_read(path);
+}
+
+static inline bkr_bool write_file(bkr_str path, bkr_str content) {
+    return file_write(path, content);
+}
+
+static inline bkr_bool file_exists(bkr_str path) {
+    FILE* f = fopen(path, "rb");
+    if (!f) return BKR_FALSE;
     fclose(f);
     return BKR_TRUE;
 }
