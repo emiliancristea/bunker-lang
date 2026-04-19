@@ -256,6 +256,7 @@ jobs:
           run_generated_bkrc_fixture tests/33_kernel_loop_break.bkr loop_break 5
           run_generated_bkrc_fixture tests/34_kernel_for_continue.bkr for_continue 25
           run_generated_bkrc_fixture tests/35_kernel_for_break.bkr for_break 15
+          run_generated_bkrc_fixture tests/36_kernel_type_cast.bkr type_cast 46
           run_generated_bkrc_fixture tests/37_kernel_string_concat.bkr string_concat 11
           run_generated_bkrc_fixture tests/38_kernel_while_loop.bkr while_loop 55
           run_generated_bkrc_fixture tests/39_kernel_while_break.bkr while_break 15
@@ -267,6 +268,7 @@ jobs:
           run_generated_bkrc_fixture tests/49_kernel_bool_logic.bkr bool_logic 42
           run_generated_bkrc_fixture tests/50_kernel_recursive_gcd.bkr recursive_gcd 42
           run_generated_bkrc_fixture tests/51_kernel_comparisons.bkr comparisons 42
+          run_generated_bkrc_fixture tests/53_kernel_float_ops.bkr float_ops 42
           run_generated_bkrc_fixture tests/54_kernel_i64_ops.bkr i64_ops 42
           run_generated_bkrc_fixture tests/55_kernel_const.bkr consts 42
           run_generated_bkrc_fixture tests/48_kernel_control_flow.bkr control_flow 42
@@ -320,6 +322,7 @@ jobs:
           run_stage2_bkrc_fixture tests/33_kernel_loop_break.bkr loop_break 5
           run_stage2_bkrc_fixture tests/34_kernel_for_continue.bkr for_continue 25
           run_stage2_bkrc_fixture tests/35_kernel_for_break.bkr for_break 15
+          run_stage2_bkrc_fixture tests/36_kernel_type_cast.bkr type_cast 46
           run_stage2_bkrc_fixture tests/37_kernel_string_concat.bkr string_concat 11
           run_stage2_bkrc_fixture tests/38_kernel_while_loop.bkr while_loop 55
           run_stage2_bkrc_fixture tests/39_kernel_while_break.bkr while_break 15
@@ -331,6 +334,7 @@ jobs:
           run_stage2_bkrc_fixture tests/49_kernel_bool_logic.bkr bool_logic 42
           run_stage2_bkrc_fixture tests/50_kernel_recursive_gcd.bkr recursive_gcd 42
           run_stage2_bkrc_fixture tests/51_kernel_comparisons.bkr comparisons 42
+          run_stage2_bkrc_fixture tests/53_kernel_float_ops.bkr float_ops 42
           run_stage2_bkrc_fixture tests/54_kernel_i64_ops.bkr i64_ops 42
           run_stage2_bkrc_fixture tests/55_kernel_const.bkr consts 42
           run_stage2_bkrc_fixture tests/48_kernel_control_flow.bkr control_flow 42

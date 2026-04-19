@@ -8,6 +8,7 @@ kernel BunkerCompiler {
     const TOK_IDENT: i64 = 10;
     const TOK_INT: i64 = 11;
     const TOK_STR: i64 = 12;
+    const TOK_FLOAT: i64 = 13;
     const TOK_TRUE: i64 = 14;
     const TOK_FALSE: i64 = 15;
     const TOK_KERNEL: i64 = 20;
@@ -25,6 +26,7 @@ kernel BunkerCompiler {
     const TOK_CONST: i64 = 35;
     const TOK_I32: i64 = 60;
     const TOK_I64: i64 = 61;
+    const TOK_F64: i64 = 62;
     const TOK_BOOL: i64 = 63;
     const TOK_STR_TYPE: i64 = 64;
     const TOK_PLUS: i64 = 80;
@@ -84,6 +86,7 @@ kernel BunkerCompiler {
     const NODE_STR_LIT: i64 = 26;
     const NODE_CONST: i64 = 27;
     const NODE_TERNARY: i64 = 28;
+    const NODE_FLOAT_LIT: i64 = 29;
 
     // ===== Type Constants =====
     const TYPE_I32: i64 = 0;
@@ -203,6 +206,7 @@ kernel BunkerCompiler {
                 if word == "false" { tok_type = TOK_FALSE; }
                 if word == "i32" { tok_type = TOK_I32; }
                 if word == "i64" { tok_type = TOK_I64; }
+                if word == "f64" { tok_type = TOK_F64; }
                 if word == "bool" { tok_type = TOK_BOOL; }
                 if word == "str" { tok_type = TOK_STR_TYPE; }
 
@@ -218,12 +222,24 @@ kernel BunkerCompiler {
                 while pos < src_len && is_digit(char_code_at(source, pos)) {
                     pos = pos + 1;
                 }
-                let num_str = substring(source, start, pos);
-                let num_val = parse_int(num_str);
-                vec_push(tokens, TOK_INT);
-                vec_push(tokens, vec_len(values));  // value index
-                vec_push(tokens, pos);
-                vec_push(values, num_val);
+                if pos + 1 < src_len && char_code_at(source, pos) == 46 && is_digit(char_code_at(source, pos + 1)) {
+                    pos = pos + 1;
+                    while pos < src_len && is_digit(char_code_at(source, pos)) {
+                        pos = pos + 1;
+                    }
+                    let float_str = substring(source, start, pos);
+                    vec_push(tokens, TOK_FLOAT);
+                    vec_push(tokens, vec_len(strings));
+                    vec_push(tokens, pos);
+                    vec_push(strings, float_str);
+                } else {
+                    let num_str = substring(source, start, pos);
+                    let num_val = parse_int(num_str);
+                    vec_push(tokens, TOK_INT);
+                    vec_push(tokens, vec_len(values));  // value index
+                    vec_push(tokens, pos);
+                    vec_push(values, num_val);
+                }
                 handled = true;
             }
 
@@ -409,6 +425,7 @@ kernel BunkerCompiler {
         if tok == TOK_IDENT { return "identifier"; }
         if tok == TOK_INT { return "integer"; }
         if tok == TOK_STR { return "string"; }
+        if tok == TOK_FLOAT { return "float"; }
         if tok == TOK_TRUE { return "true"; }
         if tok == TOK_FALSE { return "false"; }
         if tok == TOK_KERNEL { return "kernel"; }
@@ -426,6 +443,7 @@ kernel BunkerCompiler {
         if tok == TOK_CONST { return "const"; }
         if tok == TOK_I32 { return "i32"; }
         if tok == TOK_I64 { return "i64"; }
+        if tok == TOK_F64 { return "f64"; }
         if tok == TOK_BOOL { return "bool"; }
         if tok == TOK_STR_TYPE { return "str"; }
         if tok == TOK_PLUS { return "+"; }
@@ -515,6 +533,7 @@ kernel BunkerCompiler {
         let consumed = false;
         if tok == TOK_I32 { kind = TYPE_I32; parser_advance(p); consumed = true; }
         if tok == TOK_I64 { kind = TYPE_I64; parser_advance(p); consumed = true; }
+        if tok == TOK_F64 { kind = TYPE_F64; parser_advance(p); consumed = true; }
         if tok == TOK_BOOL { kind = TYPE_BOOL; parser_advance(p); consumed = true; }
         if tok == TOK_STR_TYPE { kind = TYPE_STR; parser_advance(p); consumed = true; }
         if tok == TOK_IDENT {
@@ -540,6 +559,14 @@ kernel BunkerCompiler {
             parser_advance(p);
             vec_push(node, NODE_INT_LIT);
             vec_push(node, val);
+            return node;
+        }
+
+        if tok == TOK_FLOAT {
+            let str_idx = parser_peek_value(p);
+            parser_advance(p);
+            vec_push(node, NODE_FLOAT_LIT);
+            vec_push(node, parser_get_string(p, str_idx) as i64);
             return node;
         }
 
@@ -1317,6 +1344,10 @@ kernel BunkerCompiler {
             return TYPE_I64;
         }
 
+        if node_type == NODE_FLOAT_LIT {
+            return TYPE_F64;
+        }
+
         if node_type == NODE_BOOL_LIT {
             return TYPE_BOOL;
         }
@@ -1376,6 +1407,10 @@ kernel BunkerCompiler {
 
         if node_type == NODE_INT_LIT {
             return int_to_string(vec_get(expr, 1));
+        }
+
+        if node_type == NODE_FLOAT_LIT {
+            return vec_get(expr, 1) as str;
         }
 
         if node_type == NODE_BOOL_LIT {
