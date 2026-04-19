@@ -1,0 +1,273 @@
+    // ========================================
+    // AST LAYOUT HELPERS
+    // ========================================
+    //
+    // The bootstrap compiler still represents AST nodes as Vec<i64>.
+    // Keep all layout construction here so later slices can replace the
+    // representation with real Bunker structs/enums behind one boundary.
+
+    fn ast_new(kind: i64) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, kind);
+        return node;
+    }
+
+    fn ast_push(node: Vec<i64>, value: i64) -> Vec<i64> {
+        vec_push(node, value);
+        return node;
+    }
+
+    fn ast_kind(node: Vec<i64>) -> i64 {
+        return vec_get(node, 0);
+    }
+
+    fn ast_field(node: Vec<i64>, index: i64) -> i64 {
+        return vec_get(node, index);
+    }
+
+    fn ast_type(kind: i64) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_TYPE);
+        ast_push(node, kind);
+        return node;
+    }
+
+    fn ast_type_array(elem_kind: i64, len_value: i64) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_TYPE);
+        ast_push(node, TYPE_ARRAY);
+        ast_push(node, elem_kind);
+        ast_push(node, len_value);
+        return node;
+    }
+
+    fn ast_type_struct(name_idx: i64) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_TYPE);
+        ast_push(node, TYPE_STRUCT);
+        ast_push(node, name_idx);
+        return node;
+    }
+
+    fn ast_pattern(kind: i64, value: i64) -> Vec<i64> {
+        let pattern: Vec<i64> = vec_new();
+        vec_push(pattern, kind);
+        vec_push(pattern, value);
+        return pattern;
+    }
+
+    fn ast_match(scrutinee: Vec<i64>, patterns: Vec<i64>, bodies: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_MATCH);
+        ast_push(node, scrutinee as i64);
+        ast_push(node, patterns as i64);
+        ast_push(node, bodies as i64);
+        return node;
+    }
+
+    fn ast_int_lit(value: i64) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_INT_LIT);
+        ast_push(node, value);
+        return node;
+    }
+
+    fn ast_float_lit(value: str) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_FLOAT_LIT);
+        ast_push(node, value as i64);
+        return node;
+    }
+
+    fn ast_bool_lit(value: i64) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_BOOL_LIT);
+        ast_push(node, value);
+        return node;
+    }
+
+    fn ast_str_lit(value: str) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_STR_LIT);
+        ast_push(node, value as i64);
+        return node;
+    }
+
+    fn ast_array_lit(elements: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_ARRAY_LIT);
+        ast_push(node, elements as i64);
+        return node;
+    }
+
+    fn ast_struct_lit(name_idx: i64, field_names: Vec<i64>, field_values: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_STRUCT_LIT);
+        ast_push(node, name_idx);
+        ast_push(node, field_names as i64);
+        ast_push(node, field_values as i64);
+        return node;
+    }
+
+    fn ast_call(name_idx: i64, args: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_CALL);
+        ast_push(node, name_idx);
+        ast_push(node, args as i64);
+        return node;
+    }
+
+    fn ast_ident(name_idx: i64) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_IDENT);
+        ast_push(node, name_idx);
+        return node;
+    }
+
+    fn ast_unary(op: i64, operand: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_UNARY);
+        ast_push(node, op);
+        ast_push(node, operand as i64);
+        return node;
+    }
+
+    fn ast_index(base: Vec<i64>, index: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_INDEX);
+        ast_push(node, base as i64);
+        ast_push(node, index as i64);
+        return node;
+    }
+
+    fn ast_field_access(base: Vec<i64>, field_name: i64) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_FIELD_ACCESS);
+        ast_push(node, base as i64);
+        ast_push(node, field_name);
+        return node;
+    }
+
+    fn ast_binary(op: i64, left: Vec<i64>, right: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_BINARY);
+        ast_push(node, op);
+        ast_push(node, left as i64);
+        ast_push(node, right as i64);
+        return node;
+    }
+
+    fn ast_ternary(cond: Vec<i64>, then_expr: Vec<i64>, else_expr: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_TERNARY);
+        ast_push(node, cond as i64);
+        ast_push(node, then_expr as i64);
+        ast_push(node, else_expr as i64);
+        return node;
+    }
+
+    fn ast_let(name_idx: i64, type_node: i64, init: i64) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_LET);
+        ast_push(node, name_idx);
+        ast_push(node, type_node);
+        ast_push(node, init);
+        return node;
+    }
+
+    fn ast_return(expr: i64) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_RETURN);
+        ast_push(node, expr);
+        return node;
+    }
+
+    fn ast_break() -> Vec<i64> {
+        return ast_new(NODE_BREAK);
+    }
+
+    fn ast_continue() -> Vec<i64> {
+        return ast_new(NODE_CONTINUE);
+    }
+
+    fn ast_assign(target: Vec<i64>, value: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_ASSIGN);
+        ast_push(node, target as i64);
+        ast_push(node, value as i64);
+        return node;
+    }
+
+    fn ast_expr_stmt(expr: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_EXPR_STMT);
+        ast_push(node, expr as i64);
+        return node;
+    }
+
+    fn ast_block() -> Vec<i64> {
+        return ast_new(NODE_BLOCK);
+    }
+
+    fn ast_block_with(stmt: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_block();
+        ast_push(node, stmt as i64);
+        return node;
+    }
+
+    fn ast_if(cond: Vec<i64>, then_block: Vec<i64>, else_block: i64) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_IF);
+        ast_push(node, cond as i64);
+        ast_push(node, then_block as i64);
+        ast_push(node, else_block);
+        return node;
+    }
+
+    fn ast_for(name_idx: i64, start_expr: Vec<i64>, end_expr: Vec<i64>, inclusive: i64, body: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_FOR);
+        ast_push(node, name_idx);
+        ast_push(node, start_expr as i64);
+        ast_push(node, end_expr as i64);
+        ast_push(node, inclusive);
+        ast_push(node, body as i64);
+        return node;
+    }
+
+    fn ast_while(cond: Vec<i64>, body: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_WHILE);
+        ast_push(node, cond as i64);
+        ast_push(node, body as i64);
+        return node;
+    }
+
+    fn ast_loop(body: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_LOOP);
+        ast_push(node, body as i64);
+        return node;
+    }
+
+    fn ast_param(name_idx: i64, type_node: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_PARAM);
+        ast_push(node, name_idx);
+        ast_push(node, type_node as i64);
+        return node;
+    }
+
+    fn ast_fn(name_idx: i64, params: Vec<i64>, ret_type: i64, body: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_FN);
+        ast_push(node, name_idx);
+        ast_push(node, params as i64);
+        ast_push(node, ret_type);
+        ast_push(node, body as i64);
+        return node;
+    }
+
+    fn ast_const(name_idx: i64, type_node: i64, value: i64) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_CONST);
+        ast_push(node, name_idx);
+        ast_push(node, type_node);
+        ast_push(node, value);
+        return node;
+    }
+
+    fn ast_field_decl(field_name: i64, field_type: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_FIELD);
+        ast_push(node, field_name);
+        ast_push(node, field_type as i64);
+        return node;
+    }
+
+    fn ast_struct(name_idx: i64, fields: Vec<i64>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_STRUCT);
+        ast_push(node, name_idx);
+        ast_push(node, fields as i64);
+        return node;
+    }
+
+    fn ast_kernel(name_idx: i64, items: Vec<i64>, main_name_idx: i64, names: Vec<str>) -> Vec<i64> {
+        let node: Vec<i64> = ast_new(NODE_KERNEL);
+        ast_push(node, name_idx);
+        ast_push(node, items as i64);
+        ast_push(node, main_name_idx);
+        ast_push(node, names as i64);
+        return node;
+    }

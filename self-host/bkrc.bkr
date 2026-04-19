@@ -5,6 +5,8 @@
 kernel BunkerCompiler {
     import "modules/constants.bkr";
 
+    import "modules/ast.bkr";
+
     import "modules/lexer.bkr";
 
     import "modules/parser.bkr";
