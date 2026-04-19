@@ -1152,6 +1152,18 @@ kernel BunkerCompiler {
             let left = vec_get(expr, 2) as Vec<i64>;
             let right = vec_get(expr, 3) as Vec<i64>;
 
+            if op == TOK_EQ || op == TOK_NE {
+                let left_kind = infer_c_expr_type(state, left);
+                let right_kind = infer_c_expr_type(state, right);
+                if left_kind == TYPE_STR || right_kind == TYPE_STR {
+                    let cmp = "bkr_str_eq(" + gen_c_expr(state, left) + ", " + gen_c_expr(state, right) + ")";
+                    if op == TOK_NE {
+                        return "(!" + cmp + ")";
+                    }
+                    return cmp;
+                }
+            }
+
             if op == TOK_PLUS {
                 let left_kind = infer_c_expr_type(state, left);
                 let right_kind = infer_c_expr_type(state, right);
