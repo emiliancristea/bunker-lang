@@ -222,12 +222,95 @@ kernel BunkerCompiler {
         return "";
     }
 
+    fn source_line_at(source: str, offset: i64) -> i64 {
+        let line: i64 = 1;
+        let i: i64 = 0;
+        let source_len = len(source);
+        while i < offset && i < source_len {
+            if char_code_at(source, i) == 10 {
+                line = line + 1;
+            }
+            i = i + 1;
+        }
+        return line;
+    }
+
+    fn source_column_at(source: str, offset: i64) -> i64 {
+        let column: i64 = 1;
+        let i: i64 = 0;
+        let source_len = len(source);
+        while i < offset && i < source_len {
+            if char_code_at(source, i) == 10 {
+                column = 1;
+            } else {
+                column = column + 1;
+            }
+            i = i + 1;
+        }
+        return column;
+    }
+
+    fn json_field_str(name: str, value: str) -> str {
+        let quote = from_char_code(34);
+        return quote + name + quote + ":" + c_escape_string(value);
+    }
+
+    fn json_field_i64(name: str, value: i64) -> str {
+        let quote = from_char_code(34);
+        return quote + name + quote + ":" + int_to_string(value);
+    }
+
+    fn self_host_diagnostic_json(category: str, code: str, message: str,
+                                 source_start: i64, source_end: i64,
+                                 source_line: i64, source_column: i64,
+                                 expected: str, actual: str, repair_hint: str) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("schema_version", "bunker.self_host.diagnostic.v1") + comma +
+            json_field_str("category", category) + comma +
+            json_field_str("error_code", code) + comma +
+            json_field_str("message", message) + comma +
+            json_field_i64("source_start", source_start) + comma +
+            json_field_i64("source_end", source_end) + comma +
+            json_field_i64("source_line", source_line) + comma +
+            json_field_i64("source_column", source_column) + comma +
+            json_field_str("expected", expected) + comma +
+            json_field_str("actual", actual) + comma +
+            json_field_str("repair_hint", repair_hint) +
+            "}";
+    }
+
+    fn build_import_diagnostic(missing_import: str) -> str {
+        let repair_hint = "Copy the imported Bunker module next to self_host_input.bkr or pre-expand imports before running bkrc.";
+        let message = "Import error: missing module " + missing_import;
+        let json = self_host_diagnostic_json("import", "BKR_SELF_IMPORT", message,
+            0, 0, 1, 1, "existing imported module", missing_import, repair_hint);
+        return "/* " + message + ". AI repair hint: " + repair_hint + from_char_code(10) +
+            "BUNKER_DIAGNOSTIC_JSON: " + json + from_char_code(10) +
+            "*/";
+    }
+
+    fn build_parse_diagnostic(source: str, p: Vec<i64>) -> str {
+        let expected = token_name(parser_error_expected(p));
+        let actual = token_name(parser_error_actual(p));
+        let source_start = parser_error_token_start(p);
+        let source_end = parser_error_token_end(p);
+        let source_line = source_line_at(source, source_start);
+        let source_column = source_column_at(source, source_start);
+        let repair_hint = "Inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, match expressions, Option<T> via Some/None, Result<T,E> via result_* builtins, Vec<T> and HashMap<i32,V> runtime handles, for-in ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary expressions, bitwise operators, and basic expressions.";
+        let message = "Parse error at token " + int_to_string(parser_error_position(p)) +
+            ": expected " + expected + ", got " + actual;
+        let json = self_host_diagnostic_json("parse", "BKR_SELF_PARSE", message,
+            source_start, source_end, source_line, source_column, expected, actual, repair_hint);
+        return "/* " + message + ". AI repair hint: " + repair_hint + from_char_code(10) +
+            "BUNKER_DIAGNOSTIC_JSON: " + json + from_char_code(10) +
+            "*/";
+    }
+
     fn compile_to_c(source: str) -> str {
         let missing_import = first_missing_import_path(source);
         if len(missing_import) > 0 {
-            return "/* Import error: missing module " + missing_import +
-                ". AI repair hint: copy the imported Bunker module next to self_host_input.bkr or pre-expand imports before running bkrc. */" +
-                from_char_code(10);
+            return build_import_diagnostic(missing_import) + from_char_code(10);
         }
 
         let expanded_source = expand_imports(source);
@@ -236,11 +319,7 @@ kernel BunkerCompiler {
         let ast: Vec<i64> = parse_kernel(p);
 
         if parser_has_error(p) {
-            let msg = "/* Parse error at token " + int_to_string(parser_error_position(p)) +
-                ": expected " + token_name(parser_error_expected(p)) +
-                ", got " + token_name(parser_error_actual(p)) +
-                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, match expressions, Option<T> via Some/None, Result<T,E> via result_* builtins, Vec<T> and HashMap<i32,V> runtime handles, for-in ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary expressions, bitwise operators, and basic expressions. */";
-            return msg + from_char_code(10);
+            return build_parse_diagnostic(expanded_source, p) + from_char_code(10);
         }
 
         return gen_c_program(ast);

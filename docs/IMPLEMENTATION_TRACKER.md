@@ -61,7 +61,7 @@ These are the next concrete PR-sized slices.
 | Q-006 | DONE | Move lexer into Bunker module. | Stage2 compiler uses `self-host/modules/lexer.bkr` through import expansion and passes current self-host smoke. |
 | Q-007 | DONE | Move parser into Bunker module. | Stage2 compiler uses Bunker parser module and passes current self-host smoke. |
 | Q-008 | DONE | Move C codegen into Bunker module. | Stage2 compiler uses Bunker codegen module and passes current self-host smoke. |
-| Q-009 | TODO | Add machine-readable self-host diagnostics. | Parse/type/codegen errors emit JSON diagnostics with spans and repair hints. |
+| Q-009 | PARTIAL | Add machine-readable self-host diagnostics. | Self-host parse/import errors emit JSON diagnostics with spans and repair hints; type/codegen diagnostics still need dedicated phases. |
 | Q-010 | TODO | Add self-host golden output tests. | CI compares selected Rust compiler output vs self-host compiler output for stable fixtures. |
 
 ## Language Core
@@ -330,3 +330,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-04-19 | Moved the self-host lexer into a Bunker module. | `self-host/bkrc.bkr` imports `self-host/modules/lexer.bkr`; generated and stage2 `bkrc` expand imports in CI. |
 | 2026-04-19 | Moved the self-host parser into a Bunker module. | `self-host/bkrc.bkr` imports `self-host/modules/parser.bkr`; generated and stage2 `bkrc` expand flat module imports in CI. |
 | 2026-04-19 | Moved the self-host C codegen into a Bunker module. | `self-host/bkrc.bkr` imports `self-host/modules/c_codegen.bkr`; the driver remains in the entrypoint. |
+| 2026-04-19 | Added machine-readable self-host parse diagnostics. | Invalid generated/stage2 `bkrc` inputs include `BUNKER_DIAGNOSTIC_JSON` with source offsets, line/column, expected/actual, and repair hints. |

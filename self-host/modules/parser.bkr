@@ -168,6 +168,50 @@
                tok == TOK_STR_TYPE;
     }
 
+    fn parser_error_token_end(p: Vec<i64>) -> i64 {
+        let tokens = vec_get(p, 0) as Vec<i64>;
+        let pos = parser_error_position(p);
+        let idx = pos * 3;
+        if idx + 2 >= vec_len(tokens) {
+            return 0;
+        }
+        return vec_get(tokens, idx + 2);
+    }
+
+    fn parser_error_token_start(p: Vec<i64>) -> i64 {
+        let tokens = vec_get(p, 0) as Vec<i64>;
+        let pos = parser_error_position(p);
+        let idx = pos * 3;
+        if idx + 2 >= vec_len(tokens) {
+            return 0;
+        }
+
+        let tok = vec_get(tokens, idx);
+        let value = vec_get(tokens, idx + 1);
+        let end = vec_get(tokens, idx + 2);
+
+        if tok == TOK_EOF {
+            return end;
+        }
+        if tok == TOK_IDENT {
+            return end - len(parser_get_name(p, value));
+        }
+        if tok == TOK_INT {
+            return end - len(int_to_string(parser_get_value(p, value)));
+        }
+        if tok == TOK_STR {
+            return end - len(parser_get_string(p, value)) - 2;
+        }
+        if tok == TOK_FLOAT {
+            return end - len(parser_get_string(p, value));
+        }
+        if is_name_token(tok) {
+            return end - len(token_name(tok));
+        }
+
+        return value;
+    }
+
     fn parser_expect_name(p: Vec<i64>) -> i64 {
         let value = parser_peek_value(p);
         if is_name_token(parser_peek(p)) {
