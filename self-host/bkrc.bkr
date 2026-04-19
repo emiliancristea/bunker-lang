@@ -1469,6 +1469,13 @@ kernel BunkerCompiler {
         if raw == "vec_get" { return "vec_get"; }
         if raw == "vec_set" { return "vec_set"; }
         if raw == "vec_len" { return "vec_len"; }
+        if raw == "vec_pop" { return "vec_pop"; }
+        if raw == "hashmap_new" { return "hashmap_new"; }
+        if raw == "hashmap_insert" { return "hashmap_insert"; }
+        if raw == "hashmap_get" { return "hashmap_get"; }
+        if raw == "hashmap_contains" { return "hashmap_contains"; }
+        if raw == "hashmap_remove" { return "hashmap_remove"; }
+        if raw == "hashmap_keys" { return "hashmap_keys"; }
         if raw == "char_at" { return "char_at"; }
         if raw == "char_code" { return "char_code"; }
         if raw == "char_code_at" { return "char_code_at"; }
@@ -1686,8 +1693,17 @@ kernel BunkerCompiler {
         if raw == "len" { return TYPE_I64; }
         if raw == "strlen" { return TYPE_I64; }
         if raw == "vec_new" { return TYPE_I64; }
+        if raw == "vec_push" { return TYPE_BOOL; }
         if raw == "vec_get" { return TYPE_I64; }
+        if raw == "vec_set" { return TYPE_BOOL; }
         if raw == "vec_len" { return TYPE_I64; }
+        if raw == "vec_pop" { return TYPE_I64; }
+        if raw == "hashmap_new" { return TYPE_I64; }
+        if raw == "hashmap_insert" { return TYPE_BOOL; }
+        if raw == "hashmap_get" { return TYPE_I64; }
+        if raw == "hashmap_contains" { return TYPE_BOOL; }
+        if raw == "hashmap_remove" { return TYPE_BOOL; }
+        if raw == "hashmap_keys" { return TYPE_I64; }
         if raw == "char_code" { return TYPE_I64; }
         if raw == "char_code_at" { return TYPE_I64; }
         if raw == "parse_int" { return TYPE_I64; }
@@ -1952,17 +1968,18 @@ kernel BunkerCompiler {
         return result + result_name + "; })";
     }
 
-    fn is_result_payload_call(state: Vec<i64>, expr: Vec<i64>) -> bool {
+    fn is_raw_payload_call(state: Vec<i64>, expr: Vec<i64>) -> bool {
         if vec_get(expr, 0) != NODE_CALL {
             return false;
         }
         let name_idx = vec_get(expr, 1);
         let names = vec_get(state, 3) as Vec<str>;
         let raw = name_from_table(names, name_idx);
-        return raw == "result_unwrap" || raw == "result_unwrap_err" || raw == "result_value";
+        return raw == "result_unwrap" || raw == "result_unwrap_err" || raw == "result_value" ||
+               raw == "vec_get" || raw == "vec_pop" || raw == "hashmap_get";
     }
 
-    fn gen_c_result_arg(state: Vec<i64>, expr: Vec<i64>) -> str {
+    fn gen_c_i64_arg(state: Vec<i64>, expr: Vec<i64>) -> str {
         let result = gen_c_expr(state, expr);
         let kind = infer_c_expr_type(state, expr);
         if kind == TYPE_STR {
@@ -1973,7 +1990,7 @@ kernel BunkerCompiler {
 
     fn gen_c_init_expr_for_type(state: Vec<i64>, type_node: i64, init: Vec<i64>) -> str {
         let result = gen_c_expr(state, init);
-        if type_node != 0 && type_node_kind(type_node) == TYPE_STR && is_result_payload_call(state, init) {
+        if type_node != 0 && type_node_kind(type_node) == TYPE_STR && is_raw_payload_call(state, init) {
             return "(bkr_str)(intptr_t)(" + result + ")";
         }
         return result;
@@ -2104,12 +2121,29 @@ kernel BunkerCompiler {
                 return "(((" + gen_c_expr(state, vec_get(args, 0) as Vec<i64>) + ") << 1) | 1)";
             }
             if raw == "result_ok" && vec_len(args) == 1 {
-                let arg = gen_c_result_arg(state, vec_get(args, 0) as Vec<i64>);
+                let arg = gen_c_i64_arg(state, vec_get(args, 0) as Vec<i64>);
                 return "bkr_result_ok(" + arg + ")";
             }
             if raw == "result_err" && vec_len(args) == 1 {
-                let arg2 = gen_c_result_arg(state, vec_get(args, 0) as Vec<i64>);
+                let arg2 = gen_c_i64_arg(state, vec_get(args, 0) as Vec<i64>);
                 return "bkr_result_err(" + arg2 + ")";
+            }
+            if raw == "vec_push" && vec_len(args) == 2 {
+                let vec_handle = gen_c_expr(state, vec_get(args, 0) as Vec<i64>);
+                let value = gen_c_i64_arg(state, vec_get(args, 1) as Vec<i64>);
+                return "vec_push(" + vec_handle + ", " + value + ")";
+            }
+            if raw == "vec_set" && vec_len(args) == 3 {
+                let vec_handle2 = gen_c_expr(state, vec_get(args, 0) as Vec<i64>);
+                let idx = gen_c_expr(state, vec_get(args, 1) as Vec<i64>);
+                let value2 = gen_c_i64_arg(state, vec_get(args, 2) as Vec<i64>);
+                return "vec_set(" + vec_handle2 + ", " + idx + ", " + value2 + ")";
+            }
+            if raw == "hashmap_insert" && vec_len(args) == 3 {
+                let map_handle = gen_c_expr(state, vec_get(args, 0) as Vec<i64>);
+                let key = gen_c_expr(state, vec_get(args, 1) as Vec<i64>);
+                let value3 = gen_c_i64_arg(state, vec_get(args, 2) as Vec<i64>);
+                return "hashmap_insert(" + map_handle + ", " + key + ", " + value3 + ")";
             }
             if raw == "result_is_ok" && vec_len(args) == 1 {
                 let arg3 = gen_c_expr(state, vec_get(args, 0) as Vec<i64>);
@@ -2558,7 +2592,7 @@ kernel BunkerCompiler {
             let msg = "/* Parse error at token " + int_to_string(parser_error_position(p)) +
                 ": expected " + token_name(parser_error_expected(p)) +
                 ", got " + token_name(parser_error_actual(p)) +
-                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, match expressions, Option<T> via Some/None, Result<T,E> via result_* builtins, for-in ranges, while, loop, break, continue, return, primitive types, Vec<T> handles, calls, casts, ternary expressions, bitwise operators, and basic expressions. */";
+                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, match expressions, Option<T> via Some/None, Result<T,E> via result_* builtins, Vec<T> and HashMap<i32,V> runtime handles, for-in ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary expressions, bitwise operators, and basic expressions. */";
             return msg + from_char_code(10);
         }
 
