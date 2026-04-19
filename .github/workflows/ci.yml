@@ -148,17 +148,28 @@ jobs:
           ! grep -q "Parse error" /tmp/bkrc.c
           cp self-host/runtime.h /tmp/runtime.h
           cc -std=c11 /tmp/bkrc.c -o /tmp/bkrc
-          mkdir -p /tmp/bkrc-run
-          cp tests/01_basic_math.bkr /tmp/bkrc-run/self_host_input.bkr
-          set +e
-          (cd /tmp/bkrc-run && timeout --kill-after=5s 60s /tmp/bkrc)
-          bkrc_status=$?
-          set -e
-          test "$bkrc_status" -eq 42
-          test -s /tmp/bkrc-run/self_host_output.c
-          ! grep -q "Parse error" /tmp/bkrc-run/self_host_output.c
-          cp self-host/runtime.h /tmp/bkrc-run/runtime.h
-          cc -std=c11 /tmp/bkrc-run/self_host_output.c -o /tmp/bkrc-run/basic_from_generated_bkrc
+
+          run_generated_bkrc_fixture() {
+            fixture="$1"
+            name="$2"
+            run_dir="/tmp/bkrc-run-$name"
+            mkdir -p "$run_dir"
+            cp "$fixture" "$run_dir/self_host_input.bkr"
+            set +e
+            (cd "$run_dir" && timeout --kill-after=5s 60s /tmp/bkrc)
+            bkrc_status=$?
+            set -e
+            test "$bkrc_status" -eq 42
+            test -s "$run_dir/self_host_output.c"
+            ! grep -q "Parse error" "$run_dir/self_host_output.c"
+            cp self-host/runtime.h "$run_dir/runtime.h"
+            cc -std=c11 "$run_dir/self_host_output.c" -o "$run_dir/$name"
+          }
+
+          run_generated_bkrc_fixture tests/01_basic_math.bkr basic
+          run_generated_bkrc_fixture tests/14_kernel_if_branching.bkr branching
+          run_generated_bkrc_fixture tests/99_incremental_1.bkr incremental_1
+          run_generated_bkrc_fixture tests/99_incremental_2.bkr incremental_2
 
   self-host-incremental-canary:
     name: Self-host incremental canary
