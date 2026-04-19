@@ -24,6 +24,7 @@ kernel BunkerCompiler {
     const TOK_CONTINUE: i64 = 31;
     const TOK_LOOP: i64 = 32;
     const TOK_RETURN: i64 = 33;
+    const TOK_MATCH: i64 = 34;
     const TOK_CONST: i64 = 35;
     const TOK_I32: i64 = 60;
     const TOK_I64: i64 = 61;
@@ -64,6 +65,7 @@ kernel BunkerCompiler {
     const TOK_SEMICOLON: i64 = 117;
     const TOK_COLON: i64 = 118;
     const TOK_QUESTION: i64 = 119;
+    const TOK_FAT_ARROW: i64 = 120;
 
     // ===== AST Node Constants =====
     const NODE_KERNEL: i64 = 1;
@@ -97,6 +99,15 @@ kernel BunkerCompiler {
     const NODE_FIELD: i64 = 33;
     const NODE_FIELD_ACCESS: i64 = 34;
     const NODE_STRUCT_LIT: i64 = 35;
+    const NODE_MATCH: i64 = 36;
+
+    // ===== Pattern Constants =====
+    const PAT_INT: i64 = 1;
+    const PAT_BOOL: i64 = 2;
+    const PAT_BIND: i64 = 3;
+    const PAT_WILDCARD: i64 = 4;
+    const PAT_SOME: i64 = 5;
+    const PAT_NONE: i64 = 6;
 
     // ===== Type Constants =====
     const TYPE_I32: i64 = 0;
@@ -214,6 +225,7 @@ kernel BunkerCompiler {
                 if word == "continue" { tok_type = TOK_CONTINUE; }
                 if word == "loop" { tok_type = TOK_LOOP; }
                 if word == "return" { tok_type = TOK_RETURN; }
+                if word == "match" { tok_type = TOK_MATCH; }
                 if word == "const" { tok_type = TOK_CONST; }
                 if word == "true" { tok_type = TOK_TRUE; }
                 if word == "false" { tok_type = TOK_FALSE; }
@@ -288,6 +300,7 @@ kernel BunkerCompiler {
             if !handled && pos + 1 < src_len {
                 let c2 = char_code_at(source, pos + 1);
                 if c == 45 && c2 == 62 { tok_type = TOK_ARROW; pos = pos + 2; handled = true; }
+                if !handled && c == 61 && c2 == 62 { tok_type = TOK_FAT_ARROW; pos = pos + 2; handled = true; }
                 if !handled && c == 46 && c2 == 46 { tok_type = TOK_DOT_DOT; pos = pos + 2; handled = true; }
                 if !handled && c == 61 && c2 == 61 { tok_type = TOK_EQ; pos = pos + 2; handled = true; }
                 if !handled && c == 33 && c2 == 61 { tok_type = TOK_NE; pos = pos + 2; handled = true; }
@@ -465,6 +478,7 @@ kernel BunkerCompiler {
         if tok == TOK_CONTINUE { return "continue"; }
         if tok == TOK_LOOP { return "loop"; }
         if tok == TOK_RETURN { return "return"; }
+        if tok == TOK_MATCH { return "match"; }
         if tok == TOK_CONST { return "const"; }
         if tok == TOK_I32 { return "i32"; }
         if tok == TOK_I64 { return "i64"; }
@@ -492,6 +506,7 @@ kernel BunkerCompiler {
         if tok == TOK_SHR { return ">>"; }
         if tok == TOK_ASSIGN { return "="; }
         if tok == TOK_ARROW { return "->"; }
+        if tok == TOK_FAT_ARROW { return "=>"; }
         if tok == TOK_DOT_DOT { return ".."; }
         if tok == TOK_DOT_DOT_EQ { return "..="; }
         if tok == TOK_DOT { return "."; }
@@ -513,7 +528,7 @@ kernel BunkerCompiler {
                tok == TOK_FN || tok == TOK_LET ||
                tok == TOK_IF || tok == TOK_ELSE || tok == TOK_FOR || tok == TOK_IN ||
                tok == TOK_WHILE || tok == TOK_BREAK || tok == TOK_CONTINUE ||
-               tok == TOK_LOOP || tok == TOK_RETURN || tok == TOK_CONST ||
+               tok == TOK_LOOP || tok == TOK_RETURN || tok == TOK_MATCH || tok == TOK_CONST ||
                tok == TOK_I32 || tok == TOK_I64 || tok == TOK_F64 || tok == TOK_BOOL ||
                tok == TOK_STR_TYPE;
     }
@@ -604,9 +619,117 @@ kernel BunkerCompiler {
         return node;
     }
 
+    fn parse_match_pattern(p: Vec<i64>) -> Vec<i64> {
+        let pattern: Vec<i64> = vec_new();
+        let tok = parser_peek(p);
+
+        if tok == TOK_INT {
+            let val_idx = parser_peek_value(p);
+            let val = parser_get_value(p, val_idx);
+            parser_advance(p);
+            vec_push(pattern, PAT_INT);
+            vec_push(pattern, val);
+            return pattern;
+        }
+
+        if tok == TOK_TRUE {
+            parser_advance(p);
+            vec_push(pattern, PAT_BOOL);
+            vec_push(pattern, 1);
+            return pattern;
+        }
+
+        if tok == TOK_FALSE {
+            parser_advance(p);
+            vec_push(pattern, PAT_BOOL);
+            vec_push(pattern, 0);
+            return pattern;
+        }
+
+        if is_name_token(tok) {
+            let name_idx = parser_peek_value(p);
+            let raw_name = parser_get_name(p, name_idx);
+            parser_advance(p);
+
+            if raw_name == "_" {
+                vec_push(pattern, PAT_WILDCARD);
+                vec_push(pattern, 0);
+                return pattern;
+            }
+
+            if raw_name == "Some" && parser_peek(p) == TOK_LPAREN {
+                parser_advance(p);
+                let bind_idx = parser_expect_name(p);
+                parser_expect(p, TOK_RPAREN);
+                vec_push(pattern, PAT_SOME);
+                vec_push(pattern, bind_idx);
+                return pattern;
+            }
+
+            if raw_name == "None" {
+                vec_push(pattern, PAT_NONE);
+                vec_push(pattern, 0);
+                return pattern;
+            }
+
+            vec_push(pattern, PAT_BIND);
+            vec_push(pattern, name_idx);
+            return pattern;
+        }
+
+        parser_mark_error(p, TOK_IDENT);
+        if tok != TOK_EOF {
+            parser_advance(p);
+        }
+        vec_push(pattern, PAT_WILDCARD);
+        vec_push(pattern, 0);
+        return pattern;
+    }
+
+    fn parse_match_expr(p: Vec<i64>) -> Vec<i64> {
+        parser_expect(p, TOK_MATCH);
+        let scrutinee: Vec<i64> = parse_expr(p);
+        parser_expect(p, TOK_LBRACE);
+
+        let patterns: Vec<i64> = vec_new();
+        let bodies: Vec<i64> = vec_new();
+
+        while parser_peek(p) != TOK_RBRACE && parser_peek(p) != TOK_EOF {
+            let pattern: Vec<i64> = parse_match_pattern(p);
+            parser_expect(p, TOK_FAT_ARROW);
+
+            let body: Vec<i64> = vec_new();
+            if parser_peek(p) == TOK_LBRACE {
+                body = parse_block(p);
+                if parser_peek(p) == TOK_SEMICOLON || parser_peek(p) == TOK_COMMA {
+                    parser_advance(p);
+                }
+            } else {
+                body = parse_expr(p);
+                parser_expect(p, TOK_SEMICOLON);
+            }
+
+            vec_push(patterns, pattern as i64);
+            vec_push(bodies, body as i64);
+        }
+
+        parser_expect(p, TOK_RBRACE);
+
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_MATCH);
+        vec_push(node, scrutinee as i64);
+        vec_push(node, patterns as i64);
+        vec_push(node, bodies as i64);
+        return node;
+    }
+
     fn parse_atom(p: Vec<i64>) -> Vec<i64> {
         let node: Vec<i64> = vec_new();
         let tok = parser_peek(p);
+
+        if tok == TOK_MATCH {
+            return parse_match_expr(p);
+        }
 
         if tok == TOK_INT {
             let val_idx = parser_peek_value(p);
@@ -1610,6 +1733,11 @@ kernel BunkerCompiler {
         }
 
         if node_type == NODE_IDENT {
+            let names = vec_get(state, 3) as Vec<str>;
+            let raw = name_from_table(names, vec_get(expr, 1));
+            if raw == "None" {
+                return TYPE_I64;
+            }
             return cgen_lookup_name_type(state, vec_get(expr, 1));
         }
 
@@ -1653,10 +1781,29 @@ kernel BunkerCompiler {
             return infer_c_expr_type(state, vec_get(expr, 2) as Vec<i64>);
         }
 
+        if node_type == NODE_MATCH {
+            let bodies = vec_get(expr, 3) as Vec<i64>;
+            if vec_len(bodies) > 0 {
+                let body = vec_get(bodies, 0) as Vec<i64>;
+                if vec_get(body, 0) == NODE_BLOCK && vec_len(body) > 1 {
+                    let last_stmt = vec_get(body, vec_len(body) - 1) as Vec<i64>;
+                    if vec_get(last_stmt, 0) == NODE_EXPR_STMT {
+                        return infer_c_expr_type(state, vec_get(last_stmt, 1) as Vec<i64>);
+                    }
+                    return TYPE_UNKNOWN;
+                }
+                return infer_c_expr_type(state, body);
+            }
+            return TYPE_UNKNOWN;
+        }
+
         if node_type == NODE_CALL {
             let name_idx = vec_get(expr, 1);
             let names = vec_get(state, 3) as Vec<str>;
             let raw = name_from_table(names, name_idx);
+            if raw == "Some" {
+                return TYPE_I64;
+            }
             let builtin_kind = builtin_return_type(raw);
             if builtin_kind != TYPE_UNKNOWN {
                 return builtin_kind;
@@ -1665,6 +1812,136 @@ kernel BunkerCompiler {
         }
 
         return TYPE_UNKNOWN;
+    }
+
+    fn gen_c_inline_let(state: Vec<i64>, stmt: Vec<i64>) -> str {
+        let name = name_to_c(state, vec_get(stmt, 1));
+        let type_node = vec_get(stmt, 2);
+        let init = vec_get(stmt, 3);
+
+        let kind = TYPE_I64;
+        if type_node != 0 {
+            kind = type_node_kind(type_node);
+        } else if init != 0 {
+            let init_kind = infer_c_expr_type(state, init as Vec<i64>);
+            if init_kind != TYPE_UNKNOWN && init_kind != TYPE_VOID {
+                kind = init_kind;
+            }
+        }
+
+        let c_type = type_to_c(kind);
+        if type_node != 0 {
+            c_type = type_node_to_c(state, type_node);
+        }
+
+        let line = c_type + " " + name;
+        if init != 0 {
+            line = line + " = " + gen_c_expr(state, init as Vec<i64>);
+        }
+        return line + "; ";
+    }
+
+    fn gen_c_inline_block_result(state: Vec<i64>, result_name: str, body: Vec<i64>) -> str {
+        if vec_get(body, 0) != NODE_BLOCK {
+            return result_name + " = " + gen_c_expr(state, body) + "; ";
+        }
+
+        let result = "{ ";
+        let i: i64 = 1;
+        while i < vec_len(body) {
+            let stmt = vec_get(body, i) as Vec<i64>;
+            let stmt_type = vec_get(stmt, 0);
+            let is_last = i == vec_len(body) - 1;
+
+            if is_last && stmt_type == NODE_EXPR_STMT {
+                result = result + result_name + " = " + gen_c_expr(state, vec_get(stmt, 1) as Vec<i64>) + "; ";
+            } else if stmt_type == NODE_LET {
+                result = result + gen_c_inline_let(state, stmt);
+            } else if stmt_type == NODE_ASSIGN {
+                result = result + gen_c_expr(state, vec_get(stmt, 1) as Vec<i64>) + " = " + gen_c_expr(state, vec_get(stmt, 2) as Vec<i64>) + "; ";
+            } else if stmt_type == NODE_EXPR_STMT {
+                result = result + gen_c_expr(state, vec_get(stmt, 1) as Vec<i64>) + "; ";
+            } else if stmt_type == NODE_RETURN {
+                let ret_expr = vec_get(stmt, 1);
+                if ret_expr != 0 {
+                    result = result + "return " + gen_c_expr(state, ret_expr as Vec<i64>) + "; ";
+                } else {
+                    result = result + "return; ";
+                }
+            }
+
+            i = i + 1;
+        }
+        return result + "} ";
+    }
+
+    fn gen_c_match_condition(state: Vec<i64>, value_name: str, pattern: Vec<i64>) -> str {
+        let kind = vec_get(pattern, 0);
+        let value = vec_get(pattern, 1);
+
+        if kind == PAT_INT {
+            return "(" + value_name + " == " + int_to_string(value) + ")";
+        }
+        if kind == PAT_BOOL {
+            if value != 0 {
+                return "(" + value_name + " == BKR_TRUE)";
+            }
+            return "(" + value_name + " == BKR_FALSE)";
+        }
+        if kind == PAT_BIND || kind == PAT_WILDCARD {
+            return "BKR_TRUE";
+        }
+        if kind == PAT_SOME {
+            return "((" + value_name + " & 1) != 0)";
+        }
+        if kind == PAT_NONE {
+            return "(" + value_name + " == 0)";
+        }
+        return "BKR_FALSE";
+    }
+
+    fn gen_c_match_bindings(state: Vec<i64>, value_name: str, pattern: Vec<i64>, scrutinee_kind: i64) -> str {
+        let kind = vec_get(pattern, 0);
+        let value = vec_get(pattern, 1);
+
+        if kind == PAT_BIND {
+            return type_to_c(scrutinee_kind) + " " + name_to_c(state, value) + " = " + value_name + "; ";
+        }
+        if kind == PAT_SOME {
+            return "bkr_i64 " + name_to_c(state, value) + " = (" + value_name + " >> 1); ";
+        }
+        return "";
+    }
+
+    fn gen_c_match_expr(state: Vec<i64>, expr: Vec<i64>) -> str {
+        let scrutinee = vec_get(expr, 1) as Vec<i64>;
+        let patterns = vec_get(expr, 2) as Vec<i64>;
+        let bodies = vec_get(expr, 3) as Vec<i64>;
+        let scrutinee_kind = infer_c_expr_type(state, scrutinee);
+        let result_kind = infer_c_expr_type(state, expr);
+        if result_kind == TYPE_UNKNOWN || result_kind == TYPE_VOID {
+            result_kind = TYPE_I64;
+        }
+
+        let value_name = "_match_value";
+        let result_name = "_match_result";
+        let result = "({ " + type_to_c(scrutinee_kind) + " " + value_name + " = " + gen_c_expr(state, scrutinee) + "; " +
+            type_to_c(result_kind) + " " + result_name + " = 0; ";
+
+        let i: i64 = 0;
+        while i < vec_len(patterns) {
+            if i > 0 {
+                result = result + "else ";
+            }
+            let pattern = vec_get(patterns, i) as Vec<i64>;
+            let body = vec_get(bodies, i) as Vec<i64>;
+            result = result + "if (" + gen_c_match_condition(state, value_name, pattern) + ") { " +
+                gen_c_match_bindings(state, value_name, pattern, scrutinee_kind) +
+                gen_c_inline_block_result(state, result_name, body) + "} ";
+            i = i + 1;
+        }
+
+        return result + result_name + "; })";
     }
 
     fn gen_c_expr(state: Vec<i64>, expr: Vec<i64>) -> str {
@@ -1716,6 +1993,11 @@ kernel BunkerCompiler {
 
         if node_type == NODE_IDENT {
             let name_idx = vec_get(expr, 1);
+            let names = vec_get(state, 3) as Vec<str>;
+            let raw = name_from_table(names, name_idx);
+            if raw == "None" {
+                return "0";
+            }
             return name_to_c(state, name_idx);
         }
 
@@ -1774,11 +2056,18 @@ kernel BunkerCompiler {
             return gen_c_expr(state, operand);
         }
 
+        if node_type == NODE_MATCH {
+            return gen_c_match_expr(state, expr);
+        }
+
         if node_type == NODE_CALL {
             let name_idx = vec_get(expr, 1);
             let args = vec_get(expr, 2) as Vec<i64>;
             let names = vec_get(state, 3) as Vec<str>;
             let raw = name_from_table(names, name_idx);
+            if raw == "Some" && vec_len(args) == 1 {
+                return "(((" + gen_c_expr(state, vec_get(args, 0) as Vec<i64>) + ") << 1) | 1)";
+            }
             if raw == "len" && vec_len(args) == 1 {
                 let arg = vec_get(args, 0) as Vec<i64>;
                 if vec_get(arg, 0) == NODE_IDENT {
@@ -2204,7 +2493,7 @@ kernel BunkerCompiler {
             let msg = "/* Parse error at token " + int_to_string(parser_error_position(p)) +
                 ": expected " + token_name(parser_error_expected(p)) +
                 ", got " + token_name(parser_error_actual(p)) +
-                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, for-in ranges, while, loop, break, continue, return, primitive types, Vec<T> handles, calls, casts, ternary expressions, bitwise operators, and basic expressions. */";
+                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, match expressions, Option<T> via Some/None, for-in ranges, while, loop, break, continue, return, primitive types, Vec<T> handles, calls, casts, ternary expressions, bitwise operators, and basic expressions. */";
             return msg + from_char_code(10);
         }
 
