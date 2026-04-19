@@ -57,6 +57,7 @@ kernel BunkerCompiler {
     const TOK_COMMA: i64 = 116;
     const TOK_SEMICOLON: i64 = 117;
     const TOK_COLON: i64 = 118;
+    const TOK_QUESTION: i64 = 119;
 
     // ===== AST Node Constants =====
     const NODE_KERNEL: i64 = 1;
@@ -82,6 +83,7 @@ kernel BunkerCompiler {
     const NODE_BOOL_LIT: i64 = 25;
     const NODE_STR_LIT: i64 = 26;
     const NODE_CONST: i64 = 27;
+    const NODE_TERNARY: i64 = 28;
 
     // ===== Type Constants =====
     const TYPE_I32: i64 = 0;
@@ -294,6 +296,7 @@ kernel BunkerCompiler {
                 if c == 44 { tok_type = TOK_COMMA; }
                 if c == 59 { tok_type = TOK_SEMICOLON; }
                 if c == 58 { tok_type = TOK_COLON; }
+                if c == 63 { tok_type = TOK_QUESTION; }
                 pos = pos + 1;
                 vec_push(tokens, tok_type);
                 vec_push(tokens, start);
@@ -455,6 +458,7 @@ kernel BunkerCompiler {
         if tok == TOK_COMMA { return ","; }
         if tok == TOK_SEMICOLON { return ";"; }
         if tok == TOK_COLON { return ":"; }
+        if tok == TOK_QUESTION { return "?"; }
         return "token " + int_to_string(tok);
     }
 
@@ -764,8 +768,25 @@ kernel BunkerCompiler {
         return left;
     }
 
+    fn parse_ternary(p: Vec<i64>) -> Vec<i64> {
+        let cond: Vec<i64> = parse_or(p);
+        if parser_peek(p) == TOK_QUESTION {
+            parser_advance(p);
+            let then_expr: Vec<i64> = parse_expr(p);
+            parser_expect(p, TOK_COLON);
+            let else_expr: Vec<i64> = parse_expr(p);
+            let node: Vec<i64> = vec_new();
+            vec_push(node, NODE_TERNARY);
+            vec_push(node, cond as i64);
+            vec_push(node, then_expr as i64);
+            vec_push(node, else_expr as i64);
+            return node;
+        }
+        return cond;
+    }
+
     fn parse_expr(p: Vec<i64>) -> Vec<i64> {
-        let expr: Vec<i64> = parse_or(p);
+        let expr: Vec<i64> = parse_ternary(p);
         while parser_peek_ident_is(p, "as") {
             parser_advance(p);
             parse_type(p);
@@ -1324,6 +1345,10 @@ kernel BunkerCompiler {
             return left_kind;
         }
 
+        if node_type == NODE_TERNARY {
+            return infer_c_expr_type(state, vec_get(expr, 2) as Vec<i64>);
+        }
+
         if node_type == NODE_UNARY {
             let op = vec_get(expr, 1);
             if op == TOK_NOT {
@@ -1394,6 +1419,13 @@ kernel BunkerCompiler {
             }
 
             return "(" + gen_c_expr(state, left) + op_to_c(op) + gen_c_expr(state, right) + ")";
+        }
+
+        if node_type == NODE_TERNARY {
+            let cond = vec_get(expr, 1) as Vec<i64>;
+            let then_expr = vec_get(expr, 2) as Vec<i64>;
+            let else_expr = vec_get(expr, 3) as Vec<i64>;
+            return "(" + gen_c_expr(state, cond) + " ? " + gen_c_expr(state, then_expr) + " : " + gen_c_expr(state, else_expr) + ")";
         }
 
         if node_type == NODE_UNARY {
@@ -1774,7 +1806,7 @@ kernel BunkerCompiler {
             let msg = "/* Parse error at token " + int_to_string(parser_error_position(p)) +
                 ": expected " + token_name(parser_error_expected(p)) +
                 ", got " + token_name(parser_error_actual(p)) +
-                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, fn, const, let, if, else, for-in ranges, while, loop, break, continue, return, primitive types, Vec<T> handles, calls, casts, bitwise operators, and basic expressions. */";
+                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, fn, const, let, if, else, for-in ranges, while, loop, break, continue, return, primitive types, Vec<T> handles, calls, casts, ternary expressions, bitwise operators, and basic expressions. */";
             return msg + from_char_code(10);
         }
 
