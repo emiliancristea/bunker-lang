@@ -1,0 +1,9 @@
+kernel ImportedCompilerHelper {
+    fn generated_status() -> i32 {
+        return 42;
+    }
+
+    fn generated_c_source() -> str {
+        return "int main(void) { return 42; }";
+    }
+}

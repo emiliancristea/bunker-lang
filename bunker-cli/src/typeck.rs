@@ -1392,11 +1392,12 @@ impl TypeChecker {
 
 pub fn check_file(file: &ast::File) -> Result<Vec<TypeError>> {
     let mut all_errors = Vec::new();
+    let mut checker = TypeChecker::new();
 
     for kernel in &file.kernels {
-        let mut checker = TypeChecker::new();
-        let errors = checker.check_kernel(kernel)?;
-        all_errors.extend(errors);
+        let before = checker.errors.len();
+        checker.check_kernel(kernel)?;
+        all_errors.extend(checker.errors[before..].iter().cloned());
     }
 
     // Check shells

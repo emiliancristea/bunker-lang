@@ -13,10 +13,10 @@ mod typeck;
 mod verify;
 mod view_runtime;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
@@ -850,6 +850,51 @@ fn print_diagnostics_and_exit(file_path: &str, diagnostics: Vec<Diagnostic>, for
     std::process::exit(1);
 }
 
+fn parse_self_host_import(line: &str) -> Option<String> {
+    let trimmed = line.trim();
+    let rest = trimmed.strip_prefix("import ")?;
+    let rest = rest.trim();
+    let quoted = rest.strip_suffix(';')?.trim();
+    let path = quoted.strip_prefix('"')?.strip_suffix('"')?;
+    if path.is_empty() {
+        return None;
+    }
+    Some(path.to_string())
+}
+
+fn read_self_host_compiler_source(path: &Path, seen: &mut HashSet<PathBuf>) -> Result<String> {
+    let canonical = fs::canonicalize(path)
+        .with_context(|| format!("Failed to resolve compiler module: {}", path.display()))?;
+    if !seen.insert(canonical.clone()) {
+        return Ok(String::new());
+    }
+
+    let source = fs::read_to_string(&canonical)
+        .with_context(|| format!("Failed to read compiler file: {}", canonical.display()))?;
+    let base_dir = canonical.parent().unwrap_or_else(|| Path::new("."));
+    let mut expanded = String::new();
+
+    for line in source.lines() {
+        if let Some(import_path) = parse_self_host_import(line) {
+            let module_path = base_dir.join(import_path);
+            expanded.push_str(&read_self_host_compiler_source(&module_path, seen)?);
+            if !expanded.ends_with('\n') {
+                expanded.push('\n');
+            }
+        } else {
+            expanded.push_str(line);
+            expanded.push('\n');
+        }
+    }
+
+    Ok(expanded)
+}
+
+fn load_self_host_compiler_source(root: &Path) -> Result<String> {
+    let mut seen = HashSet::new();
+    read_self_host_compiler_source(root, &mut seen)
+}
+
 fn self_host_compile(
     input: &PathBuf,
     output: &PathBuf,
@@ -862,8 +907,7 @@ fn self_host_compile(
 
     let input_source = fs::read_to_string(&input_abs)
         .with_context(|| format!("Failed to read input file: {}", input_abs.display()))?;
-    let compiler_source = fs::read_to_string(&compiler_abs)
-        .with_context(|| format!("Failed to read compiler file: {}", compiler_abs.display()))?;
+    let compiler_source = load_self_host_compiler_source(&compiler_abs)?;
     let compiler_path = compiler_abs.display().to_string();
 
     if format == OutputFormat::Text {

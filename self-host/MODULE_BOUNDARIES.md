@@ -34,4 +34,4 @@ The production self-host compiler remains `bkrc.bkr` until Q-005 adds imports. D
 
 ## Q-005 Handoff
 
-Q-005 should add import resolution and then compile a root driver plus the modules above. The first behavior-preserving split should keep the same public entry points, fixture set, generated C runtime include pattern, and stage1/stage2 CI gates.
+Q-005 adds import expansion for the self-host compiler entrypoint. The first behavior-preserving split should keep the same public entry points, fixture set, generated C runtime include pattern, and stage1/stage2 CI gates.

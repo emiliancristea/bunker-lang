@@ -1,0 +1,21 @@
+import "helper.bkr";
+
+kernel ImportedCompilerDriver {
+    fn main() -> i32 {
+        if !file_exists("self_host_input.bkr") {
+            return 1;
+        }
+
+        let source = read_file("self_host_input.bkr");
+        if len(source) == 0 {
+            return 2;
+        }
+
+        let wrote = write_file("self_host_output.c", generated_c_source());
+        if !wrote {
+            return 3;
+        }
+
+        return generated_status();
+    }
+}
