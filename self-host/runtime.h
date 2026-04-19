@@ -123,6 +123,42 @@ static inline bkr_str substring(bkr_str s, bkr_i64 start, bkr_i64 end) {
     return result;
 }
 
+static inline bkr_bool contains(bkr_str s, bkr_str needle) {
+    if (s == NULL || needle == NULL) return BKR_FALSE;
+    return strstr(s, needle) != NULL ? BKR_TRUE : BKR_FALSE;
+}
+
+static inline bkr_bool starts_with(bkr_str s, bkr_str prefix) {
+    if (s == NULL || prefix == NULL) return BKR_FALSE;
+    bkr_i64 prefix_len = (bkr_i64)strlen(prefix);
+    return strncmp(s, prefix, (size_t)prefix_len) == 0 ? BKR_TRUE : BKR_FALSE;
+}
+
+static inline bkr_bool ends_with(bkr_str s, bkr_str suffix) {
+    if (s == NULL || suffix == NULL) return BKR_FALSE;
+    bkr_i64 s_len = (bkr_i64)strlen(s);
+    bkr_i64 suffix_len = (bkr_i64)strlen(suffix);
+    if (suffix_len > s_len) return BKR_FALSE;
+    return strcmp(s + s_len - suffix_len, suffix) == 0 ? BKR_TRUE : BKR_FALSE;
+}
+
+static inline bkr_bool bkr_is_space(char ch) {
+    return ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r' ? BKR_TRUE : BKR_FALSE;
+}
+
+static inline bkr_str trim(bkr_str s) {
+    if (s == NULL) return "";
+    bkr_i64 start = 0;
+    bkr_i64 end = (bkr_i64)strlen(s);
+    while (start < end && bkr_is_space(s[start])) {
+        start = start + 1;
+    }
+    while (end > start && bkr_is_space(s[end - 1])) {
+        end = end - 1;
+    }
+    return substring(s, start, end);
+}
+
 static inline bkr_i64 parse_int(bkr_str s) {
     if (s == NULL) return 0;
     return (bkr_i64)strtoll(s, NULL, 10);

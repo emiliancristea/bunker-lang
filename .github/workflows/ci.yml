@@ -283,6 +283,7 @@ jobs:
           run_generated_bkrc_fixture tests/56_kernel_early_return.bkr early_return 42
           run_generated_bkrc_fixture tests/57_kernel_multiple_structs.bkr multiple_structs 42
           run_generated_bkrc_fixture tests/72_file_io.bkr file_io 42
+          run_generated_bkrc_fixture tests/73_string_methods.bkr string_methods 42
           run_generated_bkrc_fixture tests/74_vec_operations.bkr vec_operations 42
           run_generated_bkrc_fixture tests/75_result_type.bkr result_type 42
           run_generated_bkrc_fixture tests/76_hashmap_operations.bkr hashmap_operations 42
@@ -366,6 +367,7 @@ jobs:
           run_stage2_bkrc_fixture tests/56_kernel_early_return.bkr early_return 42
           run_stage2_bkrc_fixture tests/57_kernel_multiple_structs.bkr multiple_structs 42
           run_stage2_bkrc_fixture tests/72_file_io.bkr file_io 42
+          run_stage2_bkrc_fixture tests/73_string_methods.bkr string_methods 42
           run_stage2_bkrc_fixture tests/74_vec_operations.bkr vec_operations 42
           run_stage2_bkrc_fixture tests/75_result_type.bkr result_type 42
           run_stage2_bkrc_fixture tests/76_hashmap_operations.bkr hashmap_operations 42
