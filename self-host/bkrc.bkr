@@ -78,6 +78,7 @@ kernel BunkerCompiler {
     const TYPE_BOOL: i64 = 3;
     const TYPE_STR: i64 = 4;
     const TYPE_VOID: i64 = 5;
+    const TYPE_UNKNOWN: i64 = 99;
 
     // ========================================
     // LEXER
@@ -932,14 +933,26 @@ kernel BunkerCompiler {
         return name_to_c_from_names(names, idx);
     }
 
-    // C codegen state: [output_lines, indent, kernel_name, names]
+    // C codegen state: [output_lines, indent, kernel_name, names, local_names, local_types, fn_names, fn_types, global_names, global_types]
     fn cgen_new(kernel_name: str, names: Vec<str>) -> Vec<i64> {
         let state: Vec<i64> = vec_new();
         let lines: Vec<str> = vec_new();
+        let local_names: Vec<i64> = vec_new();
+        let local_types: Vec<i64> = vec_new();
+        let fn_names: Vec<i64> = vec_new();
+        let fn_types: Vec<i64> = vec_new();
+        let global_names: Vec<i64> = vec_new();
+        let global_types: Vec<i64> = vec_new();
         vec_push(state, lines as i64);
         vec_push(state, 0);          // indent
         vec_push(state, kernel_name as i64);
         vec_push(state, names as i64);
+        vec_push(state, local_names as i64);
+        vec_push(state, local_types as i64);
+        vec_push(state, fn_names as i64);
+        vec_push(state, fn_types as i64);
+        vec_push(state, global_names as i64);
+        vec_push(state, global_types as i64);
         return state;
     }
 
@@ -964,6 +977,152 @@ kernel BunkerCompiler {
     fn cgen_dedent(state: Vec<i64>) -> Vec<i64> {
         vec_set(state, 1, vec_get(state, 1) - 1);
         return state;
+    }
+
+    fn type_node_kind(type_node: i64) -> i64 {
+        if type_node == 0 {
+            return TYPE_UNKNOWN;
+        }
+        let type_node_vec = type_node as Vec<i64>;
+        return vec_get(type_node_vec, 1);
+    }
+
+    fn cgen_clear_locals(state: Vec<i64>) -> Vec<i64> {
+        let local_names: Vec<i64> = vec_new();
+        let local_types: Vec<i64> = vec_new();
+        vec_set(state, 4, local_names as i64);
+        vec_set(state, 5, local_types as i64);
+        return state;
+    }
+
+    fn cgen_add_local_type(state: Vec<i64>, name_idx: i64, kind: i64) -> Vec<i64> {
+        let local_names = vec_get(state, 4) as Vec<i64>;
+        let local_types = vec_get(state, 5) as Vec<i64>;
+        vec_push(local_names, name_idx);
+        vec_push(local_types, kind);
+        return state;
+    }
+
+    fn cgen_add_fn_type(state: Vec<i64>, name_idx: i64, kind: i64) -> Vec<i64> {
+        let fn_names = vec_get(state, 6) as Vec<i64>;
+        let fn_types = vec_get(state, 7) as Vec<i64>;
+        vec_push(fn_names, name_idx);
+        vec_push(fn_types, kind);
+        return state;
+    }
+
+    fn cgen_add_global_type(state: Vec<i64>, name_idx: i64, kind: i64) -> Vec<i64> {
+        let global_names = vec_get(state, 8) as Vec<i64>;
+        let global_types = vec_get(state, 9) as Vec<i64>;
+        vec_push(global_names, name_idx);
+        vec_push(global_types, kind);
+        return state;
+    }
+
+    fn cgen_lookup_pair(names: Vec<i64>, types: Vec<i64>, name_idx: i64) -> i64 {
+        let result = TYPE_UNKNOWN;
+        let i: i64 = 0;
+        while i < vec_len(names) {
+            if vec_get(names, i) == name_idx {
+                result = vec_get(types, i);
+            }
+            i = i + 1;
+        }
+        return result;
+    }
+
+    fn cgen_lookup_name_type(state: Vec<i64>, name_idx: i64) -> i64 {
+        let local_names = vec_get(state, 4) as Vec<i64>;
+        let local_types = vec_get(state, 5) as Vec<i64>;
+        let local_kind = cgen_lookup_pair(local_names, local_types, name_idx);
+        if local_kind != TYPE_UNKNOWN {
+            return local_kind;
+        }
+
+        let global_names = vec_get(state, 8) as Vec<i64>;
+        let global_types = vec_get(state, 9) as Vec<i64>;
+        return cgen_lookup_pair(global_names, global_types, name_idx);
+    }
+
+    fn cgen_lookup_fn_type(state: Vec<i64>, name_idx: i64) -> i64 {
+        let fn_names = vec_get(state, 6) as Vec<i64>;
+        let fn_types = vec_get(state, 7) as Vec<i64>;
+        return cgen_lookup_pair(fn_names, fn_types, name_idx);
+    }
+
+    fn builtin_return_type(raw: str) -> i64 {
+        if raw == "len" { return TYPE_I64; }
+        if raw == "vec_new" { return TYPE_I64; }
+        if raw == "vec_get" { return TYPE_I64; }
+        if raw == "vec_len" { return TYPE_I64; }
+        if raw == "char_code" { return TYPE_I64; }
+        if raw == "char_code_at" { return TYPE_I64; }
+        if raw == "parse_int" { return TYPE_I64; }
+        if raw == "char_at" { return TYPE_STR; }
+        if raw == "substring" { return TYPE_STR; }
+        if raw == "int_to_string" { return TYPE_STR; }
+        if raw == "from_char_code" { return TYPE_STR; }
+        if raw == "read_file" { return TYPE_STR; }
+        if raw == "write_file" { return TYPE_BOOL; }
+        if raw == "file_exists" { return TYPE_BOOL; }
+        return TYPE_UNKNOWN;
+    }
+
+    fn infer_c_expr_type(state: Vec<i64>, expr: Vec<i64>) -> i64 {
+        let node_type = vec_get(expr, 0);
+
+        if node_type == NODE_INT_LIT {
+            return TYPE_I64;
+        }
+
+        if node_type == NODE_BOOL_LIT {
+            return TYPE_BOOL;
+        }
+
+        if node_type == NODE_STR_LIT {
+            return TYPE_STR;
+        }
+
+        if node_type == NODE_IDENT {
+            return cgen_lookup_name_type(state, vec_get(expr, 1));
+        }
+
+        if node_type == NODE_BINARY {
+            let op = vec_get(expr, 1);
+            let left = vec_get(expr, 2) as Vec<i64>;
+            let right = vec_get(expr, 3) as Vec<i64>;
+            let left_kind = infer_c_expr_type(state, left);
+            let right_kind = infer_c_expr_type(state, right);
+            if op == TOK_PLUS && (left_kind == TYPE_STR || right_kind == TYPE_STR) {
+                return TYPE_STR;
+            }
+            if op == TOK_EQ || op == TOK_NE || op == TOK_LT || op == TOK_GT || op == TOK_LE || op == TOK_GE ||
+               op == TOK_AND || op == TOK_OR {
+                return TYPE_BOOL;
+            }
+            return left_kind;
+        }
+
+        if node_type == NODE_UNARY {
+            let op = vec_get(expr, 1);
+            if op == TOK_NOT {
+                return TYPE_BOOL;
+            }
+            return infer_c_expr_type(state, vec_get(expr, 2) as Vec<i64>);
+        }
+
+        if node_type == NODE_CALL {
+            let name_idx = vec_get(expr, 1);
+            let names = vec_get(state, 3) as Vec<str>;
+            let raw = name_from_table(names, name_idx);
+            let builtin_kind = builtin_return_type(raw);
+            if builtin_kind != TYPE_UNKNOWN {
+                return builtin_kind;
+            }
+            return cgen_lookup_fn_type(state, name_idx);
+        }
+
+        return TYPE_UNKNOWN;
     }
 
     fn gen_c_expr(state: Vec<i64>, expr: Vec<i64>) -> str {
@@ -993,11 +1152,10 @@ kernel BunkerCompiler {
             let left = vec_get(expr, 2) as Vec<i64>;
             let right = vec_get(expr, 3) as Vec<i64>;
 
-            // String concatenation
             if op == TOK_PLUS {
-                let left_type = vec_get(left, 0);
-                let right_type = vec_get(right, 0);
-                if left_type == NODE_STR_LIT || right_type == NODE_STR_LIT {
+                let left_kind = infer_c_expr_type(state, left);
+                let right_kind = infer_c_expr_type(state, right);
+                if left_kind == TYPE_STR || right_kind == TYPE_STR {
                     return "bkr_str_concat(" + gen_c_expr(state, left) + ", " + gen_c_expr(state, right) + ")";
                 }
             }
@@ -1037,18 +1195,23 @@ kernel BunkerCompiler {
             let type_node = vec_get(stmt, 2);
             let init = vec_get(stmt, 3);
 
-            let c_type: str = "bkr_i64";
+            let kind = TYPE_I64;
             if type_node != 0 {
-                let type_node_vec = type_node as Vec<i64>;
-                let kind = vec_get(type_node_vec, 1);
-                c_type = type_to_c(kind);
+                kind = type_node_kind(type_node);
+            } else if init != 0 {
+                let init_kind = infer_c_expr_type(state, init as Vec<i64>);
+                if init_kind != TYPE_UNKNOWN && init_kind != TYPE_VOID {
+                    kind = init_kind;
+                }
             }
 
+            let c_type = type_to_c(kind);
             let line = c_type + " " + name;
             if init != 0 {
                 line = line + " = " + gen_c_expr(state, init as Vec<i64>);
             }
             cgen_emit(state, line + ";");
+            cgen_add_local_type(state, vec_get(stmt, 1), kind);
             return state;
         }
 
@@ -1191,6 +1354,16 @@ kernel BunkerCompiler {
     }
 
     fn gen_c_fn(state: Vec<i64>, fn_node: Vec<i64>) -> Vec<i64> {
+        cgen_clear_locals(state);
+        let params = vec_get(fn_node, 2) as Vec<i64>;
+        let i: i64 = 0;
+        while i < vec_len(params) {
+            let param = vec_get(params, i) as Vec<i64>;
+            let ptype = vec_get(param, 2) as Vec<i64>;
+            cgen_add_local_type(state, vec_get(param, 1), vec_get(ptype, 1));
+            i = i + 1;
+        }
+
         let body = vec_get(fn_node, 4) as Vec<i64>;
 
         cgen_emit(state, gen_c_signature(state, fn_node) + " {");
@@ -1207,18 +1380,42 @@ kernel BunkerCompiler {
         let type_node = vec_get(const_node, 2);
         let value = vec_get(const_node, 3);
 
-        let c_type: str = "bkr_i64";
+        let kind = TYPE_I64;
         if type_node != 0 {
-            let type_node_vec = type_node as Vec<i64>;
-            c_type = type_to_c(vec_get(type_node_vec, 1));
+            kind = type_node_kind(type_node);
+        } else if value != 0 {
+            let value_kind = infer_c_expr_type(state, value as Vec<i64>);
+            if value_kind != TYPE_UNKNOWN && value_kind != TYPE_VOID {
+                kind = value_kind;
+            }
         }
 
+        let c_type = type_to_c(kind);
         let c_value: str = "0";
         if value != 0 {
             c_value = gen_c_expr(state, value as Vec<i64>);
         }
 
         cgen_emit(state, "static const " + c_type + " " + name + " = " + c_value + ";");
+        cgen_add_global_type(state, vec_get(const_node, 1), kind);
+        return state;
+    }
+
+    fn gen_c_kernel_function_types(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
+        let items = vec_get(kernel, 2) as Vec<i64>;
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if vec_get(item, 0) == NODE_FN {
+                let ret_type_node = vec_get(item, 3);
+                let kind = TYPE_VOID;
+                if ret_type_node != 0 {
+                    kind = type_node_kind(ret_type_node);
+                }
+                cgen_add_fn_type(state, vec_get(item, 1), kind);
+            }
+            i = i + 1;
+        }
         return state;
     }
 
@@ -1271,6 +1468,7 @@ kernel BunkerCompiler {
         cgen_emit(state, "#include " + quote + "runtime.h" + quote);
         cgen_emit(state, "");
 
+        gen_c_kernel_function_types(state, kernel);
         gen_c_kernel_consts(state, kernel);
         cgen_emit(state, "");
         gen_c_kernel_prototypes(state, kernel);
