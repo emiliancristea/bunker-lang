@@ -229,7 +229,10 @@ if (-not $JitOnly) {
         "tests\21_kernel_option_if_infer.bkr",
         "tests\38_kernel_while_loop.bkr",
         "tests\39_kernel_while_break.bkr",
-        "tests\52_kernel_option_match.bkr"
+        "tests\52_kernel_option_match.bkr",
+        "tests\75_result_type.bkr",
+        "tests\79_typed_result_operations.bkr",
+        "tests\85_result_handle_roundtrip.bkr"
     )
 
     $subsetOk = $true
