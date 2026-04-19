@@ -15,9 +15,12 @@ kernel BunkerCompiler {
     const TOK_LET: i64 = 24;
     const TOK_IF: i64 = 25;
     const TOK_ELSE: i64 = 26;
+    const TOK_FOR: i64 = 27;
+    const TOK_IN: i64 = 28;
     const TOK_WHILE: i64 = 29;
     const TOK_BREAK: i64 = 30;
     const TOK_CONTINUE: i64 = 31;
+    const TOK_LOOP: i64 = 32;
     const TOK_RETURN: i64 = 33;
     const TOK_CONST: i64 = 35;
     const TOK_I32: i64 = 60;
@@ -40,6 +43,8 @@ kernel BunkerCompiler {
     const TOK_NOT: i64 = 93;
     const TOK_ASSIGN: i64 = 99;
     const TOK_ARROW: i64 = 101;
+    const TOK_DOT_DOT: i64 = 102;
+    const TOK_DOT_DOT_EQ: i64 = 103;
     const TOK_LPAREN: i64 = 110;
     const TOK_RPAREN: i64 = 111;
     const TOK_LBRACE: i64 = 112;
@@ -62,6 +67,8 @@ kernel BunkerCompiler {
     const NODE_ASSIGN: i64 = 11;
     const NODE_BREAK: i64 = 12;
     const NODE_CONTINUE: i64 = 13;
+    const NODE_FOR: i64 = 14;
+    const NODE_LOOP: i64 = 15;
     const NODE_BINARY: i64 = 20;
     const NODE_UNARY: i64 = 21;
     const NODE_CALL: i64 = 22;
@@ -177,9 +184,12 @@ kernel BunkerCompiler {
                 if word == "let" { tok_type = TOK_LET; }
                 if word == "if" { tok_type = TOK_IF; }
                 if word == "else" { tok_type = TOK_ELSE; }
+                if word == "for" { tok_type = TOK_FOR; }
+                if word == "in" { tok_type = TOK_IN; }
                 if word == "while" { tok_type = TOK_WHILE; }
                 if word == "break" { tok_type = TOK_BREAK; }
                 if word == "continue" { tok_type = TOK_CONTINUE; }
+                if word == "loop" { tok_type = TOK_LOOP; }
                 if word == "return" { tok_type = TOK_RETURN; }
                 if word == "const" { tok_type = TOK_CONST; }
                 if word == "true" { tok_type = TOK_TRUE; }
@@ -226,10 +236,23 @@ kernel BunkerCompiler {
                 handled = true;
             }
 
+            // Three-char operators
+            if !handled && pos + 2 < src_len {
+                let c2 = char_code_at(source, pos + 1);
+                let c3 = char_code_at(source, pos + 2);
+                if c == 46 && c2 == 46 && c3 == 61 { tok_type = TOK_DOT_DOT_EQ; pos = pos + 3; handled = true; }
+                if handled {
+                    vec_push(tokens, tok_type);
+                    vec_push(tokens, start);
+                    vec_push(tokens, pos);
+                }
+            }
+
             // Two-char operators
             if !handled && pos + 1 < src_len {
                 let c2 = char_code_at(source, pos + 1);
                 if c == 45 && c2 == 62 { tok_type = TOK_ARROW; pos = pos + 2; handled = true; }
+                if !handled && c == 46 && c2 == 46 { tok_type = TOK_DOT_DOT; pos = pos + 2; handled = true; }
                 if !handled && c == 61 && c2 == 61 { tok_type = TOK_EQ; pos = pos + 2; handled = true; }
                 if !handled && c == 33 && c2 == 61 { tok_type = TOK_NE; pos = pos + 2; handled = true; }
                 if !handled && c == 60 && c2 == 61 { tok_type = TOK_LE; pos = pos + 2; handled = true; }
@@ -380,9 +403,12 @@ kernel BunkerCompiler {
         if tok == TOK_LET { return "let"; }
         if tok == TOK_IF { return "if"; }
         if tok == TOK_ELSE { return "else"; }
+        if tok == TOK_FOR { return "for"; }
+        if tok == TOK_IN { return "in"; }
         if tok == TOK_WHILE { return "while"; }
         if tok == TOK_BREAK { return "break"; }
         if tok == TOK_CONTINUE { return "continue"; }
+        if tok == TOK_LOOP { return "loop"; }
         if tok == TOK_RETURN { return "return"; }
         if tok == TOK_CONST { return "const"; }
         if tok == TOK_I32 { return "i32"; }
@@ -405,6 +431,8 @@ kernel BunkerCompiler {
         if tok == TOK_NOT { return "!"; }
         if tok == TOK_ASSIGN { return "="; }
         if tok == TOK_ARROW { return "->"; }
+        if tok == TOK_DOT_DOT { return ".."; }
+        if tok == TOK_DOT_DOT_EQ { return "..="; }
         if tok == TOK_LPAREN { return "("; }
         if tok == TOK_RPAREN { return ")"; }
         if tok == TOK_LBRACE { return "{"; }
@@ -417,8 +445,9 @@ kernel BunkerCompiler {
 
     fn is_name_token(tok: i64) -> bool {
         return tok == TOK_IDENT || tok == TOK_KERNEL || tok == TOK_FN || tok == TOK_LET ||
-               tok == TOK_IF || tok == TOK_ELSE || tok == TOK_WHILE || tok == TOK_BREAK ||
-               tok == TOK_CONTINUE || tok == TOK_RETURN || tok == TOK_CONST;
+               tok == TOK_IF || tok == TOK_ELSE || tok == TOK_FOR || tok == TOK_IN ||
+               tok == TOK_WHILE || tok == TOK_BREAK || tok == TOK_CONTINUE ||
+               tok == TOK_LOOP || tok == TOK_RETURN || tok == TOK_CONST;
     }
 
     fn parser_expect_name(p: Vec<i64>) -> i64 {
@@ -788,6 +817,33 @@ kernel BunkerCompiler {
         return if_node;
     }
 
+    fn parse_for_stmt(p: Vec<i64>) -> Vec<i64> {
+        parser_expect(p, TOK_FOR);
+        let name_idx = parser_expect_name(p);
+        parser_expect(p, TOK_IN);
+        let start_expr: Vec<i64> = parse_expr(p);
+
+        let inclusive: i64 = 0;
+        if parser_peek(p) == TOK_DOT_DOT_EQ {
+            inclusive = 1;
+            parser_advance(p);
+        } else {
+            parser_expect(p, TOK_DOT_DOT);
+        }
+
+        let end_expr: Vec<i64> = parse_expr(p);
+        let body: Vec<i64> = parse_block(p);
+
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_FOR);
+        vec_push(node, name_idx);
+        vec_push(node, start_expr as i64);
+        vec_push(node, end_expr as i64);
+        vec_push(node, inclusive);
+        vec_push(node, body as i64);
+        return node;
+    }
+
     // Parse a block (handles if/while inside)
     fn parse_block(p: Vec<i64>) -> Vec<i64> {
         let node: Vec<i64> = vec_new();
@@ -800,6 +856,9 @@ kernel BunkerCompiler {
             if tok == TOK_IF {
                 let if_node: Vec<i64> = parse_if_stmt(p);
                 vec_push(node, if_node as i64);
+            } else if tok == TOK_FOR {
+                let for_node: Vec<i64> = parse_for_stmt(p);
+                vec_push(node, for_node as i64);
             } else if tok == TOK_WHILE {
                 parser_advance(p);
                 let cond: Vec<i64> = parse_expr(p);
@@ -809,6 +868,13 @@ kernel BunkerCompiler {
                 vec_push(while_node, cond as i64);
                 vec_push(while_node, body as i64);
                 vec_push(node, while_node as i64);
+            } else if tok == TOK_LOOP {
+                parser_advance(p);
+                let body: Vec<i64> = parse_block(p);
+                let loop_node: Vec<i64> = vec_new();
+                vec_push(loop_node, NODE_LOOP);
+                vec_push(loop_node, body as i64);
+                vec_push(node, loop_node as i64);
             } else {
                 let stmt: Vec<i64> = parse_simple_stmt(p);
                 vec_push(node, stmt as i64);
@@ -1340,6 +1406,38 @@ kernel BunkerCompiler {
             return state;
         }
 
+        if node_type == NODE_FOR {
+            let name_idx = vec_get(stmt, 1);
+            let name = name_to_c(state, name_idx);
+            let start_expr = vec_get(stmt, 2) as Vec<i64>;
+            let end_expr = vec_get(stmt, 3) as Vec<i64>;
+            let inclusive = vec_get(stmt, 4);
+            let body = vec_get(stmt, 5) as Vec<i64>;
+
+            let cmp = "<";
+            if inclusive != 0 {
+                cmp = "<=";
+            }
+
+            cgen_emit(state, "for (bkr_i64 " + name + " = " + gen_c_expr(state, start_expr) + "; " + name + " " + cmp + " " + gen_c_expr(state, end_expr) + "; " + name + " = " + name + " + 1) {");
+            cgen_indent(state);
+            cgen_add_local_type(state, name_idx, TYPE_I64);
+            gen_c_block(state, body);
+            cgen_dedent(state);
+            cgen_emit(state, "}");
+            return state;
+        }
+
+        if node_type == NODE_LOOP {
+            let body = vec_get(stmt, 1) as Vec<i64>;
+            cgen_emit(state, "while (BKR_TRUE) {");
+            cgen_indent(state);
+            gen_c_block(state, body);
+            cgen_dedent(state);
+            cgen_emit(state, "}");
+            return state;
+        }
+
         if node_type == NODE_ASSIGN {
             let target = vec_get(stmt, 1) as Vec<i64>;
             let value = vec_get(stmt, 2) as Vec<i64>;
@@ -1593,7 +1691,7 @@ kernel BunkerCompiler {
             let msg = "/* Parse error at token " + int_to_string(parser_error_position(p)) +
                 ": expected " + token_name(parser_error_expected(p)) +
                 ", got " + token_name(parser_error_actual(p)) +
-                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, fn, const, let, if, else, while, break, continue, return, primitive types, Vec<T> handles, calls, casts, and basic expressions. */";
+                ". AI repair hint: inspect the construct before this token. Supported bootstrap syntax includes kernel, fn, const, let, if, else, for-in ranges, while, loop, break, continue, return, primitive types, Vec<T> handles, calls, casts, and basic expressions. */";
             return msg + from_char_code(10);
         }
 

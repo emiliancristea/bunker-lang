@@ -252,6 +252,10 @@ jobs:
 
           run_generated_bkrc_fixture tests/01_basic_math.bkr basic 42
           run_generated_bkrc_fixture tests/14_kernel_if_branching.bkr branching 42
+          run_generated_bkrc_fixture tests/32_kernel_for_range.bkr for_range 55
+          run_generated_bkrc_fixture tests/33_kernel_loop_break.bkr loop_break 5
+          run_generated_bkrc_fixture tests/34_kernel_for_continue.bkr for_continue 25
+          run_generated_bkrc_fixture tests/35_kernel_for_break.bkr for_break 15
           run_generated_bkrc_fixture tests/38_kernel_while_loop.bkr while_loop 55
           run_generated_bkrc_fixture tests/39_kernel_while_break.bkr while_break 15
           run_generated_bkrc_fixture tests/43_kernel_modulo.bkr modulo 42
@@ -262,6 +266,8 @@ jobs:
           run_generated_bkrc_fixture tests/51_kernel_comparisons.bkr comparisons 42
           run_generated_bkrc_fixture tests/54_kernel_i64_ops.bkr i64_ops 42
           run_generated_bkrc_fixture tests/55_kernel_const.bkr consts 42
+          run_generated_bkrc_fixture tests/48_kernel_control_flow.bkr control_flow 42
+          run_generated_bkrc_fixture tests/56_kernel_early_return.bkr early_return 42
           run_generated_bkrc_fixture tests/99_incremental_1.bkr incremental_1 42
           run_generated_bkrc_fixture tests/99_incremental_2.bkr incremental_2 42
 
@@ -307,6 +313,10 @@ jobs:
 
           run_stage2_bkrc_fixture tests/01_basic_math.bkr basic 42
           run_stage2_bkrc_fixture tests/14_kernel_if_branching.bkr branching 42
+          run_stage2_bkrc_fixture tests/32_kernel_for_range.bkr for_range 55
+          run_stage2_bkrc_fixture tests/33_kernel_loop_break.bkr loop_break 5
+          run_stage2_bkrc_fixture tests/34_kernel_for_continue.bkr for_continue 25
+          run_stage2_bkrc_fixture tests/35_kernel_for_break.bkr for_break 15
           run_stage2_bkrc_fixture tests/38_kernel_while_loop.bkr while_loop 55
           run_stage2_bkrc_fixture tests/39_kernel_while_break.bkr while_break 15
           run_stage2_bkrc_fixture tests/43_kernel_modulo.bkr modulo 42
@@ -317,6 +327,8 @@ jobs:
           run_stage2_bkrc_fixture tests/51_kernel_comparisons.bkr comparisons 42
           run_stage2_bkrc_fixture tests/54_kernel_i64_ops.bkr i64_ops 42
           run_stage2_bkrc_fixture tests/55_kernel_const.bkr consts 42
+          run_stage2_bkrc_fixture tests/48_kernel_control_flow.bkr control_flow 42
+          run_stage2_bkrc_fixture tests/56_kernel_early_return.bkr early_return 42
           run_stage2_bkrc_fixture tests/99_incremental_1.bkr incremental_1 42
           run_stage2_bkrc_fixture tests/99_incremental_2.bkr incremental_2 42
 
