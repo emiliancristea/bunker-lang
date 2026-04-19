@@ -205,6 +205,27 @@ jobs:
           cp self-host/runtime.h /tmp/runtime.h
           cc -std=c11 /tmp/bkrc.c -o /tmp/bkrc
 
+          run_invalid_bkrc_fixture() {
+            compiler="$1"
+            name="$2"
+            run_dir="/tmp/$name"
+            mkdir -p "$run_dir"
+            printf '%s\n' 'kernel Broken { fn main( -> i32 { return 42; } }' > "$run_dir/self_host_input.bkr"
+            set +e
+            (cd "$run_dir" && timeout --kill-after=5s 60s "$compiler")
+            bkrc_status=$?
+            set -e
+            echo "$name invalid input exited $bkrc_status, expected 42 with parse diagnostics"
+            test "$bkrc_status" -eq 42
+            test -s "$run_dir/self_host_output.c"
+            grep -q "Parse error at token" "$run_dir/self_host_output.c"
+            grep -q "expected" "$run_dir/self_host_output.c"
+            grep -q "got" "$run_dir/self_host_output.c"
+            grep -q "AI repair hint" "$run_dir/self_host_output.c"
+          }
+
+          run_invalid_bkrc_fixture /tmp/bkrc bkrc-invalid
+
           run_generated_bkrc_fixture() {
             fixture="$1"
             name="$2"
@@ -249,6 +270,8 @@ jobs:
           ! grep -q "Parse error" "$self_compile_dir/self_host_output.c"
           cp self-host/runtime.h "$self_compile_dir/runtime.h"
           cc -std=c11 "$self_compile_dir/self_host_output.c" -o "$self_compile_dir/bkrc2"
+
+          run_invalid_bkrc_fixture "$self_compile_dir/bkrc2" bkrc2-invalid
 
           run_stage2_bkrc_fixture() {
             fixture="$1"
