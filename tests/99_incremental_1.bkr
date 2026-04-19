@@ -54,6 +54,30 @@ kernel IncrementalTest1 {
     const NODE_INT_LIT: i64 = 24;
     const NODE_BOOL_LIT: i64 = 25;
 
+    fn is_ident_start(code: i64) -> bool {
+        return (code >= 97 && code <= 122) || (code >= 65 && code <= 90) || code == 95;
+    }
+
+    fn is_ident_part(code: i64) -> bool {
+        return is_ident_start(code) || (code >= 48 && code <= 57);
+    }
+
+    fn keyword_token(word: str) -> i64 {
+        if word == "kernel" { return TOK_KERNEL; }
+        if word == "fn" { return TOK_FN; }
+        if word == "let" { return TOK_LET; }
+        if word == "if" { return TOK_IF; }
+        if word == "else" { return TOK_ELSE; }
+        if word == "while" { return TOK_WHILE; }
+        if word == "return" { return TOK_RETURN; }
+        if word == "const" { return TOK_CONST; }
+        if word == "true" { return TOK_TRUE; }
+        if word == "false" { return TOK_FALSE; }
+        if word == "i32" { return TOK_I32; }
+        if word == "i64" { return TOK_I64; }
+        return TOK_IDENT;
+    }
+
     // ========== TOKENIZER ==========
     fn tokenize_chunk(source: str, pos: i64) -> Vec<i64> {
         let result: Vec<i64> = vec_new();
@@ -85,11 +109,12 @@ kernel IncrementalTest1 {
             if !handled {
                 let c = char_code(char_at(source, pos));
 
-                if c >= 97 && c <= 122 {
-                    tok_type = TOK_IDENT;
-                    while pos < src_len && char_code(char_at(source, pos)) >= 97 && char_code(char_at(source, pos)) <= 122 {
+                if is_ident_start(c) {
+                    let start = pos;
+                    while pos < src_len && is_ident_part(char_code(char_at(source, pos))) {
                         pos = pos + 1;
                     }
+                    tok_type = keyword_token(substring(source, start, pos));
                     handled = true;
                 }
             }
@@ -114,9 +139,18 @@ kernel IncrementalTest1 {
                 if c == 59 { tok_type = TOK_SEMICOLON; pos = pos + 1; handled = true; }
                 if c == 58 { tok_type = TOK_COLON; pos = pos + 1; handled = true; }
                 if c == 43 { tok_type = TOK_PLUS; pos = pos + 1; handled = true; }
-                if c == 45 { tok_type = TOK_MINUS; pos = pos + 1; handled = true; }
                 if c == 42 { tok_type = TOK_STAR; pos = pos + 1; handled = true; }
                 if c == 47 { tok_type = TOK_SLASH; pos = pos + 1; handled = true; }
+                if c == 45 {
+                    if pos + 1 < src_len && char_code(char_at(source, pos + 1)) == 62 {
+                        tok_type = TOK_ARROW;
+                        pos = pos + 2;
+                    } else {
+                        tok_type = TOK_MINUS;
+                        pos = pos + 1;
+                    }
+                    handled = true;
+                }
             }
 
             if !handled {

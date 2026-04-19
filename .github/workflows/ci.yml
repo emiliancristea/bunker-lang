@@ -109,6 +109,7 @@ jobs:
           timeout --kill-after=5s 60s /tmp/01_basic_math
           status=$?
           set -e
+          echo "01_basic_math exited $status, expected 42"
           test "$status" -eq 42
 
       - name: Compile branching fixture through self-host compiler
@@ -124,6 +125,7 @@ jobs:
           timeout --kill-after=5s 60s /tmp/14_kernel_if_branching
           status=$?
           set -e
+          echo "14_kernel_if_branching exited $status, expected 42"
           test "$status" -eq 42
 
       - name: Compile incremental parser fixture through self-host compiler
@@ -140,6 +142,7 @@ jobs:
           timeout --kill-after=5s 60s /tmp/99_incremental_1
           status=$?
           set -e
+          echo "99_incremental_1 exited $status, expected 42"
           test "$status" -eq 42
 
       - name: Compile incremental codegen fixture through self-host compiler
@@ -156,6 +159,7 @@ jobs:
           timeout --kill-after=5s 60s /tmp/99_incremental_2
           status=$?
           set -e
+          echo "99_incremental_2 exited $status, expected 42"
           test "$status" -eq 42
 
       - name: Compile while-loop fixture through self-host compiler
@@ -171,6 +175,7 @@ jobs:
           timeout --kill-after=5s 60s /tmp/38_kernel_while_loop
           status=$?
           set -e
+          echo "38_kernel_while_loop exited $status, expected 55"
           test "$status" -eq 55
 
       - name: Compile while-break fixture through self-host compiler
@@ -186,6 +191,7 @@ jobs:
           timeout --kill-after=5s 60s /tmp/39_kernel_while_break
           status=$?
           set -e
+          echo "39_kernel_while_break exited $status, expected 15"
           test "$status" -eq 15
 
       - name: Compile and run bkrc through self-host compiler
@@ -219,6 +225,7 @@ jobs:
             timeout --kill-after=5s 60s "$run_dir/$name"
             program_status=$?
             set -e
+            echo "generated $name exited $program_status, expected $expected_status"
             test "$program_status" -eq "$expected_status"
           }
 
