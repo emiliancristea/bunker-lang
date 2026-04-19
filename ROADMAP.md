@@ -5,6 +5,7 @@ This document defines the phased approach to building the Bunker compiler from s
 > **See also:**
 > - [docs/SPECIFICATION.md](docs/SPECIFICATION.md) - The Definitive AI-Native Systems Programming Language Specification
 > - [docs/TECHNICAL_SPEC.md](docs/TECHNICAL_SPEC.md) - Complete Technical Specification covering grammar-constrained decoding, type systems, ownership models, contracts, and agent runtime
+> - [docs/IMPLEMENTATION_TRACKER.md](docs/IMPLEMENTATION_TRACKER.md) - Authoritative production/self-hosting backlog with statuses and completion gates
 
 ## Toolchain Decisions
 
