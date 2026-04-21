@@ -266,7 +266,7 @@
                 parser_mark_error(p, TOK_INT);
             }
             parser_expect(p, TOK_RBRACKET);
-            return ast_type_array(vec_get(elem_type, 1), len_value);
+            return ast_type_array(ast_type_kind_value(elem_type as i64), len_value);
         }
         if tok == TOK_I32 { kind = TYPE_I32; parser_advance(p); consumed = true; }
         if tok == TOK_I64 { kind = TYPE_I64; parser_advance(p); consumed = true; }
@@ -751,24 +751,24 @@
 
             if tok == TOK_IF {
                 let if_node: Vec<i64> = parse_if_stmt(p);
-                vec_push(node, if_node as i64);
+                ast_push(node, if_node as i64);
             } else if tok == TOK_FOR {
                 let for_node: Vec<i64> = parse_for_stmt(p);
-                vec_push(node, for_node as i64);
+                ast_push(node, for_node as i64);
             } else if tok == TOK_WHILE {
                 parser_advance(p);
                 let cond: Vec<i64> = parse_expr(p);
                 let body: Vec<i64> = parse_block(p);
                 let while_node: Vec<i64> = ast_while(cond, body);
-                vec_push(node, while_node as i64);
+                ast_push(node, while_node as i64);
             } else if tok == TOK_LOOP {
                 parser_advance(p);
                 let body: Vec<i64> = parse_block(p);
                 let loop_node: Vec<i64> = ast_loop(body);
-                vec_push(node, loop_node as i64);
+                ast_push(node, loop_node as i64);
             } else {
                 let stmt: Vec<i64> = parse_simple_stmt(p);
-                vec_push(node, stmt as i64);
+                ast_push(node, stmt as i64);
             }
         }
         parser_expect(p, TOK_RBRACE);
@@ -873,7 +873,7 @@
             let tok = parser_peek(p);
             if tok == TOK_FN {
                 let fn_node: Vec<i64> = parse_fn(p);
-                let fn_name_idx = vec_get(fn_node, 1);
+                let fn_name_idx = ast_fn_name_idx(fn_node);
                 if parser_get_name(p, fn_name_idx) == "main" {
                     main_name_idx = fn_name_idx;
                 }
