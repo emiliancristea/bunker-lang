@@ -358,13 +358,7 @@ extern "C" fn bunker_contains(str_ptr: i64, substr_ptr: i64) -> i64 {
     let substr = unsafe { read_bunker_string(substr_ptr) };
 
     match (s, substr) {
-        (Some(s), Some(sub)) => {
-            if s.contains(&sub) {
-                1
-            } else {
-                0
-            }
-        }
+        (Some(s), Some(sub)) if s.contains(&sub) => 1,
         _ => 0,
     }
 }
@@ -375,13 +369,7 @@ extern "C" fn bunker_starts_with(str_ptr: i64, prefix_ptr: i64) -> i64 {
     let prefix = unsafe { read_bunker_string(prefix_ptr) };
 
     match (s, prefix) {
-        (Some(s), Some(p)) => {
-            if s.starts_with(&p) {
-                1
-            } else {
-                0
-            }
-        }
+        (Some(s), Some(p)) if s.starts_with(&p) => 1,
         _ => 0,
     }
 }
@@ -392,13 +380,7 @@ extern "C" fn bunker_ends_with(str_ptr: i64, suffix_ptr: i64) -> i64 {
     let suffix = unsafe { read_bunker_string(suffix_ptr) };
 
     match (s, suffix) {
-        (Some(s), Some(suf)) => {
-            if s.ends_with(&suf) {
-                1
-            } else {
-                0
-            }
-        }
+        (Some(s), Some(suf)) if s.ends_with(&suf) => 1,
         _ => 0,
     }
 }
@@ -464,13 +446,8 @@ extern "C" fn bunker_str_eq(a_ptr: i64, b_ptr: i64) -> i64 {
     let a = unsafe { read_bunker_string(a_ptr) };
     let b = unsafe { read_bunker_string(b_ptr) };
     match (a, b) {
-        (Some(a), Some(b)) => {
-            if a == b {
-                1
-            } else {
-                0
-            }
-        }
+        (Some(a), Some(b)) if a == b => 1,
+        (Some(_), Some(_)) => 0,
         (None, None) => 1, // Both null
         _ => 0,            // One null, one not
     }
@@ -1208,10 +1185,10 @@ fn find_main_return_type(file: &ast::File) -> Option<ast::Type> {
     for kernel in &file.kernels {
         for item in &kernel.items {
             match item {
-                ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f) => {
-                    if f.name == "main" && f.params.is_empty() {
-                        return f.return_type.clone();
-                    }
+                ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f)
+                    if f.name == "main" && f.params.is_empty() =>
+                {
+                    return f.return_type.clone();
                 }
                 _ => {}
             }
@@ -2713,31 +2690,27 @@ fn compile_stmt_inline(
                 let mut local_types = parent_types.clone();
 
                 match &arm.pattern {
-                    ast::Pattern::Ident(name) => {
-                        if name != "_" {
+                    ast::Pattern::Ident(name) if name != "_" => {
+                        let var = Variable::new(*var_index as usize);
+                        *var_index += 1;
+                        let match_ty = convert_ast_type(&match_expr_ty);
+                        builder.declare_var(var, match_ty);
+                        let bound_val = cast_value(builder, match_val, match_ty);
+                        builder.def_var(var, bound_val);
+                        local_vars.insert(name.clone(), var);
+                        local_types.insert(name.clone(), match_expr_ty.clone());
+                    }
+                    ast::Pattern::Some(name) if name != "_" => {
+                        if let ast::Type::Option(inner) = &match_expr_ty {
                             let var = Variable::new(*var_index as usize);
                             *var_index += 1;
-                            let match_ty = convert_ast_type(&match_expr_ty);
-                            builder.declare_var(var, match_ty);
-                            let bound_val = cast_value(builder, match_val, match_ty);
-                            builder.def_var(var, bound_val);
+                            let inner_ty = convert_ast_type(inner);
+                            builder.declare_var(var, inner_ty);
+                            let loaded =
+                                builder.ins().load(inner_ty, MemFlags::new(), match_val, 0);
+                            builder.def_var(var, loaded);
                             local_vars.insert(name.clone(), var);
-                            local_types.insert(name.clone(), match_expr_ty.clone());
-                        }
-                    }
-                    ast::Pattern::Some(name) => {
-                        if name != "_" {
-                            if let ast::Type::Option(inner) = &match_expr_ty {
-                                let var = Variable::new(*var_index as usize);
-                                *var_index += 1;
-                                let inner_ty = convert_ast_type(inner);
-                                builder.declare_var(var, inner_ty);
-                                let loaded =
-                                    builder.ins().load(inner_ty, MemFlags::new(), match_val, 0);
-                                builder.def_var(var, loaded);
-                                local_vars.insert(name.clone(), var);
-                                local_types.insert(name.clone(), inner.as_ref().clone());
-                            }
+                            local_types.insert(name.clone(), inner.as_ref().clone());
                         }
                     }
                     _ => {}
@@ -3736,31 +3709,27 @@ fn compile_expr_inline(
                 let mut local_types = parent_types.clone();
 
                 match &arm.pattern {
-                    ast::Pattern::Ident(name) => {
-                        if name != "_" {
+                    ast::Pattern::Ident(name) if name != "_" => {
+                        let var = Variable::new(*var_index as usize);
+                        *var_index += 1;
+                        let match_ty = convert_ast_type(&match_expr_ty);
+                        builder.declare_var(var, match_ty);
+                        let bound_val = cast_value(builder, match_val, match_ty);
+                        builder.def_var(var, bound_val);
+                        local_vars.insert(name.clone(), var);
+                        local_types.insert(name.clone(), match_expr_ty.clone());
+                    }
+                    ast::Pattern::Some(name) if name != "_" => {
+                        if let ast::Type::Option(inner) = &match_expr_ty {
                             let var = Variable::new(*var_index as usize);
                             *var_index += 1;
-                            let match_ty = convert_ast_type(&match_expr_ty);
-                            builder.declare_var(var, match_ty);
-                            let bound_val = cast_value(builder, match_val, match_ty);
-                            builder.def_var(var, bound_val);
+                            let inner_ty = convert_ast_type(inner);
+                            builder.declare_var(var, inner_ty);
+                            let loaded =
+                                builder.ins().load(inner_ty, MemFlags::new(), match_val, 0);
+                            builder.def_var(var, loaded);
                             local_vars.insert(name.clone(), var);
-                            local_types.insert(name.clone(), match_expr_ty.clone());
-                        }
-                    }
-                    ast::Pattern::Some(name) => {
-                        if name != "_" {
-                            if let ast::Type::Option(inner) = &match_expr_ty {
-                                let var = Variable::new(*var_index as usize);
-                                *var_index += 1;
-                                let inner_ty = convert_ast_type(inner);
-                                builder.declare_var(var, inner_ty);
-                                let loaded =
-                                    builder.ins().load(inner_ty, MemFlags::new(), match_val, 0);
-                                builder.def_var(var, loaded);
-                                local_vars.insert(name.clone(), var);
-                                local_types.insert(name.clone(), inner.as_ref().clone());
-                            }
+                            local_types.insert(name.clone(), inner.as_ref().clone());
                         }
                     }
                     _ => {}

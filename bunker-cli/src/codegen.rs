@@ -928,31 +928,27 @@ fn compile_stmt_inline(
                 let mut local_types = parent_types.clone();
 
                 match &arm.pattern {
-                    ast::Pattern::Ident(name) => {
-                        if name != "_" {
+                    ast::Pattern::Ident(name) if name != "_" => {
+                        let var = Variable::new(*var_index as usize);
+                        *var_index += 1;
+                        let match_ty = convert_ast_type(&match_expr_ty);
+                        builder.declare_var(var, match_ty);
+                        let bound_val = cast_value(builder, match_val, match_ty);
+                        builder.def_var(var, bound_val);
+                        local_vars.insert(name.clone(), var);
+                        local_types.insert(name.clone(), match_expr_ty.clone());
+                    }
+                    ast::Pattern::Some(name) if name != "_" => {
+                        if let ast::Type::Option(inner) = &match_expr_ty {
                             let var = Variable::new(*var_index as usize);
                             *var_index += 1;
-                            let match_ty = convert_ast_type(&match_expr_ty);
-                            builder.declare_var(var, match_ty);
-                            let bound_val = cast_value(builder, match_val, match_ty);
-                            builder.def_var(var, bound_val);
+                            let inner_ty = convert_ast_type(inner);
+                            builder.declare_var(var, inner_ty);
+                            let loaded =
+                                builder.ins().load(inner_ty, MemFlags::new(), match_val, 0);
+                            builder.def_var(var, loaded);
                             local_vars.insert(name.clone(), var);
-                            local_types.insert(name.clone(), match_expr_ty.clone());
-                        }
-                    }
-                    ast::Pattern::Some(name) => {
-                        if name != "_" {
-                            if let ast::Type::Option(inner) = &match_expr_ty {
-                                let var = Variable::new(*var_index as usize);
-                                *var_index += 1;
-                                let inner_ty = convert_ast_type(inner);
-                                builder.declare_var(var, inner_ty);
-                                let loaded =
-                                    builder.ins().load(inner_ty, MemFlags::new(), match_val, 0);
-                                builder.def_var(var, loaded);
-                                local_vars.insert(name.clone(), var);
-                                local_types.insert(name.clone(), inner.as_ref().clone());
-                            }
+                            local_types.insert(name.clone(), inner.as_ref().clone());
                         }
                     }
                     _ => {}
@@ -1763,31 +1759,27 @@ fn compile_expr_inline(
                 let mut local_types = parent_types.clone();
 
                 match &arm.pattern {
-                    ast::Pattern::Ident(name) => {
-                        if name != "_" {
+                    ast::Pattern::Ident(name) if name != "_" => {
+                        let var = Variable::new(*var_index as usize);
+                        *var_index += 1;
+                        let match_ty = convert_ast_type(&match_expr_ty);
+                        builder.declare_var(var, match_ty);
+                        let bound_val = cast_value(builder, match_val, match_ty);
+                        builder.def_var(var, bound_val);
+                        local_vars.insert(name.clone(), var);
+                        local_types.insert(name.clone(), match_expr_ty.clone());
+                    }
+                    ast::Pattern::Some(name) if name != "_" => {
+                        if let ast::Type::Option(inner) = &match_expr_ty {
                             let var = Variable::new(*var_index as usize);
                             *var_index += 1;
-                            let match_ty = convert_ast_type(&match_expr_ty);
-                            builder.declare_var(var, match_ty);
-                            let bound_val = cast_value(builder, match_val, match_ty);
-                            builder.def_var(var, bound_val);
+                            let inner_ty = convert_ast_type(inner);
+                            builder.declare_var(var, inner_ty);
+                            let loaded =
+                                builder.ins().load(inner_ty, MemFlags::new(), match_val, 0);
+                            builder.def_var(var, loaded);
                             local_vars.insert(name.clone(), var);
-                            local_types.insert(name.clone(), match_expr_ty.clone());
-                        }
-                    }
-                    ast::Pattern::Some(name) => {
-                        if name != "_" {
-                            if let ast::Type::Option(inner) = &match_expr_ty {
-                                let var = Variable::new(*var_index as usize);
-                                *var_index += 1;
-                                let inner_ty = convert_ast_type(inner);
-                                builder.declare_var(var, inner_ty);
-                                let loaded =
-                                    builder.ins().load(inner_ty, MemFlags::new(), match_val, 0);
-                                builder.def_var(var, loaded);
-                                local_vars.insert(name.clone(), var);
-                                local_types.insert(name.clone(), inner.as_ref().clone());
-                            }
+                            local_types.insert(name.clone(), inner.as_ref().clone());
                         }
                     }
                     _ => {}
