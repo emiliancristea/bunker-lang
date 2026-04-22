@@ -2,7 +2,7 @@
 
 This is the authoritative implementation tracker for moving Bunker from a bootstrap language into a production language and then into full self-hosting.
 
-Last updated: 2026-04-19
+Last updated: 2026-04-22
 
 ## Operating Rules
 
@@ -30,8 +30,8 @@ Current bootstrap state after the latest self-host work:
 - CI gates arithmetic, functions, control flow, structs, arrays, strings, constants, recursion, bitwise ops, ternary, match, Option, Result, Vec, and HashMap fixtures through generated and stage2 compilers.
 - CI compares selected self-host outputs against Rust JIT results and checks stage1/stage2 generated C determinism.
 - The Rust compiler is still the production compiler and the bootstrap driver.
-- The self-host compiler entrypoint is now module-composed: constants, AST helpers, lexer, parser, C codegen, and driver live in imported Bunker modules.
-- AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, but the AST representation still uses raw `Vec<i64>` nodes.
+- The self-host compiler entrypoint is now module-composed: constants, AST helpers, lexer, parser, C codegen state, C codegen, and driver live in imported Bunker modules.
+- AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, and C codegen state layout is centralized in `modules/cgen_state.bkr`; the AST and codegen state representations still use raw `Vec<i64>` during bootstrap.
 - The language is not yet production-complete.
 
 ## Critical Path
@@ -68,6 +68,7 @@ These are the next concrete PR-sized slices.
 | Q-011 | DONE | Reduce `bkrc.bkr` to a module-composed entrypoint. | Entry point imports constants, lexer, parser, codegen, and driver modules; CI passes generated/stage2/golden gates. |
 | Q-012 | DONE | Introduce self-host AST layout helpers. | Parser constructs AST nodes through `modules/ast.bkr`; CI passes generated/stage2/golden gates. |
 | Q-013 | DONE | Route self-host parser/codegen through AST accessors. | Parser and C codegen read AST/type/pattern fields through `modules/ast.bkr`; CI passes generated/stage2/golden gates. |
+| Q-014 | DONE | Isolate self-host C codegen state. | C codegen uses `modules/cgen_state.bkr` for output, indentation, local/global/function/array type tables; CI passes generated/stage2/golden gates. |
 
 ## Language Core
 
@@ -214,7 +215,7 @@ These are the next concrete PR-sized slices.
 
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
-| CB-001 | PARTIAL | P0 | Bunker-written C codegen. | Codegen is modular and handles current self-host fixture set. |
+| CB-001 | PARTIAL | P0 | Bunker-written C codegen. | Codegen is modular, routes mutable state through cgen-state helpers, and handles current self-host fixture set. |
 | CB-002 | TODO | P0 | Typed C emission. | C output is driven by real types, not heuristics. |
 | CB-003 | TODO | P1 | Temporary variable generation. | Temps are hygienic and stable for nested expressions. |
 | CB-004 | PARTIAL | P1 | Portable C output. | GNU-only expressions are removed or CI documents/locks GNU-C requirement. |
@@ -340,3 +341,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-04-19 | Reduced `bkrc.bkr` to a module-composed entrypoint. | The entrypoint imports constants, lexer, parser, C codegen, and compiler driver modules in dependency order. |
 | 2026-04-19 | Introduced self-host AST layout helpers. | Parser node construction now goes through `self-host/modules/ast.bkr`, isolating the raw vector layout behind Bunker functions. |
 | 2026-04-19 | Routed self-host parser/codegen through AST accessors. | Expression, statement, item, type, pattern, and kernel reads now use `self-host/modules/ast.bkr` helpers instead of direct AST layout indexing. |
+| 2026-04-22 | Isolated self-host C codegen state. | C codegen state layout moved behind `self-host/modules/cgen_state.bkr`; `c_codegen.bkr` no longer directly indexes state fields. |

@@ -1694,52 +1694,50 @@ fn check_view_expr(
             message,
             target,
             args,
-        } => {
+        } if target.len() >= 2 => {
             // Validate send expression against shell message signatures
             // target is Vec<String> like ["App", "Worker"]
-            if target.len() >= 2 {
-                let shell_name = &target[0];
-                let agent_name = &target[1];
+            let shell_name = &target[0];
+            let agent_name = &target[1];
 
-                // Get message name
-                let msg_name = match message.as_ref() {
-                    ast::Expr::Literal(ast::Literal::String(s)) => s.trim_matches('"').to_string(),
-                    _ => return,
-                };
+            // Get message name
+            let msg_name = match message.as_ref() {
+                ast::Expr::Literal(ast::Literal::String(s)) => s.trim_matches('"').to_string(),
+                _ => return,
+            };
 
-                if let Some(shell_agents) = all_agent_messages.get(shell_name) {
-                    if let Some(agent_msgs) = shell_agents.get(agent_name) {
-                        if let Some(expected_params) = agent_msgs.get(&msg_name) {
-                            // Check argument count
-                            if args.len() != expected_params.len() {
-                                errors.push(TypeError {
-                                    message: format!(
-                                        "Send '{}' to {}.{} expects {} argument(s), got {}",
-                                        msg_name,
-                                        shell_name,
-                                        agent_name,
-                                        expected_params.len(),
-                                        args.len()
-                                    ),
-                                    location: view_name.to_string(),
-                                });
-                            }
+            if let Some(shell_agents) = all_agent_messages.get(shell_name) {
+                if let Some(agent_msgs) = shell_agents.get(agent_name) {
+                    if let Some(expected_params) = agent_msgs.get(&msg_name) {
+                        // Check argument count
+                        if args.len() != expected_params.len() {
+                            errors.push(TypeError {
+                                message: format!(
+                                    "Send '{}' to {}.{} expects {} argument(s), got {}",
+                                    msg_name,
+                                    shell_name,
+                                    agent_name,
+                                    expected_params.len(),
+                                    args.len()
+                                ),
+                                location: view_name.to_string(),
+                            });
+                        }
 
-                            // Check argument types
-                            for (expected_name, expected_ty) in expected_params {
-                                if let Some((_, arg_expr)) =
-                                    args.iter().find(|(n, _)| n == expected_name)
-                                {
-                                    let actual_ty = infer_literal_type(arg_expr);
-                                    if !types_are_compatible(expected_ty, &actual_ty) {
-                                        errors.push(TypeError {
-                                            message: format!(
-                                                "Send '{}' argument '{}' expects {:?}, got {:?}",
-                                                msg_name, expected_name, expected_ty, actual_ty
-                                            ),
-                                            location: view_name.to_string(),
-                                        });
-                                    }
+                        // Check argument types
+                        for (expected_name, expected_ty) in expected_params {
+                            if let Some((_, arg_expr)) =
+                                args.iter().find(|(n, _)| n == expected_name)
+                            {
+                                let actual_ty = infer_literal_type(arg_expr);
+                                if !types_are_compatible(expected_ty, &actual_ty) {
+                                    errors.push(TypeError {
+                                        message: format!(
+                                            "Send '{}' argument '{}' expects {:?}, got {:?}",
+                                            msg_name, expected_name, expected_ty, actual_ty
+                                        ),
+                                        location: view_name.to_string(),
+                                    });
                                 }
                             }
                         }

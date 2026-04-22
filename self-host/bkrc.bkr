@@ -11,6 +11,8 @@ kernel BunkerCompiler {
 
     import "modules/parser.bkr";
 
+    import "modules/cgen_state.bkr";
+
     import "modules/c_codegen.bkr";
 
     import "modules/driver.bkr";

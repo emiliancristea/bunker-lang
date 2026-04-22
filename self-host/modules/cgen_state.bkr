@@ -1,0 +1,217 @@
+    // ========================================
+    // C CODEGEN STATE HELPERS
+    // ========================================
+    //
+    // C codegen state is still represented as Vec<i64> during bootstrap.
+    // Keep its layout behind this module so the code generator can later move
+    // to a typed Bunker struct without changing emission logic.
+    //
+    // Layout:
+    // [output_lines, indent, kernel_name, names, local_names, local_types,
+    //  fn_names, fn_types, global_names, global_types,
+    //  array_names, array_lengths, array_elem_types]
+
+    fn cgen_new(kernel_name: str, names: Vec<str>) -> Vec<i64> {
+        let state: Vec<i64> = vec_new();
+        let lines: Vec<str> = vec_new();
+        let local_names: Vec<i64> = vec_new();
+        let local_types: Vec<i64> = vec_new();
+        let fn_names: Vec<i64> = vec_new();
+        let fn_types: Vec<i64> = vec_new();
+        let global_names: Vec<i64> = vec_new();
+        let global_types: Vec<i64> = vec_new();
+        let array_names: Vec<i64> = vec_new();
+        let array_lengths: Vec<i64> = vec_new();
+        let array_elem_types: Vec<i64> = vec_new();
+        vec_push(state, lines as i64);
+        vec_push(state, 0);
+        vec_push(state, kernel_name as i64);
+        vec_push(state, names as i64);
+        vec_push(state, local_names as i64);
+        vec_push(state, local_types as i64);
+        vec_push(state, fn_names as i64);
+        vec_push(state, fn_types as i64);
+        vec_push(state, global_names as i64);
+        vec_push(state, global_types as i64);
+        vec_push(state, array_names as i64);
+        vec_push(state, array_lengths as i64);
+        vec_push(state, array_elem_types as i64);
+        return state;
+    }
+
+    fn cgen_lines(state: Vec<i64>) -> Vec<str> {
+        return vec_get(state, 0) as Vec<str>;
+    }
+
+    fn cgen_indent_level(state: Vec<i64>) -> i64 {
+        return vec_get(state, 1);
+    }
+
+    fn cgen_set_indent_level(state: Vec<i64>, indent: i64) -> Vec<i64> {
+        vec_set(state, 1, indent);
+        return state;
+    }
+
+    fn cgen_names(state: Vec<i64>) -> Vec<str> {
+        return vec_get(state, 3) as Vec<str>;
+    }
+
+    fn cgen_local_names(state: Vec<i64>) -> Vec<i64> {
+        return vec_get(state, 4) as Vec<i64>;
+    }
+
+    fn cgen_local_types(state: Vec<i64>) -> Vec<i64> {
+        return vec_get(state, 5) as Vec<i64>;
+    }
+
+    fn cgen_fn_names(state: Vec<i64>) -> Vec<i64> {
+        return vec_get(state, 6) as Vec<i64>;
+    }
+
+    fn cgen_fn_types(state: Vec<i64>) -> Vec<i64> {
+        return vec_get(state, 7) as Vec<i64>;
+    }
+
+    fn cgen_global_names(state: Vec<i64>) -> Vec<i64> {
+        return vec_get(state, 8) as Vec<i64>;
+    }
+
+    fn cgen_global_types(state: Vec<i64>) -> Vec<i64> {
+        return vec_get(state, 9) as Vec<i64>;
+    }
+
+    fn cgen_array_names(state: Vec<i64>) -> Vec<i64> {
+        return vec_get(state, 10) as Vec<i64>;
+    }
+
+    fn cgen_array_lengths(state: Vec<i64>) -> Vec<i64> {
+        return vec_get(state, 11) as Vec<i64>;
+    }
+
+    fn cgen_array_elem_types(state: Vec<i64>) -> Vec<i64> {
+        return vec_get(state, 12) as Vec<i64>;
+    }
+
+    fn cgen_emit(state: Vec<i64>, line: str) -> Vec<i64> {
+        let lines = cgen_lines(state);
+        let indent = cgen_indent_level(state);
+        let prefix: str = "";
+        let i: i64 = 0;
+        while i < indent {
+            prefix = prefix + "    ";
+            i = i + 1;
+        }
+        vec_push(lines, prefix + line);
+        return state;
+    }
+
+    fn cgen_indent(state: Vec<i64>) -> Vec<i64> {
+        cgen_set_indent_level(state, cgen_indent_level(state) + 1);
+        return state;
+    }
+
+    fn cgen_dedent(state: Vec<i64>) -> Vec<i64> {
+        cgen_set_indent_level(state, cgen_indent_level(state) - 1);
+        return state;
+    }
+
+    fn cgen_clear_locals(state: Vec<i64>) -> Vec<i64> {
+        let local_names: Vec<i64> = vec_new();
+        let local_types: Vec<i64> = vec_new();
+        let array_names: Vec<i64> = vec_new();
+        let array_lengths: Vec<i64> = vec_new();
+        let array_elem_types: Vec<i64> = vec_new();
+        vec_set(state, 4, local_names as i64);
+        vec_set(state, 5, local_types as i64);
+        vec_set(state, 10, array_names as i64);
+        vec_set(state, 11, array_lengths as i64);
+        vec_set(state, 12, array_elem_types as i64);
+        return state;
+    }
+
+    fn cgen_add_local_type(state: Vec<i64>, name_idx: i64, kind: i64) -> Vec<i64> {
+        let local_names = cgen_local_names(state);
+        let local_types = cgen_local_types(state);
+        vec_push(local_names, name_idx);
+        vec_push(local_types, kind);
+        return state;
+    }
+
+    fn cgen_add_fn_type(state: Vec<i64>, name_idx: i64, kind: i64) -> Vec<i64> {
+        let fn_names = cgen_fn_names(state);
+        let fn_types = cgen_fn_types(state);
+        vec_push(fn_names, name_idx);
+        vec_push(fn_types, kind);
+        return state;
+    }
+
+    fn cgen_add_global_type(state: Vec<i64>, name_idx: i64, kind: i64) -> Vec<i64> {
+        let global_names = cgen_global_names(state);
+        let global_types = cgen_global_types(state);
+        vec_push(global_names, name_idx);
+        vec_push(global_types, kind);
+        return state;
+    }
+
+    fn cgen_add_array_type(state: Vec<i64>, name_idx: i64, elem_kind: i64, len_value: i64) -> Vec<i64> {
+        let array_names = cgen_array_names(state);
+        let array_lengths = cgen_array_lengths(state);
+        let array_elem_types = cgen_array_elem_types(state);
+        vec_push(array_names, name_idx);
+        vec_push(array_lengths, len_value);
+        vec_push(array_elem_types, elem_kind);
+        return state;
+    }
+
+    fn cgen_lookup_array_length(state: Vec<i64>, name_idx: i64) -> i64 {
+        let array_names = cgen_array_names(state);
+        let array_lengths = cgen_array_lengths(state);
+        let result: i64 = -1;
+        let i: i64 = 0;
+        while i < vec_len(array_names) {
+            if vec_get(array_names, i) == name_idx {
+                result = vec_get(array_lengths, i);
+            }
+            i = i + 1;
+        }
+        return result;
+    }
+
+    fn cgen_lookup_array_elem_type(state: Vec<i64>, name_idx: i64) -> i64 {
+        let array_names = cgen_array_names(state);
+        let array_elem_types = cgen_array_elem_types(state);
+        let result: i64 = TYPE_UNKNOWN;
+        let i: i64 = 0;
+        while i < vec_len(array_names) {
+            if vec_get(array_names, i) == name_idx {
+                result = vec_get(array_elem_types, i);
+            }
+            i = i + 1;
+        }
+        return result;
+    }
+
+    fn cgen_lookup_pair(names: Vec<i64>, types: Vec<i64>, name_idx: i64) -> i64 {
+        let result = TYPE_UNKNOWN;
+        let i: i64 = 0;
+        while i < vec_len(names) {
+            if vec_get(names, i) == name_idx {
+                result = vec_get(types, i);
+            }
+            i = i + 1;
+        }
+        return result;
+    }
+
+    fn cgen_lookup_name_type(state: Vec<i64>, name_idx: i64) -> i64 {
+        let local_kind = cgen_lookup_pair(cgen_local_names(state), cgen_local_types(state), name_idx);
+        if local_kind != TYPE_UNKNOWN {
+            return local_kind;
+        }
+
+        return cgen_lookup_pair(cgen_global_names(state), cgen_global_types(state), name_idx);
+    }
+
+    fn cgen_lookup_fn_type(state: Vec<i64>, name_idx: i64) -> i64 {
+        return cgen_lookup_pair(cgen_fn_names(state), cgen_fn_types(state), name_idx);
+    }

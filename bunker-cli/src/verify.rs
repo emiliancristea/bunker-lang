@@ -676,11 +676,9 @@ fn build_counterexample(diff: &LinExpr, bounds: &[Bound]) -> BTreeMap<String, i1
                         changed = true;
                     }
                 }
-                ast::BinaryOp::Eq => {
-                    if *entry != rhs_val {
-                        *entry = rhs_val;
-                        changed = true;
-                    }
+                ast::BinaryOp::Eq if *entry != rhs_val => {
+                    *entry = rhs_val;
+                    changed = true;
                 }
                 _ => {}
             }

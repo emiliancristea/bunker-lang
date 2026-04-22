@@ -433,19 +433,16 @@ fn build_if_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
-            Rule::expr => {
-                if !found_condition {
-                    condition = build_expr(inner)?;
-                    found_condition = true;
-                }
+            Rule::expr if !found_condition => {
+                condition = build_expr(inner)?;
+                found_condition = true;
+            }
+            Rule::block if !found_then => {
+                then_block = build_block(inner)?;
+                found_then = true;
             }
             Rule::block => {
-                if !found_then {
-                    then_block = build_block(inner)?;
-                    found_then = true;
-                } else {
-                    else_block = Some(build_block(inner)?);
-                }
+                else_block = Some(build_block(inner)?);
             }
             Rule::if_stmt => {
                 let nested_if = build_if_stmt(inner)?;
@@ -1122,11 +1119,9 @@ fn build_if_expr(pair: Pair<Rule>) -> Result<Expr, String> {
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
-            Rule::expr => {
-                if !found_cond {
-                    condition = build_expr(inner)?;
-                    found_cond = true;
-                }
+            Rule::expr if !found_cond => {
+                condition = build_expr(inner)?;
+                found_cond = true;
             }
             Rule::block => {
                 blocks.push(build_block(inner)?);

@@ -94,7 +94,7 @@ impl ComptimeEvaluator {
 
         // Build initial environment with parameter bindings
         let mut env: HashMap<String, ComptimeValue> = HashMap::new();
-        for (param, value) in func.params.iter().zip(arg_values.into_iter()) {
+        for (param, value) in func.params.iter().zip(arg_values) {
             env.insert(param.name.clone(), value);
         }
 
