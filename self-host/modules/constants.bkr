@@ -105,7 +105,7 @@
     const AST_CAT_DECL: i64 = 5;
 
     // ===== AST Span/Layout Constants =====
-    const AST_SPAN_UNKNOWN: i64 = -1;
+    const AST_SPAN_UNKNOWN: i64 = 2147483647;
     const AST_NODE_SPAN_START_INDEX: i64 = 1;
     const AST_NODE_SPAN_END_INDEX: i64 = 2;
     const AST_NODE_DATA_OFFSET: i64 = 2;

@@ -49,7 +49,7 @@
     }
 
     fn ast_span_is_known(span: Vec<i64>) -> bool {
-        return ast_span_start(span) >= 0 && ast_span_end(span) >= 0;
+        return ast_span_start(span) != AST_SPAN_UNKNOWN && ast_span_end(span) != AST_SPAN_UNKNOWN;
     }
 
     fn ast_node_span_start(node: Vec<i64>) -> i64 {
