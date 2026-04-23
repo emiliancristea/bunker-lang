@@ -1,0 +1,35 @@
+    // ========================================
+    // LEXER RESULT HELPERS
+    // ========================================
+    //
+    // Lexer results are still represented as Vec<i64> during bootstrap.
+    // Keep the output table layout behind this module so the parser can later
+    // consume a typed lexer result without changing parse logic.
+    //
+    // Layout:
+    // [tokens, names, values, strings]
+
+    fn lexer_result_new(tokens: Vec<i64>, names: Vec<str>, values: Vec<i64>, strings: Vec<str>) -> Vec<i64> {
+        let result: Vec<i64> = vec_new();
+        vec_push(result, tokens as i64);
+        vec_push(result, names as i64);
+        vec_push(result, values as i64);
+        vec_push(result, strings as i64);
+        return result;
+    }
+
+    fn lexer_result_tokens(result: Vec<i64>) -> Vec<i64> {
+        return vec_get(result, 0) as Vec<i64>;
+    }
+
+    fn lexer_result_names(result: Vec<i64>) -> Vec<str> {
+        return vec_get(result, 1) as Vec<str>;
+    }
+
+    fn lexer_result_values(result: Vec<i64>) -> Vec<i64> {
+        return vec_get(result, 2) as Vec<i64>;
+    }
+
+    fn lexer_result_strings(result: Vec<i64>) -> Vec<str> {
+        return vec_get(result, 3) as Vec<str>;
+    }

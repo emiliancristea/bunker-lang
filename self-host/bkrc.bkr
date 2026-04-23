@@ -7,6 +7,8 @@ kernel BunkerCompiler {
 
     import "modules/ast.bkr";
 
+    import "modules/lexer_result.bkr";
+
     import "modules/lexer.bkr";
 
     import "modules/parser_state.bkr";

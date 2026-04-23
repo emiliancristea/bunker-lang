@@ -30,8 +30,8 @@ Current bootstrap state after the latest self-host work:
 - CI gates arithmetic, functions, control flow, structs, arrays, strings, constants, recursion, bitwise ops, ternary, match, Option, Result, Vec, and HashMap fixtures through generated and stage2 compilers.
 - CI compares selected self-host outputs against Rust JIT results and checks stage1/stage2 generated C determinism.
 - The Rust compiler is still the production compiler and the bootstrap driver.
-- The self-host compiler entrypoint is now module-composed: constants, AST helpers, lexer, parser state, parser, C codegen state, C codegen, and driver live in imported Bunker modules.
-- AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, parser state layout is centralized in `modules/parser_state.bkr`, and C codegen state layout is centralized in `modules/cgen_state.bkr`; the AST, parser state, and codegen state representations still use raw `Vec<i64>` during bootstrap.
+- The self-host compiler entrypoint is now module-composed: constants, AST helpers, lexer result helpers, lexer, parser state, parser, C codegen state, C codegen, and driver live in imported Bunker modules.
+- AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, lexer result layout is centralized in `modules/lexer_result.bkr`, parser state layout is centralized in `modules/parser_state.bkr`, and C codegen state layout is centralized in `modules/cgen_state.bkr`; the AST, lexer result, parser state, and codegen state representations still use raw `Vec<i64>` during bootstrap.
 - The language is not yet production-complete.
 
 ## Critical Path
@@ -70,6 +70,7 @@ These are the next concrete PR-sized slices.
 | Q-013 | DONE | Route self-host parser/codegen through AST accessors. | Parser and C codegen read AST/type/pattern fields through `modules/ast.bkr`; CI passes generated/stage2/golden gates. |
 | Q-014 | DONE | Isolate self-host C codegen state. | C codegen uses `modules/cgen_state.bkr` for output, indentation, local/global/function/array type tables; CI passes generated/stage2/golden gates. |
 | Q-015 | DONE | Isolate self-host parser state. | Parser uses `modules/parser_state.bkr` for token tables, cursor position, and first-error tracking; CI passes generated/stage2/golden gates. |
+| Q-016 | DONE | Isolate self-host lexer result layout. | Lexer constructs results through `modules/lexer_result.bkr`, and parser state reads lexer output through lexer-result helpers; CI passes generated/stage2/golden gates. |
 
 ## Language Core
 
@@ -199,7 +200,7 @@ These are the next concrete PR-sized slices.
 
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
-| CF-001 | PARTIAL | P0 | Reusable Bunker lexer. | Lexer exists as module, not monolithic embedded code. |
+| CF-001 | PARTIAL | P0 | Reusable Bunker lexer. | Lexer exists as module and routes lexer output layout through lexer-result helpers. |
 | CF-002 | PARTIAL | P0 | Reusable Bunker parser. | Parser exists as module with recovery/spans and routes parser state through parser-state helpers. |
 | CF-003 | PARTIAL | P0 | AST definitions in Bunker. | AST construction plus parser/codegen reads are centralized in Bunker helpers; final gate requires structs/enums instead of raw `Vec<i64>` tags. |
 | CF-004 | TODO | P0 | Source spans on AST nodes. | Every node carries file/line/column/byte offsets. |
@@ -344,3 +345,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-04-19 | Routed self-host parser/codegen through AST accessors. | Expression, statement, item, type, pattern, and kernel reads now use `self-host/modules/ast.bkr` helpers instead of direct AST layout indexing. |
 | 2026-04-22 | Isolated self-host C codegen state. | C codegen state layout moved behind `self-host/modules/cgen_state.bkr`; `c_codegen.bkr` no longer directly indexes state fields. |
 | 2026-04-23 | Isolated self-host parser state. | Parser state layout moved behind `self-host/modules/parser_state.bkr`; `parser.bkr` no longer directly indexes parser state fields. |
+| 2026-04-23 | Isolated self-host lexer result layout. | Lexer result layout moved behind `self-host/modules/lexer_result.bkr`; parser state no longer directly indexes lexer result fields. |
