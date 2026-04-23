@@ -69,12 +69,7 @@
                 vec_push(tokens, TOK_EOF);
                 vec_push(tokens, pos);
                 vec_push(tokens, pos);
-                let result: Vec<i64> = vec_new();
-                vec_push(result, tokens as i64);
-                vec_push(result, names as i64);
-                vec_push(result, values as i64);
-                vec_push(result, strings as i64);
-                return result;
+                return lexer_result_new(tokens, names, values, strings);
             }
 
             let start = pos;
@@ -231,10 +226,5 @@
         vec_push(tokens, pos);
         vec_push(tokens, pos);
 
-        let result: Vec<i64> = vec_new();
-        vec_push(result, tokens as i64);
-        vec_push(result, names as i64);
-        vec_push(result, values as i64);
-        vec_push(result, strings as i64);
-        return result;
+        return lexer_result_new(tokens, names, values, strings);
     }

@@ -12,10 +12,10 @@
 
     fn parser_new(lex_result: Vec<i64>) -> Vec<i64> {
         let state: Vec<i64> = vec_new();
-        vec_push(state, vec_get(lex_result, 0));
-        vec_push(state, vec_get(lex_result, 1));
-        vec_push(state, vec_get(lex_result, 2));
-        vec_push(state, vec_get(lex_result, 3));
+        vec_push(state, lexer_result_tokens(lex_result) as i64);
+        vec_push(state, lexer_result_names(lex_result) as i64);
+        vec_push(state, lexer_result_values(lex_result) as i64);
+        vec_push(state, lexer_result_strings(lex_result) as i64);
         vec_push(state, 0);
         vec_push(state, 0);
         vec_push(state, -1);
