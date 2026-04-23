@@ -9,6 +9,8 @@ kernel BunkerCompiler {
 
     import "modules/lexer.bkr";
 
+    import "modules/parser_state.bkr";
+
     import "modules/parser.bkr";
 
     import "modules/cgen_state.bkr";
