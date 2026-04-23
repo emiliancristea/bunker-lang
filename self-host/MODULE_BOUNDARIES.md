@@ -9,7 +9,7 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 | Order | Module | Source Section | Responsibility |
 |---:|---|---|---|
 | 1 | `modules/constants.bkr` | Token, AST, pattern, and type constants | Shared numeric tags used by all later modules. |
-| 2 | `modules/ast.bkr` | AST layout helpers | Centralize raw AST construction/access behind named Bunker functions. |
+| 2 | `modules/ast.bkr` | AST layout helpers | Centralize raw AST construction/access, node spans, and block child iteration behind named Bunker functions. |
 | 3 | `modules/lexer_result.bkr` | Lexer result helpers | Centralize lexer output table layout for tokens, names, values, and strings. |
 | 4 | `modules/lexer.bkr` | `LEXER` | Convert source text into token/name/value/string tables through lexer-result helpers. |
 | 5 | `modules/parser_state.bkr` | Parser state helpers | Centralize parser state layout, token table access, position movement, and first-error tracking. |
@@ -22,12 +22,12 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 
 | Module | Required Exports |
 |---|---|
-| `modules/constants.bkr` | All `TOK_*`, `NODE_*`, `PAT_*`, and `TYPE_*` constants. |
-| `modules/ast.bkr` | `ast_*` constructors/accessors, category helpers, kind-name helpers, and predicates for the current AST vector/type/pattern layout. |
+| `modules/constants.bkr` | All `TOK_*`, `NODE_*`, `AST_*`, `PAT_*`, and `TYPE_*` constants. |
+| `modules/ast.bkr` | `ast_*` constructors/accessors, source-span helpers, block iteration helpers, category helpers, kind-name helpers, and predicates for the current AST vector/type/pattern layout. |
 | `modules/lexer_result.bkr` | `lexer_result_*` constructors/accessors for the current lexer output table layout. |
 | `modules/lexer.bkr` | `tokenize`, `intern_name`, character helpers needed by tokenization. |
 | `modules/parser_state.bkr` | `parser_*` state constructors, token/name/value/string accessors, cursor helpers, and first-error helpers. |
-| `modules/parser.bkr` | `parse_kernel`, token display helpers, grammar routines, and parser diagnostic span helpers. |
+| `modules/parser.bkr` | `parse_kernel`, token display helpers, grammar routines, parser diagnostic span helpers, and parser-side AST span attachment. |
 | `modules/cgen_state.bkr` | `cgen_*` state constructors, accessors, mutation helpers, and lookup helpers for C codegen state. |
 | `modules/c_codegen.bkr` | `gen_c_program`, C escaping/name helpers, type inference helpers used by codegen. |
 | `modules/driver.bkr` | `compile_to_c`, `main`. |

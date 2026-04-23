@@ -238,8 +238,8 @@
             let bodies = ast_match_bodies(expr);
             if vec_len(bodies) > 0 {
                 let body = vec_get(bodies, 0) as Vec<i64>;
-                if ast_is_block(body) && vec_len(body) > 1 {
-                    let last_stmt = vec_get(body, vec_len(body) - 1) as Vec<i64>;
+                if ast_is_block(body) && ast_block_stmt_count(body) > 0 {
+                    let last_stmt = ast_block_last_stmt(body);
                     if ast_is_expr_stmt(last_stmt) {
                         return infer_c_expr_type(state, ast_expr_stmt_expr(last_stmt));
                     }
@@ -300,11 +300,12 @@
         }
 
         let result = "{ ";
-        let i: i64 = 1;
-        while i < vec_len(body) {
-            let stmt = vec_get(body, i) as Vec<i64>;
+        let i: i64 = 0;
+        let count = ast_block_stmt_count(body);
+        while i < count {
+            let stmt = ast_block_stmt(body, i);
             let stmt_type = ast_kind(stmt);
-            let is_last = i == vec_len(body) - 1;
+            let is_last = i == count - 1;
 
             if is_last && stmt_type == NODE_EXPR_STMT {
                 result = result + result_name + " = " + gen_c_expr(state, ast_expr_stmt_expr(stmt)) + "; ";
@@ -793,9 +794,10 @@
     }
 
     fn gen_c_block(state: Vec<i64>, block: Vec<i64>) -> Vec<i64> {
-        let i: i64 = 1;
-        while i < vec_len(block) {
-            gen_c_stmt(state, vec_get(block, i) as Vec<i64>);
+        let i: i64 = 0;
+        let count = ast_block_stmt_count(block);
+        while i < count {
+            gen_c_stmt(state, ast_block_stmt(block, i));
             i = i + 1;
         }
         return state;
