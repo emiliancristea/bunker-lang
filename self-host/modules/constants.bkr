@@ -96,6 +96,14 @@
     const NODE_STRUCT_LIT: i64 = 35;
     const NODE_MATCH: i64 = 36;
 
+    // ===== AST Category Constants =====
+    const AST_CAT_UNKNOWN: i64 = 0;
+    const AST_CAT_ITEM: i64 = 1;
+    const AST_CAT_STMT: i64 = 2;
+    const AST_CAT_EXPR: i64 = 3;
+    const AST_CAT_TYPE: i64 = 4;
+    const AST_CAT_DECL: i64 = 5;
+
     // ===== Pattern Constants =====
     const PAT_INT: i64 = 1;
     const PAT_BOOL: i64 = 2;
