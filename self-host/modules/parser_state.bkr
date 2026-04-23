@@ -1,0 +1,144 @@
+    // ========================================
+    // PARSER STATE HELPERS
+    // ========================================
+    //
+    // Parser state is still represented as Vec<i64> during bootstrap.
+    // Keep its layout behind this module so the parser can later move to a
+    // typed Bunker struct without changing parsing logic.
+    //
+    // Layout:
+    // [tokens, names, values, strings, position, error_flag,
+    //  first_error_position, first_expected_token, first_actual_token]
+
+    fn parser_new(lex_result: Vec<i64>) -> Vec<i64> {
+        let state: Vec<i64> = vec_new();
+        vec_push(state, vec_get(lex_result, 0));
+        vec_push(state, vec_get(lex_result, 1));
+        vec_push(state, vec_get(lex_result, 2));
+        vec_push(state, vec_get(lex_result, 3));
+        vec_push(state, 0);
+        vec_push(state, 0);
+        vec_push(state, -1);
+        vec_push(state, TOK_EOF);
+        vec_push(state, TOK_EOF);
+        return state;
+    }
+
+    fn parser_tokens(p: Vec<i64>) -> Vec<i64> {
+        return vec_get(p, 0) as Vec<i64>;
+    }
+
+    fn parser_names(p: Vec<i64>) -> Vec<str> {
+        return vec_get(p, 1) as Vec<str>;
+    }
+
+    fn parser_values(p: Vec<i64>) -> Vec<i64> {
+        return vec_get(p, 2) as Vec<i64>;
+    }
+
+    fn parser_strings(p: Vec<i64>) -> Vec<str> {
+        return vec_get(p, 3) as Vec<str>;
+    }
+
+    fn parser_position(p: Vec<i64>) -> i64 {
+        return vec_get(p, 4);
+    }
+
+    fn parser_set_position(p: Vec<i64>, pos: i64) -> Vec<i64> {
+        vec_set(p, 4, pos);
+        return p;
+    }
+
+    fn parser_set_error_flag(p: Vec<i64>, flag: i64) -> Vec<i64> {
+        vec_set(p, 5, flag);
+        return p;
+    }
+
+    fn parser_set_error_position(p: Vec<i64>, pos: i64) -> Vec<i64> {
+        vec_set(p, 6, pos);
+        return p;
+    }
+
+    fn parser_set_error_expected(p: Vec<i64>, expected: i64) -> Vec<i64> {
+        vec_set(p, 7, expected);
+        return p;
+    }
+
+    fn parser_set_error_actual(p: Vec<i64>, actual: i64) -> Vec<i64> {
+        vec_set(p, 8, actual);
+        return p;
+    }
+
+    fn parser_peek(p: Vec<i64>) -> i64 {
+        let tokens = parser_tokens(p);
+        let pos = parser_position(p);
+        let idx = pos * 3;
+        if idx >= vec_len(tokens) { return TOK_EOF; }
+        return vec_get(tokens, idx);
+    }
+
+    fn parser_peek_value(p: Vec<i64>) -> i64 {
+        let tokens = parser_tokens(p);
+        let pos = parser_position(p);
+        return vec_get(tokens, pos * 3 + 1);
+    }
+
+    fn parser_peek_at(p: Vec<i64>, offset: i64) -> i64 {
+        let tokens = parser_tokens(p);
+        let pos = parser_position(p) + offset;
+        let idx = pos * 3;
+        if idx >= vec_len(tokens) { return TOK_EOF; }
+        return vec_get(tokens, idx);
+    }
+
+    fn parser_advance(p: Vec<i64>) -> i64 {
+        parser_set_position(p, parser_position(p) + 1);
+        return parser_peek(p);
+    }
+
+    fn parser_expect(p: Vec<i64>, expected: i64) -> bool {
+        if parser_peek(p) == expected {
+            parser_advance(p);
+            return true;
+        }
+        parser_mark_error(p, expected);
+        return false;
+    }
+
+    fn parser_mark_error(p: Vec<i64>, expected: i64) -> Vec<i64> {
+        parser_set_error_flag(p, 1);
+        if parser_error_position(p) < 0 {
+            parser_set_error_position(p, parser_position(p));
+            parser_set_error_expected(p, expected);
+            parser_set_error_actual(p, parser_peek(p));
+        }
+        return p;
+    }
+
+    fn parser_get_name(p: Vec<i64>, idx: i64) -> str {
+        return vec_get(parser_names(p), idx);
+    }
+
+    fn parser_get_value(p: Vec<i64>, idx: i64) -> i64 {
+        return vec_get(parser_values(p), idx);
+    }
+
+    fn parser_get_string(p: Vec<i64>, idx: i64) -> str {
+        return vec_get(parser_strings(p), idx);
+    }
+
+    fn parser_has_error(p: Vec<i64>) -> bool {
+        return vec_get(p, 5) != 0;
+    }
+
+    fn parser_error_position(p: Vec<i64>) -> i64 {
+        return vec_get(p, 6);
+    }
+
+    fn parser_error_expected(p: Vec<i64>) -> i64 {
+        return vec_get(p, 7);
+    }
+
+    fn parser_error_actual(p: Vec<i64>) -> i64 {
+        return vec_get(p, 8);
+    }
