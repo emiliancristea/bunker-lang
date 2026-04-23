@@ -196,7 +196,7 @@
 
         if node_type == NODE_INDEX {
             let base = ast_index_base(expr);
-            if ast_kind(base) == NODE_IDENT {
+            if ast_is_ident(base) {
                 return cgen_lookup_array_elem_type(state, ast_name_idx(base));
             }
             return TYPE_UNKNOWN;
@@ -238,9 +238,9 @@
             let bodies = ast_match_bodies(expr);
             if vec_len(bodies) > 0 {
                 let body = vec_get(bodies, 0) as Vec<i64>;
-                if ast_kind(body) == NODE_BLOCK && vec_len(body) > 1 {
+                if ast_is_block(body) && vec_len(body) > 1 {
                     let last_stmt = vec_get(body, vec_len(body) - 1) as Vec<i64>;
-                    if ast_kind(last_stmt) == NODE_EXPR_STMT {
+                    if ast_is_expr_stmt(last_stmt) {
                         return infer_c_expr_type(state, ast_expr_stmt_expr(last_stmt));
                     }
                     return TYPE_UNKNOWN;
@@ -295,7 +295,7 @@
     }
 
     fn gen_c_inline_block_result(state: Vec<i64>, result_name: str, body: Vec<i64>) -> str {
-        if ast_kind(body) != NODE_BLOCK {
+        if !ast_is_block(body) {
             return result_name + " = " + gen_c_expr(state, body) + "; ";
         }
 
@@ -398,7 +398,7 @@
     }
 
     fn is_raw_payload_call(state: Vec<i64>, expr: Vec<i64>) -> bool {
-        if ast_kind(expr) != NODE_CALL {
+        if !ast_is_call(expr) {
             return false;
         }
         let name_idx = ast_call_name_idx(expr);
@@ -598,7 +598,7 @@
             }
             if raw == "len" && vec_len(args) == 1 {
                 let arg = vec_get(args, 0) as Vec<i64>;
-                if ast_kind(arg) == NODE_IDENT {
+                if ast_is_ident(arg) {
                     let array_len = cgen_lookup_array_length(state, ast_name_idx(arg));
                     if array_len >= 0 {
                         return int_to_string(array_len);
@@ -906,7 +906,7 @@
         let i: i64 = 0;
         while i < vec_len(items) {
             let item = vec_get(items, i) as Vec<i64>;
-            if ast_kind(item) == NODE_STRUCT {
+            if ast_is_struct_item(item) {
                 gen_c_struct(state, item);
             }
             i = i + 1;
@@ -919,7 +919,7 @@
         let i: i64 = 0;
         while i < vec_len(items) {
             let item = vec_get(items, i) as Vec<i64>;
-            if ast_kind(item) == NODE_FN {
+            if ast_is_fn_item(item) {
                 let ret_type_node = ast_fn_return_type(item);
                 let kind = TYPE_VOID;
                 if ret_type_node != 0 {
@@ -937,7 +937,7 @@
         let i: i64 = 0;
         while i < vec_len(items) {
             let item = vec_get(items, i) as Vec<i64>;
-            if ast_kind(item) == NODE_CONST {
+            if ast_is_const_item(item) {
                 gen_c_const(state, item);
             }
             i = i + 1;
@@ -950,7 +950,7 @@
         let i: i64 = 0;
         while i < vec_len(items) {
             let item = vec_get(items, i) as Vec<i64>;
-            if ast_kind(item) == NODE_FN {
+            if ast_is_fn_item(item) {
                 gen_c_prototype(state, item);
             }
             i = i + 1;
@@ -963,7 +963,7 @@
         let i: i64 = 0;
         while i < vec_len(items) {
             let item = vec_get(items, i) as Vec<i64>;
-            if ast_kind(item) == NODE_FN {
+            if ast_is_fn_item(item) {
                 gen_c_fn(state, item);
             }
             i = i + 1;
