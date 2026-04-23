@@ -163,8 +163,9 @@
     fn build_parse_diagnostic(source: str, p: Vec<i64>) -> str {
         let expected = token_name(parser_error_expected(p));
         let actual = token_name(parser_error_actual(p));
-        let source_start = parser_error_token_start(p);
-        let source_end = parser_error_token_end(p);
+        let error_span = parser_error_span(p);
+        let source_start = ast_span_start(error_span);
+        let source_end = ast_span_end(error_span);
         let source_line = source_line_at(source, source_start);
         let source_column = source_column_at(source, source_start);
         let repair_hint = "Inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, match expressions, Option<T> via Some/None, Result<T,E> via result_* builtins, Vec<T> and HashMap<i32,V> runtime handles, for-in ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary expressions, bitwise operators, and basic expressions.";

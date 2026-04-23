@@ -9,6 +9,8 @@
     fn ast_new(kind: i64) -> Vec<i64> {
         let node: Vec<i64> = vec_new();
         vec_push(node, kind);
+        vec_push(node, AST_SPAN_UNKNOWN);
+        vec_push(node, AST_SPAN_UNKNOWN);
         return node;
     }
 
@@ -19,6 +21,65 @@
 
     fn ast_kind(node: Vec<i64>) -> i64 {
         return vec_get(node, 0);
+    }
+
+    fn ast_span(start: i64, end: i64) -> Vec<i64> {
+        let span: Vec<i64> = vec_new();
+        vec_push(span, start);
+        vec_push(span, end);
+        return span;
+    }
+
+    fn ast_span_unknown() -> Vec<i64> {
+        return ast_span(AST_SPAN_UNKNOWN, AST_SPAN_UNKNOWN);
+    }
+
+    fn ast_span_start(span: Vec<i64>) -> i64 {
+        if vec_len(span) < 1 {
+            return AST_SPAN_UNKNOWN;
+        }
+        return vec_get(span, 0);
+    }
+
+    fn ast_span_end(span: Vec<i64>) -> i64 {
+        if vec_len(span) < 2 {
+            return AST_SPAN_UNKNOWN;
+        }
+        return vec_get(span, 1);
+    }
+
+    fn ast_span_is_known(span: Vec<i64>) -> bool {
+        return ast_span_start(span) >= 0 && ast_span_end(span) >= 0;
+    }
+
+    fn ast_node_span_start(node: Vec<i64>) -> i64 {
+        return vec_get(node, AST_NODE_SPAN_START_INDEX);
+    }
+
+    fn ast_node_span_end(node: Vec<i64>) -> i64 {
+        return vec_get(node, AST_NODE_SPAN_END_INDEX);
+    }
+
+    fn ast_node_span(node: Vec<i64>) -> Vec<i64> {
+        return ast_span(ast_node_span_start(node), ast_node_span_end(node));
+    }
+
+    fn ast_node_has_span(node: Vec<i64>) -> bool {
+        return ast_span_is_known(ast_node_span(node));
+    }
+
+    fn ast_set_span(node: Vec<i64>, start: i64, end: i64) -> Vec<i64> {
+        vec_set(node, AST_NODE_SPAN_START_INDEX, start);
+        vec_set(node, AST_NODE_SPAN_END_INDEX, end);
+        return node;
+    }
+
+    fn ast_set_span_from(node: Vec<i64>, span: Vec<i64>) -> Vec<i64> {
+        return ast_set_span(node, ast_span_start(span), ast_span_end(span));
+    }
+
+    fn ast_has_field(node: Vec<i64>, index: i64) -> bool {
+        return vec_len(node) > index + AST_NODE_DATA_OFFSET;
     }
 
     fn ast_node_kind_name(kind: i64) -> str {
@@ -188,14 +249,14 @@
     }
 
     fn ast_field(node: Vec<i64>, index: i64) -> i64 {
-        return vec_get(node, index);
+        return vec_get(node, index + AST_NODE_DATA_OFFSET);
     }
 
     fn ast_type_kind_value(type_node: i64) -> i64 {
         if type_node == 0 {
             return TYPE_UNKNOWN;
         }
-        return vec_get(type_node as Vec<i64>, 1);
+        return ast_field(type_node as Vec<i64>, 1);
     }
 
     fn ast_type_struct_name_idx_value(type_node: i64) -> i64 {
@@ -203,8 +264,8 @@
             return -1;
         }
         let node = type_node as Vec<i64>;
-        if vec_len(node) > 2 && vec_get(node, 1) == TYPE_STRUCT {
-            return vec_get(node, 2);
+        if ast_has_field(node, 2) && ast_type_kind_value(type_node) == TYPE_STRUCT {
+            return ast_field(node, 2);
         }
         return -1;
     }
@@ -214,8 +275,8 @@
             return TYPE_UNKNOWN;
         }
         let node = type_node as Vec<i64>;
-        if vec_len(node) > 2 && vec_get(node, 1) == TYPE_ARRAY {
-            return vec_get(node, 2);
+        if ast_has_field(node, 2) && ast_type_kind_value(type_node) == TYPE_ARRAY {
+            return ast_field(node, 2);
         }
         return TYPE_UNKNOWN;
     }
@@ -225,8 +286,8 @@
             return -1;
         }
         let node = type_node as Vec<i64>;
-        if vec_len(node) > 3 && vec_get(node, 1) == TYPE_ARRAY {
-            return vec_get(node, 3);
+        if ast_has_field(node, 3) && ast_type_kind_value(type_node) == TYPE_ARRAY {
+            return ast_field(node, 3);
         }
         return -1;
     }
@@ -336,7 +397,7 @@
     }
 
     fn ast_pattern_value(pattern: Vec<i64>) -> i64 {
-        return vec_get(pattern, 1);
+        return vec_get(pattern, AST_NODE_DATA_START);
     }
 
     fn ast_let_name_idx(node: Vec<i64>) -> i64 {
@@ -499,7 +560,23 @@
     fn ast_pattern(kind: i64, value: i64) -> Vec<i64> {
         let pattern: Vec<i64> = vec_new();
         vec_push(pattern, kind);
+        vec_push(pattern, AST_SPAN_UNKNOWN);
+        vec_push(pattern, AST_SPAN_UNKNOWN);
         vec_push(pattern, value);
+        return pattern;
+    }
+
+    fn ast_pattern_span_start(pattern: Vec<i64>) -> i64 {
+        return vec_get(pattern, AST_NODE_SPAN_START_INDEX);
+    }
+
+    fn ast_pattern_span_end(pattern: Vec<i64>) -> i64 {
+        return vec_get(pattern, AST_NODE_SPAN_END_INDEX);
+    }
+
+    fn ast_set_pattern_span(pattern: Vec<i64>, start: i64, end: i64) -> Vec<i64> {
+        vec_set(pattern, AST_NODE_SPAN_START_INDEX, start);
+        vec_set(pattern, AST_NODE_SPAN_END_INDEX, end);
         return pattern;
     }
 
@@ -638,9 +715,27 @@
         return ast_new(NODE_BLOCK);
     }
 
+    fn ast_block_stmt_count(block: Vec<i64>) -> i64 {
+        return vec_len(block) - AST_NODE_DATA_START;
+    }
+
+    fn ast_block_stmt(block: Vec<i64>, index: i64) -> Vec<i64> {
+        return vec_get(block, AST_NODE_DATA_START + index) as Vec<i64>;
+    }
+
+    fn ast_block_last_stmt(block: Vec<i64>) -> Vec<i64> {
+        return ast_block_stmt(block, ast_block_stmt_count(block) - 1);
+    }
+
+    fn ast_block_append(block: Vec<i64>, stmt: Vec<i64>) -> Vec<i64> {
+        ast_push(block, stmt as i64);
+        return block;
+    }
+
     fn ast_block_with(stmt: Vec<i64>) -> Vec<i64> {
         let node: Vec<i64> = ast_block();
-        ast_push(node, stmt as i64);
+        ast_set_span(node, ast_node_span_start(stmt), ast_node_span_end(stmt));
+        ast_block_append(node, stmt);
         return node;
     }
 
