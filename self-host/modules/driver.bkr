@@ -138,6 +138,11 @@
         return quote + name + quote + ":false";
     }
 
+    fn json_field_raw(name: str, value: str) -> str {
+        let quote = from_char_code(34);
+        return quote + name + quote + ":" + value;
+    }
+
     fn self_host_diagnostic_json(category: str, code: str, message: str,
                                  source_start: i64, source_end: i64,
                                  source_line: i64, source_column: i64,
@@ -180,6 +185,138 @@
 
     fn build_capability_report_comment() -> str {
         return "/* BUNKER_CAPABILITY_JSON: " + self_host_capability_json() + from_char_code(10) +
+            "*/" + from_char_code(10);
+    }
+
+    fn source_line_count(source: str) -> i64 {
+        let count: i64 = 1;
+        let i: i64 = 0;
+        while i < len(source) {
+            if char_code_at(source, i) == 10 {
+                count = count + 1;
+            }
+            i = i + 1;
+        }
+        return count;
+    }
+
+    fn ast_report_name(names: Vec<str>, idx: i64) -> str {
+        if idx >= 0 && idx < vec_len(names) {
+            return vec_get(names, idx);
+        }
+        return "";
+    }
+
+    fn ast_report_item_name_idx(item: Vec<i64>) -> i64 {
+        if ast_is_fn_item(item) {
+            return ast_fn_name_idx(item);
+        }
+        if ast_is_const_item(item) {
+            return ast_const_name_idx(item);
+        }
+        if ast_is_struct_item(item) {
+            return ast_struct_name_idx(item);
+        }
+        return -1;
+    }
+
+    fn ast_report_item_param_count(item: Vec<i64>) -> i64 {
+        if ast_is_fn_item(item) {
+            return vec_len(ast_fn_params(item));
+        }
+        return 0;
+    }
+
+    fn ast_report_item_field_count(item: Vec<i64>) -> i64 {
+        if ast_is_struct_item(item) {
+            return vec_len(ast_struct_fields(item));
+        }
+        return 0;
+    }
+
+    fn ast_report_item_stmt_count(item: Vec<i64>) -> i64 {
+        if ast_is_fn_item(item) {
+            return ast_block_stmt_count(ast_fn_body(item));
+        }
+        return 0;
+    }
+
+    fn ast_report_item_json(names: Vec<str>, item: Vec<i64>) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("kind", ast_node_kind_name(ast_kind(item))) + comma +
+            json_field_str("category", ast_category_name(ast_node_category(item))) + comma +
+            json_field_str("name", ast_report_name(names, ast_report_item_name_idx(item))) + comma +
+            json_field_i64("source_start", ast_node_span_start(item)) + comma +
+            json_field_i64("source_end", ast_node_span_end(item)) + comma +
+            json_field_bool("span_known", ast_node_has_span(item)) + comma +
+            json_field_i64("param_count", ast_report_item_param_count(item)) + comma +
+            json_field_i64("field_count", ast_report_item_field_count(item)) + comma +
+            json_field_i64("statement_count", ast_report_item_stmt_count(item)) +
+            "}";
+    }
+
+    fn ast_report_count_kind(items: Vec<i64>, kind: i64) -> i64 {
+        let count: i64 = 0;
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if ast_kind(item) == kind {
+                count = count + 1;
+            }
+            i = i + 1;
+        }
+        return count;
+    }
+
+    fn ast_report_items_json(kernel: Vec<i64>) -> str {
+        let names = ast_kernel_names(kernel);
+        let items = ast_kernel_items(kernel);
+        let result = "[";
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            if i > 0 {
+                result = result + ",";
+            }
+            result = result + ast_report_item_json(names, vec_get(items, i) as Vec<i64>);
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn self_host_ast_json(source: str, kernel: Vec<i64>) -> str {
+        let comma = ",";
+        let names = ast_kernel_names(kernel);
+        let items = ast_kernel_items(kernel);
+        let root = "{" +
+            json_field_str("kind", ast_node_kind_name(ast_kind(kernel))) + comma +
+            json_field_str("name", ast_report_name(names, ast_name_idx(kernel))) + comma +
+            json_field_str("entry", ast_report_name(names, ast_kernel_entry_idx(kernel))) + comma +
+            json_field_i64("source_start", ast_node_span_start(kernel)) + comma +
+            json_field_i64("source_end", ast_node_span_end(kernel)) + comma +
+            json_field_bool("span_known", ast_node_has_span(kernel)) +
+            "}";
+        let summary = "{" +
+            json_field_i64("source_bytes", len(source)) + comma +
+            json_field_i64("source_lines", source_line_count(source)) + comma +
+            json_field_i64("item_count", vec_len(items)) + comma +
+            json_field_i64("function_count", ast_report_count_kind(items, NODE_FN)) + comma +
+            json_field_i64("struct_count", ast_report_count_kind(items, NODE_STRUCT)) + comma +
+            json_field_i64("const_count", ast_report_count_kind(items, NODE_CONST)) +
+            "}";
+        return "{" +
+            json_field_str("schema_version", "bunker.self_host.ast.v1") + comma +
+            json_field_str("representation", "bootstrap_vec_i64") + comma +
+            json_field_bool("source_byte_spans", true) + comma +
+            json_field_bool("complete_tree", false) + comma +
+            json_field_raw("root", root) + comma +
+            json_field_raw("summary", summary) + comma +
+            json_field_raw("items", ast_report_items_json(kernel)) +
+            "}";
+    }
+
+    fn build_ast_report_comment(source: str, kernel: Vec<i64>) -> str {
+        return "/* BUNKER_AST_JSON: " + self_host_ast_json(source, kernel) + from_char_code(10) +
             "*/" + from_char_code(10);
     }
 
@@ -227,7 +364,7 @@
             return capability_report + build_parse_diagnostic(expanded_source, p) + from_char_code(10);
         }
 
-        return capability_report + gen_c_program(ast);
+        return capability_report + build_ast_report_comment(expanded_source, ast) + gen_c_program(ast);
     }
 
     fn main() -> i32 {
