@@ -34,6 +34,7 @@ Current bootstrap state after the latest self-host work:
 - AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, AST kind/category/span reasoning now goes through named helpers, lexer result layout is centralized in `modules/lexer_result.bkr`, parser state layout is centralized in `modules/parser_state.bkr`, and C codegen state layout is centralized in `modules/cgen_state.bkr`; the AST, lexer result, parser state, and codegen state representations still use raw `Vec<i64>` during bootstrap.
 - Self-host compiler outputs include `BUNKER_CAPABILITY_JSON`, a machine-readable capability report for agents that states supported constructs, current AI-diagnostic support, and known bootstrap limits.
 - Successful self-host compiler outputs include `BUNKER_AST_JSON`, a machine-readable AST report with root/item summaries plus a complete nested AST tree for agent inspection.
+- Successful self-host compiler outputs include `BUNKER_TYPE_GRAPH_JSON`, a machine-readable declaration and bootstrap-inference type graph for agent inspection.
 - The language is not yet production-complete.
 
 ## Critical Path
@@ -78,6 +79,7 @@ These are the next concrete PR-sized slices.
 | Q-019 | DONE | Add self-host capability reports for agents. | Generated self-host outputs include `BUNKER_CAPABILITY_JSON` describing supported syntax, enabled diagnostic features, and known missing production features; CI checks the report on success and diagnostic outputs. |
 | Q-020 | DONE | Add self-host AST summary reports for agents. | Successful generated self-host outputs include `BUNKER_AST_JSON` with root span, source size, item counts, and per-item kind/name/span metadata; CI checks stage1 and stage2 generated outputs. |
 | Q-021 | DONE | Add complete nested self-host AST JSON for agents. | `BUNKER_AST_JSON` includes `complete_tree:true` plus a recursive `tree` object covering functions, params, types, blocks, statements, expressions, patterns, and match arms; CI checks direct, stage1, and stage2 generated outputs. |
+| Q-022 | DONE | Add self-host type graph reports for agents. | Successful generated self-host outputs include `BUNKER_TYPE_GRAPH_JSON` with declared structs/constants/functions plus bootstrap-inferred locals and return expression types; CI checks direct, stage1, and stage2 generated outputs. |
 
 ## Language Core
 
@@ -281,7 +283,7 @@ These are the next concrete PR-sized slices.
 | A-008 | PARTIAL | P0 | Prompt-ready explanations. | Errors include short AI repair context. |
 | A-009 | TODO | P0 | Multi-error recovery. | Parser/typechecker return multiple useful diagnostics. |
 | A-010 | PARTIAL | P0 | Machine-readable AST dump. | Self-host generated outputs include `BUNKER_AST_JSON` root/top-level summaries plus a complete nested `tree`; final gate requires Rust and self-host compiler modes to expose the same stable AST dump contract. |
-| A-011 | TODO | P0 | Machine-readable type graph. | Type graph can be emitted for agents. |
+| A-011 | PARTIAL | P0 | Machine-readable type graph. | Self-host generated outputs include `BUNKER_TYPE_GRAPH_JSON` for declared types plus bootstrap-inferred locals/returns; final gate requires a real typechecker-backed graph across Rust and self-host compiler modes. |
 | A-012 | TODO | P0 | Machine-readable symbol table. | Symbol table can be emitted for agents. |
 | A-013 | PARTIAL | P0 | Capability report. | Self-host generated outputs include `BUNKER_CAPABILITY_JSON`; final gate requires CLI-native capability reports across Rust and self-host compiler modes. |
 
@@ -358,3 +360,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-04-24 | Added self-host capability reports. | `BUNKER_CAPABILITY_JSON` is emitted in self-host compiler outputs and checked by CI for success and diagnostic paths. |
 | 2026-04-24 | Added self-host AST summary reports. | `BUNKER_AST_JSON` is emitted for successful self-host compiler outputs with root/item span metadata and CI coverage. |
 | 2026-04-24 | Added complete nested self-host AST reports. | `BUNKER_AST_JSON` now carries `complete_tree:true` and a recursive `tree` object for agent inspection, with direct/stage1/stage2 CI checks. |
+| 2026-04-24 | Added self-host type graph reports. | `BUNKER_TYPE_GRAPH_JSON` now carries declared structs/constants/functions plus bootstrap-inferred local and return expression types for agents, with direct/stage1/stage2 CI checks. |
