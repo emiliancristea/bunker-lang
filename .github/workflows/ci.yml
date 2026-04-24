@@ -107,6 +107,10 @@ jobs:
           grep -q "bunker.self_host.capability.v1" /tmp/01_basic_math.c
           grep -q '"source_byte_spans":true' /tmp/01_basic_math.c
           grep -q '"typed_ast":false' /tmp/01_basic_math.c
+          grep -q "BUNKER_AST_JSON" /tmp/01_basic_math.c
+          grep -q "bunker.self_host.ast.v1" /tmp/01_basic_math.c
+          grep -q '"item_count":2' /tmp/01_basic_math.c
+          grep -q '"function_count":2' /tmp/01_basic_math.c
           cp self-host/runtime.h /tmp/runtime.h
           cc -std=c11 /tmp/01_basic_math.c -o /tmp/01_basic_math
           set +e
@@ -268,6 +272,9 @@ jobs:
             test "$bkrc_status" -eq 42
             test -s "$run_dir/self_host_output.c"
             ! grep -q "Parse error" "$run_dir/self_host_output.c"
+            grep -q "BUNKER_AST_JSON" "$run_dir/self_host_output.c"
+            grep -q "bunker.self_host.ast.v1" "$run_dir/self_host_output.c"
+            grep -q '"source_byte_spans":true' "$run_dir/self_host_output.c"
             cp self-host/runtime.h "$run_dir/runtime.h"
             cc -std=c11 "$run_dir/self_host_output.c" -o "$run_dir/$name"
             set +e
@@ -357,6 +364,9 @@ jobs:
             test "$bkrc_status" -eq 42
             test -s "$run_dir/self_host_output.c"
             ! grep -q "Parse error" "$run_dir/self_host_output.c"
+            grep -q "BUNKER_AST_JSON" "$run_dir/self_host_output.c"
+            grep -q "bunker.self_host.ast.v1" "$run_dir/self_host_output.c"
+            grep -q '"source_byte_spans":true' "$run_dir/self_host_output.c"
             cp self-host/runtime.h "$run_dir/runtime.h"
             cc -std=c11 "$run_dir/self_host_output.c" -o "$run_dir/$name"
             set +e
