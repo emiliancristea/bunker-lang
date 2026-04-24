@@ -32,6 +32,7 @@ Current bootstrap state after the latest self-host work:
 - The Rust compiler is still the production compiler and the bootstrap driver.
 - The self-host compiler entrypoint is now module-composed: constants, AST helpers, lexer result helpers, lexer, parser state, parser, C codegen state, C codegen, and driver live in imported Bunker modules.
 - AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, AST kind/category/span reasoning now goes through named helpers, lexer result layout is centralized in `modules/lexer_result.bkr`, parser state layout is centralized in `modules/parser_state.bkr`, and C codegen state layout is centralized in `modules/cgen_state.bkr`; the AST, lexer result, parser state, and codegen state representations still use raw `Vec<i64>` during bootstrap.
+- Self-host compiler outputs include `BUNKER_CAPABILITY_JSON`, a machine-readable capability report for agents that states supported constructs, current AI-diagnostic support, and known bootstrap limits.
 - The language is not yet production-complete.
 
 ## Critical Path
@@ -73,6 +74,7 @@ These are the next concrete PR-sized slices.
 | Q-016 | DONE | Isolate self-host lexer result layout. | Lexer constructs results through `modules/lexer_result.bkr`, and parser state reads lexer output through lexer-result helpers; CI passes generated/stage2/golden gates. |
 | Q-017 | DONE | Introduce self-host AST kind/category helpers. | `modules/ast.bkr` exposes node/type/pattern names, categories, predicates, and debug labels; C codegen routes repeated AST shape checks through those helpers; CI passes generated/stage2/golden gates. |
 | Q-018 | DONE | Add self-host AST byte spans. | Self-host AST nodes and patterns reserve source byte start/end slots, parser construction attaches spans, block iteration is routed through AST helpers, and parse diagnostics consume parser span values; CI passes generated/stage2/golden gates. |
+| Q-019 | DONE | Add self-host capability reports for agents. | Generated self-host outputs include `BUNKER_CAPABILITY_JSON` describing supported syntax, enabled diagnostic features, and known missing production features; CI checks the report on success and diagnostic outputs. |
 
 ## Language Core
 
@@ -278,7 +280,7 @@ These are the next concrete PR-sized slices.
 | A-010 | TODO | P0 | Machine-readable AST dump. | AST can be emitted as JSON for agents. |
 | A-011 | TODO | P0 | Machine-readable type graph. | Type graph can be emitted for agents. |
 | A-012 | TODO | P0 | Machine-readable symbol table. | Symbol table can be emitted for agents. |
-| A-013 | TODO | P0 | Capability report. | Compiler can report supported language subset. |
+| A-013 | PARTIAL | P0 | Capability report. | Self-host generated outputs include `BUNKER_CAPABILITY_JSON`; final gate requires CLI-native capability reports across Rust and self-host compiler modes. |
 
 ## Safety And Production Readiness
 
@@ -350,3 +352,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-04-23 | Isolated self-host lexer result layout. | Lexer result layout moved behind `self-host/modules/lexer_result.bkr`; parser state no longer directly indexes lexer result fields. |
 | 2026-04-23 | Introduced self-host AST kind/category helpers. | `self-host/modules/ast.bkr` now names node/type/pattern kinds and classifies AST nodes; C codegen uses AST predicates for repeated shape checks. |
 | 2026-04-24 | Added self-host AST byte spans. | AST nodes and patterns reserve byte start/end fields; parser attaches source spans and diagnostics consume parser span helpers. |
+| 2026-04-24 | Added self-host capability reports. | `BUNKER_CAPABILITY_JSON` is emitted in self-host compiler outputs and checked by CI for success and diagnostic paths. |

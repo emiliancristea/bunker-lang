@@ -130,6 +130,14 @@
         return quote + name + quote + ":" + int_to_string(value);
     }
 
+    fn json_field_bool(name: str, value: bool) -> str {
+        let quote = from_char_code(34);
+        if value {
+            return quote + name + quote + ":true";
+        }
+        return quote + name + quote + ":false";
+    }
+
     fn self_host_diagnostic_json(category: str, code: str, message: str,
                                  source_start: i64, source_end: i64,
                                  source_line: i64, source_column: i64,
@@ -148,6 +156,31 @@
             json_field_str("actual", actual) + comma +
             json_field_str("repair_hint", repair_hint) +
             "}";
+    }
+
+    fn self_host_capability_json() -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("schema_version", "bunker.self_host.capability.v1") + comma +
+            json_field_str("compiler", "bkrc-self-host-bootstrap") + comma +
+            json_field_bool("source_byte_spans", true) + comma +
+            json_field_bool("structured_parse_diagnostics", true) + comma +
+            json_field_bool("import_expansion", true) + comma +
+            json_field_bool("stage1_stage2_ci_gate", true) + comma +
+            json_field_bool("typed_ast", false) + comma +
+            json_field_bool("real_module_resolver", false) + comma +
+            json_field_bool("real_generics", false) + comma +
+            json_field_bool("user_defined_adts", false) + comma +
+            json_field_bool("multi_error_recovery", false) + comma +
+            json_field_str("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec handles, HashMap handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals") + comma +
+            json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
+            json_field_str("agent_guidance", "Use BUNKER_DIAGNOSTIC_JSON for repair tasks. Treat BUNKER_CAPABILITY_JSON as the current compiler surface before generating Bunker code.") +
+            "}";
+    }
+
+    fn build_capability_report_comment() -> str {
+        return "/* BUNKER_CAPABILITY_JSON: " + self_host_capability_json() + from_char_code(10) +
+            "*/" + from_char_code(10);
     }
 
     fn build_import_diagnostic(missing_import: str) -> str {
@@ -179,9 +212,10 @@
     }
 
     fn compile_to_c(source: str) -> str {
+        let capability_report = build_capability_report_comment();
         let missing_import = first_missing_import_path(source);
         if len(missing_import) > 0 {
-            return build_import_diagnostic(missing_import) + from_char_code(10);
+            return capability_report + build_import_diagnostic(missing_import) + from_char_code(10);
         }
 
         let expanded_source = expand_imports(source);
@@ -190,10 +224,10 @@
         let ast: Vec<i64> = parse_kernel(p);
 
         if parser_has_error(p) {
-            return build_parse_diagnostic(expanded_source, p) + from_char_code(10);
+            return capability_report + build_parse_diagnostic(expanded_source, p) + from_char_code(10);
         }
 
-        return gen_c_program(ast);
+        return capability_report + gen_c_program(ast);
     }
 
     fn main() -> i32 {

@@ -103,6 +103,10 @@ jobs:
             tests/01_basic_math.bkr \
             -o /tmp/01_basic_math.c
           test -s /tmp/01_basic_math.c
+          grep -q "BUNKER_CAPABILITY_JSON" /tmp/01_basic_math.c
+          grep -q "bunker.self_host.capability.v1" /tmp/01_basic_math.c
+          grep -q '"source_byte_spans":true' /tmp/01_basic_math.c
+          grep -q '"typed_ast":false' /tmp/01_basic_math.c
           cp self-host/runtime.h /tmp/runtime.h
           cc -std=c11 /tmp/01_basic_math.c -o /tmp/01_basic_math
           set +e
@@ -234,6 +238,9 @@ jobs:
             echo "$name invalid input exited $bkrc_status, expected 42 with parse diagnostics"
             test "$bkrc_status" -eq 42
             test -s "$run_dir/self_host_output.c"
+            grep -q "BUNKER_CAPABILITY_JSON" "$run_dir/self_host_output.c"
+            grep -q "bunker.self_host.capability.v1" "$run_dir/self_host_output.c"
+            grep -q '"structured_parse_diagnostics":true' "$run_dir/self_host_output.c"
             grep -q "Parse error at token" "$run_dir/self_host_output.c"
             grep -q "expected" "$run_dir/self_host_output.c"
             grep -q "got" "$run_dir/self_host_output.c"
