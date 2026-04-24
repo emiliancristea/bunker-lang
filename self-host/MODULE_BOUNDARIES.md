@@ -16,7 +16,7 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 | 6 | `modules/parser.bkr` | `PARSER` | Build raw `Vec<i64>` AST nodes from lexer tables through parser-state and AST helpers. |
 | 7 | `modules/cgen_state.bkr` | C codegen state helpers | Centralize C codegen state layout, output lines, indentation, and local/global/function/array type tables. |
 | 8 | `modules/c_codegen.bkr` | `C CODE GENERATOR` | Infer enough expression types for C emission and generate C source through AST and cgen-state helpers. |
-| 9 | `modules/driver.bkr` | `COMPILER DRIVER` | Orchestrate lex, parse, codegen, diagnostics, capability reports, AST tree reports, file I/O, and process exit. |
+| 9 | `modules/driver.bkr` | `COMPILER DRIVER` | Orchestrate lex, parse, codegen, diagnostics, capability reports, AST tree reports, type graph reports, file I/O, and process exit. |
 
 ## Export Contract
 
@@ -30,7 +30,7 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 | `modules/parser.bkr` | `parse_kernel`, token display helpers, grammar routines, parser diagnostic span helpers, and parser-side AST span attachment. |
 | `modules/cgen_state.bkr` | `cgen_*` state constructors, accessors, mutation helpers, and lookup helpers for C codegen state. |
 | `modules/c_codegen.bkr` | `gen_c_program`, C escaping/name helpers, type inference helpers used by codegen. |
-| `modules/driver.bkr` | `compile_to_c`, `main`, self-host diagnostic JSON helpers, self-host capability report helpers, and self-host AST tree report helpers. |
+| `modules/driver.bkr` | `compile_to_c`, `main`, self-host diagnostic JSON helpers, self-host capability report helpers, self-host AST tree report helpers, and self-host type graph report helpers. |
 
 ## Dependency Rules
 
