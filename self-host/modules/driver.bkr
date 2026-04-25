@@ -1488,20 +1488,20 @@
     }
 
     fn resolver_i64_vec_copy(values: Vec<i64>) -> Vec<i64> {
-        let copy: Vec<i64> = vec_new();
+        let result: Vec<i64> = vec_new();
         let i: i64 = 0;
         while i < vec_len(values) {
-            let item = vec_get(values, i);
-            vec_push(copy, item);
+            let copied_value: i64 = vec_get(values, i);
+            vec_push(result, copied_value);
             i = i + 1;
         }
-        return copy;
+        return result;
     }
 
     fn resolver_i64_vec_with(values: Vec<i64>, value: i64) -> Vec<i64> {
-        let copy = resolver_i64_vec_copy(values);
-        vec_push(copy, value);
-        return copy;
+        let result: Vec<i64> = resolver_i64_vec_copy(values);
+        vec_push(result, value);
+        return result;
     }
 
     fn resolver_diagnostic_json(kind: str, code: str, name: str, scope: str,
@@ -1779,7 +1779,7 @@
                 state = resolver_pattern_bindings(state, names, vec_get(patterns, i) as Vec<i64>, scope, pattern_bindings);
                 let j: i64 = 0;
                 while j < vec_len(pattern_bindings) {
-                    let binding_name_idx = vec_get(pattern_bindings, j);
+                    let binding_name_idx: i64 = vec_get(pattern_bindings, j);
                     vec_push(arm_bindings, binding_name_idx);
                     j = j + 1;
                 }
