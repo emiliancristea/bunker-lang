@@ -1487,6 +1487,11 @@
         return false;
     }
 
+    fn resolver_empty_i64_vec() -> Vec<i64> {
+        let values: Vec<i64> = vec_new();
+        return values;
+    }
+
     fn resolver_i64_vec_copy(values: Vec<i64>) -> Vec<i64> {
         let result: Vec<i64> = vec_new();
         let i: i64 = 0;
@@ -1786,7 +1791,7 @@
 
                 let body = vec_get(bodies, i) as Vec<i64>;
                 if ast_is_block(body) {
-                    state = resolver_block_diagnostics(state, kernel, names, body, scope, arm_bindings, vec_new());
+                    state = resolver_block_diagnostics(state, kernel, names, body, scope, arm_bindings, resolver_empty_i64_vec());
                 } else {
                     state = resolver_expr_diagnostics(state, kernel, names, body as i64, scope, arm_bindings);
                 }
@@ -1814,13 +1819,13 @@
             state = resolver_expr_diagnostics(state, kernel, names, ast_return_expr(stmt), scope, bindings);
         } else if kind == NODE_IF {
             state = resolver_expr_diagnostics(state, kernel, names, ast_if_cond(stmt) as i64, scope, bindings);
-            state = resolver_block_diagnostics(state, kernel, names, ast_if_then(stmt), scope, bindings, vec_new());
+            state = resolver_block_diagnostics(state, kernel, names, ast_if_then(stmt), scope, bindings, resolver_empty_i64_vec());
             if ast_if_else(stmt) != 0 {
-                state = resolver_block_diagnostics(state, kernel, names, ast_if_else(stmt) as Vec<i64>, scope, bindings, vec_new());
+                state = resolver_block_diagnostics(state, kernel, names, ast_if_else(stmt) as Vec<i64>, scope, bindings, resolver_empty_i64_vec());
             }
         } else if kind == NODE_WHILE {
             state = resolver_expr_diagnostics(state, kernel, names, ast_while_cond(stmt) as i64, scope, bindings);
-            state = resolver_block_diagnostics(state, kernel, names, ast_while_body(stmt), scope, bindings, vec_new());
+            state = resolver_block_diagnostics(state, kernel, names, ast_while_body(stmt), scope, bindings, resolver_empty_i64_vec());
         } else if kind == NODE_FOR {
             let name_idx = ast_for_name_idx(stmt);
             state = resolver_expr_diagnostics(state, kernel, names, ast_for_start(stmt) as i64, scope, bindings);
@@ -1829,9 +1834,9 @@
                 state = resolver_append_duplicate_node(state, ast_report_name(names, name_idx), scope, "for binding", stmt);
             }
             let loop_bindings = resolver_i64_vec_with(bindings, name_idx);
-            state = resolver_block_diagnostics(state, kernel, names, ast_for_body(stmt), scope, loop_bindings, vec_new());
+            state = resolver_block_diagnostics(state, kernel, names, ast_for_body(stmt), scope, loop_bindings, resolver_empty_i64_vec());
         } else if kind == NODE_LOOP {
-            state = resolver_block_diagnostics(state, kernel, names, ast_loop_body(stmt), scope, bindings, vec_new());
+            state = resolver_block_diagnostics(state, kernel, names, ast_loop_body(stmt), scope, bindings, resolver_empty_i64_vec());
         } else if kind == NODE_ASSIGN {
             state = resolver_expr_diagnostics(state, kernel, names, ast_assign_target(stmt) as i64, scope, bindings);
             state = resolver_expr_diagnostics(state, kernel, names, ast_assign_value(stmt) as i64, scope, bindings);
@@ -1946,7 +1951,7 @@
                 state = resolver_function_diagnostics(state, kernel, names, item, kernel_scope);
             } else if ast_is_const_item(item) {
                 state = resolver_type_diagnostics(state, kernel, names, ast_const_type_node(item), kernel_scope);
-                state = resolver_expr_diagnostics(state, kernel, names, ast_const_value(item), kernel_scope, vec_new());
+                state = resolver_expr_diagnostics(state, kernel, names, ast_const_value(item), kernel_scope, resolver_empty_i64_vec());
             } else if ast_is_struct_item(item) {
                 state = resolver_struct_diagnostics(state, kernel, names, item);
             }
