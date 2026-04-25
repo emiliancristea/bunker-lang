@@ -108,6 +108,7 @@ jobs:
           grep -q '"source_byte_spans":true' /tmp/01_basic_math.c
           grep -q '"type_graph_report":true' /tmp/01_basic_math.c
           grep -q '"symbol_table_report":true' /tmp/01_basic_math.c
+          grep -q '"name_resolver_report":true' /tmp/01_basic_math.c
           grep -q '"typed_ast":false' /tmp/01_basic_math.c
           grep -q "BUNKER_AST_JSON" /tmp/01_basic_math.c
           grep -q "bunker.self_host.ast.v1" /tmp/01_basic_math.c
@@ -128,9 +129,15 @@ jobs:
           grep -q "bunker.self_host.symbol_table.v1" /tmp/01_basic_math.c
           grep -q '"declaration_table":' /tmp/01_basic_math.c
           grep -q '"reference_table":' /tmp/01_basic_math.c
+          grep -q '"resolver_report":"BUNKER_RESOLVER_JSON"' /tmp/01_basic_math.c
           grep -q '"kind":"function"' /tmp/01_basic_math.c
           grep -q '"kind":"local"' /tmp/01_basic_math.c
           grep -q '"kind":"function_call"' /tmp/01_basic_math.c
+          grep -q "BUNKER_RESOLVER_JSON" /tmp/01_basic_math.c
+          grep -q "bunker.self_host.resolver.v1" /tmp/01_basic_math.c
+          grep -q '"duplicate_detection":true' /tmp/01_basic_math.c
+          grep -q '"unresolved_detection":true' /tmp/01_basic_math.c
+          grep -q '"has_diagnostics":false' /tmp/01_basic_math.c
           cp self-host/runtime.h /tmp/runtime.h
           cc -std=c11 /tmp/01_basic_math.c -o /tmp/01_basic_math
           set +e
@@ -139,6 +146,39 @@ jobs:
           set -e
           echo "01_basic_math exited $status, expected 42"
           test "$status" -eq 42
+
+      - name: Check self-host resolver diagnostics
+        timeout-minutes: 2
+        run: |
+          cat > /tmp/resolver_bad.bkr <<'BKR'
+          kernel Broken {
+              struct Pair { left: i32, left: i32 }
+
+              fn main(x: i32, x: i32) -> i32 {
+                  let y: i32 = 1;
+                  let y: Missing = missing_fn(nope);
+                  let p: Pair = Pair { left: y, right: 2 };
+                  return nope;
+              }
+          }
+          BKR
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            /tmp/resolver_bad.bkr \
+            -o /tmp/resolver_bad.c
+          test -s /tmp/resolver_bad.c
+          ! grep -q "Parse error" /tmp/resolver_bad.c
+          grep -q "BUNKER_CAPABILITY_JSON" /tmp/resolver_bad.c
+          grep -q '"name_resolver_report":true' /tmp/resolver_bad.c
+          grep -q "BUNKER_RESOLVER_JSON" /tmp/resolver_bad.c
+          grep -q "bunker.self_host.resolver.v1" /tmp/resolver_bad.c
+          grep -q '"has_diagnostics":true' /tmp/resolver_bad.c
+          grep -q '"diagnostic_count":' /tmp/resolver_bad.c
+          grep -q "BKR_SELF_DUPLICATE_SYMBOL" /tmp/resolver_bad.c
+          grep -q "BKR_SELF_UNRESOLVED_SYMBOL" /tmp/resolver_bad.c
+          grep -q '"name":"missing_fn"' /tmp/resolver_bad.c
+          grep -q '"name":"nope"' /tmp/resolver_bad.c
+          grep -q '"name":"Missing"' /tmp/resolver_bad.c
+          grep -q '"name":"right"' /tmp/resolver_bad.c
 
       - name: Compile branching fixture through self-host compiler
         timeout-minutes: 2
@@ -303,6 +343,9 @@ jobs:
             grep -q "BUNKER_SYMBOL_TABLE_JSON" "$run_dir/self_host_output.c"
             grep -q "bunker.self_host.symbol_table.v1" "$run_dir/self_host_output.c"
             grep -q '"declaration_table":' "$run_dir/self_host_output.c"
+            grep -q "BUNKER_RESOLVER_JSON" "$run_dir/self_host_output.c"
+            grep -q "bunker.self_host.resolver.v1" "$run_dir/self_host_output.c"
+            grep -q '"diagnostic_count":' "$run_dir/self_host_output.c"
             cp self-host/runtime.h "$run_dir/runtime.h"
             cc -std=c11 "$run_dir/self_host_output.c" -o "$run_dir/$name"
             set +e
@@ -373,6 +416,8 @@ jobs:
           test "$bkrc_self_status" -eq 42
           test -s "$self_compile_dir/self_host_output.c"
           ! grep -q "Parse error" "$self_compile_dir/self_host_output.c"
+          grep -q "BUNKER_RESOLVER_JSON" "$self_compile_dir/self_host_output.c"
+          grep -q "bunker.self_host.resolver.v1" "$self_compile_dir/self_host_output.c"
           cp self-host/runtime.h "$self_compile_dir/runtime.h"
           cc -std=c11 "$self_compile_dir/self_host_output.c" -o "$self_compile_dir/bkrc2"
 
@@ -403,6 +448,9 @@ jobs:
             grep -q "BUNKER_SYMBOL_TABLE_JSON" "$run_dir/self_host_output.c"
             grep -q "bunker.self_host.symbol_table.v1" "$run_dir/self_host_output.c"
             grep -q '"declaration_table":' "$run_dir/self_host_output.c"
+            grep -q "BUNKER_RESOLVER_JSON" "$run_dir/self_host_output.c"
+            grep -q "bunker.self_host.resolver.v1" "$run_dir/self_host_output.c"
+            grep -q '"diagnostic_count":' "$run_dir/self_host_output.c"
             cp self-host/runtime.h "$run_dir/runtime.h"
             cc -std=c11 "$run_dir/self_host_output.c" -o "$run_dir/$name"
             set +e
