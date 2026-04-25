@@ -1491,7 +1491,8 @@
         let copy: Vec<i64> = vec_new();
         let i: i64 = 0;
         while i < vec_len(values) {
-            vec_push(copy, vec_get(values, i));
+            let item = vec_get(values, i);
+            vec_push(copy, item);
             i = i + 1;
         }
         return copy;
@@ -1778,7 +1779,8 @@
                 state = resolver_pattern_bindings(state, names, vec_get(patterns, i) as Vec<i64>, scope, pattern_bindings);
                 let j: i64 = 0;
                 while j < vec_len(pattern_bindings) {
-                    vec_push(arm_bindings, vec_get(pattern_bindings, j));
+                    let binding_name_idx = vec_get(pattern_bindings, j);
+                    vec_push(arm_bindings, binding_name_idx);
                     j = j + 1;
                 }
 
