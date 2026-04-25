@@ -206,13 +206,14 @@
             json_field_bool("type_graph_report", true) + comma +
             json_field_bool("symbol_table_report", true) + comma +
             json_field_bool("name_resolver_report", true) + comma +
+            json_field_bool("typecheck_report", true) + comma +
             json_field_bool("typed_ast", false) + comma +
             json_field_bool("real_module_resolver", false) + comma +
             json_field_bool("real_generics", false) + comma +
             json_field_bool("user_defined_adts", false) + comma +
             json_field_bool("multi_error_recovery", false) + comma +
             json_field_str("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec handles, HashMap handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals") + comma +
-            json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, bootstrap name resolver only, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
+            json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, bootstrap name resolver and typecheck reports only, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
             json_field_str("agent_guidance", "Use BUNKER_DIAGNOSTIC_JSON for repair tasks. Treat BUNKER_CAPABILITY_JSON as the current compiler surface before generating Bunker code.") +
             "}";
     }
@@ -1983,6 +1984,411 @@
             "*/" + from_char_code(10);
     }
 
+    fn typecheck_is_integer_kind(kind: i64) -> bool {
+        return kind == TYPE_I32 || kind == TYPE_I64;
+    }
+
+    fn typecheck_kinds_compatible(expected_kind: i64, found_kind: i64) -> bool {
+        if expected_kind == TYPE_UNKNOWN || found_kind == TYPE_UNKNOWN {
+            return true;
+        }
+        if expected_kind == found_kind {
+            return true;
+        }
+        if typecheck_is_integer_kind(expected_kind) && typecheck_is_integer_kind(found_kind) {
+            return true;
+        }
+        return false;
+    }
+
+    fn typecheck_is_scalar_cast_kind(kind: i64) -> bool {
+        return kind == TYPE_I32 || kind == TYPE_I64 || kind == TYPE_F64 || kind == TYPE_BOOL;
+    }
+
+    fn typecheck_value_kinds_compatible(expected_kind: i64, found_kind: i64) -> bool {
+        if typecheck_kinds_compatible(expected_kind, found_kind) {
+            return true;
+        }
+        if typecheck_is_scalar_cast_kind(expected_kind) && typecheck_is_scalar_cast_kind(found_kind) {
+            return true;
+        }
+        return false;
+    }
+
+    fn typecheck_expr_kind(cstate: Vec<i64>, expr_value: i64) -> i64 {
+        if expr_value == 0 {
+            return TYPE_UNKNOWN;
+        }
+        return infer_c_expr_type(cstate, expr_value as Vec<i64>);
+    }
+
+    fn typecheck_declared_kind(type_node: i64) -> i64 {
+        if type_node == 0 {
+            return TYPE_UNKNOWN;
+        }
+        return ast_type_kind_value(type_node);
+    }
+
+    fn typecheck_return_kind(fn_node: Vec<i64>) -> i64 {
+        let return_type = ast_fn_return_type(fn_node);
+        if return_type == 0 {
+            return TYPE_VOID;
+        }
+        return ast_type_kind_value(return_type);
+    }
+
+    fn typecheck_diagnostic_json(kind: str, code: str, name: str, scope: str,
+                                 node: Vec<i64>, expected: str, found: str,
+                                 repair_hint: str) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("kind", kind) + comma +
+            json_field_str("error_code", code) + comma +
+            json_field_str("name", name) + comma +
+            json_field_str("scope", scope) + comma +
+            json_field_i64("source_start", ast_node_span_start(node)) + comma +
+            json_field_i64("source_end", ast_node_span_end(node)) + comma +
+            json_field_bool("span_known", ast_node_span_start(node) != AST_SPAN_UNKNOWN && ast_node_span_end(node) != AST_SPAN_UNKNOWN) + comma +
+            json_field_str("expected", expected) + comma +
+            json_field_str("found", found) + comma +
+            json_field_str("repair_hint", repair_hint) +
+            "}";
+    }
+
+    fn typecheck_append_mismatch(state: Vec<str>, kind: str, name: str, scope: str,
+                                 node: Vec<i64>, expected_kind: i64, found_kind: i64,
+                                 repair_hint: str) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_json(kind, "BKR_SELF_TYPE_MISMATCH", name, scope,
+                node, ast_type_kind_name(expected_kind), ast_type_kind_name(found_kind), repair_hint));
+    }
+
+    fn typecheck_maybe_append_mismatch(state: Vec<str>, kind: str, name: str, scope: str,
+                                       node: Vec<i64>, expected_kind: i64, found_kind: i64,
+                                       repair_hint: str) -> Vec<str> {
+        if !typecheck_kinds_compatible(expected_kind, found_kind) {
+            state = typecheck_append_mismatch(state, kind, name, scope,
+                node, expected_kind, found_kind, repair_hint);
+        }
+        return state;
+    }
+
+    fn typecheck_maybe_append_value_mismatch(state: Vec<str>, kind: str, name: str, scope: str,
+                                             node: Vec<i64>, expected_kind: i64, found_kind: i64,
+                                             repair_hint: str) -> Vec<str> {
+        if !typecheck_value_kinds_compatible(expected_kind, found_kind) {
+            state = typecheck_append_mismatch(state, kind, name, scope,
+                node, expected_kind, found_kind, repair_hint);
+        }
+        return state;
+    }
+
+    fn typecheck_find_function(kernel: Vec<i64>, name_idx: i64) -> i64 {
+        let items = ast_kernel_items(kernel);
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if ast_is_fn_item(item) && ast_fn_name_idx(item) == name_idx {
+                return item as i64;
+            }
+            i = i + 1;
+        }
+        return 0;
+    }
+
+    fn typecheck_check_expression_against(state: Vec<str>, names: Vec<str>, cstate: Vec<i64>,
+                                          expr_value: i64, scope: str, diagnostic_kind: str,
+                                          name: str, expected_kind: i64, repair_hint: str) -> Vec<str> {
+        if expr_value == 0 {
+            if expected_kind != TYPE_VOID && expected_kind != TYPE_UNKNOWN {
+                let placeholder: Vec<i64> = ast_new(NODE_RETURN);
+                state = typecheck_append_mismatch(state, diagnostic_kind, name, scope,
+                    placeholder, expected_kind, TYPE_VOID, repair_hint);
+            }
+            return state;
+        }
+
+        let expr = expr_value as Vec<i64>;
+        let found_kind = typecheck_expr_kind(cstate, expr_value);
+        return typecheck_maybe_append_mismatch(state, diagnostic_kind, name, scope,
+            expr, expected_kind, found_kind, repair_hint);
+    }
+
+    fn typecheck_check_call_arguments(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
+                                      cstate: Vec<i64>, expr: Vec<i64>, scope: str) -> Vec<str> {
+        let name_idx = ast_call_name_idx(expr);
+        let fn_value = typecheck_find_function(kernel, name_idx);
+        if fn_value == 0 {
+            return state;
+        }
+
+        let fn_node = fn_value as Vec<i64>;
+        let fn_name = ast_report_name(names, name_idx);
+        let params = ast_fn_params(fn_node);
+        let args = ast_call_args(expr);
+        let i: i64 = 0;
+        while i < vec_len(args) && i < vec_len(params) {
+            let param = vec_get(params, i) as Vec<i64>;
+            let param_type = ast_param_type_node(param) as i64;
+            let arg_value: i64 = vec_get(args, i);
+            let expected_kind = ast_type_kind_value(param_type);
+            let found_kind = typecheck_expr_kind(cstate, arg_value);
+            let hint = "Change argument " + int_to_string(i + 1) + " for " + fn_name +
+                " to match parameter " + ast_report_name(names, ast_param_name_idx(param)) +
+                " or update the function signature.";
+            state = typecheck_maybe_append_mismatch(state, "call_argument_type_mismatch", fn_name,
+                scope, arg_value as Vec<i64>, expected_kind, found_kind, hint);
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_expr_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
+                                  cstate: Vec<i64>, expr_value: i64, scope: str,
+                                  expected_return_kind: i64) -> Vec<str> {
+        if expr_value == 0 {
+            return state;
+        }
+
+        let expr = expr_value as Vec<i64>;
+        let kind = ast_kind(expr);
+        if kind == NODE_CALL {
+            state = typecheck_check_call_arguments(state, kernel, names, cstate, expr, scope);
+            let args = ast_call_args(expr);
+            let i: i64 = 0;
+            while i < vec_len(args) {
+                state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                    vec_get(args, i), scope, expected_return_kind);
+                i = i + 1;
+            }
+        } else if kind == NODE_STRUCT_LIT {
+            let field_values = ast_struct_lit_field_values(expr);
+            let i: i64 = 0;
+            while i < vec_len(field_values) {
+                state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                    vec_get(field_values, i), scope, expected_return_kind);
+                i = i + 1;
+            }
+        } else if kind == NODE_FIELD_ACCESS {
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_field_base(expr) as i64, scope, expected_return_kind);
+        } else if kind == NODE_BINARY {
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_binary_left(expr) as i64, scope, expected_return_kind);
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_binary_right(expr) as i64, scope, expected_return_kind);
+        } else if kind == NODE_UNARY {
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_unary_operand(expr) as i64, scope, expected_return_kind);
+        } else if kind == NODE_TERNARY {
+            state = typecheck_check_expression_against(state, names, cstate,
+                ast_ternary_cond(expr) as i64, scope, "condition_type_mismatch", "ternary condition",
+                TYPE_BOOL, "Make this ternary condition produce bool.");
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_ternary_cond(expr) as i64, scope, expected_return_kind);
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_ternary_then(expr) as i64, scope, expected_return_kind);
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_ternary_else(expr) as i64, scope, expected_return_kind);
+        } else if kind == NODE_ARRAY_LIT {
+            let elements = ast_array_elements(expr);
+            let i: i64 = 0;
+            while i < vec_len(elements) {
+                state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                    vec_get(elements, i), scope, expected_return_kind);
+                i = i + 1;
+            }
+        } else if kind == NODE_INDEX {
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_index_base(expr) as i64, scope, expected_return_kind);
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_index_expr(expr) as i64, scope, expected_return_kind);
+        } else if kind == NODE_MATCH {
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_match_scrutinee(expr) as i64, scope, expected_return_kind);
+            let bodies = ast_match_bodies(expr);
+            let i: i64 = 0;
+            while i < vec_len(bodies) {
+                let body = vec_get(bodies, i) as Vec<i64>;
+                if ast_is_block(body) {
+                    state = typecheck_block_diagnostics(state, kernel, names, cstate,
+                        body, scope, expected_return_kind);
+                } else {
+                    state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                        body as i64, scope, expected_return_kind);
+                }
+                i = i + 1;
+            }
+        }
+        return state;
+    }
+
+    fn typecheck_stmt_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
+                                  cstate: Vec<i64>, stmt: Vec<i64>, scope: str,
+                                  expected_return_kind: i64) -> Vec<str> {
+        let kind = ast_kind(stmt);
+        if kind == NODE_LET {
+            let init = ast_let_init(stmt);
+            let name = ast_report_name(names, ast_let_name_idx(stmt));
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                init, scope, expected_return_kind);
+            if ast_let_type_node(stmt) != 0 && init != 0 {
+                let expected_kind = typecheck_declared_kind(ast_let_type_node(stmt));
+                let found_kind = typecheck_expr_kind(cstate, init);
+                let hint = "Change the initializer for " + name +
+                    " or update the declared local type.";
+                state = typecheck_maybe_append_value_mismatch(state, "annotation_type_mismatch",
+                    name, scope, stmt, expected_kind, found_kind, hint);
+            }
+            type_graph_add_let_to_state(cstate, stmt);
+        } else if kind == NODE_RETURN {
+            let return_expr = ast_return_expr(stmt);
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                return_expr, scope, expected_return_kind);
+            if return_expr == 0 {
+                if expected_return_kind != TYPE_VOID && expected_return_kind != TYPE_UNKNOWN {
+                    state = typecheck_append_mismatch(state, "return_type_mismatch", "return",
+                        scope, stmt, expected_return_kind, TYPE_VOID,
+                        "Return a value matching the function return type or change the function signature.");
+                }
+            } else {
+                let found_kind = typecheck_expr_kind(cstate, return_expr);
+                state = typecheck_maybe_append_value_mismatch(state, "return_type_mismatch", "return",
+                    scope, stmt, expected_return_kind, found_kind,
+                    "Return a value matching the function return type or change the function signature.");
+            }
+        } else if kind == NODE_IF {
+            state = typecheck_check_expression_against(state, names, cstate,
+                ast_if_cond(stmt) as i64, scope, "condition_type_mismatch", "if condition",
+                TYPE_BOOL, "Make this if condition produce bool.");
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_if_cond(stmt) as i64, scope, expected_return_kind);
+            state = typecheck_block_diagnostics(state, kernel, names, cstate,
+                ast_if_then(stmt), scope, expected_return_kind);
+            if ast_if_else(stmt) != 0 {
+                state = typecheck_block_diagnostics(state, kernel, names, cstate,
+                    ast_if_else(stmt) as Vec<i64>, scope, expected_return_kind);
+            }
+        } else if kind == NODE_WHILE {
+            state = typecheck_check_expression_against(state, names, cstate,
+                ast_while_cond(stmt) as i64, scope, "condition_type_mismatch", "while condition",
+                TYPE_BOOL, "Make this while condition produce bool.");
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_while_cond(stmt) as i64, scope, expected_return_kind);
+            state = typecheck_block_diagnostics(state, kernel, names, cstate,
+                ast_while_body(stmt), scope, expected_return_kind);
+        } else if kind == NODE_FOR {
+            state = typecheck_check_expression_against(state, names, cstate,
+                ast_for_start(stmt) as i64, scope, "for_range_type_mismatch", "for range start",
+                TYPE_I64, "Make the for range start numeric.");
+            state = typecheck_check_expression_against(state, names, cstate,
+                ast_for_end(stmt) as i64, scope, "for_range_type_mismatch", "for range end",
+                TYPE_I64, "Make the for range end numeric.");
+            cgen_add_local_type(cstate, ast_for_name_idx(stmt), TYPE_I64);
+            state = typecheck_block_diagnostics(state, kernel, names, cstate,
+                ast_for_body(stmt), scope, expected_return_kind);
+        } else if kind == NODE_LOOP {
+            state = typecheck_block_diagnostics(state, kernel, names, cstate,
+                ast_loop_body(stmt), scope, expected_return_kind);
+        } else if kind == NODE_ASSIGN {
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_assign_target(stmt) as i64, scope, expected_return_kind);
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_assign_value(stmt) as i64, scope, expected_return_kind);
+            let expected_kind = typecheck_expr_kind(cstate, ast_assign_target(stmt) as i64);
+            let found_kind = typecheck_expr_kind(cstate, ast_assign_value(stmt) as i64);
+            state = typecheck_maybe_append_value_mismatch(state, "assignment_type_mismatch",
+                "assignment", scope, stmt, expected_kind, found_kind,
+                "Assign a value that matches the target type.");
+        } else if kind == NODE_EXPR_STMT {
+            state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+                ast_expr_stmt_expr(stmt) as i64, scope, expected_return_kind);
+        }
+        return state;
+    }
+
+    fn typecheck_block_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
+                                   cstate: Vec<i64>, block: Vec<i64>, scope: str,
+                                   expected_return_kind: i64) -> Vec<str> {
+        let i: i64 = 0;
+        while i < ast_block_stmt_count(block) {
+            state = typecheck_stmt_diagnostics(state, kernel, names, cstate,
+                ast_block_stmt(block, i), scope, expected_return_kind);
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_const_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
+                                   cstate: Vec<i64>, item: Vec<i64>, kernel_scope: str) -> Vec<str> {
+        let const_name = ast_report_name(names, ast_const_name_idx(item));
+        let value = ast_const_value(item);
+        state = typecheck_expr_diagnostics(state, kernel, names, cstate,
+            value, kernel_scope, TYPE_UNKNOWN);
+        if ast_const_type_node(item) != 0 && value != 0 {
+            let expected_kind = typecheck_declared_kind(ast_const_type_node(item));
+            let found_kind = typecheck_expr_kind(cstate, value);
+            let hint = "Change the initializer for " + const_name +
+                " or update the declared constant type.";
+            state = typecheck_maybe_append_value_mismatch(state, "annotation_type_mismatch",
+                const_name, kernel_scope, item, expected_kind, found_kind, hint);
+        }
+        return state;
+    }
+
+    fn typecheck_function_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
+                                      item: Vec<i64>) -> Vec<str> {
+        let fn_name = ast_report_name(names, ast_fn_name_idx(item));
+        let scope = "function:" + fn_name;
+        let cstate = type_graph_function_state(kernel, item);
+        let expected_return_kind = typecheck_return_kind(item);
+        return typecheck_block_diagnostics(state, kernel, names, cstate,
+            ast_fn_body(item), scope, expected_return_kind);
+    }
+
+    fn typecheck_kernel_diagnostics(state: Vec<str>, kernel: Vec<i64>) -> Vec<str> {
+        let names = ast_kernel_names(kernel);
+        let kernel_scope = "kernel:" + ast_report_name(names, ast_name_idx(kernel));
+        let cstate = type_graph_seed_state(kernel);
+        let items = ast_kernel_items(kernel);
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if ast_is_const_item(item) {
+                state = typecheck_const_diagnostics(state, kernel, names, cstate,
+                    item, kernel_scope);
+            } else if ast_is_fn_item(item) {
+                state = typecheck_function_diagnostics(state, kernel, names, item);
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn self_host_typecheck_json(kernel: Vec<i64>) -> str {
+        let comma = ",";
+        let state = resolver_state_new();
+        typecheck_kernel_diagnostics(state, kernel);
+        return "{" +
+            json_field_str("schema_version", "bunker.self_host.typecheck.v1") + comma +
+            json_field_str("representation", "bootstrap_typecheck_pass") + comma +
+            json_field_bool("complete", false) + comma +
+            json_field_bool("annotation_checks", true) + comma +
+            json_field_bool("return_checks", true) + comma +
+            json_field_bool("condition_checks", true) + comma +
+            json_field_bool("call_argument_checks", true) + comma +
+            json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
+            json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments, for ranges, and direct user-function call arguments using codegen inference; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, struct field value types, numeric ranges, trait bounds, exhaustiveness, or cross-module types.") + comma +
+            json_field_raw("diagnostics", resolver_state_json(state)) +
+            "}";
+    }
+
+    fn build_typecheck_report_comment(kernel: Vec<i64>) -> str {
+        return "/* BUNKER_TYPECHECK_JSON: " + self_host_typecheck_json(kernel) + from_char_code(10) +
+            "*/" + from_char_code(10);
+    }
+
     fn build_import_diagnostic(missing_import: str) -> str {
         let repair_hint = "Copy the imported Bunker module next to self_host_input.bkr or pre-expand imports before running bkrc.";
         let message = "Import error: missing module " + missing_import;
@@ -2031,6 +2437,7 @@
             build_type_graph_report_comment(ast) +
             build_symbol_table_report_comment(ast) +
             build_resolver_report_comment(ast) +
+            build_typecheck_report_comment(ast) +
             gen_c_program(ast);
     }
 
