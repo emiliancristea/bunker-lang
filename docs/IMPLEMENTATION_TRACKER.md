@@ -36,6 +36,7 @@ Current bootstrap state after the latest self-host work:
 - Successful self-host compiler outputs include `BUNKER_AST_JSON`, a machine-readable AST report with root/item summaries plus a complete nested AST tree for agent inspection.
 - Successful self-host compiler outputs include `BUNKER_TYPE_GRAPH_JSON`, a machine-readable declaration and bootstrap-inference type graph for agent inspection.
 - Successful self-host compiler outputs include `BUNKER_SYMBOL_TABLE_JSON`, a machine-readable declaration/reference table for agent inspection.
+- Successful self-host compiler outputs include `BUNKER_RESOLVER_JSON`, a machine-readable bootstrap resolver report for duplicate and unresolved symbol diagnostics.
 - The language is not yet production-complete.
 
 ## Critical Path
@@ -82,6 +83,7 @@ These are the next concrete PR-sized slices.
 | Q-021 | DONE | Add complete nested self-host AST JSON for agents. | `BUNKER_AST_JSON` includes `complete_tree:true` plus a recursive `tree` object covering functions, params, types, blocks, statements, expressions, patterns, and match arms; CI checks direct, stage1, and stage2 generated outputs. |
 | Q-022 | DONE | Add self-host type graph reports for agents. | Successful generated self-host outputs include `BUNKER_TYPE_GRAPH_JSON` with declared structs/constants/functions plus bootstrap-inferred locals and return expression types; CI checks direct, stage1, and stage2 generated outputs. |
 | Q-023 | DONE | Add self-host symbol table reports for agents. | Successful generated self-host outputs include `BUNKER_SYMBOL_TABLE_JSON` with declarations, references, scopes, and spans derived from the bootstrap AST walk; CI checks direct, stage1, and stage2 generated outputs. |
+| Q-024 | DONE | Add self-host resolver reports for agents. | Successful generated self-host outputs include `BUNKER_RESOLVER_JSON` with duplicate/unresolved symbol diagnostics, and CI checks both clean and intentionally broken resolver inputs. |
 
 ## Language Core
 
@@ -218,7 +220,7 @@ These are the next concrete PR-sized slices.
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
 | CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Typechecker handles bootstrap subset as Bunker module. |
-| CF-008 | TODO | P0 | Name resolver in Bunker. | Symbol tables and scopes are implemented in Bunker. |
+| CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass in Bunker reports duplicate declarations and unresolved identifiers/calls/types/struct literal fields; final gate requires import graph, visibility, overloads, and definition-use related spans. |
 | CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
 | CF-010 | TODO | P0 | Semantic validation passes. | Non-type semantic errors are separate and tested. |
 | CF-011 | TODO | P0 | Exhaustiveness checker. | Match exhaustiveness works for ADTs. |
@@ -286,7 +288,7 @@ These are the next concrete PR-sized slices.
 | A-009 | TODO | P0 | Multi-error recovery. | Parser/typechecker return multiple useful diagnostics. |
 | A-010 | PARTIAL | P0 | Machine-readable AST dump. | Self-host generated outputs include `BUNKER_AST_JSON` root/top-level summaries plus a complete nested `tree`; final gate requires Rust and self-host compiler modes to expose the same stable AST dump contract. |
 | A-011 | PARTIAL | P0 | Machine-readable type graph. | Self-host generated outputs include `BUNKER_TYPE_GRAPH_JSON` for declared types plus bootstrap-inferred locals/returns; final gate requires a real typechecker-backed graph across Rust and self-host compiler modes. |
-| A-012 | PARTIAL | P0 | Machine-readable symbol table. | Self-host generated outputs include `BUNKER_SYMBOL_TABLE_JSON` declarations/references from the bootstrap AST walk; final gate requires a resolver-backed symbol table with duplicate/unresolved diagnostics, imports, visibility, and related spans. |
+| A-012 | PARTIAL | P0 | Machine-readable symbol table. | Self-host generated outputs include `BUNKER_SYMBOL_TABLE_JSON` declarations/references and `BUNKER_RESOLVER_JSON` duplicate/unresolved diagnostics; final gate requires import-aware visibility, overloads, and related definition-use spans. |
 | A-013 | PARTIAL | P0 | Capability report. | Self-host generated outputs include `BUNKER_CAPABILITY_JSON`; final gate requires CLI-native capability reports across Rust and self-host compiler modes. |
 
 ## Safety And Production Readiness
@@ -364,3 +366,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-04-24 | Added complete nested self-host AST reports. | `BUNKER_AST_JSON` now carries `complete_tree:true` and a recursive `tree` object for agent inspection, with direct/stage1/stage2 CI checks. |
 | 2026-04-24 | Added self-host type graph reports. | `BUNKER_TYPE_GRAPH_JSON` now carries declared structs/constants/functions plus bootstrap-inferred local and return expression types for agents, with direct/stage1/stage2 CI checks. |
 | 2026-04-25 | Added self-host symbol table reports. | `BUNKER_SYMBOL_TABLE_JSON` now carries declaration and reference tables with bootstrap scopes and spans for agents, with direct/stage1/stage2 CI checks. |
+| 2026-04-25 | Added self-host resolver reports. | `BUNKER_RESOLVER_JSON` now carries bootstrap duplicate/unresolved symbol diagnostics for agents, with clean and intentionally broken CI checks. |

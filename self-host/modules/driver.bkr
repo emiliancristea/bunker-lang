@@ -205,13 +205,14 @@
             json_field_bool("stage1_stage2_ci_gate", true) + comma +
             json_field_bool("type_graph_report", true) + comma +
             json_field_bool("symbol_table_report", true) + comma +
+            json_field_bool("name_resolver_report", true) + comma +
             json_field_bool("typed_ast", false) + comma +
             json_field_bool("real_module_resolver", false) + comma +
             json_field_bool("real_generics", false) + comma +
             json_field_bool("user_defined_adts", false) + comma +
             json_field_bool("multi_error_recovery", false) + comma +
             json_field_str("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec handles, HashMap handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals") + comma +
-            json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
+            json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, bootstrap name resolver only, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
             json_field_str("agent_guidance", "Use BUNKER_DIAGNOSTIC_JSON for repair tasks. Treat BUNKER_CAPABILITY_JSON as the current compiler surface before generating Bunker code.") +
             "}";
     }
@@ -1428,8 +1429,9 @@
             json_field_bool("complete", false) + comma +
             json_field_bool("declarations", true) + comma +
             json_field_bool("references", true) + comma +
-            json_field_str("scope_model", "bootstrap kernel/function/struct scopes without full resolver validation") + comma +
-            json_field_str("known_limits", "Derived from AST names, not a real name resolver; duplicate detection, unresolved-name errors, imports, visibility, overloads, and related spans are not complete yet.") + comma +
+            json_field_str("scope_model", "bootstrap kernel/function/struct scopes paired with BUNKER_RESOLVER_JSON validation") + comma +
+            json_field_str("known_limits", "Derived from AST names and paired with BUNKER_RESOLVER_JSON for bootstrap duplicate/unresolved diagnostics; imports, visibility, overloads, and related definition-use spans are not complete yet.") + comma +
+            json_field_str("resolver_report", "BUNKER_RESOLVER_JSON") + comma +
             json_field_raw("summary", "{" +
                 json_field_i64("interned_name_count", vec_len(names)) + comma +
                 json_field_i64("function_count", ast_report_count_kind(items, NODE_FN)) + comma +
@@ -1443,6 +1445,541 @@
 
     fn build_symbol_table_report_comment(kernel: Vec<i64>) -> str {
         return "/* BUNKER_SYMBOL_TABLE_JSON: " + self_host_symbol_table_json(kernel) + from_char_code(10) +
+            "*/" + from_char_code(10);
+    }
+
+    fn resolver_state_new() -> Vec<str> {
+        let state: Vec<str> = vec_new();
+        return state;
+    }
+
+    fn resolver_state_json(state: Vec<str>) -> str {
+        let result = "[";
+        let i: i64 = 0;
+        while i < vec_len(state) {
+            if i > 0 {
+                result = result + ",";
+            }
+            let diagnostic: str = vec_get(state, i);
+            result = result + diagnostic;
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn resolver_state_count(state: Vec<str>) -> i64 {
+        return vec_len(state);
+    }
+
+    fn resolver_state_append(state: Vec<str>, diagnostic: str) -> Vec<str> {
+        vec_push(state, diagnostic);
+        return state;
+    }
+
+    fn resolver_i64_vec_contains(values: Vec<i64>, value: i64) -> bool {
+        let i: i64 = 0;
+        while i < vec_len(values) {
+            if vec_get(values, i) == value {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn resolver_empty_i64_vec() -> Vec<i64> {
+        let values: Vec<i64> = vec_new();
+        return values;
+    }
+
+    fn resolver_i64_vec_copy(values: Vec<i64>) -> Vec<i64> {
+        let result: Vec<i64> = vec_new();
+        let i: i64 = 0;
+        while i < vec_len(values) {
+            let copied_value: i64 = vec_get(values, i);
+            vec_push(result, copied_value);
+            i = i + 1;
+        }
+        return result;
+    }
+
+    fn resolver_i64_vec_with(values: Vec<i64>, value: i64) -> Vec<i64> {
+        let result: Vec<i64> = resolver_i64_vec_copy(values);
+        vec_push(result, value);
+        return result;
+    }
+
+    fn resolver_diagnostic_json(kind: str, code: str, name: str, scope: str,
+                                source_start: i64, source_end: i64,
+                                expected: str, actual: str, repair_hint: str) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("kind", kind) + comma +
+            json_field_str("error_code", code) + comma +
+            json_field_str("name", name) + comma +
+            json_field_str("scope", scope) + comma +
+            json_field_i64("source_start", source_start) + comma +
+            json_field_i64("source_end", source_end) + comma +
+            json_field_bool("span_known", source_start != AST_SPAN_UNKNOWN && source_end != AST_SPAN_UNKNOWN) + comma +
+            json_field_str("expected", expected) + comma +
+            json_field_str("actual", actual) + comma +
+            json_field_str("repair_hint", repair_hint) +
+            "}";
+    }
+
+    fn resolver_node_diagnostic_json(kind: str, code: str, name: str, scope: str,
+                                     node: Vec<i64>, expected: str, actual: str,
+                                     repair_hint: str) -> str {
+        return resolver_diagnostic_json(kind, code, name, scope,
+            ast_node_span_start(node), ast_node_span_end(node),
+            expected, actual, repair_hint);
+    }
+
+    fn resolver_pattern_diagnostic_json(kind: str, code: str, name: str, scope: str,
+                                        pattern: Vec<i64>, expected: str, actual: str,
+                                        repair_hint: str) -> str {
+        return resolver_diagnostic_json(kind, code, name, scope,
+            ast_pattern_span_start(pattern), ast_pattern_span_end(pattern),
+            expected, actual, repair_hint);
+    }
+
+    fn resolver_append_duplicate_node(state: Vec<str>, name: str, scope: str,
+                                      declaration_kind: str, node: Vec<i64>) -> Vec<str> {
+        let hint = "Rename this " + declaration_kind + " or remove the earlier declaration with the same name in this scope.";
+        return resolver_state_append(state,
+            resolver_node_diagnostic_json("duplicate_declaration", "BKR_SELF_DUPLICATE_SYMBOL",
+                name, scope, node, "unique " + declaration_kind + " name", name, hint));
+    }
+
+    fn resolver_append_duplicate_pattern(state: Vec<str>, name: str, scope: str,
+                                         pattern: Vec<i64>) -> Vec<str> {
+        let hint = "Rename this pattern binding or remove the earlier binding with the same name in this pattern scope.";
+        return resolver_state_append(state,
+            resolver_pattern_diagnostic_json("duplicate_declaration", "BKR_SELF_DUPLICATE_SYMBOL",
+                name, scope, pattern, "unique pattern binding", name, hint));
+    }
+
+    fn resolver_append_unresolved_node(state: Vec<str>, name: str, scope: str,
+                                      reference_kind: str, node: Vec<i64>,
+                                      expected: str) -> Vec<str> {
+        let hint = "Declare " + name + " in scope " + scope + ", import it through a real module, or correct the misspelled reference.";
+        return resolver_state_append(state,
+            resolver_node_diagnostic_json("unresolved_reference", "BKR_SELF_UNRESOLVED_SYMBOL",
+                name, scope, node, expected, reference_kind + " " + name, hint));
+    }
+
+    fn resolver_is_builtin_call(name: str) -> bool {
+        if name == "Some" { return true; }
+        if name == "len" { return true; }
+        if name == "strlen" { return true; }
+        if name == "print" { return true; }
+        if name == "println" { return true; }
+        if name == "read_file" { return true; }
+        if name == "write_file" { return true; }
+        if name == "file_exists" { return true; }
+        if name == "vec_new" { return true; }
+        if name == "vec_push" { return true; }
+        if name == "vec_get" { return true; }
+        if name == "vec_set" { return true; }
+        if name == "vec_len" { return true; }
+        if name == "vec_pop" { return true; }
+        if name == "hashmap_new" { return true; }
+        if name == "hashmap_insert" { return true; }
+        if name == "hashmap_get" { return true; }
+        if name == "hashmap_contains" { return true; }
+        if name == "hashmap_remove" { return true; }
+        if name == "hashmap_keys" { return true; }
+        if name == "char_at" { return true; }
+        if name == "char_code" { return true; }
+        if name == "char_code_at" { return true; }
+        if name == "substring" { return true; }
+        if name == "contains" { return true; }
+        if name == "starts_with" { return true; }
+        if name == "ends_with" { return true; }
+        if name == "trim" { return true; }
+        if name == "parse_int" { return true; }
+        if name == "int_to_string" { return true; }
+        if name == "from_char_code" { return true; }
+        if name == "result_ok" { return true; }
+        if name == "result_err" { return true; }
+        if name == "result_is_ok" { return true; }
+        if name == "result_is_err" { return true; }
+        if name == "result_unwrap" { return true; }
+        if name == "result_unwrap_err" { return true; }
+        if name == "result_tag" { return true; }
+        if name == "result_value" { return true; }
+        return false;
+    }
+
+    fn resolver_has_function_name(kernel: Vec<i64>, name_idx: i64) -> bool {
+        let items = ast_kernel_items(kernel);
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if ast_is_fn_item(item) && ast_fn_name_idx(item) == name_idx {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn resolver_has_const_name(kernel: Vec<i64>, name_idx: i64) -> bool {
+        let items = ast_kernel_items(kernel);
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if ast_is_const_item(item) && ast_const_name_idx(item) == name_idx {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn resolver_has_struct_name(kernel: Vec<i64>, name_idx: i64) -> bool {
+        let items = ast_kernel_items(kernel);
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if ast_is_struct_item(item) && ast_struct_name_idx(item) == name_idx {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn resolver_struct_has_field(kernel: Vec<i64>, struct_name_idx: i64, field_name_idx: i64) -> bool {
+        let items = ast_kernel_items(kernel);
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if ast_is_struct_item(item) && ast_struct_name_idx(item) == struct_name_idx {
+                let fields = ast_struct_fields(item);
+                let j: i64 = 0;
+                while j < vec_len(fields) {
+                    let field = vec_get(fields, j) as Vec<i64>;
+                    if ast_field_decl_name_idx(field) == field_name_idx {
+                        return true;
+                    }
+                    j = j + 1;
+                }
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn resolver_type_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
+                                 type_node: i64, scope: str) -> Vec<str> {
+        if type_node != 0 && ast_type_kind_value(type_node) == TYPE_STRUCT {
+            let name_idx = ast_type_struct_name_idx_value(type_node);
+            if !resolver_has_struct_name(kernel, name_idx) {
+                state = resolver_append_unresolved_node(state,
+                    ast_report_name(names, name_idx),
+                    scope,
+                    "type_reference",
+                    type_node as Vec<i64>,
+                    "declared struct type");
+            }
+        }
+        return state;
+    }
+
+    fn resolver_pattern_bindings(state: Vec<str>, names: Vec<str>, pattern: Vec<i64>,
+                                 scope: str, bindings: Vec<i64>) -> Vec<str> {
+        let kind = ast_pattern_kind(pattern);
+        if kind == PAT_BIND || kind == PAT_SOME {
+            let name_idx = ast_pattern_value(pattern);
+            if resolver_i64_vec_contains(bindings, name_idx) {
+                state = resolver_append_duplicate_pattern(state, ast_report_name(names, name_idx), scope, pattern);
+            } else {
+                vec_push(bindings, name_idx);
+            }
+        }
+        return state;
+    }
+
+    fn resolver_expr_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
+                                 expr_value: i64, scope: str, bindings: Vec<i64>) -> Vec<str> {
+        if expr_value == 0 {
+            return state;
+        }
+
+        let expr = expr_value as Vec<i64>;
+        let kind = ast_kind(expr);
+        if kind == NODE_IDENT {
+            let name_idx = ast_name_idx(expr);
+            let name = ast_report_name(names, name_idx);
+            if name != "None" && !resolver_i64_vec_contains(bindings, name_idx) && !resolver_has_const_name(kernel, name_idx) {
+                state = resolver_append_unresolved_node(state, name, scope, "identifier", expr, "local, parameter, for binding, pattern binding, or constant");
+            }
+        } else if kind == NODE_CALL {
+            let name_idx = ast_call_name_idx(expr);
+            let name = ast_report_name(names, name_idx);
+            if !resolver_is_builtin_call(name) && !resolver_has_function_name(kernel, name_idx) {
+                state = resolver_append_unresolved_node(state, name, scope, "function_call", expr, "declared function or supported bootstrap builtin");
+            }
+            let args = ast_call_args(expr);
+            let i: i64 = 0;
+            while i < vec_len(args) {
+                state = resolver_expr_diagnostics(state, kernel, names, vec_get(args, i), scope, bindings);
+                i = i + 1;
+            }
+        } else if kind == NODE_STRUCT_LIT {
+            let struct_name_idx = ast_struct_lit_name_idx(expr);
+            let struct_name = ast_report_name(names, struct_name_idx);
+            if !resolver_has_struct_name(kernel, struct_name_idx) {
+                state = resolver_append_unresolved_node(state, struct_name, scope, "struct_literal", expr, "declared struct");
+            }
+
+            let field_names = ast_struct_lit_field_names(expr);
+            let field_values = ast_struct_lit_field_values(expr);
+            let seen_fields: Vec<i64> = vec_new();
+            let i: i64 = 0;
+            while i < vec_len(field_names) {
+                let field_name_idx = vec_get(field_names, i);
+                let field_name = ast_report_name(names, field_name_idx);
+                if resolver_i64_vec_contains(seen_fields, field_name_idx) {
+                    state = resolver_append_unresolved_node(state, field_name, scope, "field_initializer", expr, "one initializer per field");
+                } else {
+                    vec_push(seen_fields, field_name_idx);
+                    if resolver_has_struct_name(kernel, struct_name_idx) && !resolver_struct_has_field(kernel, struct_name_idx, field_name_idx) {
+                        state = resolver_append_unresolved_node(state, field_name, scope, "field_initializer", expr, "field declared on struct " + struct_name);
+                    }
+                }
+                state = resolver_expr_diagnostics(state, kernel, names, vec_get(field_values, i), scope, bindings);
+                i = i + 1;
+            }
+        } else if kind == NODE_FIELD_ACCESS {
+            state = resolver_expr_diagnostics(state, kernel, names, ast_field_base(expr) as i64, scope, bindings);
+        } else if kind == NODE_BINARY {
+            state = resolver_expr_diagnostics(state, kernel, names, ast_binary_left(expr) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_binary_right(expr) as i64, scope, bindings);
+        } else if kind == NODE_UNARY {
+            state = resolver_expr_diagnostics(state, kernel, names, ast_unary_operand(expr) as i64, scope, bindings);
+        } else if kind == NODE_TERNARY {
+            state = resolver_expr_diagnostics(state, kernel, names, ast_ternary_cond(expr) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_ternary_then(expr) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_ternary_else(expr) as i64, scope, bindings);
+        } else if kind == NODE_ARRAY_LIT {
+            let elements = ast_array_elements(expr);
+            let i: i64 = 0;
+            while i < vec_len(elements) {
+                state = resolver_expr_diagnostics(state, kernel, names, vec_get(elements, i), scope, bindings);
+                i = i + 1;
+            }
+        } else if kind == NODE_INDEX {
+            state = resolver_expr_diagnostics(state, kernel, names, ast_index_base(expr) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_index_expr(expr) as i64, scope, bindings);
+        } else if kind == NODE_MATCH {
+            state = resolver_expr_diagnostics(state, kernel, names, ast_match_scrutinee(expr) as i64, scope, bindings);
+            let patterns = ast_match_patterns(expr);
+            let bodies = ast_match_bodies(expr);
+            let i: i64 = 0;
+            while i < vec_len(patterns) {
+                let arm_bindings = resolver_i64_vec_copy(bindings);
+                let pattern_bindings: Vec<i64> = vec_new();
+                state = resolver_pattern_bindings(state, names, vec_get(patterns, i) as Vec<i64>, scope, pattern_bindings);
+                let j: i64 = 0;
+                while j < vec_len(pattern_bindings) {
+                    let binding_name_idx: i64 = vec_get(pattern_bindings, j);
+                    vec_push(arm_bindings, binding_name_idx);
+                    j = j + 1;
+                }
+
+                let body = vec_get(bodies, i) as Vec<i64>;
+                if ast_is_block(body) {
+                    state = resolver_block_diagnostics(state, kernel, names, body, scope, arm_bindings, resolver_empty_i64_vec());
+                } else {
+                    state = resolver_expr_diagnostics(state, kernel, names, body as i64, scope, arm_bindings);
+                }
+                i = i + 1;
+            }
+        }
+        return state;
+    }
+
+    fn resolver_stmt_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
+                                 stmt: Vec<i64>, scope: str,
+                                 bindings: Vec<i64>, declared: Vec<i64>) -> Vec<str> {
+        let kind = ast_kind(stmt);
+        if kind == NODE_LET {
+            let name_idx = ast_let_name_idx(stmt);
+            state = resolver_type_diagnostics(state, kernel, names, ast_let_type_node(stmt), scope);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_let_init(stmt), scope, bindings);
+            if resolver_i64_vec_contains(declared, name_idx) {
+                state = resolver_append_duplicate_node(state, ast_report_name(names, name_idx), scope, "local", stmt);
+            } else {
+                vec_push(declared, name_idx);
+            }
+            vec_push(bindings, name_idx);
+        } else if kind == NODE_RETURN {
+            state = resolver_expr_diagnostics(state, kernel, names, ast_return_expr(stmt), scope, bindings);
+        } else if kind == NODE_IF {
+            state = resolver_expr_diagnostics(state, kernel, names, ast_if_cond(stmt) as i64, scope, bindings);
+            state = resolver_block_diagnostics(state, kernel, names, ast_if_then(stmt), scope, bindings, resolver_empty_i64_vec());
+            if ast_if_else(stmt) != 0 {
+                state = resolver_block_diagnostics(state, kernel, names, ast_if_else(stmt) as Vec<i64>, scope, bindings, resolver_empty_i64_vec());
+            }
+        } else if kind == NODE_WHILE {
+            state = resolver_expr_diagnostics(state, kernel, names, ast_while_cond(stmt) as i64, scope, bindings);
+            state = resolver_block_diagnostics(state, kernel, names, ast_while_body(stmt), scope, bindings, resolver_empty_i64_vec());
+        } else if kind == NODE_FOR {
+            let name_idx = ast_for_name_idx(stmt);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_for_start(stmt) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_for_end(stmt) as i64, scope, bindings);
+            if resolver_i64_vec_contains(declared, name_idx) {
+                state = resolver_append_duplicate_node(state, ast_report_name(names, name_idx), scope, "for binding", stmt);
+            }
+            let loop_bindings = resolver_i64_vec_with(bindings, name_idx);
+            state = resolver_block_diagnostics(state, kernel, names, ast_for_body(stmt), scope, loop_bindings, resolver_empty_i64_vec());
+        } else if kind == NODE_LOOP {
+            state = resolver_block_diagnostics(state, kernel, names, ast_loop_body(stmt), scope, bindings, resolver_empty_i64_vec());
+        } else if kind == NODE_ASSIGN {
+            state = resolver_expr_diagnostics(state, kernel, names, ast_assign_target(stmt) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_assign_value(stmt) as i64, scope, bindings);
+        } else if kind == NODE_EXPR_STMT {
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_stmt_expr(stmt) as i64, scope, bindings);
+        }
+        return state;
+    }
+
+    fn resolver_block_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
+                                  block: Vec<i64>, scope: str,
+                                  parent_bindings: Vec<i64>, declared_seed: Vec<i64>) -> Vec<str> {
+        let bindings = resolver_i64_vec_copy(parent_bindings);
+        let declared = resolver_i64_vec_copy(declared_seed);
+        let i: i64 = 0;
+        while i < ast_block_stmt_count(block) {
+            state = resolver_stmt_diagnostics(state, kernel, names, ast_block_stmt(block, i), scope, bindings, declared);
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn resolver_function_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
+                                     item: Vec<i64>, kernel_scope: str) -> Vec<str> {
+        let fn_name = ast_report_name(names, ast_fn_name_idx(item));
+        let fn_scope = "function:" + fn_name;
+        state = resolver_type_diagnostics(state, kernel, names, ast_fn_return_type(item), fn_scope);
+
+        let params = ast_fn_params(item);
+        let bindings: Vec<i64> = vec_new();
+        let declared: Vec<i64> = vec_new();
+        let i: i64 = 0;
+        while i < vec_len(params) {
+            let param = vec_get(params, i) as Vec<i64>;
+            let name_idx = ast_param_name_idx(param);
+            state = resolver_type_diagnostics(state, kernel, names, ast_param_type_node(param) as i64, fn_scope);
+            if resolver_i64_vec_contains(declared, name_idx) {
+                state = resolver_append_duplicate_node(state, ast_report_name(names, name_idx), fn_scope, "parameter", param);
+            } else {
+                vec_push(declared, name_idx);
+            }
+            vec_push(bindings, name_idx);
+            i = i + 1;
+        }
+
+        return resolver_block_diagnostics(state, kernel, names, ast_fn_body(item), fn_scope, bindings, declared);
+    }
+
+    fn resolver_struct_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
+                                   item: Vec<i64>) -> Vec<str> {
+        let struct_name = ast_report_name(names, ast_struct_name_idx(item));
+        let struct_scope = "struct:" + struct_name;
+        let fields = ast_struct_fields(item);
+        let declared: Vec<i64> = vec_new();
+        let i: i64 = 0;
+        while i < vec_len(fields) {
+            let field = vec_get(fields, i) as Vec<i64>;
+            let name_idx = ast_field_decl_name_idx(field);
+            if resolver_i64_vec_contains(declared, name_idx) {
+                state = resolver_append_duplicate_node(state, ast_report_name(names, name_idx), struct_scope, "field", field);
+            } else {
+                vec_push(declared, name_idx);
+            }
+            state = resolver_type_diagnostics(state, kernel, names, ast_field_decl_type_node(field), struct_scope);
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn resolver_top_level_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>) -> Vec<str> {
+        let kernel_scope = "kernel:" + ast_report_name(names, ast_name_idx(kernel));
+        let declared: Vec<i64> = vec_new();
+        let items = ast_kernel_items(kernel);
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            let name_idx: i64 = -1;
+            let declaration_kind = "item";
+            if ast_is_fn_item(item) {
+                name_idx = ast_fn_name_idx(item);
+                declaration_kind = "function";
+            } else if ast_is_const_item(item) {
+                name_idx = ast_const_name_idx(item);
+                declaration_kind = "constant";
+            } else if ast_is_struct_item(item) {
+                name_idx = ast_struct_name_idx(item);
+                declaration_kind = "struct";
+            }
+
+            if name_idx >= 0 {
+                if resolver_i64_vec_contains(declared, name_idx) {
+                    state = resolver_append_duplicate_node(state, ast_report_name(names, name_idx), kernel_scope, declaration_kind, item);
+                } else {
+                    vec_push(declared, name_idx);
+                }
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn resolver_kernel_diagnostics(state: Vec<str>, kernel: Vec<i64>) -> Vec<str> {
+        let names = ast_kernel_names(kernel);
+        let kernel_scope = "kernel:" + ast_report_name(names, ast_name_idx(kernel));
+        state = resolver_top_level_diagnostics(state, kernel, names);
+
+        let items = ast_kernel_items(kernel);
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if ast_is_fn_item(item) {
+                state = resolver_function_diagnostics(state, kernel, names, item, kernel_scope);
+            } else if ast_is_const_item(item) {
+                state = resolver_type_diagnostics(state, kernel, names, ast_const_type_node(item), kernel_scope);
+                state = resolver_expr_diagnostics(state, kernel, names, ast_const_value(item), kernel_scope, resolver_empty_i64_vec());
+            } else if ast_is_struct_item(item) {
+                state = resolver_struct_diagnostics(state, kernel, names, item);
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn self_host_resolver_json(kernel: Vec<i64>) -> str {
+        let comma = ",";
+        let state = resolver_state_new();
+        resolver_kernel_diagnostics(state, kernel);
+        return "{" +
+            json_field_str("schema_version", "bunker.self_host.resolver.v1") + comma +
+            json_field_str("representation", "bootstrap_name_resolver") + comma +
+            json_field_bool("complete", false) + comma +
+            json_field_bool("duplicate_detection", true) + comma +
+            json_field_bool("unresolved_detection", true) + comma +
+            json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
+            json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
+            json_field_str("scope_model", "kernel globals plus function/block/pattern binding scopes using interned names") + comma +
+            json_field_str("known_limits", "Bootstrap resolver validates duplicate declarations and unresolved identifiers, calls, struct types, struct literals, and struct literal fields; it does not yet resolve imports, visibility, overloads, method receiver fields, or related definition spans.") + comma +
+            json_field_raw("diagnostics", resolver_state_json(state)) +
+            "}";
+    }
+
+    fn build_resolver_report_comment(kernel: Vec<i64>) -> str {
+        return "/* BUNKER_RESOLVER_JSON: " + self_host_resolver_json(kernel) + from_char_code(10) +
             "*/" + from_char_code(10);
     }
 
@@ -1493,6 +2030,7 @@
         return capability_report + build_ast_report_comment(expanded_source, ast) +
             build_type_graph_report_comment(ast) +
             build_symbol_table_report_comment(ast) +
+            build_resolver_report_comment(ast) +
             gen_c_program(ast);
     }
 
