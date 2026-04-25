@@ -109,6 +109,7 @@ jobs:
           grep -q '"type_graph_report":true' /tmp/01_basic_math.c
           grep -q '"symbol_table_report":true' /tmp/01_basic_math.c
           grep -q '"name_resolver_report":true' /tmp/01_basic_math.c
+          grep -q '"typecheck_report":true' /tmp/01_basic_math.c
           grep -q '"typed_ast":false' /tmp/01_basic_math.c
           grep -q "BUNKER_AST_JSON" /tmp/01_basic_math.c
           grep -q "bunker.self_host.ast.v1" /tmp/01_basic_math.c
@@ -138,6 +139,13 @@ jobs:
           grep -q '"duplicate_detection":true' /tmp/01_basic_math.c
           grep -q '"unresolved_detection":true' /tmp/01_basic_math.c
           grep -q '"has_diagnostics":false' /tmp/01_basic_math.c
+          grep -q "BUNKER_TYPECHECK_JSON" /tmp/01_basic_math.c
+          grep -q "bunker.self_host.typecheck.v1" /tmp/01_basic_math.c
+          grep -q '"annotation_checks":true' /tmp/01_basic_math.c
+          grep -q '"return_checks":true' /tmp/01_basic_math.c
+          grep -q '"condition_checks":true' /tmp/01_basic_math.c
+          grep -q '"call_argument_checks":true' /tmp/01_basic_math.c
+          grep -q 'BUNKER_TYPECHECK_JSON: .*"has_diagnostics":false' /tmp/01_basic_math.c
           cp self-host/runtime.h /tmp/runtime.h
           cc -std=c11 /tmp/01_basic_math.c -o /tmp/01_basic_math
           set +e
@@ -179,6 +187,52 @@ jobs:
           grep -q '"name":"nope"' /tmp/resolver_bad.c
           grep -q '"name":"Missing"' /tmp/resolver_bad.c
           grep -q '"name":"right"' /tmp/resolver_bad.c
+
+      - name: Check self-host typecheck diagnostics
+        timeout-minutes: 2
+        run: |
+          cat > /tmp/typecheck_bad.bkr <<'BKR'
+          kernel TypeBroken {
+              fn add(x: i32, y: i32) -> i32 {
+                  return x + y;
+              }
+
+              fn flag() -> bool {
+                  return 1;
+              }
+
+              fn main() -> i32 {
+                  let text: str = 42;
+                  let ok: i32 = add(true, 2);
+                  if 1 {
+                      return text;
+                  }
+                  return false;
+              }
+          }
+          BKR
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            /tmp/typecheck_bad.bkr \
+            -o /tmp/typecheck_bad.c
+          test -s /tmp/typecheck_bad.c
+          ! grep -q "Parse error" /tmp/typecheck_bad.c
+          grep -q "BUNKER_CAPABILITY_JSON" /tmp/typecheck_bad.c
+          grep -q '"typecheck_report":true' /tmp/typecheck_bad.c
+          grep -q "BUNKER_TYPECHECK_JSON" /tmp/typecheck_bad.c
+          grep -q "bunker.self_host.typecheck.v1" /tmp/typecheck_bad.c
+          grep -q 'BUNKER_TYPECHECK_JSON: .*"has_diagnostics":true' /tmp/typecheck_bad.c
+          grep -q '"diagnostic_count":' /tmp/typecheck_bad.c
+          grep -q "BKR_SELF_TYPE_MISMATCH" /tmp/typecheck_bad.c
+          grep -q "annotation_type_mismatch" /tmp/typecheck_bad.c
+          grep -q "return_type_mismatch" /tmp/typecheck_bad.c
+          grep -q "condition_type_mismatch" /tmp/typecheck_bad.c
+          grep -q "call_argument_type_mismatch" /tmp/typecheck_bad.c
+          grep -q '"name":"text"' /tmp/typecheck_bad.c
+          grep -q '"name":"add"' /tmp/typecheck_bad.c
+          grep -q '"expected":"str"' /tmp/typecheck_bad.c
+          grep -q '"expected":"bool"' /tmp/typecheck_bad.c
+          grep -q '"found":"i64"' /tmp/typecheck_bad.c
+          grep -q '"found":"bool"' /tmp/typecheck_bad.c
 
       - name: Compile branching fixture through self-host compiler
         timeout-minutes: 2
@@ -346,6 +400,9 @@ jobs:
             grep -q "BUNKER_RESOLVER_JSON" "$run_dir/self_host_output.c"
             grep -q "bunker.self_host.resolver.v1" "$run_dir/self_host_output.c"
             grep -q '"diagnostic_count":' "$run_dir/self_host_output.c"
+            grep -q "BUNKER_TYPECHECK_JSON" "$run_dir/self_host_output.c"
+            grep -q "bunker.self_host.typecheck.v1" "$run_dir/self_host_output.c"
+            grep -q 'BUNKER_TYPECHECK_JSON: .*"diagnostic_count":' "$run_dir/self_host_output.c"
             cp self-host/runtime.h "$run_dir/runtime.h"
             cc -std=c11 "$run_dir/self_host_output.c" -o "$run_dir/$name"
             set +e
