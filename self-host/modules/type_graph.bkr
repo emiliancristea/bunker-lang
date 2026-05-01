@@ -1,0 +1,363 @@
+    // ========================================
+    // BOOTSTRAP TYPE GRAPH REPORT
+    // ========================================
+    //
+    // Produces BUNKER_TYPE_GRAPH_JSON and exposes bootstrap type-state helpers
+    // used by the typecheck report while the compiler still uses raw Vec ASTs.
+
+    fn type_graph_kind_json(kind: i64, source: str) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("type_kind", ast_type_kind_name(kind)) + comma +
+            json_field_i64("type_tag", kind) + comma +
+            json_field_str("c_abi", type_to_c(kind)) + comma +
+            json_field_str("source", source) + comma +
+            json_field_bool("known", kind != TYPE_UNKNOWN) +
+            "}";
+    }
+
+    fn type_graph_type_node_json(names: Vec<str>, type_node: i64, source: str) -> str {
+        if type_node == 0 {
+            return type_graph_kind_json(TYPE_UNKNOWN, source);
+        }
+
+        let comma = ",";
+        let kind = ast_type_kind_value(type_node);
+        let result = "{" +
+            json_field_str("type_kind", ast_type_kind_name(kind)) + comma +
+            json_field_i64("type_tag", kind) + comma +
+            json_field_str("c_abi", type_to_c(kind)) + comma +
+            json_field_str("source", source) + comma +
+            json_field_bool("known", kind != TYPE_UNKNOWN);
+
+        if kind == TYPE_STRUCT {
+            result = result + comma +
+                json_field_str("struct_name", ast_report_name(names, ast_type_struct_name_idx_value(type_node)));
+        } else if kind == TYPE_ARRAY {
+            result = result + comma +
+                json_field_str("element_type_kind", ast_type_kind_name(ast_type_array_elem_kind_value(type_node))) + comma +
+                json_field_i64("array_len", ast_type_array_len_value(type_node));
+        }
+
+        return result + "}";
+    }
+
+    fn type_graph_expr_json(state: Vec<i64>, expr_value: i64) -> str {
+        if expr_value == 0 {
+            return type_graph_kind_json(TYPE_UNKNOWN, "absent");
+        }
+        return type_graph_kind_json(infer_c_expr_type(state, expr_value as Vec<i64>), "bootstrap_inferred");
+    }
+
+    fn type_graph_effective_kind(state: Vec<i64>, type_node: i64, expr_value: i64) -> i64 {
+        if type_node != 0 {
+            return ast_type_kind_value(type_node);
+        }
+        if expr_value != 0 {
+            return infer_c_expr_type(state, expr_value as Vec<i64>);
+        }
+        return TYPE_UNKNOWN;
+    }
+
+    fn type_graph_maybe_add_array_type(state: Vec<i64>, name_idx: i64, type_node: i64) -> Vec<i64> {
+        if type_node != 0 && ast_type_kind_value(type_node) == TYPE_ARRAY {
+            cgen_add_array_type(state, name_idx,
+                ast_type_array_elem_kind_value(type_node),
+                ast_type_array_len_value(type_node));
+        }
+        return state;
+    }
+
+    fn type_graph_seed_state(kernel: Vec<i64>) -> Vec<i64> {
+        let names = ast_kernel_names(kernel);
+        let state = cgen_new(ast_report_name(names, ast_name_idx(kernel)), names);
+        let items = ast_kernel_items(kernel);
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if ast_is_fn_item(item) {
+                let ret_type = ast_fn_return_type(item);
+                let ret_kind = TYPE_VOID;
+                if ret_type != 0 {
+                    ret_kind = ast_type_kind_value(ret_type);
+                }
+                cgen_add_fn_type(state, ast_fn_name_idx(item), ret_kind);
+            } else if ast_is_const_item(item) {
+                let const_kind = type_graph_effective_kind(state, ast_const_type_node(item), ast_const_value(item));
+                cgen_add_global_type(state, ast_const_name_idx(item), const_kind);
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn type_graph_json_array_append(result: str, item: str) -> str {
+        if len(result) > 1 {
+            return result + "," + item;
+        }
+        return result + item;
+    }
+
+    fn type_graph_json_array_append_items(result: str, items: str) -> str {
+        if len(items) <= 2 {
+            return result;
+        }
+        let inner = substring(items, 1, len(items) - 1);
+        if len(result) > 1 {
+            return result + "," + inner;
+        }
+        return result + inner;
+    }
+
+    fn type_graph_param_json(names: Vec<str>, param: Vec<i64>) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("name", ast_report_name(names, ast_param_name_idx(param))) + comma +
+            json_field_i64("source_start", ast_node_span_start(param)) + comma +
+            json_field_i64("source_end", ast_node_span_end(param)) + comma +
+            json_field_raw("declared_type", type_graph_type_node_json(names, ast_param_type_node(param) as i64, "declared")) +
+            "}";
+    }
+
+    fn type_graph_params_json(names: Vec<str>, params: Vec<i64>) -> str {
+        let result = "[";
+        let i: i64 = 0;
+        while i < vec_len(params) {
+            result = type_graph_json_array_append(result,
+                type_graph_param_json(names, vec_get(params, i) as Vec<i64>));
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn type_graph_field_json(names: Vec<str>, field: Vec<i64>) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("name", ast_report_name(names, ast_field_decl_name_idx(field))) + comma +
+            json_field_i64("source_start", ast_node_span_start(field)) + comma +
+            json_field_i64("source_end", ast_node_span_end(field)) + comma +
+            json_field_raw("declared_type", type_graph_type_node_json(names, ast_field_decl_type_node(field), "declared")) +
+            "}";
+    }
+
+    fn type_graph_fields_json(names: Vec<str>, fields: Vec<i64>) -> str {
+        let result = "[";
+        let i: i64 = 0;
+        while i < vec_len(fields) {
+            result = type_graph_json_array_append(result,
+                type_graph_field_json(names, vec_get(fields, i) as Vec<i64>));
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn type_graph_struct_json(names: Vec<str>, item: Vec<i64>) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("name", ast_report_name(names, ast_struct_name_idx(item))) + comma +
+            json_field_i64("source_start", ast_node_span_start(item)) + comma +
+            json_field_i64("source_end", ast_node_span_end(item)) + comma +
+            json_field_raw("fields", type_graph_fields_json(names, ast_struct_fields(item))) +
+            "}";
+    }
+
+    fn type_graph_structs_json(kernel: Vec<i64>) -> str {
+        let names = ast_kernel_names(kernel);
+        let items = ast_kernel_items(kernel);
+        let result = "[";
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if ast_is_struct_item(item) {
+                result = type_graph_json_array_append(result, type_graph_struct_json(names, item));
+            }
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn type_graph_const_json(state: Vec<i64>, names: Vec<str>, item: Vec<i64>) -> str {
+        let comma = ",";
+        let type_node = ast_const_type_node(item);
+        return "{" +
+            json_field_str("name", ast_report_name(names, ast_const_name_idx(item))) + comma +
+            json_field_i64("source_start", ast_node_span_start(item)) + comma +
+            json_field_i64("source_end", ast_node_span_end(item)) + comma +
+            json_field_raw("declared_type", type_graph_type_node_json(names, type_node, "declared")) + comma +
+            json_field_raw("inferred_type", type_graph_expr_json(state, ast_const_value(item))) + comma +
+            json_field_raw("effective_type", type_graph_kind_json(type_graph_effective_kind(state, type_node, ast_const_value(item)), "effective")) +
+            "}";
+    }
+
+    fn type_graph_consts_json(kernel: Vec<i64>, state: Vec<i64>) -> str {
+        let names = ast_kernel_names(kernel);
+        let items = ast_kernel_items(kernel);
+        let result = "[";
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if ast_is_const_item(item) {
+                result = type_graph_json_array_append(result, type_graph_const_json(state, names, item));
+            }
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn type_graph_let_json(state: Vec<i64>, names: Vec<str>, stmt: Vec<i64>) -> str {
+        let comma = ",";
+        let type_node = ast_let_type_node(stmt);
+        let init = ast_let_init(stmt);
+        let effective_kind = type_graph_effective_kind(state, type_node, init);
+        let result = "{" +
+            json_field_str("name", ast_report_name(names, ast_let_name_idx(stmt))) + comma +
+            json_field_i64("source_start", ast_node_span_start(stmt)) + comma +
+            json_field_i64("source_end", ast_node_span_end(stmt)) + comma +
+            json_field_raw("declared_type", type_graph_type_node_json(names, type_node, "declared")) + comma +
+            json_field_raw("inferred_type", type_graph_expr_json(state, init)) + comma +
+            json_field_raw("effective_type", type_graph_kind_json(effective_kind, "effective"));
+        return result + "}";
+    }
+
+    fn type_graph_add_let_to_state(state: Vec<i64>, stmt: Vec<i64>) -> Vec<i64> {
+        let type_node = ast_let_type_node(stmt);
+        let init = ast_let_init(stmt);
+        let kind = type_graph_effective_kind(state, type_node, init);
+        cgen_add_local_type(state, ast_let_name_idx(stmt), kind);
+        type_graph_maybe_add_array_type(state, ast_let_name_idx(stmt), type_node);
+        return state;
+    }
+
+    fn type_graph_block_locals_json(state: Vec<i64>, names: Vec<str>, block: Vec<i64>) -> str {
+        let result = "[";
+        let i: i64 = 0;
+        while i < ast_block_stmt_count(block) {
+            let stmt = ast_block_stmt(block, i);
+            let kind = ast_kind(stmt);
+            if kind == NODE_LET {
+                result = type_graph_json_array_append(result, type_graph_let_json(state, names, stmt));
+                type_graph_add_let_to_state(state, stmt);
+            } else if kind == NODE_IF {
+                result = type_graph_json_array_append_items(result, type_graph_block_locals_json(state, names, ast_if_then(stmt)));
+                if ast_if_else(stmt) != 0 {
+                    result = type_graph_json_array_append_items(result, type_graph_block_locals_json(state, names, ast_if_else(stmt) as Vec<i64>));
+                }
+            } else if kind == NODE_WHILE {
+                result = type_graph_json_array_append_items(result, type_graph_block_locals_json(state, names, ast_while_body(stmt)));
+            } else if kind == NODE_FOR {
+                cgen_add_local_type(state, ast_for_name_idx(stmt), TYPE_I64);
+                result = type_graph_json_array_append_items(result, type_graph_block_locals_json(state, names, ast_for_body(stmt)));
+            } else if kind == NODE_LOOP {
+                result = type_graph_json_array_append_items(result, type_graph_block_locals_json(state, names, ast_loop_body(stmt)));
+            }
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn type_graph_return_json(state: Vec<i64>, stmt: Vec<i64>) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_i64("source_start", ast_node_span_start(stmt)) + comma +
+            json_field_i64("source_end", ast_node_span_end(stmt)) + comma +
+            json_field_raw("expr_type", type_graph_expr_json(state, ast_return_expr(stmt))) +
+            "}";
+    }
+
+    fn type_graph_block_returns_json(state: Vec<i64>, names: Vec<str>, block: Vec<i64>) -> str {
+        let result = "[";
+        let i: i64 = 0;
+        while i < ast_block_stmt_count(block) {
+            let stmt = ast_block_stmt(block, i);
+            let kind = ast_kind(stmt);
+            if kind == NODE_RETURN {
+                result = type_graph_json_array_append(result, type_graph_return_json(state, stmt));
+            } else if kind == NODE_IF {
+                result = type_graph_json_array_append_items(result, type_graph_block_returns_json(state, names, ast_if_then(stmt)));
+                if ast_if_else(stmt) != 0 {
+                    result = type_graph_json_array_append_items(result, type_graph_block_returns_json(state, names, ast_if_else(stmt) as Vec<i64>));
+                }
+            } else if kind == NODE_WHILE {
+                result = type_graph_json_array_append_items(result, type_graph_block_returns_json(state, names, ast_while_body(stmt)));
+            } else if kind == NODE_FOR {
+                result = type_graph_json_array_append_items(result, type_graph_block_returns_json(state, names, ast_for_body(stmt)));
+            } else if kind == NODE_LOOP {
+                result = type_graph_json_array_append_items(result, type_graph_block_returns_json(state, names, ast_loop_body(stmt)));
+            }
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn type_graph_function_state(kernel: Vec<i64>, fn_node: Vec<i64>) -> Vec<i64> {
+        let state = type_graph_seed_state(kernel);
+        let params = ast_fn_params(fn_node);
+        let i: i64 = 0;
+        while i < vec_len(params) {
+            let param = vec_get(params, i) as Vec<i64>;
+            let param_type = ast_param_type_node(param) as i64;
+            cgen_add_local_type(state, ast_param_name_idx(param), ast_type_kind_value(param_type));
+            type_graph_maybe_add_array_type(state, ast_param_name_idx(param), param_type);
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn type_graph_function_json(kernel: Vec<i64>, names: Vec<str>, item: Vec<i64>) -> str {
+        let comma = ",";
+        let state = type_graph_function_state(kernel, item);
+        let body = ast_fn_body(item);
+        let locals = type_graph_block_locals_json(state, names, body);
+        let returns = type_graph_block_returns_json(state, names, body);
+        return "{" +
+            json_field_str("name", ast_report_name(names, ast_fn_name_idx(item))) + comma +
+            json_field_i64("source_start", ast_node_span_start(item)) + comma +
+            json_field_i64("source_end", ast_node_span_end(item)) + comma +
+            json_field_raw("return_type", type_graph_type_node_json(names, ast_fn_return_type(item), "declared")) + comma +
+            json_field_raw("params", type_graph_params_json(names, ast_fn_params(item))) + comma +
+            json_field_raw("locals", locals) + comma +
+            json_field_raw("returns", returns) +
+            "}";
+    }
+
+    fn type_graph_functions_json(kernel: Vec<i64>) -> str {
+        let names = ast_kernel_names(kernel);
+        let items = ast_kernel_items(kernel);
+        let result = "[";
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            let item = vec_get(items, i) as Vec<i64>;
+            if ast_is_fn_item(item) {
+                result = type_graph_json_array_append(result, type_graph_function_json(kernel, names, item));
+            }
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn self_host_type_graph_json(kernel: Vec<i64>) -> str {
+        let comma = ",";
+        let state = type_graph_seed_state(kernel);
+        let items = ast_kernel_items(kernel);
+        return "{" +
+            json_field_str("schema_version", "bunker.self_host.type_graph.v1") + comma +
+            json_field_str("representation", "bootstrap_codegen_inference") + comma +
+            json_field_bool("complete", false) + comma +
+            json_field_bool("declared_types", true) + comma +
+            json_field_bool("local_inference", true) + comma +
+            json_field_str("known_limits", "Derived from declarations plus bootstrap C codegen inference; no real Bunker typechecker, generic graph, trait constraints, exhaustiveness graph, or cross-module type graph yet.") + comma +
+            json_field_raw("summary", "{" +
+                json_field_i64("function_count", ast_report_count_kind(items, NODE_FN)) + comma +
+                json_field_i64("struct_count", ast_report_count_kind(items, NODE_STRUCT)) + comma +
+                json_field_i64("const_count", ast_report_count_kind(items, NODE_CONST)) +
+                "}") + comma +
+            json_field_raw("structs", type_graph_structs_json(kernel)) + comma +
+            json_field_raw("constants", type_graph_consts_json(kernel, state)) + comma +
+            json_field_raw("functions", type_graph_functions_json(kernel)) +
+            "}";
+    }
+
+    fn build_type_graph_report_comment(kernel: Vec<i64>) -> str {
+        return "/* BUNKER_TYPE_GRAPH_JSON: " + self_host_type_graph_json(kernel) + from_char_code(10) +
+            "*/" + from_char_code(10);
+    }
