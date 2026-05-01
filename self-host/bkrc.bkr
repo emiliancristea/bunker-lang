@@ -21,5 +21,7 @@ kernel BunkerCompiler {
 
     import "modules/report_support.bkr";
 
+    import "modules/resolver.bkr";
+
     import "modules/driver.bkr";
 }
