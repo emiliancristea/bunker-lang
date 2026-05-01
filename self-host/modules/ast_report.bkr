@@ -196,7 +196,7 @@
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_fn_name_idx(node))) + comma +
                 json_field_raw("params", ast_report_node_array_json(names, ast_fn_params(node))) + comma +
-                json_field_raw("return_type", ast_report_optional_node_json(names, ast_fn_return_type(node))) + comma +
+                json_field_raw("return_type", ast_report_optional_node_json(names, ast_fn_return_type_handle(node))) + comma +
                 json_field_raw("body", ast_report_node_json(names, ast_fn_body(node)));
         } else if kind == NODE_PARAM {
             result = result + comma +
@@ -220,15 +220,15 @@
         } else if kind == NODE_LET {
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_let_name_idx(node))) + comma +
-                json_field_raw("declared_type", ast_report_optional_node_json(names, ast_let_type_node(node))) + comma +
-                json_field_raw("init", ast_report_optional_node_json(names, ast_let_init(node)));
+                json_field_raw("declared_type", ast_report_optional_node_json(names, ast_let_type_handle(node))) + comma +
+                json_field_raw("init", ast_report_optional_node_json(names, ast_let_init_handle(node)));
         } else if kind == NODE_RETURN {
-            result = result + comma + json_field_raw("expr", ast_report_optional_node_json(names, ast_return_expr(node)));
+            result = result + comma + json_field_raw("expr", ast_report_optional_node_json(names, ast_return_expr_handle(node)));
         } else if kind == NODE_IF {
             result = result + comma +
                 json_field_raw("condition", ast_report_node_json(names, ast_if_cond(node))) + comma +
                 json_field_raw("then", ast_report_node_json(names, ast_if_then(node))) + comma +
-                json_field_raw("else", ast_report_optional_node_json(names, ast_if_else(node)));
+                json_field_raw("else", ast_report_optional_node_json(names, ast_if_else_handle(node)));
         } else if kind == NODE_WHILE {
             result = result + comma +
                 json_field_raw("condition", ast_report_node_json(names, ast_while_cond(node))) + comma +
@@ -272,8 +272,8 @@
         } else if kind == NODE_CONST {
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_const_name_idx(node))) + comma +
-                json_field_raw("type", ast_report_optional_node_json(names, ast_const_type_node(node))) + comma +
-                json_field_raw("value", ast_report_optional_node_json(names, ast_const_value(node)));
+                json_field_raw("type", ast_report_optional_node_json(names, ast_const_type_handle(node))) + comma +
+                json_field_raw("value", ast_report_optional_node_json(names, ast_const_value_handle(node)));
         } else if kind == NODE_TERNARY {
             result = result + comma +
                 json_field_raw("condition", ast_report_node_json(names, ast_ternary_cond(node))) + comma +
@@ -294,7 +294,7 @@
         } else if kind == NODE_FIELD {
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_field_decl_name_idx(node))) + comma +
-                json_field_raw("type", ast_report_optional_node_json(names, ast_field_decl_type_node(node)));
+                json_field_raw("type", ast_report_optional_node_json(names, ast_field_decl_type_handle(node)));
         } else if kind == NODE_FIELD_ACCESS {
             result = result + comma +
                 json_field_raw("base", ast_report_node_json(names, ast_field_base(node))) + comma +

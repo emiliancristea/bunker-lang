@@ -292,8 +292,8 @@
         let kind = ast_kind(stmt);
         if kind == NODE_LET {
             let name_idx = ast_let_name_idx(stmt);
-            state = resolver_type_diagnostics(state, kernel, names, ast_let_type_node(stmt), scope);
-            state = resolver_expr_diagnostics(state, kernel, names, ast_let_init(stmt), scope, bindings);
+            state = resolver_type_diagnostics(state, kernel, names, ast_let_type_handle(stmt), scope);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_let_init_handle(stmt), scope, bindings);
             if resolver_i64_vec_contains(declared, name_idx) {
                 state = resolver_append_duplicate_node(state, ast_report_name(names, name_idx), scope, "local", stmt);
             } else {
@@ -301,11 +301,11 @@
             }
             vec_push(bindings, name_idx);
         } else if kind == NODE_RETURN {
-            state = resolver_expr_diagnostics(state, kernel, names, ast_return_expr(stmt), scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_return_expr_handle(stmt), scope, bindings);
         } else if kind == NODE_IF {
             state = resolver_expr_diagnostics(state, kernel, names, ast_if_cond_handle(stmt), scope, bindings);
             state = resolver_block_diagnostics(state, kernel, names, ast_if_then(stmt), scope, bindings, resolver_empty_i64_vec());
-            let else_block = ast_if_else(stmt);
+            let else_block = ast_if_else_handle(stmt);
             if ast_optional_is_some(else_block) {
                 state = resolver_block_diagnostics(state, kernel, names, ast_optional_node(else_block), scope, bindings, resolver_empty_i64_vec());
             }
@@ -349,7 +349,7 @@
                                      item: Vec<i64>, kernel_scope: str) -> Vec<str> {
         let fn_name = ast_report_name(names, ast_fn_name_idx(item));
         let fn_scope = "function:" + fn_name;
-        state = resolver_type_diagnostics(state, kernel, names, ast_fn_return_type(item), fn_scope);
+        state = resolver_type_diagnostics(state, kernel, names, ast_fn_return_type_handle(item), fn_scope);
 
         let bindings: Vec<i64> = vec_new();
         let declared: Vec<i64> = vec_new();
@@ -384,7 +384,7 @@
             } else {
                 vec_push(declared, name_idx);
             }
-            state = resolver_type_diagnostics(state, kernel, names, ast_field_decl_type_node(field), struct_scope);
+            state = resolver_type_diagnostics(state, kernel, names, ast_field_decl_type_handle(field), struct_scope);
             i = i + 1;
         }
         return state;
@@ -432,8 +432,8 @@
             if ast_is_fn_item(item) {
                 state = resolver_function_diagnostics(state, kernel, names, item, kernel_scope);
             } else if ast_is_const_item(item) {
-                state = resolver_type_diagnostics(state, kernel, names, ast_const_type_node(item), kernel_scope);
-                state = resolver_expr_diagnostics(state, kernel, names, ast_const_value(item), kernel_scope, resolver_empty_i64_vec());
+                state = resolver_type_diagnostics(state, kernel, names, ast_const_type_handle(item), kernel_scope);
+                state = resolver_expr_diagnostics(state, kernel, names, ast_const_value_handle(item), kernel_scope, resolver_empty_i64_vec());
             } else if ast_is_struct_item(item) {
                 state = resolver_struct_diagnostics(state, kernel, names, item);
             }

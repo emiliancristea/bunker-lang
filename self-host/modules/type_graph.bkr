@@ -75,14 +75,14 @@
         while i < ast_kernel_item_count(kernel) {
             let item = ast_kernel_item(kernel, i);
             if ast_is_fn_item(item) {
-                let ret_type = ast_fn_return_type(item);
+                let ret_type = ast_fn_return_type_handle(item);
                 let ret_kind = TYPE_VOID;
                 if ast_optional_is_some(ret_type) {
                     ret_kind = ast_type_kind_value(ret_type);
                 }
                 cgen_add_fn_type(state, ast_fn_name_idx(item), ret_kind);
             } else if ast_is_const_item(item) {
-                let const_kind = type_graph_effective_kind(state, ast_const_type_node(item), ast_const_value(item));
+                let const_kind = type_graph_effective_kind(state, ast_const_type_handle(item), ast_const_value_handle(item));
                 cgen_add_global_type(state, ast_const_name_idx(item), const_kind);
             }
             i = i + 1;
@@ -135,7 +135,7 @@
             json_field_str("name", ast_report_name(names, ast_field_decl_name_idx(field))) + comma +
             json_field_i64("source_start", ast_node_span_start(field)) + comma +
             json_field_i64("source_end", ast_node_span_end(field)) + comma +
-            json_field_raw("declared_type", type_graph_type_node_json(names, ast_field_decl_type_node(field), "declared")) +
+            json_field_raw("declared_type", type_graph_type_node_json(names, ast_field_decl_type_handle(field), "declared")) +
             "}";
     }
 
@@ -176,14 +176,14 @@
 
     fn type_graph_const_json(state: Vec<i64>, names: Vec<str>, item: Vec<i64>) -> str {
         let comma = ",";
-        let type_node = ast_const_type_node(item);
+        let type_node = ast_const_type_handle(item);
         return "{" +
             json_field_str("name", ast_report_name(names, ast_const_name_idx(item))) + comma +
             json_field_i64("source_start", ast_node_span_start(item)) + comma +
             json_field_i64("source_end", ast_node_span_end(item)) + comma +
             json_field_raw("declared_type", type_graph_type_node_json(names, type_node, "declared")) + comma +
-            json_field_raw("inferred_type", type_graph_expr_json(state, ast_const_value(item))) + comma +
-            json_field_raw("effective_type", type_graph_kind_json(type_graph_effective_kind(state, type_node, ast_const_value(item)), "effective")) +
+            json_field_raw("inferred_type", type_graph_expr_json(state, ast_const_value_handle(item))) + comma +
+            json_field_raw("effective_type", type_graph_kind_json(type_graph_effective_kind(state, type_node, ast_const_value_handle(item)), "effective")) +
             "}";
     }
 
@@ -203,8 +203,8 @@
 
     fn type_graph_let_json(state: Vec<i64>, names: Vec<str>, stmt: Vec<i64>) -> str {
         let comma = ",";
-        let type_node = ast_let_type_node(stmt);
-        let init = ast_let_init(stmt);
+        let type_node = ast_let_type_handle(stmt);
+        let init = ast_let_init_handle(stmt);
         let effective_kind = type_graph_effective_kind(state, type_node, init);
         let result = "{" +
             json_field_str("name", ast_report_name(names, ast_let_name_idx(stmt))) + comma +
@@ -217,8 +217,8 @@
     }
 
     fn type_graph_add_let_to_state(state: Vec<i64>, stmt: Vec<i64>) -> Vec<i64> {
-        let type_node = ast_let_type_node(stmt);
-        let init = ast_let_init(stmt);
+        let type_node = ast_let_type_handle(stmt);
+        let init = ast_let_init_handle(stmt);
         let kind = type_graph_effective_kind(state, type_node, init);
         cgen_add_local_type(state, ast_let_name_idx(stmt), kind);
         type_graph_maybe_add_array_type(state, ast_let_name_idx(stmt), type_node);
@@ -236,7 +236,7 @@
                 type_graph_add_let_to_state(state, stmt);
             } else if kind == NODE_IF {
                 result = type_graph_json_array_append_items(result, type_graph_block_locals_json(state, names, ast_if_then(stmt)));
-                let else_block = ast_if_else(stmt);
+                let else_block = ast_if_else_handle(stmt);
                 if ast_optional_is_some(else_block) {
                     result = type_graph_json_array_append_items(result, type_graph_block_locals_json(state, names, ast_optional_node(else_block)));
                 }
@@ -258,7 +258,7 @@
         return "{" +
             json_field_i64("source_start", ast_node_span_start(stmt)) + comma +
             json_field_i64("source_end", ast_node_span_end(stmt)) + comma +
-            json_field_raw("expr_type", type_graph_expr_json(state, ast_return_expr(stmt))) +
+            json_field_raw("expr_type", type_graph_expr_json(state, ast_return_expr_handle(stmt))) +
             "}";
     }
 
@@ -272,7 +272,7 @@
                 result = type_graph_json_array_append(result, type_graph_return_json(state, stmt));
             } else if kind == NODE_IF {
                 result = type_graph_json_array_append_items(result, type_graph_block_returns_json(state, names, ast_if_then(stmt)));
-                let else_block = ast_if_else(stmt);
+                let else_block = ast_if_else_handle(stmt);
                 if ast_optional_is_some(else_block) {
                     result = type_graph_json_array_append_items(result, type_graph_block_returns_json(state, names, ast_optional_node(else_block)));
                 }
@@ -311,7 +311,7 @@
             json_field_str("name", ast_report_name(names, ast_fn_name_idx(item))) + comma +
             json_field_i64("source_start", ast_node_span_start(item)) + comma +
             json_field_i64("source_end", ast_node_span_end(item)) + comma +
-            json_field_raw("return_type", type_graph_type_node_json(names, ast_fn_return_type(item), "declared")) + comma +
+            json_field_raw("return_type", type_graph_type_node_json(names, ast_fn_return_type_handle(item), "declared")) + comma +
             json_field_raw("params", type_graph_params_json(names, ast_fn_params(item))) + comma +
             json_field_raw("locals", locals) + comma +
             json_field_raw("returns", returns) +
