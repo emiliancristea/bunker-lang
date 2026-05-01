@@ -39,7 +39,7 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 | `modules/cgen_state.bkr` | `cgen_*` state constructors, accessors, mutation helpers, and lookup helpers for C codegen state. |
 | `modules/c_codegen.bkr` | `gen_c_program`, C escaping/name helpers, type inference helpers used by codegen. |
 | `modules/report_support.bkr` | `json_*`, `ast_report_name`, `resolver_state_*`, and shared diagnostic/vector helpers used by report-producing compiler phases. |
-| `modules/ast_report.bkr` | `build_ast_report_comment`, `self_host_ast_json`, complete-tree `ast_report_*` serializers, and AST report summary/count helpers. |
+| `modules/ast_report.bkr` | `build_ast_report_comment`, `self_host_ast_json`, complete-tree `ast_report_*` serializers that consume typed AST refs, and AST report summary/count helpers. |
 | `modules/symbol_table.bkr` | `build_symbol_table_report_comment`, `self_host_symbol_table_json`, and `symbol_table_*` declaration/reference walkers. |
 | `modules/type_graph.bkr` | `build_type_graph_report_comment`, `self_host_type_graph_json`, `type_graph_*` JSON helpers, and bootstrap type-state helpers used by typecheck. |
 | `modules/resolver.bkr` | `build_resolver_report_comment`, `self_host_resolver_json`, and bootstrap resolver diagnostics helpers. |
