@@ -31,7 +31,7 @@ Current bootstrap state after the latest self-host work:
 - CI compares selected self-host outputs against Rust JIT results and checks stage1/stage2 generated C determinism.
 - The Rust compiler is still the production compiler and the bootstrap driver.
 - The self-host compiler entrypoint is now module-composed: constants, kind model, AST helpers, lexer result helpers, lexer, parser state, parser, C codegen state, C codegen, report support, AST report, symbol table, type graph, resolver, typecheck, and driver live in imported Bunker modules.
-- AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, AST/tag naming and category reasoning now goes through `modules/kind_model.bkr`, typed AST collection access, optional AST handles, node/type/expression/pattern handle conversion, and internal AST field conversions now route through AST bridge helpers, lexer result layout is centralized in `modules/lexer_result.bkr`, parser state layout is centralized in `modules/parser_state.bkr`, and C codegen state layout is centralized in `modules/cgen_state.bkr`; the AST, lexer result, parser state, and codegen state representations still use raw `Vec<i64>` during bootstrap.
+- AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, AST/tag naming and category reasoning now goes through `modules/kind_model.bkr`, typed AST collection access, optional AST handles, node/type/expression/pattern handle conversion, internal AST field conversions, and semantic child-handle access now route through AST bridge helpers, lexer result layout is centralized in `modules/lexer_result.bkr`, parser state layout is centralized in `modules/parser_state.bkr`, and C codegen state layout is centralized in `modules/cgen_state.bkr`; the AST, lexer result, parser state, and codegen state representations still use raw `Vec<i64>` during bootstrap.
 - Self-host compiler outputs include `BUNKER_CAPABILITY_JSON`, a machine-readable capability report for agents that states supported constructs, current AI-diagnostic support, and known bootstrap limits.
 - Successful self-host compiler outputs include `BUNKER_AST_JSON`, a machine-readable AST report with root/item summaries plus a complete nested AST tree for agent inspection.
 - Successful self-host compiler outputs include `BUNKER_TYPE_GRAPH_JSON`, a machine-readable declaration and bootstrap-inference type graph for agent inspection.
@@ -96,6 +96,7 @@ These are the next concrete PR-sized slices.
 | Q-033 | DONE | Add optional AST node bridge helpers. | `modules/ast.bkr` owns optional AST sentinel helpers, and parser/codegen/report/resolver/typecheck/type-graph modules use them where `0` means an absent AST node/type/expression. |
 | Q-034 | DONE | Add AST handle bridge helpers. | `modules/ast.bkr` owns node/type/expression/statement/item/block/pattern handle conversion and AST handle-list append helpers; parser/report/resolver/typecheck/type-graph/codegen modules use named helpers instead of direct AST `as i64`/`as Vec<i64>` casts. |
 | Q-035 | DONE | Add internal AST field bridge helpers. | `modules/ast.bkr` owns typed field conversion helpers for node, node-list, i64-list, pattern-list, and string-list fields, and AST accessors use them instead of direct `ast_field(...) as Vec<...>` casts. |
+| Q-036 | DONE | Add semantic AST child-handle accessors. | `modules/ast.bkr` exposes handle-valued accessors for expression/type child fields and report/resolver/typecheck/type-graph/codegen modules consume those handles instead of re-wrapping child nodes. |
 
 ## Language Core
 
@@ -227,7 +228,7 @@ These are the next concrete PR-sized slices.
 |---|---|---:|---|---|
 | CF-001 | PARTIAL | P0 | Reusable Bunker lexer. | Lexer exists as module and routes lexer output layout through lexer-result helpers. |
 | CF-002 | PARTIAL | P0 | Reusable Bunker parser. | Parser exists as module with recovery/spans and routes parser state through parser-state helpers. |
-| CF-003 | PARTIAL | P0 | AST definitions in Bunker. | AST construction, parser/codegen reads, AST collection access, optional AST handles, node/type/expression/pattern handle conversion, internal field conversion, and AST kind/category/span reasoning are centralized in Bunker helpers; final gate requires structs/enums instead of raw `Vec<i64>` tags. |
+| CF-003 | PARTIAL | P0 | AST definitions in Bunker. | AST construction, parser/codegen reads, AST collection access, optional AST handles, node/type/expression/pattern handle conversion, semantic child-handle access, internal field conversion, and AST kind/category/span reasoning are centralized in Bunker helpers; final gate requires structs/enums instead of raw `Vec<i64>` tags. |
 | CF-004 | PARTIAL | P0 | Source spans on AST nodes. | Self-host AST nodes and patterns carry byte start/end offsets; final gate requires file, line, column, byte offsets, and source excerpts across compiler phases. |
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
@@ -259,7 +260,7 @@ These are the next concrete PR-sized slices.
 |---|---|---:|---|---|
 | SH-001 | PARTIAL | P0 | Self-host smoke gate. | Current stage1/stage2 CI remains green after every change. |
 | SH-002 | DONE | P0 | Split `bkrc.bkr` into modules. | Compiler source is multiple Bunker files with imports. |
-| SH-003 | PARTIAL | P0 | Typed AST in self-host compiler. | Parser construction, parser/codegen reads, common AST collection iteration, optional AST node handles, AST handle conversions, and AST field conversions go through Bunker AST bridge helpers; final gate requires raw numeric tags to be replaced by Bunker types. |
+| SH-003 | PARTIAL | P0 | Typed AST in self-host compiler. | Parser construction, parser/codegen reads, common AST collection iteration, optional AST node handles, AST handle conversions, semantic child-handle access, and AST field conversions go through Bunker AST bridge helpers; final gate requires raw numeric tags to be replaced by Bunker types. |
 | SH-004 | TODO | P0 | Enums for token/node kinds. | Token and AST tags use language enums. |
 | SH-005 | TODO | P0 | Real generic collections in self-host compiler. | `Vec<T>` and maps preserve element/key/value types. |
 | SH-006 | TODO | P0 | Stage0/Stage1/Stage2 docs. | Bootstrap chain is documented and reproducible. |
@@ -391,3 +392,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-01 | Added optional AST handle bridge helpers. | `modules/ast.bkr` now owns optional AST sentinel helpers, and parser/codegen/report/resolver/typecheck/type-graph modules use them where `0` means an absent AST node/type/expression. |
 | 2026-05-01 | Added AST handle bridge helpers. | `modules/ast.bkr` now owns AST node/type/expression/pattern handle conversion plus AST handle-list append helpers, reducing direct bootstrap casts outside the AST boundary. |
 | 2026-05-01 | Added internal AST field bridge helpers. | `modules/ast.bkr` now owns typed field conversion helpers for node, node-list, scalar-list, pattern-list, and string-list AST fields, removing direct field casts from AST accessors. |
+| 2026-05-01 | Added semantic AST child-handle accessors. | `modules/ast.bkr` now exposes handle-valued accessors for expression/type child fields, reducing downstream node-to-handle wrapping in resolver, typecheck, symbol-table, type-graph, and codegen modules. |

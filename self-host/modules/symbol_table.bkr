@@ -87,52 +87,52 @@
                         symbol_table_block_declarations_json(names, body, scope));
                 } else {
                     result = symbol_table_json_array_append_items(result,
-                        symbol_table_expr_declarations_json(names, ast_expr_handle(body), scope));
+                        symbol_table_expr_declarations_json(names, ast_match_body_handle(expr, i), scope));
                 }
                 i = i + 1;
             }
         } else if kind == NODE_BINARY {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_binary_left(expr)), scope));
+                symbol_table_expr_declarations_json(names, ast_binary_left_handle(expr), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_binary_right(expr)), scope));
+                symbol_table_expr_declarations_json(names, ast_binary_right_handle(expr), scope));
         } else if kind == NODE_UNARY {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_unary_operand(expr)), scope));
+                symbol_table_expr_declarations_json(names, ast_unary_operand_handle(expr), scope));
         } else if kind == NODE_CALL {
             let i: i64 = 0;
             while i < ast_call_arg_count(expr) {
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_expr_declarations_json(names, ast_expr_handle(ast_call_arg(expr, i)), scope));
+                    symbol_table_expr_declarations_json(names, ast_call_arg_handle(expr, i), scope));
                 i = i + 1;
             }
         } else if kind == NODE_TERNARY {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_ternary_cond(expr)), scope));
+                symbol_table_expr_declarations_json(names, ast_ternary_cond_handle(expr), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_ternary_then(expr)), scope));
+                symbol_table_expr_declarations_json(names, ast_ternary_then_handle(expr), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_ternary_else(expr)), scope));
+                symbol_table_expr_declarations_json(names, ast_ternary_else_handle(expr), scope));
         } else if kind == NODE_ARRAY_LIT {
             let i: i64 = 0;
             while i < ast_array_element_count(expr) {
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_expr_declarations_json(names, ast_expr_handle(ast_array_element(expr, i)), scope));
+                    symbol_table_expr_declarations_json(names, ast_array_element_handle(expr, i), scope));
                 i = i + 1;
             }
         } else if kind == NODE_INDEX {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_index_base(expr)), scope));
+                symbol_table_expr_declarations_json(names, ast_index_base_handle(expr), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_index_expr(expr)), scope));
+                symbol_table_expr_declarations_json(names, ast_index_expr_handle(expr), scope));
         } else if kind == NODE_FIELD_ACCESS {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_field_base(expr)), scope));
+                symbol_table_expr_declarations_json(names, ast_field_base_handle(expr), scope));
         } else if kind == NODE_STRUCT_LIT {
             let i: i64 = 0;
             while i < ast_struct_lit_field_count(expr) {
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_expr_declarations_json(names, ast_expr_handle(ast_struct_lit_field_value(expr, i)), scope));
+                    symbol_table_expr_declarations_json(names, ast_struct_lit_field_value_handle(expr, i), scope));
                 i = i + 1;
             }
         }
@@ -156,7 +156,7 @@
                 symbol_table_expr_declarations_json(names, ast_return_expr(stmt), scope));
         } else if kind == NODE_IF {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_if_cond(stmt)), scope));
+                symbol_table_expr_declarations_json(names, ast_if_cond_handle(stmt), scope));
             result = symbol_table_json_array_append_items(result,
                 symbol_table_block_declarations_json(names, ast_if_then(stmt), scope));
             let else_block = ast_if_else(stmt);
@@ -166,7 +166,7 @@
             }
         } else if kind == NODE_WHILE {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_while_cond(stmt)), scope));
+                symbol_table_expr_declarations_json(names, ast_while_cond_handle(stmt), scope));
             result = symbol_table_json_array_append_items(result,
                 symbol_table_block_declarations_json(names, ast_while_body(stmt), scope));
         } else if kind == NODE_FOR {
@@ -176,9 +176,9 @@
                     scope,
                     stmt));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_for_start(stmt)), scope));
+                symbol_table_expr_declarations_json(names, ast_for_start_handle(stmt), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_for_end(stmt)), scope));
+                symbol_table_expr_declarations_json(names, ast_for_end_handle(stmt), scope));
             result = symbol_table_json_array_append_items(result,
                 symbol_table_block_declarations_json(names, ast_for_body(stmt), scope));
         } else if kind == NODE_LOOP {
@@ -186,12 +186,12 @@
                 symbol_table_block_declarations_json(names, ast_loop_body(stmt), scope));
         } else if kind == NODE_ASSIGN {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_assign_target(stmt)), scope));
+                symbol_table_expr_declarations_json(names, ast_assign_target_handle(stmt), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_assign_value(stmt)), scope));
+                symbol_table_expr_declarations_json(names, ast_assign_value_handle(stmt), scope));
         } else if kind == NODE_EXPR_STMT {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_handle(ast_expr_stmt_expr(stmt)), scope));
+                symbol_table_expr_declarations_json(names, ast_expr_stmt_expr_handle(stmt), scope));
         }
         return result + "]";
     }
@@ -296,12 +296,12 @@
             let i: i64 = 0;
             while i < ast_call_arg_count(expr) {
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_expr_references_json(names, ast_expr_handle(ast_call_arg(expr, i)), scope));
+                    symbol_table_expr_references_json(names, ast_call_arg_handle(expr, i), scope));
                 i = i + 1;
             }
         } else if kind == NODE_FIELD_ACCESS {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_field_base(expr)), scope));
+                symbol_table_expr_references_json(names, ast_field_base_handle(expr), scope));
             result = symbol_table_json_array_append(result,
                 symbol_table_node_entry_json("field_access",
                     ast_report_name(names, ast_field_name_idx(expr)),
@@ -321,39 +321,39 @@
                         scope,
                         expr));
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_expr_references_json(names, ast_expr_handle(ast_struct_lit_field_value(expr, i)), scope));
+                    symbol_table_expr_references_json(names, ast_struct_lit_field_value_handle(expr, i), scope));
                 i = i + 1;
             }
         } else if kind == NODE_BINARY {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_binary_left(expr)), scope));
+                symbol_table_expr_references_json(names, ast_binary_left_handle(expr), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_binary_right(expr)), scope));
+                symbol_table_expr_references_json(names, ast_binary_right_handle(expr), scope));
         } else if kind == NODE_UNARY {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_unary_operand(expr)), scope));
+                symbol_table_expr_references_json(names, ast_unary_operand_handle(expr), scope));
         } else if kind == NODE_TERNARY {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_ternary_cond(expr)), scope));
+                symbol_table_expr_references_json(names, ast_ternary_cond_handle(expr), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_ternary_then(expr)), scope));
+                symbol_table_expr_references_json(names, ast_ternary_then_handle(expr), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_ternary_else(expr)), scope));
+                symbol_table_expr_references_json(names, ast_ternary_else_handle(expr), scope));
         } else if kind == NODE_ARRAY_LIT {
             let i: i64 = 0;
             while i < ast_array_element_count(expr) {
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_expr_references_json(names, ast_expr_handle(ast_array_element(expr, i)), scope));
+                    symbol_table_expr_references_json(names, ast_array_element_handle(expr, i), scope));
                 i = i + 1;
             }
         } else if kind == NODE_INDEX {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_index_base(expr)), scope));
+                symbol_table_expr_references_json(names, ast_index_base_handle(expr), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_index_expr(expr)), scope));
+                symbol_table_expr_references_json(names, ast_index_expr_handle(expr), scope));
         } else if kind == NODE_MATCH {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_match_scrutinee(expr)), scope));
+                symbol_table_expr_references_json(names, ast_match_scrutinee_handle(expr), scope));
             let i: i64 = 0;
             while i < ast_match_arm_count(expr) {
                 let body = ast_match_body(expr, i);
@@ -362,7 +362,7 @@
                         symbol_table_block_references_json(names, body, scope));
                 } else {
                     result = symbol_table_json_array_append_items(result,
-                        symbol_table_expr_references_json(names, ast_expr_handle(body), scope));
+                        symbol_table_expr_references_json(names, ast_match_body_handle(expr, i), scope));
                 }
                 i = i + 1;
             }
@@ -383,7 +383,7 @@
                 symbol_table_expr_references_json(names, ast_return_expr(stmt), scope));
         } else if kind == NODE_IF {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_if_cond(stmt)), scope));
+                symbol_table_expr_references_json(names, ast_if_cond_handle(stmt), scope));
             result = symbol_table_json_array_append_items(result,
                 symbol_table_block_references_json(names, ast_if_then(stmt), scope));
             let else_block = ast_if_else(stmt);
@@ -393,14 +393,14 @@
             }
         } else if kind == NODE_WHILE {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_while_cond(stmt)), scope));
+                symbol_table_expr_references_json(names, ast_while_cond_handle(stmt), scope));
             result = symbol_table_json_array_append_items(result,
                 symbol_table_block_references_json(names, ast_while_body(stmt), scope));
         } else if kind == NODE_FOR {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_for_start(stmt)), scope));
+                symbol_table_expr_references_json(names, ast_for_start_handle(stmt), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_for_end(stmt)), scope));
+                symbol_table_expr_references_json(names, ast_for_end_handle(stmt), scope));
             result = symbol_table_json_array_append_items(result,
                 symbol_table_block_references_json(names, ast_for_body(stmt), scope));
         } else if kind == NODE_LOOP {
@@ -408,12 +408,12 @@
                 symbol_table_block_references_json(names, ast_loop_body(stmt), scope));
         } else if kind == NODE_ASSIGN {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_assign_target(stmt)), scope));
+                symbol_table_expr_references_json(names, ast_assign_target_handle(stmt), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_assign_value(stmt)), scope));
+                symbol_table_expr_references_json(names, ast_assign_value_handle(stmt), scope));
         } else if kind == NODE_EXPR_STMT {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_handle(ast_expr_stmt_expr(stmt)), scope));
+                symbol_table_expr_references_json(names, ast_expr_stmt_expr_handle(stmt), scope));
         }
         return result + "]";
     }
@@ -441,7 +441,7 @@
             while i < ast_fn_param_count(item) {
                 let param = ast_fn_param(item, i);
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_type_references_json(names, ast_type_handle(ast_param_type_node(param)), fn_scope));
+                    symbol_table_type_references_json(names, ast_param_type_handle(param), fn_scope));
                 i = i + 1;
             }
             result = symbol_table_json_array_append_items(result,

@@ -109,7 +109,7 @@
         while i < ast_kernel_item_count(kernel) {
             let item = ast_kernel_item(kernel, i);
             if ast_is_fn_item(item) && ast_fn_name_idx(item) == name_idx {
-                return ast_item_handle(item);
+                return ast_kernel_item_handle(kernel, i);
             }
             i = i + 1;
         }
@@ -147,9 +147,9 @@
         let i: i64 = 0;
         while i < ast_call_arg_count(expr) && i < ast_fn_param_count(fn_node) {
             let param = ast_fn_param(fn_node, i);
-            let param_type = ast_type_handle(ast_param_type_node(param));
+            let param_type = ast_param_type_handle(param);
             let arg = ast_call_arg(expr, i);
-            let arg_value: i64 = ast_expr_handle(arg);
+            let arg_value: i64 = ast_call_arg_handle(expr, i);
             let expected_kind = ast_type_kind_value(param_type);
             let found_kind = typecheck_expr_kind(cstate, arg_value);
             let hint = "Change argument " + int_to_string(i + 1) + " for " + fn_name +
@@ -176,52 +176,52 @@
             let i: i64 = 0;
             while i < ast_call_arg_count(expr) {
                 state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                    ast_expr_handle(ast_call_arg(expr, i)), scope, expected_return_kind);
+                    ast_call_arg_handle(expr, i), scope, expected_return_kind);
                 i = i + 1;
             }
         } else if kind == NODE_STRUCT_LIT {
             let i: i64 = 0;
             while i < ast_struct_lit_field_count(expr) {
                 state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                    ast_expr_handle(ast_struct_lit_field_value(expr, i)), scope, expected_return_kind);
+                    ast_struct_lit_field_value_handle(expr, i), scope, expected_return_kind);
                 i = i + 1;
             }
         } else if kind == NODE_FIELD_ACCESS {
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_field_base(expr)), scope, expected_return_kind);
+                ast_field_base_handle(expr), scope, expected_return_kind);
         } else if kind == NODE_BINARY {
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_binary_left(expr)), scope, expected_return_kind);
+                ast_binary_left_handle(expr), scope, expected_return_kind);
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_binary_right(expr)), scope, expected_return_kind);
+                ast_binary_right_handle(expr), scope, expected_return_kind);
         } else if kind == NODE_UNARY {
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_unary_operand(expr)), scope, expected_return_kind);
+                ast_unary_operand_handle(expr), scope, expected_return_kind);
         } else if kind == NODE_TERNARY {
             state = typecheck_check_expression_against(state, names, cstate,
-                ast_expr_handle(ast_ternary_cond(expr)), scope, "condition_type_mismatch", "ternary condition",
+                ast_ternary_cond_handle(expr), scope, "condition_type_mismatch", "ternary condition",
                 TYPE_BOOL, "Make this ternary condition produce bool.");
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_ternary_cond(expr)), scope, expected_return_kind);
+                ast_ternary_cond_handle(expr), scope, expected_return_kind);
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_ternary_then(expr)), scope, expected_return_kind);
+                ast_ternary_then_handle(expr), scope, expected_return_kind);
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_ternary_else(expr)), scope, expected_return_kind);
+                ast_ternary_else_handle(expr), scope, expected_return_kind);
         } else if kind == NODE_ARRAY_LIT {
             let i: i64 = 0;
             while i < ast_array_element_count(expr) {
                 state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                    ast_expr_handle(ast_array_element(expr, i)), scope, expected_return_kind);
+                    ast_array_element_handle(expr, i), scope, expected_return_kind);
                 i = i + 1;
             }
         } else if kind == NODE_INDEX {
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_index_base(expr)), scope, expected_return_kind);
+                ast_index_base_handle(expr), scope, expected_return_kind);
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_index_expr(expr)), scope, expected_return_kind);
+                ast_index_expr_handle(expr), scope, expected_return_kind);
         } else if kind == NODE_MATCH {
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_match_scrutinee(expr)), scope, expected_return_kind);
+                ast_match_scrutinee_handle(expr), scope, expected_return_kind);
             let i: i64 = 0;
             while i < ast_match_arm_count(expr) {
                 let body = ast_match_body(expr, i);
@@ -230,7 +230,7 @@
                         body, scope, expected_return_kind);
                 } else {
                     state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                        ast_expr_handle(body), scope, expected_return_kind);
+                        ast_match_body_handle(expr, i), scope, expected_return_kind);
                 }
                 i = i + 1;
             }
@@ -275,10 +275,10 @@
             }
         } else if kind == NODE_IF {
             state = typecheck_check_expression_against(state, names, cstate,
-                ast_expr_handle(ast_if_cond(stmt)), scope, "condition_type_mismatch", "if condition",
+                ast_if_cond_handle(stmt), scope, "condition_type_mismatch", "if condition",
                 TYPE_BOOL, "Make this if condition produce bool.");
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_if_cond(stmt)), scope, expected_return_kind);
+                ast_if_cond_handle(stmt), scope, expected_return_kind);
             state = typecheck_block_diagnostics(state, kernel, names, cstate,
                 ast_if_then(stmt), scope, expected_return_kind);
             let else_block = ast_if_else(stmt);
@@ -288,18 +288,18 @@
             }
         } else if kind == NODE_WHILE {
             state = typecheck_check_expression_against(state, names, cstate,
-                ast_expr_handle(ast_while_cond(stmt)), scope, "condition_type_mismatch", "while condition",
+                ast_while_cond_handle(stmt), scope, "condition_type_mismatch", "while condition",
                 TYPE_BOOL, "Make this while condition produce bool.");
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_while_cond(stmt)), scope, expected_return_kind);
+                ast_while_cond_handle(stmt), scope, expected_return_kind);
             state = typecheck_block_diagnostics(state, kernel, names, cstate,
                 ast_while_body(stmt), scope, expected_return_kind);
         } else if kind == NODE_FOR {
             state = typecheck_check_expression_against(state, names, cstate,
-                ast_expr_handle(ast_for_start(stmt)), scope, "for_range_type_mismatch", "for range start",
+                ast_for_start_handle(stmt), scope, "for_range_type_mismatch", "for range start",
                 TYPE_I64, "Make the for range start numeric.");
             state = typecheck_check_expression_against(state, names, cstate,
-                ast_expr_handle(ast_for_end(stmt)), scope, "for_range_type_mismatch", "for range end",
+                ast_for_end_handle(stmt), scope, "for_range_type_mismatch", "for range end",
                 TYPE_I64, "Make the for range end numeric.");
             cgen_add_local_type(cstate, ast_for_name_idx(stmt), TYPE_I64);
             state = typecheck_block_diagnostics(state, kernel, names, cstate,
@@ -309,17 +309,17 @@
                 ast_loop_body(stmt), scope, expected_return_kind);
         } else if kind == NODE_ASSIGN {
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_assign_target(stmt)), scope, expected_return_kind);
+                ast_assign_target_handle(stmt), scope, expected_return_kind);
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_assign_value(stmt)), scope, expected_return_kind);
-            let expected_kind = typecheck_expr_kind(cstate, ast_expr_handle(ast_assign_target(stmt)));
-            let found_kind = typecheck_expr_kind(cstate, ast_expr_handle(ast_assign_value(stmt)));
+                ast_assign_value_handle(stmt), scope, expected_return_kind);
+            let expected_kind = typecheck_expr_kind(cstate, ast_assign_target_handle(stmt));
+            let found_kind = typecheck_expr_kind(cstate, ast_assign_value_handle(stmt));
             state = typecheck_maybe_append_value_mismatch(state, "assignment_type_mismatch",
                 "assignment", scope, stmt, expected_kind, found_kind,
                 "Assign a value that matches the target type.");
         } else if kind == NODE_EXPR_STMT {
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                ast_expr_handle(ast_expr_stmt_expr(stmt)), scope, expected_return_kind);
+                ast_expr_stmt_expr_handle(stmt), scope, expected_return_kind);
         }
         return state;
     }
