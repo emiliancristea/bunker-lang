@@ -613,13 +613,13 @@
         parser_advance(p);
         let name_idx = parser_expect_name(p);
 
-        let type_node: i64 = 0;
+        let type_node: i64 = ast_optional_none();
         if parser_peek(p) == TOK_COLON {
             parser_advance(p);
             type_node = parse_type(p) as i64;
         }
 
-        let init: i64 = 0;
+        let init: i64 = ast_optional_none();
         if parser_peek(p) == TOK_ASSIGN {
             parser_advance(p);
             init = parse_expr(p) as i64;
@@ -632,7 +632,7 @@
     fn parse_return_stmt(p: Vec<i64>) -> Vec<i64> {
         let start = parser_current_token_start(p);
         parser_advance(p);
-        let expr: i64 = 0;
+        let expr: i64 = ast_optional_none();
         if parser_peek(p) != TOK_SEMICOLON {
             expr = parse_expr(p) as i64;
         }
@@ -693,7 +693,7 @@
         parser_expect(p, TOK_IF);
         let cond: Vec<i64> = parse_expr(p);
         let then_block: Vec<i64> = parse_block(p);
-        let else_block: i64 = 0;
+        let else_block: i64 = ast_optional_none();
         if parser_peek(p) == TOK_ELSE {
             parser_advance(p);
             if parser_peek(p) == TOK_IF {
@@ -802,7 +802,7 @@
         let name_idx = parser_expect_name(p);
         let params: Vec<i64> = parse_params(p);
 
-        let ret_type: i64 = 0;
+        let ret_type: i64 = ast_optional_none();
         if parser_peek(p) == TOK_ARROW {
             parser_advance(p);
             ret_type = parse_type(p) as i64;
@@ -818,13 +818,13 @@
         parser_expect(p, TOK_CONST);
         let name_idx = parser_expect_name(p);
 
-        let type_node: i64 = 0;
+        let type_node: i64 = ast_optional_none();
         if parser_peek(p) == TOK_COLON {
             parser_advance(p);
             type_node = parse_type(p) as i64;
         }
 
-        let value: i64 = 0;
+        let value: i64 = ast_optional_none();
         if parser_peek(p) == TOK_ASSIGN {
             parser_advance(p);
             value = parse_expr(p) as i64;

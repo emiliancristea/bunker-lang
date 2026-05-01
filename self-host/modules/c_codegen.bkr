@@ -12,7 +12,7 @@
     }
 
     fn type_node_to_c(state: Vec<i64>, type_node: i64) -> str {
-        if type_node == 0 {
+        if ast_optional_is_none(type_node) {
             return "bkr_i64";
         }
         let kind = ast_type_kind_value(type_node);
@@ -271,23 +271,23 @@
         let init = ast_let_init(stmt);
 
         let kind = TYPE_I64;
-        if type_node != 0 {
+        if ast_optional_is_some(type_node) {
             kind = type_node_kind(type_node);
-        } else if init != 0 {
-            let init_kind = infer_c_expr_type(state, init as Vec<i64>);
+        } else if ast_optional_is_some(init) {
+            let init_kind = infer_c_expr_type(state, ast_optional_node(init));
             if init_kind != TYPE_UNKNOWN && init_kind != TYPE_VOID {
                 kind = init_kind;
             }
         }
 
         let c_type = type_to_c(kind);
-        if type_node != 0 {
+        if ast_optional_is_some(type_node) {
             c_type = type_node_to_c(state, type_node);
         }
 
         let line = c_type + " " + name;
-        if init != 0 {
-            line = line + " = " + gen_c_init_expr_for_type(state, type_node, init as Vec<i64>);
+        if ast_optional_is_some(init) {
+            line = line + " = " + gen_c_init_expr_for_type(state, type_node, ast_optional_node(init));
         }
         return line + "; ";
     }
@@ -315,8 +315,8 @@
                 result = result + gen_c_expr(state, ast_expr_stmt_expr(stmt)) + "; ";
             } else if stmt_type == NODE_RETURN {
                 let ret_expr = ast_return_expr(stmt);
-                if ret_expr != 0 {
-                    result = result + "return " + gen_c_expr(state, ret_expr as Vec<i64>) + "; ";
+                if ast_optional_is_some(ret_expr) {
+                    result = result + "return " + gen_c_expr(state, ast_optional_node(ret_expr)) + "; ";
                 } else {
                     result = result + "return; ";
                 }
@@ -416,7 +416,7 @@
 
     fn gen_c_init_expr_for_type(state: Vec<i64>, type_node: i64, init: Vec<i64>) -> str {
         let result = gen_c_expr(state, init);
-        if type_node != 0 && type_node_kind(type_node) == TYPE_STR && is_raw_payload_call(state, init) {
+        if ast_optional_is_some(type_node) && type_node_kind(type_node) == TYPE_STR && is_raw_payload_call(state, init) {
             return "(bkr_str)(intptr_t)(" + result + ")";
         }
         return result;
@@ -621,12 +621,12 @@
             let type_node = ast_let_type_node(stmt);
             let init = ast_let_init(stmt);
 
-            if type_node != 0 && type_node_kind(type_node) == TYPE_ARRAY {
+            if ast_optional_is_some(type_node) && type_node_kind(type_node) == TYPE_ARRAY {
                 let elem_kind = type_node_array_elem_kind(type_node);
                 let array_len = type_node_array_len(type_node);
                 let line = type_to_c(elem_kind) + " " + name + "[" + int_to_string(array_len) + "]";
-                if init != 0 {
-                    line = line + " = " + gen_c_expr(state, init as Vec<i64>);
+                if ast_optional_is_some(init) {
+                    line = line + " = " + gen_c_expr(state, ast_optional_node(init));
                 }
                 cgen_emit(state, line + ";");
                 cgen_add_local_type(state, name_idx, elem_kind);
@@ -635,22 +635,22 @@
             }
 
             let kind = TYPE_I64;
-            if type_node != 0 {
+            if ast_optional_is_some(type_node) {
                 kind = type_node_kind(type_node);
-            } else if init != 0 {
-                let init_kind = infer_c_expr_type(state, init as Vec<i64>);
+            } else if ast_optional_is_some(init) {
+                let init_kind = infer_c_expr_type(state, ast_optional_node(init));
                 if init_kind != TYPE_UNKNOWN && init_kind != TYPE_VOID {
                     kind = init_kind;
                 }
             }
 
             let c_type = type_to_c(kind);
-            if type_node != 0 {
+            if ast_optional_is_some(type_node) {
                 c_type = type_node_to_c(state, type_node);
             }
             let line = c_type + " " + name;
-            if init != 0 {
-                line = line + " = " + gen_c_init_expr_for_type(state, type_node, init as Vec<i64>);
+            if ast_optional_is_some(init) {
+                line = line + " = " + gen_c_init_expr_for_type(state, type_node, ast_optional_node(init));
             }
             cgen_emit(state, line + ";");
             cgen_add_local_type(state, name_idx, kind);
@@ -659,8 +659,8 @@
 
         if node_type == NODE_RETURN {
             let expr = ast_return_expr(stmt);
-            if expr != 0 {
-                cgen_emit(state, "return " + gen_c_expr(state, expr as Vec<i64>) + ";");
+            if ast_optional_is_some(expr) {
+                cgen_emit(state, "return " + gen_c_expr(state, ast_optional_node(expr)) + ";");
             } else {
                 cgen_emit(state, "return;");
             }
@@ -677,10 +677,10 @@
             gen_c_block(state, then_block);
             cgen_dedent(state);
 
-            if else_block != 0 {
+            if ast_optional_is_some(else_block) {
                 cgen_emit(state, "} else {");
                 cgen_indent(state);
-                gen_c_block(state, else_block as Vec<i64>);
+                gen_c_block(state, ast_optional_node(else_block));
                 cgen_dedent(state);
             }
             cgen_emit(state, "}");
@@ -800,7 +800,7 @@
         let ret_type_node = ast_fn_return_type(fn_node);
 
         let ret_type: str = "void";
-        if ret_type_node != 0 {
+        if ast_optional_is_some(ret_type_node) {
             ret_type = type_node_to_c(state, ret_type_node);
         }
 
@@ -854,10 +854,10 @@
         let value = ast_const_value(const_node);
 
         let kind = TYPE_I64;
-        if type_node != 0 {
+        if ast_optional_is_some(type_node) {
             kind = type_node_kind(type_node);
-        } else if value != 0 {
-            let value_kind = infer_c_expr_type(state, value as Vec<i64>);
+        } else if ast_optional_is_some(value) {
+            let value_kind = infer_c_expr_type(state, ast_optional_node(value));
             if value_kind != TYPE_UNKNOWN && value_kind != TYPE_VOID {
                 kind = value_kind;
             }
@@ -865,8 +865,8 @@
 
         let c_type = type_to_c(kind);
         let c_value: str = "0";
-        if value != 0 {
-            c_value = gen_c_expr(state, value as Vec<i64>);
+        if ast_optional_is_some(value) {
+            c_value = gen_c_expr(state, ast_optional_node(value));
         }
 
         cgen_emit(state, "static const " + c_type + " " + name + " = " + c_value + ";");
@@ -911,7 +911,7 @@
             if ast_is_fn_item(item) {
                 let ret_type_node = ast_fn_return_type(item);
                 let kind = TYPE_VOID;
-                if ret_type_node != 0 {
+                if ast_optional_is_some(ret_type_node) {
                     kind = type_node_kind(ret_type_node);
                 }
                 cgen_add_fn_type(state, ast_fn_name_idx(item), kind);

@@ -139,15 +139,31 @@
         return vec_get(node, index + AST_NODE_DATA_OFFSET);
     }
 
+    fn ast_optional_none() -> i64 {
+        return 0;
+    }
+
+    fn ast_optional_is_none(value: i64) -> bool {
+        return value == 0;
+    }
+
+    fn ast_optional_is_some(value: i64) -> bool {
+        return value != 0;
+    }
+
+    fn ast_optional_node(value: i64) -> Vec<i64> {
+        return value as Vec<i64>;
+    }
+
     fn ast_type_kind_value(type_node: i64) -> i64 {
-        if type_node == 0 {
+        if ast_optional_is_none(type_node) {
             return TYPE_UNKNOWN;
         }
         return ast_field(type_node as Vec<i64>, 1);
     }
 
     fn ast_type_struct_name_idx_value(type_node: i64) -> i64 {
-        if type_node == 0 {
+        if ast_optional_is_none(type_node) {
             return -1;
         }
         let node = type_node as Vec<i64>;
@@ -158,7 +174,7 @@
     }
 
     fn ast_type_array_elem_kind_value(type_node: i64) -> i64 {
-        if type_node == 0 {
+        if ast_optional_is_none(type_node) {
             return TYPE_UNKNOWN;
         }
         let node = type_node as Vec<i64>;
@@ -169,7 +185,7 @@
     }
 
     fn ast_type_array_len_value(type_node: i64) -> i64 {
-        if type_node == 0 {
+        if ast_optional_is_none(type_node) {
             return -1;
         }
         let node = type_node as Vec<i64>;

@@ -17,7 +17,7 @@
     }
 
     fn type_graph_type_node_json(names: Vec<str>, type_node: i64, source: str) -> str {
-        if type_node == 0 {
+        if ast_optional_is_none(type_node) {
             return type_graph_kind_json(TYPE_UNKNOWN, source);
         }
 
@@ -43,24 +43,24 @@
     }
 
     fn type_graph_expr_json(state: Vec<i64>, expr_value: i64) -> str {
-        if expr_value == 0 {
+        if ast_optional_is_none(expr_value) {
             return type_graph_kind_json(TYPE_UNKNOWN, "absent");
         }
-        return type_graph_kind_json(infer_c_expr_type(state, expr_value as Vec<i64>), "bootstrap_inferred");
+        return type_graph_kind_json(infer_c_expr_type(state, ast_optional_node(expr_value)), "bootstrap_inferred");
     }
 
     fn type_graph_effective_kind(state: Vec<i64>, type_node: i64, expr_value: i64) -> i64 {
-        if type_node != 0 {
+        if ast_optional_is_some(type_node) {
             return ast_type_kind_value(type_node);
         }
-        if expr_value != 0 {
-            return infer_c_expr_type(state, expr_value as Vec<i64>);
+        if ast_optional_is_some(expr_value) {
+            return infer_c_expr_type(state, ast_optional_node(expr_value));
         }
         return TYPE_UNKNOWN;
     }
 
     fn type_graph_maybe_add_array_type(state: Vec<i64>, name_idx: i64, type_node: i64) -> Vec<i64> {
-        if type_node != 0 && ast_type_kind_value(type_node) == TYPE_ARRAY {
+        if ast_optional_is_some(type_node) && ast_type_kind_value(type_node) == TYPE_ARRAY {
             cgen_add_array_type(state, name_idx,
                 ast_type_array_elem_kind_value(type_node),
                 ast_type_array_len_value(type_node));
@@ -77,7 +77,7 @@
             if ast_is_fn_item(item) {
                 let ret_type = ast_fn_return_type(item);
                 let ret_kind = TYPE_VOID;
-                if ret_type != 0 {
+                if ast_optional_is_some(ret_type) {
                     ret_kind = ast_type_kind_value(ret_type);
                 }
                 cgen_add_fn_type(state, ast_fn_name_idx(item), ret_kind);
@@ -236,8 +236,9 @@
                 type_graph_add_let_to_state(state, stmt);
             } else if kind == NODE_IF {
                 result = type_graph_json_array_append_items(result, type_graph_block_locals_json(state, names, ast_if_then(stmt)));
-                if ast_if_else(stmt) != 0 {
-                    result = type_graph_json_array_append_items(result, type_graph_block_locals_json(state, names, ast_if_else(stmt) as Vec<i64>));
+                let else_block = ast_if_else(stmt);
+                if ast_optional_is_some(else_block) {
+                    result = type_graph_json_array_append_items(result, type_graph_block_locals_json(state, names, ast_optional_node(else_block)));
                 }
             } else if kind == NODE_WHILE {
                 result = type_graph_json_array_append_items(result, type_graph_block_locals_json(state, names, ast_while_body(stmt)));
@@ -271,8 +272,9 @@
                 result = type_graph_json_array_append(result, type_graph_return_json(state, stmt));
             } else if kind == NODE_IF {
                 result = type_graph_json_array_append_items(result, type_graph_block_returns_json(state, names, ast_if_then(stmt)));
-                if ast_if_else(stmt) != 0 {
-                    result = type_graph_json_array_append_items(result, type_graph_block_returns_json(state, names, ast_if_else(stmt) as Vec<i64>));
+                let else_block = ast_if_else(stmt);
+                if ast_optional_is_some(else_block) {
+                    result = type_graph_json_array_append_items(result, type_graph_block_returns_json(state, names, ast_optional_node(else_block)));
                 }
             } else if kind == NODE_WHILE {
                 result = type_graph_json_array_append_items(result, type_graph_block_returns_json(state, names, ast_while_body(stmt)));

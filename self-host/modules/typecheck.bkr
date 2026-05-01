@@ -37,14 +37,14 @@
     }
 
     fn typecheck_expr_kind(cstate: Vec<i64>, expr_value: i64) -> i64 {
-        if expr_value == 0 {
+        if ast_optional_is_none(expr_value) {
             return TYPE_UNKNOWN;
         }
-        return infer_c_expr_type(cstate, expr_value as Vec<i64>);
+        return infer_c_expr_type(cstate, ast_optional_node(expr_value));
     }
 
     fn typecheck_declared_kind(type_node: i64) -> i64 {
-        if type_node == 0 {
+        if ast_optional_is_none(type_node) {
             return TYPE_UNKNOWN;
         }
         return ast_type_kind_value(type_node);
@@ -52,7 +52,7 @@
 
     fn typecheck_return_kind(fn_node: Vec<i64>) -> i64 {
         let return_type = ast_fn_return_type(fn_node);
-        if return_type == 0 {
+        if ast_optional_is_none(return_type) {
             return TYPE_VOID;
         }
         return ast_type_kind_value(return_type);
@@ -113,13 +113,13 @@
             }
             i = i + 1;
         }
-        return 0;
+        return ast_optional_none();
     }
 
     fn typecheck_check_expression_against(state: Vec<str>, names: Vec<str>, cstate: Vec<i64>,
                                           expr_value: i64, scope: str, diagnostic_kind: str,
                                           name: str, expected_kind: i64, repair_hint: str) -> Vec<str> {
-        if expr_value == 0 {
+        if ast_optional_is_none(expr_value) {
             if expected_kind != TYPE_VOID && expected_kind != TYPE_UNKNOWN {
                 let placeholder: Vec<i64> = ast_new(NODE_RETURN);
                 state = typecheck_append_mismatch(state, diagnostic_kind, name, scope,
@@ -128,7 +128,7 @@
             return state;
         }
 
-        let expr = expr_value as Vec<i64>;
+        let expr = ast_optional_node(expr_value);
         let found_kind = typecheck_expr_kind(cstate, expr_value);
         return typecheck_maybe_append_mismatch(state, diagnostic_kind, name, scope,
             expr, expected_kind, found_kind, repair_hint);
@@ -138,11 +138,11 @@
                                       cstate: Vec<i64>, expr: Vec<i64>, scope: str) -> Vec<str> {
         let name_idx = ast_call_name_idx(expr);
         let fn_value = typecheck_find_function(kernel, name_idx);
-        if fn_value == 0 {
+        if ast_optional_is_none(fn_value) {
             return state;
         }
 
-        let fn_node = fn_value as Vec<i64>;
+        let fn_node = ast_optional_node(fn_value);
         let fn_name = ast_report_name(names, name_idx);
         let i: i64 = 0;
         while i < ast_call_arg_count(expr) && i < ast_fn_param_count(fn_node) {
@@ -164,11 +164,11 @@
     fn typecheck_expr_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
                                   cstate: Vec<i64>, expr_value: i64, scope: str,
                                   expected_return_kind: i64) -> Vec<str> {
-        if expr_value == 0 {
+        if ast_optional_is_none(expr_value) {
             return state;
         }
 
-        let expr = expr_value as Vec<i64>;
+        let expr = ast_optional_node(expr_value);
         let kind = ast_kind(expr);
         if kind == NODE_CALL {
             state = typecheck_check_call_arguments(state, kernel, names, cstate, expr, scope);
@@ -246,8 +246,9 @@
             let name = ast_report_name(names, ast_let_name_idx(stmt));
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
                 init, scope, expected_return_kind);
-            if ast_let_type_node(stmt) != 0 && init != 0 {
-                let expected_kind = typecheck_declared_kind(ast_let_type_node(stmt));
+            let type_node = ast_let_type_node(stmt);
+            if ast_optional_is_some(type_node) && ast_optional_is_some(init) {
+                let expected_kind = typecheck_declared_kind(type_node);
                 let found_kind = typecheck_expr_kind(cstate, init);
                 let hint = "Change the initializer for " + name +
                     " or update the declared local type.";
@@ -259,7 +260,7 @@
             let return_expr = ast_return_expr(stmt);
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
                 return_expr, scope, expected_return_kind);
-            if return_expr == 0 {
+            if ast_optional_is_none(return_expr) {
                 if expected_return_kind != TYPE_VOID && expected_return_kind != TYPE_UNKNOWN {
                     state = typecheck_append_mismatch(state, "return_type_mismatch", "return",
                         scope, stmt, expected_return_kind, TYPE_VOID,
@@ -279,9 +280,10 @@
                 ast_if_cond(stmt) as i64, scope, expected_return_kind);
             state = typecheck_block_diagnostics(state, kernel, names, cstate,
                 ast_if_then(stmt), scope, expected_return_kind);
-            if ast_if_else(stmt) != 0 {
+            let else_block = ast_if_else(stmt);
+            if ast_optional_is_some(else_block) {
                 state = typecheck_block_diagnostics(state, kernel, names, cstate,
-                    ast_if_else(stmt) as Vec<i64>, scope, expected_return_kind);
+                    ast_optional_node(else_block), scope, expected_return_kind);
             }
         } else if kind == NODE_WHILE {
             state = typecheck_check_expression_against(state, names, cstate,
@@ -339,8 +341,9 @@
         let value = ast_const_value(item);
         state = typecheck_expr_diagnostics(state, kernel, names, cstate,
             value, kernel_scope, TYPE_UNKNOWN);
-        if ast_const_type_node(item) != 0 && value != 0 {
-            let expected_kind = typecheck_declared_kind(ast_const_type_node(item));
+        let type_node = ast_const_type_node(item);
+        if ast_optional_is_some(type_node) && ast_optional_is_some(value) {
+            let expected_kind = typecheck_declared_kind(type_node);
             let found_kind = typecheck_expr_kind(cstate, value);
             let hint = "Change the initializer for " + const_name +
                 " or update the declared constant type.";
