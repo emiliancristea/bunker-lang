@@ -2,7 +2,7 @@
 
 This is the authoritative implementation tracker for moving Bunker from a bootstrap language into a production language and then into full self-hosting.
 
-Last updated: 2026-04-24
+Last updated: 2026-05-01
 
 ## Operating Rules
 
@@ -30,7 +30,7 @@ Current bootstrap state after the latest self-host work:
 - CI gates arithmetic, functions, control flow, structs, arrays, strings, constants, recursion, bitwise ops, ternary, match, Option, Result, Vec, and HashMap fixtures through generated and stage2 compilers.
 - CI compares selected self-host outputs against Rust JIT results and checks stage1/stage2 generated C determinism.
 - The Rust compiler is still the production compiler and the bootstrap driver.
-- The self-host compiler entrypoint is now module-composed: constants, AST helpers, lexer result helpers, lexer, parser state, parser, C codegen state, C codegen, report support, type graph, resolver, typecheck, and driver live in imported Bunker modules.
+- The self-host compiler entrypoint is now module-composed: constants, AST helpers, lexer result helpers, lexer, parser state, parser, C codegen state, C codegen, report support, AST report, type graph, resolver, typecheck, and driver live in imported Bunker modules.
 - AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, AST kind/category/span reasoning now goes through named helpers, lexer result layout is centralized in `modules/lexer_result.bkr`, parser state layout is centralized in `modules/parser_state.bkr`, and C codegen state layout is centralized in `modules/cgen_state.bkr`; the AST, lexer result, parser state, and codegen state representations still use raw `Vec<i64>` during bootstrap.
 - Self-host compiler outputs include `BUNKER_CAPABILITY_JSON`, a machine-readable capability report for agents that states supported constructs, current AI-diagnostic support, and known bootstrap limits.
 - Successful self-host compiler outputs include `BUNKER_AST_JSON`, a machine-readable AST report with root/item summaries plus a complete nested AST tree for agent inspection.
@@ -89,6 +89,7 @@ These are the next concrete PR-sized slices.
 | Q-026 | DONE | Extract shared self-host report support helpers. | `modules/report_support.bkr` owns JSON field/string escaping, report name lookup, diagnostic state, and shared vector helpers so resolver/typecheck report modules can be extracted from `driver.bkr` next. |
 | Q-027 | DONE | Extract self-host resolver pass into its own module. | `modules/resolver.bkr` owns `BUNKER_RESOLVER_JSON`, duplicate detection, unresolved symbol diagnostics, and resolver report comment generation; `driver.bkr` only orchestrates the report. |
 | Q-028 | DONE | Extract self-host type graph and typecheck passes. | `modules/type_graph.bkr` owns `BUNKER_TYPE_GRAPH_JSON` plus bootstrap type-state helpers, `modules/typecheck.bkr` owns `BUNKER_TYPECHECK_JSON`, and `driver.bkr` only orchestrates both reports. |
+| Q-029 | DONE | Extract self-host AST report pass. | `modules/ast_report.bkr` owns `BUNKER_AST_JSON`, complete-tree serialization, and AST report count helpers used by later report modules; `driver.bkr` only orchestrates AST report emission. |
 
 ## Language Core
 
@@ -377,3 +378,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-01 | Extracted self-host report support helpers. | `modules/report_support.bkr` now owns shared JSON/report/diagnostic helper plumbing used by driver reports, preparing resolver/typecheck module extraction. |
 | 2026-05-01 | Extracted self-host resolver module. | `modules/resolver.bkr` now owns bootstrap name-resolution diagnostics and `BUNKER_RESOLVER_JSON`; `driver.bkr` delegates resolver report generation. |
 | 2026-05-01 | Extracted self-host type graph and typecheck modules. | `modules/type_graph.bkr` now owns `BUNKER_TYPE_GRAPH_JSON` plus bootstrap type-state helpers, and `modules/typecheck.bkr` owns `BUNKER_TYPECHECK_JSON`; `driver.bkr` delegates both reports. |
+| 2026-05-01 | Extracted self-host AST report module. | `modules/ast_report.bkr` now owns `BUNKER_AST_JSON`, complete-tree serialization, and AST report summary helpers; `driver.bkr` delegates AST report generation. |
