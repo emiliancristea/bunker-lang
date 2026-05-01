@@ -30,7 +30,7 @@ Current bootstrap state after the latest self-host work:
 - CI gates arithmetic, functions, control flow, structs, arrays, strings, constants, recursion, bitwise ops, ternary, match, Option, Result, Vec, and HashMap fixtures through generated and stage2 compilers.
 - CI compares selected self-host outputs against Rust JIT results and checks stage1/stage2 generated C determinism.
 - The Rust compiler is still the production compiler and the bootstrap driver.
-- The self-host compiler entrypoint is now module-composed: constants, AST helpers, lexer result helpers, lexer, parser state, parser, C codegen state, C codegen, report support, and driver live in imported Bunker modules.
+- The self-host compiler entrypoint is now module-composed: constants, AST helpers, lexer result helpers, lexer, parser state, parser, C codegen state, C codegen, report support, resolver, and driver live in imported Bunker modules.
 - AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, AST kind/category/span reasoning now goes through named helpers, lexer result layout is centralized in `modules/lexer_result.bkr`, parser state layout is centralized in `modules/parser_state.bkr`, and C codegen state layout is centralized in `modules/cgen_state.bkr`; the AST, lexer result, parser state, and codegen state representations still use raw `Vec<i64>` during bootstrap.
 - Self-host compiler outputs include `BUNKER_CAPABILITY_JSON`, a machine-readable capability report for agents that states supported constructs, current AI-diagnostic support, and known bootstrap limits.
 - Successful self-host compiler outputs include `BUNKER_AST_JSON`, a machine-readable AST report with root/item summaries plus a complete nested AST tree for agent inspection.
@@ -87,6 +87,7 @@ These are the next concrete PR-sized slices.
 | Q-024 | DONE | Add self-host resolver reports for agents. | Successful generated self-host outputs include `BUNKER_RESOLVER_JSON` with duplicate/unresolved symbol diagnostics, and CI checks both clean and intentionally broken resolver inputs. |
 | Q-025 | DONE | Add self-host typecheck reports for agents. | Successful generated self-host outputs include `BUNKER_TYPECHECK_JSON` with expected/found semantic diagnostics, and CI checks both clean and intentionally broken typecheck inputs. |
 | Q-026 | DONE | Extract shared self-host report support helpers. | `modules/report_support.bkr` owns JSON field/string escaping, report name lookup, diagnostic state, and shared vector helpers so resolver/typecheck report modules can be extracted from `driver.bkr` next. |
+| Q-027 | DONE | Extract self-host resolver pass into its own module. | `modules/resolver.bkr` owns `BUNKER_RESOLVER_JSON`, duplicate detection, unresolved symbol diagnostics, and resolver report comment generation; `driver.bkr` only orchestrates the report. |
 
 ## Language Core
 
@@ -223,7 +224,7 @@ These are the next concrete PR-sized slices.
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
 | CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass reports annotation, return, condition, assignment, range, and direct call-argument mismatches from Bunker driver code; final gate requires a dedicated Bunker typechecker module and full subset enforcement. |
-| CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass in Bunker reports duplicate declarations and unresolved identifiers/calls/types/struct literal fields; final gate requires import graph, visibility, overloads, and definition-use related spans. |
+| CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass lives in `modules/resolver.bkr` and reports duplicate declarations plus unresolved identifiers/calls/types/struct literal fields; final gate requires import graph, visibility, overloads, and definition-use related spans. |
 | CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
 | CF-010 | TODO | P0 | Semantic validation passes. | Non-type semantic errors are separate and tested. |
 | CF-011 | TODO | P0 | Exhaustiveness checker. | Match exhaustiveness works for ADTs. |
@@ -373,3 +374,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-04-25 | Added self-host resolver reports. | `BUNKER_RESOLVER_JSON` now carries bootstrap duplicate/unresolved symbol diagnostics for agents, with clean and intentionally broken CI checks. |
 | 2026-04-25 | Added self-host typecheck reports. | `BUNKER_TYPECHECK_JSON` now carries bootstrap expected/found semantic diagnostics for agents, with clean and intentionally broken CI checks. |
 | 2026-05-01 | Extracted self-host report support helpers. | `modules/report_support.bkr` now owns shared JSON/report/diagnostic helper plumbing used by driver reports, preparing resolver/typecheck module extraction. |
+| 2026-05-01 | Extracted self-host resolver module. | `modules/resolver.bkr` now owns bootstrap name-resolution diagnostics and `BUNKER_RESOLVER_JSON`; `driver.bkr` delegates resolver report generation. |
