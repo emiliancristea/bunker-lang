@@ -30,7 +30,7 @@ Current bootstrap state after the latest self-host work:
 - CI gates arithmetic, functions, control flow, structs, arrays, strings, constants, recursion, bitwise ops, ternary, match, Option, Result, Vec, and HashMap fixtures through generated and stage2 compilers.
 - CI compares selected self-host outputs against Rust JIT results and checks stage1/stage2 generated C determinism.
 - The Rust compiler is still the production compiler and the bootstrap driver.
-- The self-host compiler entrypoint is now module-composed: constants, AST helpers, lexer result helpers, lexer, parser state, parser, C codegen state, C codegen, and driver live in imported Bunker modules.
+- The self-host compiler entrypoint is now module-composed: constants, AST helpers, lexer result helpers, lexer, parser state, parser, C codegen state, C codegen, report support, and driver live in imported Bunker modules.
 - AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, AST kind/category/span reasoning now goes through named helpers, lexer result layout is centralized in `modules/lexer_result.bkr`, parser state layout is centralized in `modules/parser_state.bkr`, and C codegen state layout is centralized in `modules/cgen_state.bkr`; the AST, lexer result, parser state, and codegen state representations still use raw `Vec<i64>` during bootstrap.
 - Self-host compiler outputs include `BUNKER_CAPABILITY_JSON`, a machine-readable capability report for agents that states supported constructs, current AI-diagnostic support, and known bootstrap limits.
 - Successful self-host compiler outputs include `BUNKER_AST_JSON`, a machine-readable AST report with root/item summaries plus a complete nested AST tree for agent inspection.
@@ -69,7 +69,7 @@ These are the next concrete PR-sized slices.
 | Q-006 | DONE | Move lexer into Bunker module. | Stage2 compiler uses `self-host/modules/lexer.bkr` through import expansion and passes current self-host smoke. |
 | Q-007 | DONE | Move parser into Bunker module. | Stage2 compiler uses Bunker parser module and passes current self-host smoke. |
 | Q-008 | DONE | Move C codegen into Bunker module. | Stage2 compiler uses Bunker codegen module and passes current self-host smoke. |
-| Q-009 | PARTIAL | Add machine-readable self-host diagnostics. | Self-host parse/import errors emit JSON diagnostics with spans and repair hints; type/codegen diagnostics still need dedicated phases. |
+| Q-009 | PARTIAL | Add machine-readable self-host diagnostics. | Self-host parse/import errors plus resolver/typecheck reports emit JSON diagnostics with spans and repair hints; codegen diagnostics and a unified diagnostic envelope still need dedicated phases. |
 | Q-010 | DONE | Add self-host golden output tests. | CI compares selected Rust compiler output vs self-host compiler output for stable fixtures. |
 | Q-011 | DONE | Reduce `bkrc.bkr` to a module-composed entrypoint. | Entry point imports constants, lexer, parser, codegen, and driver modules; CI passes generated/stage2/golden gates. |
 | Q-012 | DONE | Introduce self-host AST layout helpers. | Parser constructs AST nodes through `modules/ast.bkr`; CI passes generated/stage2/golden gates. |
@@ -86,6 +86,7 @@ These are the next concrete PR-sized slices.
 | Q-023 | DONE | Add self-host symbol table reports for agents. | Successful generated self-host outputs include `BUNKER_SYMBOL_TABLE_JSON` with declarations, references, scopes, and spans derived from the bootstrap AST walk; CI checks direct, stage1, and stage2 generated outputs. |
 | Q-024 | DONE | Add self-host resolver reports for agents. | Successful generated self-host outputs include `BUNKER_RESOLVER_JSON` with duplicate/unresolved symbol diagnostics, and CI checks both clean and intentionally broken resolver inputs. |
 | Q-025 | DONE | Add self-host typecheck reports for agents. | Successful generated self-host outputs include `BUNKER_TYPECHECK_JSON` with expected/found semantic diagnostics, and CI checks both clean and intentionally broken typecheck inputs. |
+| Q-026 | DONE | Extract shared self-host report support helpers. | `modules/report_support.bkr` owns JSON field/string escaping, report name lookup, diagnostic state, and shared vector helpers so resolver/typecheck report modules can be extracted from `driver.bkr` next. |
 
 ## Language Core
 
@@ -371,3 +372,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-04-25 | Added self-host symbol table reports. | `BUNKER_SYMBOL_TABLE_JSON` now carries declaration and reference tables with bootstrap scopes and spans for agents, with direct/stage1/stage2 CI checks. |
 | 2026-04-25 | Added self-host resolver reports. | `BUNKER_RESOLVER_JSON` now carries bootstrap duplicate/unresolved symbol diagnostics for agents, with clean and intentionally broken CI checks. |
 | 2026-04-25 | Added self-host typecheck reports. | `BUNKER_TYPECHECK_JSON` now carries bootstrap expected/found semantic diagnostics for agents, with clean and intentionally broken CI checks. |
+| 2026-05-01 | Extracted self-host report support helpers. | `modules/report_support.bkr` now owns shared JSON/report/diagnostic helper plumbing used by driver reports, preparing resolver/typecheck module extraction. |

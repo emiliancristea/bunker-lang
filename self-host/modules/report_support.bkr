@@ -1,0 +1,129 @@
+    // ========================================
+    // REPORT SUPPORT HELPERS
+    // ========================================
+    //
+    // Shared JSON/report helpers used by the driver-owned bootstrap reports.
+    // Keeping these helpers outside driver.bkr makes resolver/typecheck report
+    // extraction possible without duplicating diagnostic plumbing.
+
+    fn json_escape_string(raw: str) -> str {
+        let quote = from_char_code(34);
+        let backslash = from_char_code(92);
+        let out = "";
+        let i: i64 = 0;
+        while i < len(raw) {
+            let ch = char_at(raw, i);
+            let ch_code = char_code(ch);
+
+            if ch_code == 10 {
+                out = out + backslash + "n";
+            } else if ch_code == 13 {
+                out = out + backslash + "r";
+            } else if ch_code == 9 {
+                out = out + backslash + "t";
+            } else if ch_code == 34 {
+                out = out + backslash + quote;
+            } else if ch_code == 92 {
+                out = out + backslash + backslash;
+            } else if ch_code == 47 && i > 0 && char_code_at(raw, i - 1) == 42 {
+                out = out + backslash + ch;
+            } else {
+                out = out + ch;
+            }
+
+            i = i + 1;
+        }
+
+        return quote + out + quote;
+    }
+
+    fn json_field_str(name: str, value: str) -> str {
+        let quote = from_char_code(34);
+        return quote + name + quote + ":" + json_escape_string(value);
+    }
+
+    fn json_field_i64(name: str, value: i64) -> str {
+        let quote = from_char_code(34);
+        return quote + name + quote + ":" + int_to_string(value);
+    }
+
+    fn json_field_bool(name: str, value: bool) -> str {
+        let quote = from_char_code(34);
+        if value {
+            return quote + name + quote + ":true";
+        }
+        return quote + name + quote + ":false";
+    }
+
+    fn json_field_raw(name: str, value: str) -> str {
+        let quote = from_char_code(34);
+        return quote + name + quote + ":" + value;
+    }
+
+    fn ast_report_name(names: Vec<str>, idx: i64) -> str {
+        if idx >= 0 && idx < vec_len(names) {
+            return vec_get(names, idx);
+        }
+        return "";
+    }
+
+    fn resolver_state_new() -> Vec<str> {
+        let state: Vec<str> = vec_new();
+        return state;
+    }
+
+    fn resolver_state_json(state: Vec<str>) -> str {
+        let result = "[";
+        let i: i64 = 0;
+        while i < vec_len(state) {
+            if i > 0 {
+                result = result + ",";
+            }
+            let diagnostic: str = vec_get(state, i);
+            result = result + diagnostic;
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn resolver_state_count(state: Vec<str>) -> i64 {
+        return vec_len(state);
+    }
+
+    fn resolver_state_append(state: Vec<str>, diagnostic: str) -> Vec<str> {
+        vec_push(state, diagnostic);
+        return state;
+    }
+
+    fn resolver_i64_vec_contains(values: Vec<i64>, value: i64) -> bool {
+        let i: i64 = 0;
+        while i < vec_len(values) {
+            if vec_get(values, i) == value {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn resolver_empty_i64_vec() -> Vec<i64> {
+        let values: Vec<i64> = vec_new();
+        return values;
+    }
+
+    fn resolver_i64_vec_copy(values: Vec<i64>) -> Vec<i64> {
+        let result: Vec<i64> = vec_new();
+        let i: i64 = 0;
+        while i < vec_len(values) {
+            let copied_value: i64 = vec_get(values, i);
+            vec_push(result, copied_value);
+            i = i + 1;
+        }
+        return result;
+    }
+
+    fn resolver_i64_vec_with(values: Vec<i64>, value: i64) -> Vec<i64> {
+        let result: Vec<i64> = resolver_i64_vec_copy(values);
+        vec_push(result, value);
+        return result;
+    }
