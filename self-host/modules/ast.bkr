@@ -443,14 +443,26 @@
     }
 
     fn ast_let_type_node(node: Vec<i64>) -> i64 {
+        return ast_let_type_handle(node);
+    }
+
+    fn ast_let_type_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 2);
     }
 
     fn ast_let_init(node: Vec<i64>) -> i64 {
+        return ast_let_init_handle(node);
+    }
+
+    fn ast_let_init_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 3);
     }
 
     fn ast_return_expr(node: Vec<i64>) -> i64 {
+        return ast_return_expr_handle(node);
+    }
+
+    fn ast_return_expr_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 1);
     }
 
@@ -467,6 +479,10 @@
     }
 
     fn ast_if_else(node: Vec<i64>) -> i64 {
+        return ast_if_else_handle(node);
+    }
+
+    fn ast_if_else_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 3);
     }
 
@@ -559,6 +575,10 @@
     }
 
     fn ast_fn_return_type(node: Vec<i64>) -> i64 {
+        return ast_fn_return_type_handle(node);
+    }
+
+    fn ast_fn_return_type_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 3);
     }
 
@@ -571,10 +591,18 @@
     }
 
     fn ast_const_type_node(node: Vec<i64>) -> i64 {
+        return ast_const_type_handle(node);
+    }
+
+    fn ast_const_type_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 2);
     }
 
     fn ast_const_value(node: Vec<i64>) -> i64 {
+        return ast_const_value_handle(node);
+    }
+
+    fn ast_const_value_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 3);
     }
 
@@ -591,6 +619,10 @@
     }
 
     fn ast_field_decl_type_node(node: Vec<i64>) -> i64 {
+        return ast_field_decl_type_handle(node);
+    }
+
+    fn ast_field_decl_type_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 2);
     }
 

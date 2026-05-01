@@ -51,7 +51,7 @@
     }
 
     fn typecheck_return_kind(fn_node: Vec<i64>) -> i64 {
-        let return_type = ast_fn_return_type(fn_node);
+        let return_type = ast_fn_return_type_handle(fn_node);
         if ast_optional_is_none(return_type) {
             return TYPE_VOID;
         }
@@ -243,11 +243,11 @@
                                   expected_return_kind: i64) -> Vec<str> {
         let kind = ast_kind(stmt);
         if kind == NODE_LET {
-            let init = ast_let_init(stmt);
+            let init = ast_let_init_handle(stmt);
             let name = ast_report_name(names, ast_let_name_idx(stmt));
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
                 init, scope, expected_return_kind);
-            let type_node = ast_let_type_node(stmt);
+            let type_node = ast_let_type_handle(stmt);
             if ast_optional_is_some(type_node) && ast_optional_is_some(init) {
                 let expected_kind = typecheck_declared_kind(type_node);
                 let found_kind = typecheck_expr_kind(cstate, init);
@@ -258,7 +258,7 @@
             }
             type_graph_add_let_to_state(cstate, stmt);
         } else if kind == NODE_RETURN {
-            let return_expr = ast_return_expr(stmt);
+            let return_expr = ast_return_expr_handle(stmt);
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
                 return_expr, scope, expected_return_kind);
             if ast_optional_is_none(return_expr) {
@@ -281,7 +281,7 @@
                 ast_if_cond_handle(stmt), scope, expected_return_kind);
             state = typecheck_block_diagnostics(state, kernel, names, cstate,
                 ast_if_then(stmt), scope, expected_return_kind);
-            let else_block = ast_if_else(stmt);
+            let else_block = ast_if_else_handle(stmt);
             if ast_optional_is_some(else_block) {
                 state = typecheck_block_diagnostics(state, kernel, names, cstate,
                     ast_optional_node(else_block), scope, expected_return_kind);
@@ -339,10 +339,10 @@
     fn typecheck_const_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
                                    cstate: Vec<i64>, item: Vec<i64>, kernel_scope: str) -> Vec<str> {
         let const_name = ast_report_name(names, ast_const_name_idx(item));
-        let value = ast_const_value(item);
+        let value = ast_const_value_handle(item);
         state = typecheck_expr_diagnostics(state, kernel, names, cstate,
             value, kernel_scope, TYPE_UNKNOWN);
-        let type_node = ast_const_type_node(item);
+        let type_node = ast_const_type_handle(item);
         if ast_optional_is_some(type_node) && ast_optional_is_some(value) {
             let expected_kind = typecheck_declared_kind(type_node);
             let found_kind = typecheck_expr_kind(cstate, value);

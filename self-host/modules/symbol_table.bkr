@@ -150,16 +150,16 @@
                     scope,
                     stmt));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_let_init(stmt), scope));
+                symbol_table_expr_declarations_json(names, ast_let_init_handle(stmt), scope));
         } else if kind == NODE_RETURN {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_return_expr(stmt), scope));
+                symbol_table_expr_declarations_json(names, ast_return_expr_handle(stmt), scope));
         } else if kind == NODE_IF {
             result = symbol_table_json_array_append_items(result,
                 symbol_table_expr_declarations_json(names, ast_if_cond_handle(stmt), scope));
             result = symbol_table_json_array_append_items(result,
                 symbol_table_block_declarations_json(names, ast_if_then(stmt), scope));
-            let else_block = ast_if_else(stmt);
+            let else_block = ast_if_else_handle(stmt);
             if ast_optional_is_some(else_block) {
                 result = symbol_table_json_array_append_items(result,
                     symbol_table_block_declarations_json(names, ast_optional_node(else_block), scope));
@@ -236,7 +236,7 @@
                     kernel_scope,
                     item));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_const_value(item), kernel_scope));
+                symbol_table_expr_declarations_json(names, ast_const_value_handle(item), kernel_scope));
         } else if ast_is_struct_item(item) {
             let struct_name = ast_report_name(names, ast_struct_name_idx(item));
             let struct_scope = "struct:" + struct_name;
@@ -375,18 +375,18 @@
         let kind = ast_kind(stmt);
         if kind == NODE_LET {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_type_references_json(names, ast_let_type_node(stmt), scope));
+                symbol_table_type_references_json(names, ast_let_type_handle(stmt), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_let_init(stmt), scope));
+                symbol_table_expr_references_json(names, ast_let_init_handle(stmt), scope));
         } else if kind == NODE_RETURN {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_return_expr(stmt), scope));
+                symbol_table_expr_references_json(names, ast_return_expr_handle(stmt), scope));
         } else if kind == NODE_IF {
             result = symbol_table_json_array_append_items(result,
                 symbol_table_expr_references_json(names, ast_if_cond_handle(stmt), scope));
             result = symbol_table_json_array_append_items(result,
                 symbol_table_block_references_json(names, ast_if_then(stmt), scope));
-            let else_block = ast_if_else(stmt);
+            let else_block = ast_if_else_handle(stmt);
             if ast_optional_is_some(else_block) {
                 result = symbol_table_json_array_append_items(result,
                     symbol_table_block_references_json(names, ast_optional_node(else_block), scope));
@@ -436,7 +436,7 @@
             let fn_name = ast_report_name(names, ast_fn_name_idx(item));
             let fn_scope = "function:" + fn_name;
             result = symbol_table_json_array_append_items(result,
-                symbol_table_type_references_json(names, ast_fn_return_type(item), fn_scope));
+                symbol_table_type_references_json(names, ast_fn_return_type_handle(item), fn_scope));
             let i: i64 = 0;
             while i < ast_fn_param_count(item) {
                 let param = ast_fn_param(item, i);
@@ -448,16 +448,16 @@
                 symbol_table_block_references_json(names, ast_fn_body(item), fn_scope));
         } else if ast_is_const_item(item) {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_type_references_json(names, ast_const_type_node(item), kernel_scope));
+                symbol_table_type_references_json(names, ast_const_type_handle(item), kernel_scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_const_value(item), kernel_scope));
+                symbol_table_expr_references_json(names, ast_const_value_handle(item), kernel_scope));
         } else if ast_is_struct_item(item) {
             let struct_scope = "struct:" + ast_report_name(names, ast_struct_name_idx(item));
             let i: i64 = 0;
             while i < ast_struct_field_count(item) {
                 let field = ast_struct_field(item, i);
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_type_references_json(names, ast_field_decl_type_node(field), struct_scope));
+                    symbol_table_type_references_json(names, ast_field_decl_type_handle(field), struct_scope));
                 i = i + 1;
             }
         }
