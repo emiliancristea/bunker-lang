@@ -104,17 +104,19 @@
         let expr: Vec<i64> = ast_expr_node_from_ref(expr_ref);
         let kind: i64 = ast_expr_ref_kind(expr_ref);
         if kind == NODE_MATCH {
+            let patterns_ref: AstPatternListRef = ast_match_patterns_ref(expr);
+            let bodies_ref: AstNodeListRef = ast_match_bodies_ref(expr);
             let i: i64 = 0;
-            while i < ast_match_arm_count(expr) {
+            while i < ast_pattern_list_ref_count(patterns_ref) {
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_pattern_declarations_ref_json(names, ast_pattern_list_get_ref(ast_match_patterns(expr), i), scope));
-                let body_ref: AstNodeRef = ast_node_ref_from_handle(ast_match_body_handle(expr, i));
+                    symbol_table_pattern_declarations_ref_json(names, ast_pattern_list_ref_get_ref(patterns_ref, i), scope));
+                let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
                 if ast_node_ref_kind(body_ref) == NODE_BLOCK {
                     result = symbol_table_json_array_append_items(result,
                         symbol_table_block_declarations_ref_json(names, ast_block_ref_from_handle(ast_node_ref_handle(body_ref)), scope));
                 } else {
                     result = symbol_table_json_array_append_items(result,
-                        symbol_table_expr_declarations_ref_json(names, ast_expr_ref_from_handle(ast_match_body_handle(expr, i)), scope));
+                        symbol_table_expr_declarations_ref_json(names, ast_expr_ref_from_handle(ast_node_ref_handle(body_ref)), scope));
                 }
                 i = i + 1;
             }
@@ -127,10 +129,12 @@
             result = symbol_table_json_array_append_items(result,
                 symbol_table_expr_declarations_ref_json(names, ast_expr_ref_from_handle(ast_unary_operand_handle(expr)), scope));
         } else if kind == NODE_CALL {
+            let args_ref: AstNodeListRef = ast_call_args_ref(expr);
             let i: i64 = 0;
-            while i < ast_call_arg_count(expr) {
+            while i < ast_node_list_ref_count(args_ref) {
+                let arg_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_expr_declarations_ref_json(names, ast_expr_ref_from_handle(ast_call_arg_handle(expr, i)), scope));
+                    symbol_table_expr_declarations_ref_json(names, ast_expr_ref_from_handle(ast_node_ref_handle(arg_ref)), scope));
                 i = i + 1;
             }
         } else if kind == NODE_TERNARY {
@@ -141,10 +145,12 @@
             result = symbol_table_json_array_append_items(result,
                 symbol_table_expr_declarations_ref_json(names, ast_expr_ref_from_handle(ast_ternary_else_handle(expr)), scope));
         } else if kind == NODE_ARRAY_LIT {
+            let elements_ref: AstNodeListRef = ast_array_elements_ref(expr);
             let i: i64 = 0;
-            while i < ast_array_element_count(expr) {
+            while i < ast_node_list_ref_count(elements_ref) {
+                let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_expr_declarations_ref_json(names, ast_expr_ref_from_handle(ast_array_element_handle(expr, i)), scope));
+                    symbol_table_expr_declarations_ref_json(names, ast_expr_ref_from_handle(ast_node_ref_handle(element_ref)), scope));
                 i = i + 1;
             }
         } else if kind == NODE_INDEX {
@@ -156,10 +162,12 @@
             result = symbol_table_json_array_append_items(result,
                 symbol_table_expr_declarations_ref_json(names, ast_expr_ref_from_handle(ast_field_base_handle(expr)), scope));
         } else if kind == NODE_STRUCT_LIT {
+            let field_values_ref: AstNodeListRef = ast_struct_lit_field_values_ref(expr);
             let i: i64 = 0;
-            while i < ast_struct_lit_field_count(expr) {
+            while i < ast_node_list_ref_count(field_values_ref) {
+                let field_value_ref: AstNodeRef = ast_node_list_ref_get_ref(field_values_ref, i);
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_expr_declarations_ref_json(names, ast_expr_ref_from_handle(ast_struct_lit_field_value_handle(expr, i)), scope));
+                    symbol_table_expr_declarations_ref_json(names, ast_expr_ref_from_handle(ast_node_ref_handle(field_value_ref)), scope));
                 i = i + 1;
             }
         }
@@ -260,14 +268,16 @@
             result = symbol_table_json_array_append(result,
                 symbol_table_node_ref_entry_json("function", fn_name, kernel_scope, item_node_ref));
 
+            let params_ref: AstNodeListRef = ast_fn_params_ref(item);
             let i: i64 = 0;
-            while i < ast_fn_param_count(item) {
-                let param: Vec<i64> = ast_fn_param(item, i);
+            while i < ast_node_list_ref_count(params_ref) {
+                let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
+                let param: Vec<i64> = ast_node_from_ref(param_ref);
                 result = symbol_table_json_array_append(result,
                     symbol_table_node_ref_entry_json("parameter",
                         ast_report_name(names, ast_param_name_idx(param)),
                         fn_scope,
-                        ast_node_ref_from_node(param)));
+                        param_ref));
                 i = i + 1;
             }
 
@@ -286,14 +296,16 @@
             let struct_scope = "struct:" + struct_name;
             result = symbol_table_json_array_append(result,
                 symbol_table_node_ref_entry_json("struct", struct_name, kernel_scope, item_node_ref));
+            let fields_ref: AstNodeListRef = ast_struct_fields_ref(item);
             let i: i64 = 0;
-            while i < ast_struct_field_count(item) {
-                let field: Vec<i64> = ast_struct_field(item, i);
+            while i < ast_node_list_ref_count(fields_ref) {
+                let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, i);
+                let field: Vec<i64> = ast_node_from_ref(field_ref);
                 result = symbol_table_json_array_append(result,
                     symbol_table_node_ref_entry_json("field",
                         ast_report_name(names, ast_field_decl_name_idx(field)),
                         struct_scope,
-                        ast_node_ref_from_node(field)));
+                        field_ref));
                 i = i + 1;
             }
         }
@@ -313,10 +325,12 @@
         result = symbol_table_json_array_append(result,
             symbol_table_node_ref_entry_json("kernel", kernel_name, "global", kernel_ref));
 
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
             result = symbol_table_json_array_append_items(result,
-                symbol_table_item_declarations_ref_json(kernel, ast_item_ref_from_node(ast_kernel_item(kernel, i)), kernel_scope));
+                symbol_table_item_declarations_ref_json(kernel, ast_item_ref_from_handle(ast_node_ref_handle(item_ref)), kernel_scope));
             i = i + 1;
         }
         return result + "]";
@@ -348,10 +362,12 @@
                     ast_report_name(names, ast_call_name_idx(expr)),
                     scope,
                     ast_node_ref_from_handle(ast_expr_ref_handle(expr_ref))));
+            let args_ref: AstNodeListRef = ast_call_args_ref(expr);
             let i: i64 = 0;
-            while i < ast_call_arg_count(expr) {
+            while i < ast_node_list_ref_count(args_ref) {
+                let arg_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_expr_references_ref_json(names, ast_expr_ref_from_handle(ast_call_arg_handle(expr, i)), scope));
+                    symbol_table_expr_references_ref_json(names, ast_expr_ref_from_handle(ast_node_ref_handle(arg_ref)), scope));
                 i = i + 1;
             }
         } else if kind == NODE_FIELD_ACCESS {
@@ -368,15 +384,18 @@
                     ast_report_name(names, ast_struct_lit_name_idx(expr)),
                     scope,
                     ast_node_ref_from_handle(ast_expr_ref_handle(expr_ref))));
+            let field_names_ref: AstI64ListRef = ast_struct_lit_field_names_ref(expr);
+            let field_values_ref: AstNodeListRef = ast_struct_lit_field_values_ref(expr);
             let i: i64 = 0;
-            while i < ast_struct_lit_field_count(expr) {
+            while i < ast_i64_list_ref_count(field_names_ref) {
+                let field_value_ref: AstNodeRef = ast_node_list_ref_get_ref(field_values_ref, i);
                 result = symbol_table_json_array_append(result,
                     symbol_table_node_ref_entry_json("field_initializer",
-                        ast_report_name(names, ast_struct_lit_field_name_idx(expr, i)),
+                        ast_report_name(names, ast_i64_list_ref_get(field_names_ref, i)),
                         scope,
                         ast_node_ref_from_handle(ast_expr_ref_handle(expr_ref))));
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_expr_references_ref_json(names, ast_expr_ref_from_handle(ast_struct_lit_field_value_handle(expr, i)), scope));
+                    symbol_table_expr_references_ref_json(names, ast_expr_ref_from_handle(ast_node_ref_handle(field_value_ref)), scope));
                 i = i + 1;
             }
         } else if kind == NODE_BINARY {
@@ -395,10 +414,12 @@
             result = symbol_table_json_array_append_items(result,
                 symbol_table_expr_references_ref_json(names, ast_expr_ref_from_handle(ast_ternary_else_handle(expr)), scope));
         } else if kind == NODE_ARRAY_LIT {
+            let elements_ref: AstNodeListRef = ast_array_elements_ref(expr);
             let i: i64 = 0;
-            while i < ast_array_element_count(expr) {
+            while i < ast_node_list_ref_count(elements_ref) {
+                let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_expr_references_ref_json(names, ast_expr_ref_from_handle(ast_array_element_handle(expr, i)), scope));
+                    symbol_table_expr_references_ref_json(names, ast_expr_ref_from_handle(ast_node_ref_handle(element_ref)), scope));
                 i = i + 1;
             }
         } else if kind == NODE_INDEX {
@@ -409,15 +430,16 @@
         } else if kind == NODE_MATCH {
             result = symbol_table_json_array_append_items(result,
                 symbol_table_expr_references_ref_json(names, ast_expr_ref_from_handle(ast_match_scrutinee_handle(expr)), scope));
+            let bodies_ref: AstNodeListRef = ast_match_bodies_ref(expr);
             let i: i64 = 0;
-            while i < ast_match_arm_count(expr) {
-                let body_ref: AstNodeRef = ast_node_ref_from_handle(ast_match_body_handle(expr, i));
+            while i < ast_node_list_ref_count(bodies_ref) {
+                let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
                 if ast_node_ref_kind(body_ref) == NODE_BLOCK {
                     result = symbol_table_json_array_append_items(result,
                         symbol_table_block_references_ref_json(names, ast_block_ref_from_handle(ast_node_ref_handle(body_ref)), scope));
                 } else {
                     result = symbol_table_json_array_append_items(result,
-                        symbol_table_expr_references_ref_json(names, ast_expr_ref_from_handle(ast_match_body_handle(expr, i)), scope));
+                        symbol_table_expr_references_ref_json(names, ast_expr_ref_from_handle(ast_node_ref_handle(body_ref)), scope));
                 }
                 i = i + 1;
             }
@@ -508,9 +530,10 @@
             let fn_scope = "function:" + fn_name;
             result = symbol_table_json_array_append_items(result,
                 symbol_table_type_references_json(names, ast_fn_return_type_handle(item), fn_scope));
+            let params_ref: AstNodeListRef = ast_fn_params_ref(item);
             let i: i64 = 0;
-            while i < ast_fn_param_count(item) {
-                let param: Vec<i64> = ast_fn_param(item, i);
+            while i < ast_node_list_ref_count(params_ref) {
+                let param: Vec<i64> = ast_node_list_ref_get(params_ref, i);
                 result = symbol_table_json_array_append_items(result,
                     symbol_table_type_references_json(names, ast_param_type_handle(param), fn_scope));
                 i = i + 1;
@@ -524,9 +547,10 @@
                 symbol_table_expr_references_json(names, ast_const_value_handle(item), kernel_scope));
         } else if kind == NODE_STRUCT {
             let struct_scope = "struct:" + ast_report_name(names, ast_struct_name_idx(item));
+            let fields_ref: AstNodeListRef = ast_struct_fields_ref(item);
             let i: i64 = 0;
-            while i < ast_struct_field_count(item) {
-                let field: Vec<i64> = ast_struct_field(item, i);
+            while i < ast_node_list_ref_count(fields_ref) {
+                let field: Vec<i64> = ast_node_list_ref_get(fields_ref, i);
                 result = symbol_table_json_array_append_items(result,
                     symbol_table_type_references_json(names, ast_field_decl_type_handle(field), struct_scope));
                 i = i + 1;
@@ -544,10 +568,12 @@
         let names = ast_kernel_names(kernel);
         let kernel_scope = "kernel:" + ast_report_name(names, ast_name_idx(kernel));
         let result = "[";
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
             result = symbol_table_json_array_append_items(result,
-                symbol_table_item_references_ref_json(kernel, ast_item_ref_from_node(ast_kernel_item(kernel, i)), kernel_scope));
+                symbol_table_item_references_ref_json(kernel, ast_item_ref_from_handle(ast_node_ref_handle(item_ref)), kernel_scope));
             i = i + 1;
         }
         return result + "]";
@@ -557,7 +583,7 @@
         let comma = ",";
         let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
         let names = ast_kernel_names(kernel);
-        let items = ast_kernel_items(kernel);
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         return "{" +
             json_field_str("schema_version", "bunker.self_host.symbol_table.v1") + comma +
             json_field_str("representation", "bootstrap_ast_walk") + comma +
@@ -569,9 +595,9 @@
             json_field_str("resolver_report", "BUNKER_RESOLVER_JSON") + comma +
             json_field_raw("summary", "{" +
                 json_field_i64("interned_name_count", vec_len(names)) + comma +
-                json_field_i64("function_count", ast_report_count_kind(items, NODE_FN)) + comma +
-                json_field_i64("struct_count", ast_report_count_kind(items, NODE_STRUCT)) + comma +
-                json_field_i64("const_count", ast_report_count_kind(items, NODE_CONST)) +
+                json_field_i64("function_count", ast_report_count_kind_ref(items_ref, NODE_FN)) + comma +
+                json_field_i64("struct_count", ast_report_count_kind_ref(items_ref, NODE_STRUCT)) + comma +
+                json_field_i64("const_count", ast_report_count_kind_ref(items_ref, NODE_CONST)) +
                 "}") + comma +
             json_field_raw("declaration_table", symbol_table_declarations_ref_json(kernel_ref)) + comma +
             json_field_raw("reference_table", symbol_table_references_ref_json(kernel_ref)) +
