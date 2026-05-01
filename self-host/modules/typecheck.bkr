@@ -36,15 +36,15 @@
         return false;
     }
 
-    fn typecheck_expr_kind(cstate: Vec<i64>, expr_value: i64) -> i64 {
+    fn typecheck_expr_kind(cstate: CgenStateRef, expr_value: i64) -> i64 {
         if ast_optional_is_none(expr_value) {
             return TYPE_UNKNOWN;
         }
         return typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(expr_value));
     }
 
-    fn typecheck_expr_ref_kind(cstate: Vec<i64>, expr_ref: AstExprRef) -> i64 {
-        return infer_c_expr_type(cstate, ast_expr_node_from_ref(expr_ref));
+    fn typecheck_expr_ref_kind(cstate: CgenStateRef, expr_ref: AstExprRef) -> i64 {
+        return infer_c_expr_ref_type(cstate, expr_ref);
     }
 
     fn typecheck_declared_kind(type_node: i64) -> i64 {
@@ -163,7 +163,7 @@
         return ast_optional_none();
     }
 
-    fn typecheck_check_expression_against(state: Vec<str>, names: Vec<str>, cstate: Vec<i64>,
+    fn typecheck_check_expression_against(state: Vec<str>, names: Vec<str>, cstate: CgenStateRef,
                                           expr_value: i64, scope: str, diagnostic_kind: str,
                                           name: str, expected_kind: i64, repair_hint: str) -> Vec<str> {
         if ast_optional_is_none(expr_value) {
@@ -179,7 +179,7 @@
             name, expected_kind, repair_hint);
     }
 
-    fn typecheck_check_expression_ref_against(state: Vec<str>, names: Vec<str>, cstate: Vec<i64>,
+    fn typecheck_check_expression_ref_against(state: Vec<str>, names: Vec<str>, cstate: CgenStateRef,
                                               expr_ref: AstExprRef, scope: str, diagnostic_kind: str,
                                               name: str, expected_kind: i64, repair_hint: str) -> Vec<str> {
         let found_kind: i64 = typecheck_expr_ref_kind(cstate, expr_ref);
@@ -188,13 +188,13 @@
     }
 
     fn typecheck_check_call_arguments(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
-                                      cstate: Vec<i64>, expr: Vec<i64>, scope: str) -> Vec<str> {
+                                      cstate: CgenStateRef, expr: Vec<i64>, scope: str) -> Vec<str> {
         return typecheck_check_call_arguments_ref(state, ast_node_ref_from_node(kernel), names,
             cstate, ast_expr_ref_from_node(expr), scope);
     }
 
     fn typecheck_check_call_arguments_ref(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
-                                          cstate: Vec<i64>, expr_ref: AstExprRef, scope: str) -> Vec<str> {
+                                          cstate: CgenStateRef, expr_ref: AstExprRef, scope: str) -> Vec<str> {
         let expr: Vec<i64> = ast_expr_node_from_ref(expr_ref);
         let name_idx: i64 = ast_call_name_idx(expr);
         let fn_value: i64 = typecheck_find_function_ref(kernel_ref, name_idx);
@@ -222,14 +222,14 @@
     }
 
     fn typecheck_expr_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
-                                  cstate: Vec<i64>, expr_value: i64, scope: str,
+                                  cstate: CgenStateRef, expr_value: i64, scope: str,
                                   expected_return_kind: i64) -> Vec<str> {
         return typecheck_expr_handle_diagnostics(state, ast_node_ref_from_node(kernel), names,
             cstate, expr_value, scope, expected_return_kind);
     }
 
     fn typecheck_expr_handle_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
-                                         cstate: Vec<i64>, expr_value: i64, scope: str,
+                                         cstate: CgenStateRef, expr_value: i64, scope: str,
                                          expected_return_kind: i64) -> Vec<str> {
         if ast_optional_is_none(expr_value) {
             return state;
@@ -239,7 +239,7 @@
     }
 
     fn typecheck_expr_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
-                                      cstate: Vec<i64>, expr_ref: AstExprRef, scope: str,
+                                      cstate: CgenStateRef, expr_ref: AstExprRef, scope: str,
                                       expected_return_kind: i64) -> Vec<str> {
         let expr: Vec<i64> = ast_expr_node_from_ref(expr_ref);
         let kind: i64 = ast_expr_ref_kind(expr_ref);
@@ -312,14 +312,14 @@
     }
 
     fn typecheck_stmt_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
-                                  cstate: Vec<i64>, stmt: Vec<i64>, scope: str,
+                                  cstate: CgenStateRef, stmt: Vec<i64>, scope: str,
                                   expected_return_kind: i64) -> Vec<str> {
         return typecheck_stmt_ref_diagnostics(state, ast_node_ref_from_node(kernel), names,
             cstate, ast_stmt_ref_from_node(stmt), scope, expected_return_kind);
     }
 
     fn typecheck_stmt_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
-                                      cstate: Vec<i64>, stmt_ref: AstStmtRef, scope: str,
+                                      cstate: CgenStateRef, stmt_ref: AstStmtRef, scope: str,
                                       expected_return_kind: i64) -> Vec<str> {
         let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
         let stmt_node_ref: AstNodeRef = ast_node_ref_from_handle(ast_stmt_ref_handle(stmt_ref));
@@ -383,7 +383,7 @@
             state = typecheck_check_expression_ref_against(state, names, cstate,
                 ast_expr_ref_from_handle(ast_for_end_handle(stmt)), scope, "for_range_type_mismatch", "for range end",
                 TYPE_I64, "Make the for range end numeric.");
-            cgen_add_local_type(cstate, ast_for_name_idx(stmt), TYPE_I64);
+            cgen_add_local_type_ref(cstate, ast_for_name_idx(stmt), TYPE_I64);
             state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
                 ast_block_ref_from_node(ast_for_body(stmt)), scope, expected_return_kind);
         } else if kind == NODE_LOOP {
@@ -409,14 +409,14 @@
     }
 
     fn typecheck_block_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
-                                   cstate: Vec<i64>, block: Vec<i64>, scope: str,
+                                   cstate: CgenStateRef, block: Vec<i64>, scope: str,
                                    expected_return_kind: i64) -> Vec<str> {
         return typecheck_block_ref_diagnostics(state, ast_node_ref_from_node(kernel), names,
             cstate, ast_block_ref_from_node(block), scope, expected_return_kind);
     }
 
     fn typecheck_block_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
-                                       cstate: Vec<i64>, block_ref: AstBlockRef, scope: str,
+                                       cstate: CgenStateRef, block_ref: AstBlockRef, scope: str,
                                        expected_return_kind: i64) -> Vec<str> {
         let block: Vec<i64> = ast_block_node_from_ref(block_ref);
         let i: i64 = 0;
@@ -429,13 +429,13 @@
     }
 
     fn typecheck_const_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
-                                   cstate: Vec<i64>, item: Vec<i64>, kernel_scope: str) -> Vec<str> {
+                                   cstate: CgenStateRef, item: Vec<i64>, kernel_scope: str) -> Vec<str> {
         return typecheck_const_ref_diagnostics(state, ast_node_ref_from_node(kernel), names,
             cstate, ast_item_ref_from_node(item), kernel_scope);
     }
 
     fn typecheck_const_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
-                                       cstate: Vec<i64>, item_ref: AstItemRef, kernel_scope: str) -> Vec<str> {
+                                       cstate: CgenStateRef, item_ref: AstItemRef, kernel_scope: str) -> Vec<str> {
         let item: Vec<i64> = ast_item_node_from_ref(item_ref);
         let item_node_ref: AstNodeRef = ast_node_ref_from_handle(ast_item_ref_handle(item_ref));
         let const_name: str = ast_report_name(names, ast_const_name_idx(item));
@@ -465,7 +465,7 @@
         let item: Vec<i64> = ast_item_node_from_ref(item_ref);
         let fn_name: str = ast_report_name(names, ast_fn_name_idx(item));
         let scope: str = "function:" + fn_name;
-        let cstate: Vec<i64> = type_graph_function_state_ref(kernel_ref, item_ref);
+        let cstate: CgenStateRef = type_graph_function_state_ref(kernel_ref, item_ref);
         let expected_return_kind: i64 = typecheck_return_ref_kind(item_ref);
         return typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
             ast_block_ref_from_node(ast_fn_body(item)), scope, expected_return_kind);
@@ -479,7 +479,7 @@
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
         let names: Vec<str> = ast_kernel_names(kernel);
         let kernel_scope: str = "kernel:" + ast_report_name(names, ast_name_idx(kernel));
-        let cstate: Vec<i64> = type_graph_seed_state_ref(kernel_ref);
+        let cstate: CgenStateRef = type_graph_seed_state_ref(kernel_ref);
         let i: i64 = 0;
         while i < ast_kernel_item_count(kernel) {
             let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
