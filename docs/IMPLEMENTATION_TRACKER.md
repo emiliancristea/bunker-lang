@@ -117,6 +117,7 @@ These are the next concrete PR-sized slices.
 | Q-054 | DONE | Route typecheck collections through typed refs. | `modules/typecheck.bkr` now walks kernel items, call args, params, struct literal values, arrays, and match bodies through typed AST collection refs. |
 | Q-055 | DONE | Finish AST report collection refs. | `modules/ast_report.bkr` now uses typed collection refs for item param/field counts and struct literal field serialization. |
 | Q-056 | DONE | Route C codegen collections through typed refs. | `modules/c_codegen.bkr` now walks expression lists, params, fields, match arms, struct literal fields, and kernel item loops through typed AST collection refs. |
+| Q-057 | DONE | Guard raw collection boundaries in CI. | GitHub Actions now fails if raw AST collection traversal helpers are used outside `modules/ast.bkr`, keeping typed collection refs enforced for compiler consumers. |
 
 ## Language Core
 
@@ -433,3 +434,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-01 | Routed typecheck collections through typed refs. | `modules/typecheck.bkr` now validates semantic collection paths through typed AST collection refs while preserving the `BUNKER_TYPECHECK_JSON` contract. |
 | 2026-05-01 | Finished AST report collection refs. | `modules/ast_report.bkr` now serializes struct literal fields and item param/field counts through typed AST collection refs while preserving the `BUNKER_AST_JSON` contract. |
 | 2026-05-01 | Routed C codegen collections through typed refs. | `modules/c_codegen.bkr` now emits expression, declaration, and kernel collection paths through typed AST collection refs while preserving generated C behavior. |
+| 2026-05-01 | Added raw collection boundary guard. | CI now rejects raw AST collection traversal helper use outside `modules/ast.bkr`, preserving the typed AST collection boundary for self-host compiler consumers. |
