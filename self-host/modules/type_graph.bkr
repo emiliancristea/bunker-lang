@@ -100,9 +100,11 @@
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
         let names = ast_kernel_names(kernel);
         let state: CgenStateRef = cgen_new_ref(ast_report_name(names, ast_name_idx(kernel)), names);
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             let item: Vec<i64> = ast_item_node_from_ref(item_ref);
             let kind: i64 = ast_item_ref_kind(item_ref);
             if kind == NODE_FN {
@@ -155,11 +157,15 @@
     }
 
     fn type_graph_params_json(names: Vec<str>, params: Vec<i64>) -> str {
+        return type_graph_params_ref_json(names, ast_node_list_ref_from_list(params));
+    }
+
+    fn type_graph_params_ref_json(names: Vec<str>, params_ref: AstNodeListRef) -> str {
         let result = "[";
         let i: i64 = 0;
-        while i < ast_node_list_count(params) {
+        while i < ast_node_list_ref_count(params_ref) {
             result = type_graph_json_array_append(result,
-                type_graph_param_ref_json(names, ast_node_list_get_ref(params, i)));
+                type_graph_param_ref_json(names, ast_node_list_ref_get_ref(params_ref, i)));
             i = i + 1;
         }
         return result + "]";
@@ -181,11 +187,15 @@
     }
 
     fn type_graph_fields_json(names: Vec<str>, fields: Vec<i64>) -> str {
+        return type_graph_fields_ref_json(names, ast_node_list_ref_from_list(fields));
+    }
+
+    fn type_graph_fields_ref_json(names: Vec<str>, fields_ref: AstNodeListRef) -> str {
         let result = "[";
         let i: i64 = 0;
-        while i < ast_node_list_count(fields) {
+        while i < ast_node_list_ref_count(fields_ref) {
             result = type_graph_json_array_append(result,
-                type_graph_field_ref_json(names, ast_node_list_get_ref(fields, i)));
+                type_graph_field_ref_json(names, ast_node_list_ref_get_ref(fields_ref, i)));
             i = i + 1;
         }
         return result + "]";
@@ -203,7 +213,7 @@
             json_field_str("name", ast_report_name(names, ast_struct_name_idx(item))) + comma +
             json_field_i64("source_start", ast_node_ref_span_start(item_node_ref)) + comma +
             json_field_i64("source_end", ast_node_ref_span_end(item_node_ref)) + comma +
-            json_field_raw("fields", type_graph_fields_json(names, ast_struct_fields(item))) +
+            json_field_raw("fields", type_graph_fields_ref_json(names, ast_struct_fields_ref(item))) +
             "}";
     }
 
@@ -215,9 +225,11 @@
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
         let names = ast_kernel_names(kernel);
         let result = "[";
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             if ast_item_ref_kind(item_ref) == NODE_STRUCT {
                 result = type_graph_json_array_append(result, type_graph_struct_ref_json(names, item_ref));
             }
@@ -253,9 +265,11 @@
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
         let names = ast_kernel_names(kernel);
         let result = "[";
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             if ast_item_ref_kind(item_ref) == NODE_CONST {
                 result = type_graph_json_array_append(result, type_graph_const_ref_json(state, names, item_ref));
             }
@@ -390,9 +404,10 @@
     fn type_graph_function_state_ref(kernel_ref: AstNodeRef, fn_ref: AstItemRef) -> CgenStateRef {
         let fn_node: Vec<i64> = ast_item_node_from_ref(fn_ref);
         let state: CgenStateRef = type_graph_seed_state_ref(kernel_ref);
+        let params_ref: AstNodeListRef = ast_fn_params_ref(fn_node);
         let i: i64 = 0;
-        while i < ast_fn_param_count(fn_node) {
-            let param: Vec<i64> = ast_fn_param(fn_node, i);
+        while i < ast_node_list_ref_count(params_ref) {
+            let param: Vec<i64> = ast_node_list_ref_get(params_ref, i);
             let param_type: i64 = ast_param_type_handle(param);
             cgen_add_local_type_ref(state, ast_param_name_idx(param), ast_type_kind_value(param_type));
             if ast_optional_is_some(param_type) {
@@ -421,7 +436,7 @@
             json_field_i64("source_start", ast_node_ref_span_start(item_node_ref)) + comma +
             json_field_i64("source_end", ast_node_ref_span_end(item_node_ref)) + comma +
             json_field_raw("return_type", type_graph_type_node_json(names, ast_fn_return_type_handle(item), "declared")) + comma +
-            json_field_raw("params", type_graph_params_json(names, ast_fn_params(item))) + comma +
+            json_field_raw("params", type_graph_params_ref_json(names, ast_fn_params_ref(item))) + comma +
             json_field_raw("locals", locals) + comma +
             json_field_raw("returns", returns) +
             "}";
@@ -435,9 +450,11 @@
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
         let names = ast_kernel_names(kernel);
         let result = "[";
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             if ast_item_ref_kind(item_ref) == NODE_FN {
                 result = type_graph_json_array_append(result, type_graph_function_ref_json(kernel_ref, names, item_ref));
             }
@@ -450,7 +467,7 @@
         let comma = ",";
         let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
         let state: CgenStateRef = type_graph_seed_state_ref(kernel_ref);
-        let items = ast_kernel_items(kernel);
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         return "{" +
             json_field_str("schema_version", "bunker.self_host.type_graph.v1") + comma +
             json_field_str("representation", "bootstrap_codegen_inference") + comma +
@@ -459,9 +476,9 @@
             json_field_bool("local_inference", true) + comma +
             json_field_str("known_limits", "Derived from declarations plus bootstrap C codegen inference; no real Bunker typechecker, generic graph, trait constraints, exhaustiveness graph, or cross-module type graph yet.") + comma +
             json_field_raw("summary", "{" +
-                json_field_i64("function_count", ast_report_count_kind(items, NODE_FN)) + comma +
-                json_field_i64("struct_count", ast_report_count_kind(items, NODE_STRUCT)) + comma +
-                json_field_i64("const_count", ast_report_count_kind(items, NODE_CONST)) +
+                json_field_i64("function_count", ast_report_count_kind_ref(items_ref, NODE_FN)) + comma +
+                json_field_i64("struct_count", ast_report_count_kind_ref(items_ref, NODE_STRUCT)) + comma +
+                json_field_i64("const_count", ast_report_count_kind_ref(items_ref, NODE_CONST)) +
                 "}") + comma +
             json_field_raw("structs", type_graph_structs_ref_json(kernel_ref)) + comma +
             json_field_raw("constants", type_graph_consts_ref_json(kernel_ref, state)) + comma +
