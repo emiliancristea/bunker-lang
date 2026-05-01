@@ -10,7 +10,15 @@
     // [tokens, names, values, strings, position, error_flag,
     //  first_error_position, first_expected_token, first_actual_token]
 
+    struct ParserStateRef {
+        handle: i64,
+    }
+
     fn parser_new(lex_result: Vec<i64>) -> Vec<i64> {
+        return parser_state_from_ref(parser_new_ref(lex_result));
+    }
+
+    fn parser_new_ref(lex_result: Vec<i64>) -> ParserStateRef {
         let state: Vec<i64> = vec_new();
         vec_push(state, lexer_result_tokens(lex_result) as i64);
         vec_push(state, lexer_result_names(lex_result) as i64);
@@ -21,124 +29,230 @@
         vec_push(state, -1);
         vec_push(state, TOK_EOF);
         vec_push(state, TOK_EOF);
-        return state;
+        return parser_state_ref_from_state(state);
+    }
+
+    fn parser_state_ref_from_state(state: Vec<i64>) -> ParserStateRef {
+        return ParserStateRef { handle: state as i64 };
+    }
+
+    fn parser_state_from_ref(p_ref: ParserStateRef) -> Vec<i64> {
+        return p_ref.handle as Vec<i64>;
     }
 
     fn parser_tokens(p: Vec<i64>) -> Vec<i64> {
-        return vec_get(p, 0) as Vec<i64>;
+        return parser_tokens_ref(parser_state_ref_from_state(p));
+    }
+
+    fn parser_tokens_ref(p_ref: ParserStateRef) -> Vec<i64> {
+        return vec_get(parser_state_from_ref(p_ref), 0) as Vec<i64>;
     }
 
     fn parser_names(p: Vec<i64>) -> Vec<str> {
-        return vec_get(p, 1) as Vec<str>;
+        return parser_names_ref(parser_state_ref_from_state(p));
+    }
+
+    fn parser_names_ref(p_ref: ParserStateRef) -> Vec<str> {
+        return vec_get(parser_state_from_ref(p_ref), 1) as Vec<str>;
     }
 
     fn parser_values(p: Vec<i64>) -> Vec<i64> {
-        return vec_get(p, 2) as Vec<i64>;
+        return parser_values_ref(parser_state_ref_from_state(p));
+    }
+
+    fn parser_values_ref(p_ref: ParserStateRef) -> Vec<i64> {
+        return vec_get(parser_state_from_ref(p_ref), 2) as Vec<i64>;
     }
 
     fn parser_strings(p: Vec<i64>) -> Vec<str> {
-        return vec_get(p, 3) as Vec<str>;
+        return parser_strings_ref(parser_state_ref_from_state(p));
+    }
+
+    fn parser_strings_ref(p_ref: ParserStateRef) -> Vec<str> {
+        return vec_get(parser_state_from_ref(p_ref), 3) as Vec<str>;
     }
 
     fn parser_position(p: Vec<i64>) -> i64 {
-        return vec_get(p, 4);
+        return parser_position_ref(parser_state_ref_from_state(p));
+    }
+
+    fn parser_position_ref(p_ref: ParserStateRef) -> i64 {
+        return vec_get(parser_state_from_ref(p_ref), 4);
     }
 
     fn parser_set_position(p: Vec<i64>, pos: i64) -> Vec<i64> {
-        vec_set(p, 4, pos);
+        parser_set_position_ref(parser_state_ref_from_state(p), pos);
         return p;
+    }
+
+    fn parser_set_position_ref(p_ref: ParserStateRef, pos: i64) -> ParserStateRef {
+        vec_set(parser_state_from_ref(p_ref), 4, pos);
+        return p_ref;
     }
 
     fn parser_set_error_flag(p: Vec<i64>, flag: i64) -> Vec<i64> {
-        vec_set(p, 5, flag);
+        parser_set_error_flag_ref(parser_state_ref_from_state(p), flag);
         return p;
+    }
+
+    fn parser_set_error_flag_ref(p_ref: ParserStateRef, flag: i64) -> ParserStateRef {
+        vec_set(parser_state_from_ref(p_ref), 5, flag);
+        return p_ref;
     }
 
     fn parser_set_error_position(p: Vec<i64>, pos: i64) -> Vec<i64> {
-        vec_set(p, 6, pos);
+        parser_set_error_position_ref(parser_state_ref_from_state(p), pos);
         return p;
+    }
+
+    fn parser_set_error_position_ref(p_ref: ParserStateRef, pos: i64) -> ParserStateRef {
+        vec_set(parser_state_from_ref(p_ref), 6, pos);
+        return p_ref;
     }
 
     fn parser_set_error_expected(p: Vec<i64>, expected: i64) -> Vec<i64> {
-        vec_set(p, 7, expected);
+        parser_set_error_expected_ref(parser_state_ref_from_state(p), expected);
         return p;
+    }
+
+    fn parser_set_error_expected_ref(p_ref: ParserStateRef, expected: i64) -> ParserStateRef {
+        vec_set(parser_state_from_ref(p_ref), 7, expected);
+        return p_ref;
     }
 
     fn parser_set_error_actual(p: Vec<i64>, actual: i64) -> Vec<i64> {
-        vec_set(p, 8, actual);
+        parser_set_error_actual_ref(parser_state_ref_from_state(p), actual);
         return p;
     }
 
+    fn parser_set_error_actual_ref(p_ref: ParserStateRef, actual: i64) -> ParserStateRef {
+        vec_set(parser_state_from_ref(p_ref), 8, actual);
+        return p_ref;
+    }
+
     fn parser_peek(p: Vec<i64>) -> i64 {
-        let tokens = parser_tokens(p);
-        let pos = parser_position(p);
+        return parser_peek_ref(parser_state_ref_from_state(p));
+    }
+
+    fn parser_peek_ref(p_ref: ParserStateRef) -> i64 {
+        let tokens: Vec<i64> = parser_tokens_ref(p_ref);
+        let pos: i64 = parser_position_ref(p_ref);
         let idx = pos * 3;
         if idx >= vec_len(tokens) { return TOK_EOF; }
         return vec_get(tokens, idx);
     }
 
     fn parser_peek_value(p: Vec<i64>) -> i64 {
-        let tokens = parser_tokens(p);
-        let pos = parser_position(p);
+        return parser_peek_value_ref(parser_state_ref_from_state(p));
+    }
+
+    fn parser_peek_value_ref(p_ref: ParserStateRef) -> i64 {
+        let tokens: Vec<i64> = parser_tokens_ref(p_ref);
+        let pos: i64 = parser_position_ref(p_ref);
         return vec_get(tokens, pos * 3 + 1);
     }
 
     fn parser_peek_at(p: Vec<i64>, offset: i64) -> i64 {
-        let tokens = parser_tokens(p);
-        let pos = parser_position(p) + offset;
+        return parser_peek_at_ref(parser_state_ref_from_state(p), offset);
+    }
+
+    fn parser_peek_at_ref(p_ref: ParserStateRef, offset: i64) -> i64 {
+        let tokens: Vec<i64> = parser_tokens_ref(p_ref);
+        let pos: i64 = parser_position_ref(p_ref) + offset;
         let idx = pos * 3;
         if idx >= vec_len(tokens) { return TOK_EOF; }
         return vec_get(tokens, idx);
     }
 
     fn parser_advance(p: Vec<i64>) -> i64 {
-        parser_set_position(p, parser_position(p) + 1);
-        return parser_peek(p);
+        return parser_advance_ref(parser_state_ref_from_state(p));
+    }
+
+    fn parser_advance_ref(p_ref: ParserStateRef) -> i64 {
+        parser_set_position_ref(p_ref, parser_position_ref(p_ref) + 1);
+        return parser_peek_ref(p_ref);
     }
 
     fn parser_expect(p: Vec<i64>, expected: i64) -> bool {
-        if parser_peek(p) == expected {
-            parser_advance(p);
+        return parser_expect_ref(parser_state_ref_from_state(p), expected);
+    }
+
+    fn parser_expect_ref(p_ref: ParserStateRef, expected: i64) -> bool {
+        if parser_peek_ref(p_ref) == expected {
+            parser_advance_ref(p_ref);
             return true;
         }
-        parser_mark_error(p, expected);
+        parser_mark_error_ref(p_ref, expected);
         return false;
     }
 
     fn parser_mark_error(p: Vec<i64>, expected: i64) -> Vec<i64> {
-        parser_set_error_flag(p, 1);
-        if parser_error_position(p) < 0 {
-            parser_set_error_position(p, parser_position(p));
-            parser_set_error_expected(p, expected);
-            parser_set_error_actual(p, parser_peek(p));
-        }
+        parser_mark_error_ref(parser_state_ref_from_state(p), expected);
         return p;
     }
 
+    fn parser_mark_error_ref(p_ref: ParserStateRef, expected: i64) -> ParserStateRef {
+        parser_set_error_flag_ref(p_ref, 1);
+        if parser_error_position_ref(p_ref) < 0 {
+            parser_set_error_position_ref(p_ref, parser_position_ref(p_ref));
+            parser_set_error_expected_ref(p_ref, expected);
+            parser_set_error_actual_ref(p_ref, parser_peek_ref(p_ref));
+        }
+        return p_ref;
+    }
+
     fn parser_get_name(p: Vec<i64>, idx: i64) -> str {
-        return vec_get(parser_names(p), idx);
+        return parser_get_name_ref(parser_state_ref_from_state(p), idx);
+    }
+
+    fn parser_get_name_ref(p_ref: ParserStateRef, idx: i64) -> str {
+        return vec_get(parser_names_ref(p_ref), idx);
     }
 
     fn parser_get_value(p: Vec<i64>, idx: i64) -> i64 {
-        return vec_get(parser_values(p), idx);
+        return parser_get_value_ref(parser_state_ref_from_state(p), idx);
+    }
+
+    fn parser_get_value_ref(p_ref: ParserStateRef, idx: i64) -> i64 {
+        return vec_get(parser_values_ref(p_ref), idx);
     }
 
     fn parser_get_string(p: Vec<i64>, idx: i64) -> str {
-        return vec_get(parser_strings(p), idx);
+        return parser_get_string_ref(parser_state_ref_from_state(p), idx);
+    }
+
+    fn parser_get_string_ref(p_ref: ParserStateRef, idx: i64) -> str {
+        return vec_get(parser_strings_ref(p_ref), idx);
     }
 
     fn parser_has_error(p: Vec<i64>) -> bool {
-        return vec_get(p, 5) != 0;
+        return parser_has_error_ref(parser_state_ref_from_state(p));
+    }
+
+    fn parser_has_error_ref(p_ref: ParserStateRef) -> bool {
+        return vec_get(parser_state_from_ref(p_ref), 5) != 0;
     }
 
     fn parser_error_position(p: Vec<i64>) -> i64 {
-        return vec_get(p, 6);
+        return parser_error_position_ref(parser_state_ref_from_state(p));
+    }
+
+    fn parser_error_position_ref(p_ref: ParserStateRef) -> i64 {
+        return vec_get(parser_state_from_ref(p_ref), 6);
     }
 
     fn parser_error_expected(p: Vec<i64>) -> i64 {
-        return vec_get(p, 7);
+        return parser_error_expected_ref(parser_state_ref_from_state(p));
+    }
+
+    fn parser_error_expected_ref(p_ref: ParserStateRef) -> i64 {
+        return vec_get(parser_state_from_ref(p_ref), 7);
     }
 
     fn parser_error_actual(p: Vec<i64>) -> i64 {
-        return vec_get(p, 8);
+        return parser_error_actual_ref(parser_state_ref_from_state(p));
+    }
+
+    fn parser_error_actual_ref(p_ref: ParserStateRef) -> i64 {
+        return vec_get(parser_state_from_ref(p_ref), 8);
     }
