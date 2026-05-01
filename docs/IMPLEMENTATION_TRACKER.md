@@ -31,7 +31,7 @@ Current bootstrap state after the latest self-host work:
 - CI compares selected self-host outputs against Rust JIT results and checks stage1/stage2 generated C determinism.
 - The Rust compiler is still the production compiler and the bootstrap driver.
 - The self-host compiler entrypoint is now module-composed: constants, kind model, AST helpers, lexer result helpers, lexer, parser state, parser, C codegen state, C codegen, report support, AST report, symbol table, type graph, resolver, typecheck, and driver live in imported Bunker modules.
-- AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, AST/tag naming and category reasoning now goes through `modules/kind_model.bkr`, lexer result layout is centralized in `modules/lexer_result.bkr`, parser state layout is centralized in `modules/parser_state.bkr`, and C codegen state layout is centralized in `modules/cgen_state.bkr`; the AST, lexer result, parser state, and codegen state representations still use raw `Vec<i64>` during bootstrap.
+- AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, AST/tag naming and category reasoning now goes through `modules/kind_model.bkr`, typed AST collection access now routes through AST bridge helpers, lexer result layout is centralized in `modules/lexer_result.bkr`, parser state layout is centralized in `modules/parser_state.bkr`, and C codegen state layout is centralized in `modules/cgen_state.bkr`; the AST, lexer result, parser state, and codegen state representations still use raw `Vec<i64>` during bootstrap.
 - Self-host compiler outputs include `BUNKER_CAPABILITY_JSON`, a machine-readable capability report for agents that states supported constructs, current AI-diagnostic support, and known bootstrap limits.
 - Successful self-host compiler outputs include `BUNKER_AST_JSON`, a machine-readable AST report with root/item summaries plus a complete nested AST tree for agent inspection.
 - Successful self-host compiler outputs include `BUNKER_TYPE_GRAPH_JSON`, a machine-readable declaration and bootstrap-inference type graph for agent inspection.
@@ -92,6 +92,7 @@ These are the next concrete PR-sized slices.
 | Q-029 | DONE | Extract self-host AST report pass. | `modules/ast_report.bkr` owns `BUNKER_AST_JSON`, complete-tree serialization, and AST report count helpers used by later report modules; `driver.bkr` only orchestrates AST report emission. |
 | Q-030 | DONE | Extract self-host symbol table pass. | `modules/symbol_table.bkr` owns `BUNKER_SYMBOL_TABLE_JSON`, declaration/reference table walking, and symbol-table report comment generation; `driver.bkr` only orchestrates symbol table report emission. |
 | Q-031 | DONE | Extract enum-ready kind model helpers. | `modules/kind_model.bkr` owns node/type/pattern names, AST category mapping, and pure kind predicates so later enum-backed tags can replace bootstrap numeric constants without changing AST layout call sites. |
+| Q-032 | DONE | Add typed AST collection bridge helpers. | `modules/ast.bkr` exposes item/param/field/call-arg/array-element/match-arm/struct-literal field accessors, and codegen/report/resolver/typecheck/type-graph modules use them instead of raw AST collection `vec_get` access. |
 
 ## Language Core
 
@@ -223,7 +224,7 @@ These are the next concrete PR-sized slices.
 |---|---|---:|---|---|
 | CF-001 | PARTIAL | P0 | Reusable Bunker lexer. | Lexer exists as module and routes lexer output layout through lexer-result helpers. |
 | CF-002 | PARTIAL | P0 | Reusable Bunker parser. | Parser exists as module with recovery/spans and routes parser state through parser-state helpers. |
-| CF-003 | PARTIAL | P0 | AST definitions in Bunker. | AST construction, parser/codegen reads, and AST kind/category/span reasoning are centralized in Bunker helpers; final gate requires structs/enums instead of raw `Vec<i64>` tags. |
+| CF-003 | PARTIAL | P0 | AST definitions in Bunker. | AST construction, parser/codegen reads, AST collection access, and AST kind/category/span reasoning are centralized in Bunker helpers; final gate requires structs/enums instead of raw `Vec<i64>` tags. |
 | CF-004 | PARTIAL | P0 | Source spans on AST nodes. | Self-host AST nodes and patterns carry byte start/end offsets; final gate requires file, line, column, byte offsets, and source excerpts across compiler phases. |
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
@@ -255,7 +256,7 @@ These are the next concrete PR-sized slices.
 |---|---|---:|---|---|
 | SH-001 | PARTIAL | P0 | Self-host smoke gate. | Current stage1/stage2 CI remains green after every change. |
 | SH-002 | DONE | P0 | Split `bkrc.bkr` into modules. | Compiler source is multiple Bunker files with imports. |
-| SH-003 | PARTIAL | P0 | Typed AST in self-host compiler. | Parser construction plus parser/codegen reads go through Bunker AST helpers; final gate requires raw numeric tags to be replaced by Bunker types. |
+| SH-003 | PARTIAL | P0 | Typed AST in self-host compiler. | Parser construction, parser/codegen reads, and common AST collection iteration go through Bunker AST bridge helpers; final gate requires raw numeric tags to be replaced by Bunker types. |
 | SH-004 | TODO | P0 | Enums for token/node kinds. | Token and AST tags use language enums. |
 | SH-005 | TODO | P0 | Real generic collections in self-host compiler. | `Vec<T>` and maps preserve element/key/value types. |
 | SH-006 | TODO | P0 | Stage0/Stage1/Stage2 docs. | Bootstrap chain is documented and reproducible. |
@@ -383,3 +384,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-01 | Extracted self-host AST report module. | `modules/ast_report.bkr` now owns `BUNKER_AST_JSON`, complete-tree serialization, and AST report summary helpers; `driver.bkr` delegates AST report generation. |
 | 2026-05-01 | Extracted self-host symbol table module. | `modules/symbol_table.bkr` now owns `BUNKER_SYMBOL_TABLE_JSON`, declaration/reference walking, and symbol-table report generation; `driver.bkr` delegates symbol table report generation. |
 | 2026-05-01 | Extracted self-host kind model module. | `modules/kind_model.bkr` now owns node/type/pattern naming, AST category mapping, and pure kind predicates as the enum-ready bridge before typed AST work. |
+| 2026-05-01 | Added typed AST collection bridge helpers. | `modules/ast.bkr` now exposes typed collection accessors for kernel items, params, fields, call args, array elements, match arms, and struct literal fields; codegen/report/resolver/typecheck/type-graph modules route common iteration through them. |

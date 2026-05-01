@@ -423,6 +423,89 @@
         return ast_field(node, 4) as Vec<str>;
     }
 
+    // Typed collection bridge helpers. These still read bootstrap Vec storage,
+    // but callers no longer need to know which fields are node arrays.
+
+    fn ast_node_list_count(nodes: Vec<i64>) -> i64 {
+        return vec_len(nodes);
+    }
+
+    fn ast_node_list_get(nodes: Vec<i64>, index: i64) -> Vec<i64> {
+        return vec_get(nodes, index) as Vec<i64>;
+    }
+
+    fn ast_i64_list_count(values: Vec<i64>) -> i64 {
+        return vec_len(values);
+    }
+
+    fn ast_i64_list_get(values: Vec<i64>, index: i64) -> i64 {
+        return vec_get(values, index);
+    }
+
+    fn ast_kernel_item_count(kernel: Vec<i64>) -> i64 {
+        return ast_node_list_count(ast_kernel_items(kernel));
+    }
+
+    fn ast_kernel_item(kernel: Vec<i64>, index: i64) -> Vec<i64> {
+        return ast_node_list_get(ast_kernel_items(kernel), index);
+    }
+
+    fn ast_fn_param_count(fn_node: Vec<i64>) -> i64 {
+        return ast_node_list_count(ast_fn_params(fn_node));
+    }
+
+    fn ast_fn_param(fn_node: Vec<i64>, index: i64) -> Vec<i64> {
+        return ast_node_list_get(ast_fn_params(fn_node), index);
+    }
+
+    fn ast_struct_field_count(struct_node: Vec<i64>) -> i64 {
+        return ast_node_list_count(ast_struct_fields(struct_node));
+    }
+
+    fn ast_struct_field(struct_node: Vec<i64>, index: i64) -> Vec<i64> {
+        return ast_node_list_get(ast_struct_fields(struct_node), index);
+    }
+
+    fn ast_call_arg_count(call_node: Vec<i64>) -> i64 {
+        return ast_node_list_count(ast_call_args(call_node));
+    }
+
+    fn ast_call_arg(call_node: Vec<i64>, index: i64) -> Vec<i64> {
+        return ast_node_list_get(ast_call_args(call_node), index);
+    }
+
+    fn ast_array_element_count(array_node: Vec<i64>) -> i64 {
+        return ast_node_list_count(ast_array_elements(array_node));
+    }
+
+    fn ast_array_element(array_node: Vec<i64>, index: i64) -> Vec<i64> {
+        return ast_node_list_get(ast_array_elements(array_node), index);
+    }
+
+    fn ast_match_arm_count(match_node: Vec<i64>) -> i64 {
+        return ast_node_list_count(ast_match_patterns(match_node));
+    }
+
+    fn ast_match_pattern(match_node: Vec<i64>, index: i64) -> Vec<i64> {
+        return ast_node_list_get(ast_match_patterns(match_node), index);
+    }
+
+    fn ast_match_body(match_node: Vec<i64>, index: i64) -> Vec<i64> {
+        return ast_node_list_get(ast_match_bodies(match_node), index);
+    }
+
+    fn ast_struct_lit_field_count(node: Vec<i64>) -> i64 {
+        return ast_i64_list_count(ast_struct_lit_field_names(node));
+    }
+
+    fn ast_struct_lit_field_name_idx(node: Vec<i64>, index: i64) -> i64 {
+        return ast_i64_list_get(ast_struct_lit_field_names(node), index);
+    }
+
+    fn ast_struct_lit_field_value(node: Vec<i64>, index: i64) -> Vec<i64> {
+        return ast_node_list_get(ast_struct_lit_field_values(node), index);
+    }
+
     fn ast_type(kind: i64) -> Vec<i64> {
         let node: Vec<i64> = ast_new(NODE_TYPE);
         ast_push(node, kind);

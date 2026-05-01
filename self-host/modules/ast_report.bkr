@@ -31,14 +31,14 @@
 
     fn ast_report_item_param_count(item: Vec<i64>) -> i64 {
         if ast_is_fn_item(item) {
-            return vec_len(ast_fn_params(item));
+            return ast_fn_param_count(item);
         }
         return 0;
     }
 
     fn ast_report_item_field_count(item: Vec<i64>) -> i64 {
         if ast_is_struct_item(item) {
-            return vec_len(ast_struct_fields(item));
+            return ast_struct_field_count(item);
         }
         return 0;
     }
@@ -68,8 +68,8 @@
     fn ast_report_count_kind(items: Vec<i64>, kind: i64) -> i64 {
         let count: i64 = 0;
         let i: i64 = 0;
-        while i < vec_len(items) {
-            let item = vec_get(items, i) as Vec<i64>;
+        while i < ast_node_list_count(items) {
+            let item = ast_node_list_get(items, i);
             if ast_kind(item) == kind {
                 count = count + 1;
             }
@@ -80,14 +80,13 @@
 
     fn ast_report_items_json(kernel: Vec<i64>) -> str {
         let names = ast_kernel_names(kernel);
-        let items = ast_kernel_items(kernel);
         let result = "[";
         let i: i64 = 0;
-        while i < vec_len(items) {
+        while i < ast_kernel_item_count(kernel) {
             if i > 0 {
                 result = result + ",";
             }
-            result = result + ast_report_item_json(names, vec_get(items, i) as Vec<i64>);
+            result = result + ast_report_item_json(names, ast_kernel_item(kernel, i));
             i = i + 1;
         }
         return result + "]";
@@ -96,11 +95,11 @@
     fn ast_report_node_array_json(names: Vec<str>, nodes: Vec<i64>) -> str {
         let result = "[";
         let i: i64 = 0;
-        while i < vec_len(nodes) {
+        while i < ast_node_list_count(nodes) {
             if i > 0 {
                 result = result + ",";
             }
-            result = result + ast_report_node_json(names, vec_get(nodes, i) as Vec<i64>);
+            result = result + ast_report_node_json(names, ast_node_list_get(nodes, i));
             i = i + 1;
         }
         return result + "]";
@@ -149,13 +148,13 @@
     fn ast_report_match_arms_json(names: Vec<str>, patterns: Vec<i64>, bodies: Vec<i64>) -> str {
         let result = "[";
         let i: i64 = 0;
-        while i < vec_len(patterns) {
+        while i < ast_node_list_count(patterns) {
             if i > 0 {
                 result = result + ",";
             }
             result = result + "{" +
-                json_field_raw("pattern", ast_report_pattern_json(names, vec_get(patterns, i) as Vec<i64>)) + "," +
-                json_field_raw("body", ast_report_node_json(names, vec_get(bodies, i) as Vec<i64>)) +
+                json_field_raw("pattern", ast_report_pattern_json(names, ast_node_list_get(patterns, i))) + "," +
+                json_field_raw("body", ast_report_node_json(names, ast_node_list_get(bodies, i))) +
                 "}";
             i = i + 1;
         }
@@ -163,17 +162,15 @@
     }
 
     fn ast_report_struct_lit_fields_json(names: Vec<str>, node: Vec<i64>) -> str {
-        let field_names = ast_struct_lit_field_names(node);
-        let field_values = ast_struct_lit_field_values(node);
         let result = "[";
         let i: i64 = 0;
-        while i < vec_len(field_names) {
+        while i < ast_struct_lit_field_count(node) {
             if i > 0 {
                 result = result + ",";
             }
             result = result + "{" +
-                json_field_str("name", ast_report_name(names, vec_get(field_names, i))) + "," +
-                json_field_raw("value", ast_report_node_json(names, vec_get(field_values, i) as Vec<i64>)) +
+                json_field_str("name", ast_report_name(names, ast_struct_lit_field_name_idx(node, i))) + "," +
+                json_field_raw("value", ast_report_node_json(names, ast_struct_lit_field_value(node, i))) +
                 "}";
             i = i + 1;
         }
@@ -329,7 +326,7 @@
         let summary = "{" +
             json_field_i64("source_bytes", len(source)) + comma +
             json_field_i64("source_lines", source_line_count(source)) + comma +
-            json_field_i64("item_count", vec_len(items)) + comma +
+            json_field_i64("item_count", ast_kernel_item_count(kernel)) + comma +
             json_field_i64("function_count", ast_report_count_kind(items, NODE_FN)) + comma +
             json_field_i64("struct_count", ast_report_count_kind(items, NODE_STRUCT)) + comma +
             json_field_i64("const_count", ast_report_count_kind(items, NODE_CONST)) +
