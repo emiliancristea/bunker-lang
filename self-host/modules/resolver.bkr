@@ -143,9 +143,11 @@
 
     fn resolver_has_function_name_ref(kernel_ref: AstNodeRef, name_idx: i64) -> bool {
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             let item: Vec<i64> = ast_item_node_from_ref(item_ref);
             if ast_item_ref_kind(item_ref) == NODE_FN && ast_fn_name_idx(item) == name_idx {
                 return true;
@@ -161,9 +163,11 @@
 
     fn resolver_has_const_name_ref(kernel_ref: AstNodeRef, name_idx: i64) -> bool {
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             let item: Vec<i64> = ast_item_node_from_ref(item_ref);
             if ast_item_ref_kind(item_ref) == NODE_CONST && ast_const_name_idx(item) == name_idx {
                 return true;
@@ -179,9 +183,11 @@
 
     fn resolver_has_struct_name_ref(kernel_ref: AstNodeRef, name_idx: i64) -> bool {
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             let item: Vec<i64> = ast_item_node_from_ref(item_ref);
             if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_name_idx(item) == name_idx {
                 return true;
@@ -197,14 +203,17 @@
 
     fn resolver_struct_has_field_ref(kernel_ref: AstNodeRef, struct_name_idx: i64, field_name_idx: i64) -> bool {
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             let item: Vec<i64> = ast_item_node_from_ref(item_ref);
             if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_name_idx(item) == struct_name_idx {
+                let fields_ref: AstNodeListRef = ast_struct_fields_ref(item);
                 let j: i64 = 0;
-                while j < ast_struct_field_count(item) {
-                    let field: Vec<i64> = ast_struct_field(item, j);
+                while j < ast_node_list_ref_count(fields_ref) {
+                    let field: Vec<i64> = ast_node_list_ref_get(fields_ref, j);
                     if ast_field_decl_name_idx(field) == field_name_idx {
                         return true;
                     }
@@ -296,9 +305,11 @@
             if !resolver_is_builtin_call(name) && !resolver_has_function_name_ref(kernel_ref, name_idx) {
                 state = resolver_append_unresolved_node_ref(state, name, scope, "function_call", expr_node_ref, "declared function or supported bootstrap builtin");
             }
+            let args_ref: AstNodeListRef = ast_call_args_ref(expr);
             let i: i64 = 0;
-            while i < ast_call_arg_count(expr) {
-                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_call_arg_handle(expr, i)), scope, bindings);
+            while i < ast_node_list_ref_count(args_ref) {
+                let arg_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_node_ref_handle(arg_ref)), scope, bindings);
                 i = i + 1;
             }
         } else if kind == NODE_STRUCT_LIT {
@@ -309,9 +320,11 @@
             }
 
             let seen_fields: Vec<i64> = vec_new();
+            let field_names_ref: AstI64ListRef = ast_struct_lit_field_names_ref(expr);
+            let field_values_ref: AstNodeListRef = ast_struct_lit_field_values_ref(expr);
             let i: i64 = 0;
-            while i < ast_struct_lit_field_count(expr) {
-                let field_name_idx: i64 = ast_struct_lit_field_name_idx(expr, i);
+            while i < ast_i64_list_ref_count(field_names_ref) {
+                let field_name_idx: i64 = ast_i64_list_ref_get(field_names_ref, i);
                 let field_name = ast_report_name(names, field_name_idx);
                 if resolver_i64_vec_contains(seen_fields, field_name_idx) {
                     state = resolver_append_unresolved_node_ref(state, field_name, scope, "field_initializer", expr_node_ref, "one initializer per field");
@@ -321,7 +334,8 @@
                         state = resolver_append_unresolved_node_ref(state, field_name, scope, "field_initializer", expr_node_ref, "field declared on struct " + struct_name);
                     }
                 }
-                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_struct_lit_field_value_handle(expr, i)), scope, bindings);
+                let field_value_ref: AstNodeRef = ast_node_list_ref_get_ref(field_values_ref, i);
+                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_node_ref_handle(field_value_ref)), scope, bindings);
                 i = i + 1;
             }
         } else if kind == NODE_FIELD_ACCESS {
@@ -336,9 +350,11 @@
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_ternary_then_handle(expr)), scope, bindings);
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_ternary_else_handle(expr)), scope, bindings);
         } else if kind == NODE_ARRAY_LIT {
+            let elements_ref: AstNodeListRef = ast_array_elements_ref(expr);
             let i: i64 = 0;
-            while i < ast_array_element_count(expr) {
-                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_array_element_handle(expr, i)), scope, bindings);
+            while i < ast_node_list_ref_count(elements_ref) {
+                let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
+                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_node_ref_handle(element_ref)), scope, bindings);
                 i = i + 1;
             }
         } else if kind == NODE_INDEX {
@@ -346,11 +362,13 @@
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_index_expr_handle(expr)), scope, bindings);
         } else if kind == NODE_MATCH {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_match_scrutinee_handle(expr)), scope, bindings);
+            let patterns_ref: AstPatternListRef = ast_match_patterns_ref(expr);
+            let bodies_ref: AstNodeListRef = ast_match_bodies_ref(expr);
             let i: i64 = 0;
-            while i < ast_match_arm_count(expr) {
+            while i < ast_pattern_list_ref_count(patterns_ref) {
                 let arm_bindings = resolver_i64_vec_copy(bindings);
                 let pattern_bindings: Vec<i64> = vec_new();
-                state = resolver_pattern_ref_bindings(state, names, ast_pattern_list_get_ref(ast_match_patterns(expr), i), scope, pattern_bindings);
+                state = resolver_pattern_ref_bindings(state, names, ast_pattern_list_ref_get_ref(patterns_ref, i), scope, pattern_bindings);
                 let j: i64 = 0;
                 while j < vec_len(pattern_bindings) {
                     let binding_name_idx: i64 = vec_get(pattern_bindings, j);
@@ -358,11 +376,11 @@
                     j = j + 1;
                 }
 
-                let body_ref: AstNodeRef = ast_node_ref_from_handle(ast_match_body_handle(expr, i));
+                let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
                 if ast_node_ref_kind(body_ref) == NODE_BLOCK {
                     state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_block_ref_from_handle(ast_node_ref_handle(body_ref)), scope, arm_bindings, resolver_empty_i64_vec());
                 } else {
-                    state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_match_body_handle(expr, i)), scope, arm_bindings);
+                    state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_node_ref_handle(body_ref)), scope, arm_bindings);
                 }
                 i = i + 1;
             }
@@ -462,13 +480,15 @@
 
         let bindings: Vec<i64> = vec_new();
         let declared: Vec<i64> = vec_new();
+        let params_ref: AstNodeListRef = ast_fn_params_ref(item);
         let i: i64 = 0;
-        while i < ast_fn_param_count(item) {
-            let param: Vec<i64> = ast_fn_param(item, i);
+        while i < ast_node_list_ref_count(params_ref) {
+            let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
+            let param: Vec<i64> = ast_node_from_ref(param_ref);
             let name_idx: i64 = ast_param_name_idx(param);
             state = resolver_type_handle_diagnostics(state, kernel_ref, names, ast_param_type_handle(param), fn_scope);
             if resolver_i64_vec_contains(declared, name_idx) {
-                state = resolver_append_duplicate_node_ref(state, ast_report_name(names, name_idx), fn_scope, "parameter", ast_node_ref_from_node(param));
+                state = resolver_append_duplicate_node_ref(state, ast_report_name(names, name_idx), fn_scope, "parameter", param_ref);
             } else {
                 vec_push(declared, name_idx);
             }
@@ -490,12 +510,14 @@
         let struct_name = ast_report_name(names, ast_struct_name_idx(item));
         let struct_scope = "struct:" + struct_name;
         let declared: Vec<i64> = vec_new();
+        let fields_ref: AstNodeListRef = ast_struct_fields_ref(item);
         let i: i64 = 0;
-        while i < ast_struct_field_count(item) {
-            let field: Vec<i64> = ast_struct_field(item, i);
+        while i < ast_node_list_ref_count(fields_ref) {
+            let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, i);
+            let field: Vec<i64> = ast_node_from_ref(field_ref);
             let name_idx: i64 = ast_field_decl_name_idx(field);
             if resolver_i64_vec_contains(declared, name_idx) {
-                state = resolver_append_duplicate_node_ref(state, ast_report_name(names, name_idx), struct_scope, "field", ast_node_ref_from_node(field));
+                state = resolver_append_duplicate_node_ref(state, ast_report_name(names, name_idx), struct_scope, "field", field_ref);
             } else {
                 vec_push(declared, name_idx);
             }
@@ -513,12 +535,13 @@
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
         let kernel_scope = "kernel:" + ast_report_name(names, ast_name_idx(kernel));
         let declared: Vec<i64> = vec_new();
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             let item: Vec<i64> = ast_item_node_from_ref(item_ref);
             let kind: i64 = ast_item_ref_kind(item_ref);
-            let item_node_ref: AstNodeRef = ast_node_ref_from_handle(ast_item_ref_handle(item_ref));
             let name_idx: i64 = -1;
             let declaration_kind = "item";
             if kind == NODE_FN {
@@ -554,9 +577,11 @@
         let kernel_scope = "kernel:" + ast_report_name(names, ast_name_idx(kernel));
         state = resolver_top_level_ref_diagnostics(state, kernel_ref, names);
 
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             let item: Vec<i64> = ast_item_node_from_ref(item_ref);
             let kind: i64 = ast_item_ref_kind(item_ref);
             if kind == NODE_FN {

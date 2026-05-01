@@ -113,6 +113,7 @@ These are the next concrete PR-sized slices.
 | Q-050 | DONE | Route AST report collections through typed refs. | `modules/ast_report.bkr` now serializes item arrays, node arrays, match arms, and summary counts through typed AST collection refs while preserving raw wrapper entry points. |
 | Q-051 | DONE | Route symbol-table collections through typed refs. | `modules/symbol_table.bkr` now walks match arms, call args, array elements, struct literal fields, params, fields, kernel items, and summary counts through typed AST collection refs. |
 | Q-052 | DONE | Route type-graph collections through typed refs. | `modules/type_graph.bkr` now walks kernel items, params, fields, and summary counts through typed AST collection refs while preserving raw wrapper entry points. |
+| Q-053 | DONE | Route resolver collections through typed refs. | `modules/resolver.bkr` now walks kernel items, params, fields, call args, arrays, struct literal fields, and match arms through typed AST collection refs. |
 
 ## Language Core
 
@@ -425,3 +426,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-01 | Routed AST report collections through typed refs. | `modules/ast_report.bkr` now emits item arrays, node arrays, match arms, and AST summary counts through `AstNodeListRef` and `AstPatternListRef` helpers while preserving the report JSON contract. |
 | 2026-05-01 | Routed symbol-table collections through typed refs. | `modules/symbol_table.bkr` now walks declaration/reference collection paths through typed AST collection refs while preserving the `BUNKER_SYMBOL_TABLE_JSON` contract. |
 | 2026-05-01 | Routed type-graph collections through typed refs. | `modules/type_graph.bkr` now walks declaration, function-state, and summary collection paths through typed AST collection refs while preserving the `BUNKER_TYPE_GRAPH_JSON` contract. |
+| 2026-05-01 | Routed resolver collections through typed refs. | `modules/resolver.bkr` now validates declaration/reference collection paths through typed AST collection refs while preserving the `BUNKER_RESOLVER_JSON` contract. |
