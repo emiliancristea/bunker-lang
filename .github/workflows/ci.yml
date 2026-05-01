@@ -77,6 +77,27 @@ jobs:
         shell: pwsh
         run: ./run_tests.ps1 -Verbose
 
+  self-host-boundaries:
+    name: Self-host boundary guards
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prevent raw AST collection traversal outside AST boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          pattern='ast_kernel_item_count\(|ast_kernel_item\(|ast_fn_param_count\(|ast_fn_param\(|ast_struct_field_count\(|ast_struct_field\(|ast_call_arg_count\(|ast_call_arg_handle\(|ast_array_element_count\(|ast_array_element_handle\(|ast_match_arm_count\(|ast_match_body_handle\(|ast_struct_lit_field_count\(|ast_struct_lit_field_name_idx\(|ast_struct_lit_field_value_handle\(|ast_pattern_list_get_ref\(ast_match_patterns|ast_node_list_get_ref\(ast_fn_params\(|ast_node_list_get_ref\(ast_struct_fields\('
+          matches="$(mktemp)"
+          grep -R -n -E "$pattern" self-host --include='*.bkr' | grep -v '^self-host/modules/ast\.bkr:' > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Raw AST collection traversal must stay inside self-host/modules/ast.bkr."
+            cat "$matches"
+            exit 1
+          fi
+
   self-host-smoke:
     name: Self-host smoke inputs
     runs-on: ubuntu-latest
