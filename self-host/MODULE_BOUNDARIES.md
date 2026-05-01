@@ -31,7 +31,7 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 |---|---|
 | `modules/constants.bkr` | All `TOK_*`, `NODE_*`, `AST_*`, `PAT_*`, and `TYPE_*` constants. |
 | `modules/kind_model.bkr` | `ast_node_kind_name`, `ast_type_kind_name`, `ast_pattern_kind_name`, `ast_category_name`, `ast_node_category_kind`, and pure `ast_is_*_kind` predicates. |
-| `modules/ast.bkr` | `ast_*` constructors/accessors, source-span helpers, block iteration helpers, node-level category helpers, and predicates for the current AST vector/type/pattern layout. |
+| `modules/ast.bkr` | `ast_*` constructors/accessors, source-span helpers, typed collection bridge helpers, block iteration helpers, node-level category helpers, and predicates for the current AST vector/type/pattern layout. |
 | `modules/lexer_result.bkr` | `lexer_result_*` constructors/accessors for the current lexer output table layout. |
 | `modules/lexer.bkr` | `tokenize`, `intern_name`, character helpers needed by tokenization. |
 | `modules/parser_state.bkr` | `parser_*` state constructors, token/name/value/string accessors, cursor helpers, and first-error helpers. |

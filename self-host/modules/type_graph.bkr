@@ -71,10 +71,9 @@
     fn type_graph_seed_state(kernel: Vec<i64>) -> Vec<i64> {
         let names = ast_kernel_names(kernel);
         let state = cgen_new(ast_report_name(names, ast_name_idx(kernel)), names);
-        let items = ast_kernel_items(kernel);
         let i: i64 = 0;
-        while i < vec_len(items) {
-            let item = vec_get(items, i) as Vec<i64>;
+        while i < ast_kernel_item_count(kernel) {
+            let item = ast_kernel_item(kernel, i);
             if ast_is_fn_item(item) {
                 let ret_type = ast_fn_return_type(item);
                 let ret_kind = TYPE_VOID;
@@ -122,9 +121,9 @@
     fn type_graph_params_json(names: Vec<str>, params: Vec<i64>) -> str {
         let result = "[";
         let i: i64 = 0;
-        while i < vec_len(params) {
+        while i < ast_node_list_count(params) {
             result = type_graph_json_array_append(result,
-                type_graph_param_json(names, vec_get(params, i) as Vec<i64>));
+                type_graph_param_json(names, ast_node_list_get(params, i)));
             i = i + 1;
         }
         return result + "]";
@@ -143,9 +142,9 @@
     fn type_graph_fields_json(names: Vec<str>, fields: Vec<i64>) -> str {
         let result = "[";
         let i: i64 = 0;
-        while i < vec_len(fields) {
+        while i < ast_node_list_count(fields) {
             result = type_graph_json_array_append(result,
-                type_graph_field_json(names, vec_get(fields, i) as Vec<i64>));
+                type_graph_field_json(names, ast_node_list_get(fields, i)));
             i = i + 1;
         }
         return result + "]";
@@ -163,11 +162,10 @@
 
     fn type_graph_structs_json(kernel: Vec<i64>) -> str {
         let names = ast_kernel_names(kernel);
-        let items = ast_kernel_items(kernel);
         let result = "[";
         let i: i64 = 0;
-        while i < vec_len(items) {
-            let item = vec_get(items, i) as Vec<i64>;
+        while i < ast_kernel_item_count(kernel) {
+            let item = ast_kernel_item(kernel, i);
             if ast_is_struct_item(item) {
                 result = type_graph_json_array_append(result, type_graph_struct_json(names, item));
             }
@@ -191,11 +189,10 @@
 
     fn type_graph_consts_json(kernel: Vec<i64>, state: Vec<i64>) -> str {
         let names = ast_kernel_names(kernel);
-        let items = ast_kernel_items(kernel);
         let result = "[";
         let i: i64 = 0;
-        while i < vec_len(items) {
-            let item = vec_get(items, i) as Vec<i64>;
+        while i < ast_kernel_item_count(kernel) {
+            let item = ast_kernel_item(kernel, i);
             if ast_is_const_item(item) {
                 result = type_graph_json_array_append(result, type_graph_const_json(state, names, item));
             }
@@ -291,10 +288,9 @@
 
     fn type_graph_function_state(kernel: Vec<i64>, fn_node: Vec<i64>) -> Vec<i64> {
         let state = type_graph_seed_state(kernel);
-        let params = ast_fn_params(fn_node);
         let i: i64 = 0;
-        while i < vec_len(params) {
-            let param = vec_get(params, i) as Vec<i64>;
+        while i < ast_fn_param_count(fn_node) {
+            let param = ast_fn_param(fn_node, i);
             let param_type = ast_param_type_node(param) as i64;
             cgen_add_local_type(state, ast_param_name_idx(param), ast_type_kind_value(param_type));
             type_graph_maybe_add_array_type(state, ast_param_name_idx(param), param_type);
@@ -322,11 +318,10 @@
 
     fn type_graph_functions_json(kernel: Vec<i64>) -> str {
         let names = ast_kernel_names(kernel);
-        let items = ast_kernel_items(kernel);
         let result = "[";
         let i: i64 = 0;
-        while i < vec_len(items) {
-            let item = vec_get(items, i) as Vec<i64>;
+        while i < ast_kernel_item_count(kernel) {
+            let item = ast_kernel_item(kernel, i);
             if ast_is_fn_item(item) {
                 result = type_graph_json_array_append(result, type_graph_function_json(kernel, names, item));
             }

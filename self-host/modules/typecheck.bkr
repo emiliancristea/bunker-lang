@@ -105,10 +105,9 @@
     }
 
     fn typecheck_find_function(kernel: Vec<i64>, name_idx: i64) -> i64 {
-        let items = ast_kernel_items(kernel);
         let i: i64 = 0;
-        while i < vec_len(items) {
-            let item = vec_get(items, i) as Vec<i64>;
+        while i < ast_kernel_item_count(kernel) {
+            let item = ast_kernel_item(kernel, i);
             if ast_is_fn_item(item) && ast_fn_name_idx(item) == name_idx {
                 return item as i64;
             }
@@ -145,13 +144,11 @@
 
         let fn_node = fn_value as Vec<i64>;
         let fn_name = ast_report_name(names, name_idx);
-        let params = ast_fn_params(fn_node);
-        let args = ast_call_args(expr);
         let i: i64 = 0;
-        while i < vec_len(args) && i < vec_len(params) {
-            let param = vec_get(params, i) as Vec<i64>;
+        while i < ast_call_arg_count(expr) && i < ast_fn_param_count(fn_node) {
+            let param = ast_fn_param(fn_node, i);
             let param_type = ast_param_type_node(param) as i64;
-            let arg_value: i64 = vec_get(args, i);
+            let arg_value: i64 = ast_call_arg(expr, i) as i64;
             let expected_kind = ast_type_kind_value(param_type);
             let found_kind = typecheck_expr_kind(cstate, arg_value);
             let hint = "Change argument " + int_to_string(i + 1) + " for " + fn_name +
@@ -175,19 +172,17 @@
         let kind = ast_kind(expr);
         if kind == NODE_CALL {
             state = typecheck_check_call_arguments(state, kernel, names, cstate, expr, scope);
-            let args = ast_call_args(expr);
             let i: i64 = 0;
-            while i < vec_len(args) {
+            while i < ast_call_arg_count(expr) {
                 state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                    vec_get(args, i), scope, expected_return_kind);
+                    ast_call_arg(expr, i) as i64, scope, expected_return_kind);
                 i = i + 1;
             }
         } else if kind == NODE_STRUCT_LIT {
-            let field_values = ast_struct_lit_field_values(expr);
             let i: i64 = 0;
-            while i < vec_len(field_values) {
+            while i < ast_struct_lit_field_count(expr) {
                 state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                    vec_get(field_values, i), scope, expected_return_kind);
+                    ast_struct_lit_field_value(expr, i) as i64, scope, expected_return_kind);
                 i = i + 1;
             }
         } else if kind == NODE_FIELD_ACCESS {
@@ -212,11 +207,10 @@
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
                 ast_ternary_else(expr) as i64, scope, expected_return_kind);
         } else if kind == NODE_ARRAY_LIT {
-            let elements = ast_array_elements(expr);
             let i: i64 = 0;
-            while i < vec_len(elements) {
+            while i < ast_array_element_count(expr) {
                 state = typecheck_expr_diagnostics(state, kernel, names, cstate,
-                    vec_get(elements, i), scope, expected_return_kind);
+                    ast_array_element(expr, i) as i64, scope, expected_return_kind);
                 i = i + 1;
             }
         } else if kind == NODE_INDEX {
@@ -227,10 +221,9 @@
         } else if kind == NODE_MATCH {
             state = typecheck_expr_diagnostics(state, kernel, names, cstate,
                 ast_match_scrutinee(expr) as i64, scope, expected_return_kind);
-            let bodies = ast_match_bodies(expr);
             let i: i64 = 0;
-            while i < vec_len(bodies) {
-                let body = vec_get(bodies, i) as Vec<i64>;
+            while i < ast_match_arm_count(expr) {
+                let body = ast_match_body(expr, i);
                 if ast_is_block(body) {
                     state = typecheck_block_diagnostics(state, kernel, names, cstate,
                         body, scope, expected_return_kind);
@@ -371,10 +364,9 @@
         let names = ast_kernel_names(kernel);
         let kernel_scope = "kernel:" + ast_report_name(names, ast_name_idx(kernel));
         let cstate = type_graph_seed_state(kernel);
-        let items = ast_kernel_items(kernel);
         let i: i64 = 0;
-        while i < vec_len(items) {
-            let item = vec_get(items, i) as Vec<i64>;
+        while i < ast_kernel_item_count(kernel) {
+            let item = ast_kernel_item(kernel, i);
             if ast_is_const_item(item) {
                 state = typecheck_const_diagnostics(state, kernel, names, cstate,
                     item, kernel_scope);
