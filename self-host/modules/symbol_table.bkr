@@ -1,0 +1,521 @@
+    // ========================================
+    // SELF-HOST SYMBOL TABLE REPORT
+    // ========================================
+    //
+    // Produces BUNKER_SYMBOL_TABLE_JSON declaration/reference tables from the
+    // bootstrap raw Vec<i64> AST layout.
+
+    fn symbol_table_json_array_append(result: str, item: str) -> str {
+        if len(result) > 1 {
+            return result + "," + item;
+        }
+        return result + item;
+    }
+
+    fn symbol_table_json_array_append_items(result: str, items: str) -> str {
+        if len(items) <= 2 {
+            return result;
+        }
+        let inner = substring(items, 1, len(items) - 1);
+        if len(result) > 1 {
+            return result + "," + inner;
+        }
+        return result + inner;
+    }
+
+    fn symbol_table_entry_json(kind: str, name: str, scope: str, source_start: i64, source_end: i64) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("kind", kind) + comma +
+            json_field_str("name", name) + comma +
+            json_field_str("scope", scope) + comma +
+            json_field_i64("source_start", source_start) + comma +
+            json_field_i64("source_end", source_end) + comma +
+            json_field_bool("span_known", source_start != AST_SPAN_UNKNOWN && source_end != AST_SPAN_UNKNOWN) +
+            "}";
+    }
+
+    fn symbol_table_node_entry_json(kind: str, name: str, scope: str, node: Vec<i64>) -> str {
+        return symbol_table_entry_json(kind, name, scope, ast_node_span_start(node), ast_node_span_end(node));
+    }
+
+    fn symbol_table_pattern_entry_json(kind: str, name: str, scope: str, pattern: Vec<i64>) -> str {
+        return symbol_table_entry_json(kind, name, scope, ast_pattern_span_start(pattern), ast_pattern_span_end(pattern));
+    }
+
+    fn symbol_table_type_references_json(names: Vec<str>, type_node: i64, scope: str) -> str {
+        let result = "[";
+        if type_node != 0 && ast_type_kind_value(type_node) == TYPE_STRUCT {
+            result = symbol_table_json_array_append(result,
+                symbol_table_node_entry_json("type_reference",
+                    ast_report_name(names, ast_type_struct_name_idx_value(type_node)),
+                    scope,
+                    type_node as Vec<i64>));
+        }
+        return result + "]";
+    }
+
+    fn symbol_table_pattern_declarations_json(names: Vec<str>, pattern: Vec<i64>, scope: str) -> str {
+        let result = "[";
+        let kind = ast_pattern_kind(pattern);
+        if kind == PAT_BIND || kind == PAT_SOME {
+            result = symbol_table_json_array_append(result,
+                symbol_table_pattern_entry_json("pattern_binding",
+                    ast_report_name(names, ast_pattern_value(pattern)),
+                    scope,
+                    pattern));
+        }
+        return result + "]";
+    }
+
+    fn symbol_table_expr_declarations_json(names: Vec<str>, expr_value: i64, scope: str) -> str {
+        let result = "[";
+        if expr_value == 0 {
+            return result + "]";
+        }
+
+        let expr = expr_value as Vec<i64>;
+        let kind = ast_kind(expr);
+        if kind == NODE_MATCH {
+            let patterns = ast_match_patterns(expr);
+            let bodies = ast_match_bodies(expr);
+            let i: i64 = 0;
+            while i < vec_len(patterns) {
+                result = symbol_table_json_array_append_items(result,
+                    symbol_table_pattern_declarations_json(names, vec_get(patterns, i) as Vec<i64>, scope));
+                let body = vec_get(bodies, i) as Vec<i64>;
+                if ast_is_block(body) {
+                    result = symbol_table_json_array_append_items(result,
+                        symbol_table_block_declarations_json(names, body, scope));
+                } else {
+                    result = symbol_table_json_array_append_items(result,
+                        symbol_table_expr_declarations_json(names, body as i64, scope));
+                }
+                i = i + 1;
+            }
+        } else if kind == NODE_BINARY {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_binary_left(expr) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_binary_right(expr) as i64, scope));
+        } else if kind == NODE_UNARY {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_unary_operand(expr) as i64, scope));
+        } else if kind == NODE_CALL {
+            let args = ast_call_args(expr);
+            let i: i64 = 0;
+            while i < vec_len(args) {
+                result = symbol_table_json_array_append_items(result,
+                    symbol_table_expr_declarations_json(names, vec_get(args, i), scope));
+                i = i + 1;
+            }
+        } else if kind == NODE_TERNARY {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_ternary_cond(expr) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_ternary_then(expr) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_ternary_else(expr) as i64, scope));
+        } else if kind == NODE_ARRAY_LIT {
+            let elements = ast_array_elements(expr);
+            let i: i64 = 0;
+            while i < vec_len(elements) {
+                result = symbol_table_json_array_append_items(result,
+                    symbol_table_expr_declarations_json(names, vec_get(elements, i), scope));
+                i = i + 1;
+            }
+        } else if kind == NODE_INDEX {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_index_base(expr) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_index_expr(expr) as i64, scope));
+        } else if kind == NODE_FIELD_ACCESS {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_field_base(expr) as i64, scope));
+        } else if kind == NODE_STRUCT_LIT {
+            let values = ast_struct_lit_field_values(expr);
+            let i: i64 = 0;
+            while i < vec_len(values) {
+                result = symbol_table_json_array_append_items(result,
+                    symbol_table_expr_declarations_json(names, vec_get(values, i), scope));
+                i = i + 1;
+            }
+        }
+
+        return result + "]";
+    }
+
+    fn symbol_table_stmt_declarations_json(names: Vec<str>, stmt: Vec<i64>, scope: str) -> str {
+        let result = "[";
+        let kind = ast_kind(stmt);
+        if kind == NODE_LET {
+            result = symbol_table_json_array_append(result,
+                symbol_table_node_entry_json("local",
+                    ast_report_name(names, ast_let_name_idx(stmt)),
+                    scope,
+                    stmt));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_let_init(stmt), scope));
+        } else if kind == NODE_RETURN {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_return_expr(stmt), scope));
+        } else if kind == NODE_IF {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_if_cond(stmt) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_block_declarations_json(names, ast_if_then(stmt), scope));
+            if ast_if_else(stmt) != 0 {
+                result = symbol_table_json_array_append_items(result,
+                    symbol_table_block_declarations_json(names, ast_if_else(stmt) as Vec<i64>, scope));
+            }
+        } else if kind == NODE_WHILE {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_while_cond(stmt) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_block_declarations_json(names, ast_while_body(stmt), scope));
+        } else if kind == NODE_FOR {
+            result = symbol_table_json_array_append(result,
+                symbol_table_node_entry_json("for_binding",
+                    ast_report_name(names, ast_for_name_idx(stmt)),
+                    scope,
+                    stmt));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_for_start(stmt) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_for_end(stmt) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_block_declarations_json(names, ast_for_body(stmt), scope));
+        } else if kind == NODE_LOOP {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_block_declarations_json(names, ast_loop_body(stmt), scope));
+        } else if kind == NODE_ASSIGN {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_assign_target(stmt) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_assign_value(stmt) as i64, scope));
+        } else if kind == NODE_EXPR_STMT {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_expr_stmt_expr(stmt) as i64, scope));
+        }
+        return result + "]";
+    }
+
+    fn symbol_table_block_declarations_json(names: Vec<str>, block: Vec<i64>, scope: str) -> str {
+        let result = "[";
+        let i: i64 = 0;
+        while i < ast_block_stmt_count(block) {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_stmt_declarations_json(names, ast_block_stmt(block, i), scope));
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn symbol_table_item_declarations_json(kernel: Vec<i64>, item: Vec<i64>, kernel_scope: str) -> str {
+        let names = ast_kernel_names(kernel);
+        let result = "[";
+        if ast_is_fn_item(item) {
+            let fn_name = ast_report_name(names, ast_fn_name_idx(item));
+            let fn_scope = "function:" + fn_name;
+            result = symbol_table_json_array_append(result,
+                symbol_table_node_entry_json("function", fn_name, kernel_scope, item));
+
+            let params = ast_fn_params(item);
+            let i: i64 = 0;
+            while i < vec_len(params) {
+                let param = vec_get(params, i) as Vec<i64>;
+                result = symbol_table_json_array_append(result,
+                    symbol_table_node_entry_json("parameter",
+                        ast_report_name(names, ast_param_name_idx(param)),
+                        fn_scope,
+                        param));
+                i = i + 1;
+            }
+
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_block_declarations_json(names, ast_fn_body(item), fn_scope));
+        } else if ast_is_const_item(item) {
+            result = symbol_table_json_array_append(result,
+                symbol_table_node_entry_json("constant",
+                    ast_report_name(names, ast_const_name_idx(item)),
+                    kernel_scope,
+                    item));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_declarations_json(names, ast_const_value(item), kernel_scope));
+        } else if ast_is_struct_item(item) {
+            let struct_name = ast_report_name(names, ast_struct_name_idx(item));
+            let struct_scope = "struct:" + struct_name;
+            result = symbol_table_json_array_append(result,
+                symbol_table_node_entry_json("struct", struct_name, kernel_scope, item));
+            let fields = ast_struct_fields(item);
+            let i: i64 = 0;
+            while i < vec_len(fields) {
+                let field = vec_get(fields, i) as Vec<i64>;
+                result = symbol_table_json_array_append(result,
+                    symbol_table_node_entry_json("field",
+                        ast_report_name(names, ast_field_decl_name_idx(field)),
+                        struct_scope,
+                        field));
+                i = i + 1;
+            }
+        }
+        return result + "]";
+    }
+
+    fn symbol_table_declarations_json(kernel: Vec<i64>) -> str {
+        let names = ast_kernel_names(kernel);
+        let kernel_name = ast_report_name(names, ast_name_idx(kernel));
+        let kernel_scope = "kernel:" + kernel_name;
+        let result = "[";
+        result = symbol_table_json_array_append(result,
+            symbol_table_node_entry_json("kernel", kernel_name, "global", kernel));
+
+        let items = ast_kernel_items(kernel);
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_item_declarations_json(kernel, vec_get(items, i) as Vec<i64>, kernel_scope));
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn symbol_table_expr_references_json(names: Vec<str>, expr_value: i64, scope: str) -> str {
+        let result = "[";
+        if expr_value == 0 {
+            return result + "]";
+        }
+
+        let expr = expr_value as Vec<i64>;
+        let kind = ast_kind(expr);
+        if kind == NODE_IDENT {
+            result = symbol_table_json_array_append(result,
+                symbol_table_node_entry_json("identifier",
+                    ast_report_name(names, ast_name_idx(expr)),
+                    scope,
+                    expr));
+        } else if kind == NODE_CALL {
+            result = symbol_table_json_array_append(result,
+                symbol_table_node_entry_json("function_call",
+                    ast_report_name(names, ast_call_name_idx(expr)),
+                    scope,
+                    expr));
+            let args = ast_call_args(expr);
+            let i: i64 = 0;
+            while i < vec_len(args) {
+                result = symbol_table_json_array_append_items(result,
+                    symbol_table_expr_references_json(names, vec_get(args, i), scope));
+                i = i + 1;
+            }
+        } else if kind == NODE_FIELD_ACCESS {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_field_base(expr) as i64, scope));
+            result = symbol_table_json_array_append(result,
+                symbol_table_node_entry_json("field_access",
+                    ast_report_name(names, ast_field_name_idx(expr)),
+                    scope,
+                    expr));
+        } else if kind == NODE_STRUCT_LIT {
+            result = symbol_table_json_array_append(result,
+                symbol_table_node_entry_json("struct_literal",
+                    ast_report_name(names, ast_struct_lit_name_idx(expr)),
+                    scope,
+                    expr));
+            let field_names = ast_struct_lit_field_names(expr);
+            let field_values = ast_struct_lit_field_values(expr);
+            let i: i64 = 0;
+            while i < vec_len(field_names) {
+                result = symbol_table_json_array_append(result,
+                    symbol_table_node_entry_json("field_initializer",
+                        ast_report_name(names, vec_get(field_names, i)),
+                        scope,
+                        expr));
+                result = symbol_table_json_array_append_items(result,
+                    symbol_table_expr_references_json(names, vec_get(field_values, i), scope));
+                i = i + 1;
+            }
+        } else if kind == NODE_BINARY {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_binary_left(expr) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_binary_right(expr) as i64, scope));
+        } else if kind == NODE_UNARY {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_unary_operand(expr) as i64, scope));
+        } else if kind == NODE_TERNARY {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_ternary_cond(expr) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_ternary_then(expr) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_ternary_else(expr) as i64, scope));
+        } else if kind == NODE_ARRAY_LIT {
+            let elements = ast_array_elements(expr);
+            let i: i64 = 0;
+            while i < vec_len(elements) {
+                result = symbol_table_json_array_append_items(result,
+                    symbol_table_expr_references_json(names, vec_get(elements, i), scope));
+                i = i + 1;
+            }
+        } else if kind == NODE_INDEX {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_index_base(expr) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_index_expr(expr) as i64, scope));
+        } else if kind == NODE_MATCH {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_match_scrutinee(expr) as i64, scope));
+            let bodies = ast_match_bodies(expr);
+            let i: i64 = 0;
+            while i < vec_len(bodies) {
+                let body = vec_get(bodies, i) as Vec<i64>;
+                if ast_is_block(body) {
+                    result = symbol_table_json_array_append_items(result,
+                        symbol_table_block_references_json(names, body, scope));
+                } else {
+                    result = symbol_table_json_array_append_items(result,
+                        symbol_table_expr_references_json(names, body as i64, scope));
+                }
+                i = i + 1;
+            }
+        }
+        return result + "]";
+    }
+
+    fn symbol_table_stmt_references_json(names: Vec<str>, stmt: Vec<i64>, scope: str) -> str {
+        let result = "[";
+        let kind = ast_kind(stmt);
+        if kind == NODE_LET {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_type_references_json(names, ast_let_type_node(stmt), scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_let_init(stmt), scope));
+        } else if kind == NODE_RETURN {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_return_expr(stmt), scope));
+        } else if kind == NODE_IF {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_if_cond(stmt) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_block_references_json(names, ast_if_then(stmt), scope));
+            if ast_if_else(stmt) != 0 {
+                result = symbol_table_json_array_append_items(result,
+                    symbol_table_block_references_json(names, ast_if_else(stmt) as Vec<i64>, scope));
+            }
+        } else if kind == NODE_WHILE {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_while_cond(stmt) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_block_references_json(names, ast_while_body(stmt), scope));
+        } else if kind == NODE_FOR {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_for_start(stmt) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_for_end(stmt) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_block_references_json(names, ast_for_body(stmt), scope));
+        } else if kind == NODE_LOOP {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_block_references_json(names, ast_loop_body(stmt), scope));
+        } else if kind == NODE_ASSIGN {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_assign_target(stmt) as i64, scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_assign_value(stmt) as i64, scope));
+        } else if kind == NODE_EXPR_STMT {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_expr_stmt_expr(stmt) as i64, scope));
+        }
+        return result + "]";
+    }
+
+    fn symbol_table_block_references_json(names: Vec<str>, block: Vec<i64>, scope: str) -> str {
+        let result = "[";
+        let i: i64 = 0;
+        while i < ast_block_stmt_count(block) {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_stmt_references_json(names, ast_block_stmt(block, i), scope));
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn symbol_table_item_references_json(kernel: Vec<i64>, item: Vec<i64>, kernel_scope: str) -> str {
+        let names = ast_kernel_names(kernel);
+        let result = "[";
+        if ast_is_fn_item(item) {
+            let fn_name = ast_report_name(names, ast_fn_name_idx(item));
+            let fn_scope = "function:" + fn_name;
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_type_references_json(names, ast_fn_return_type(item), fn_scope));
+            let params = ast_fn_params(item);
+            let i: i64 = 0;
+            while i < vec_len(params) {
+                let param = vec_get(params, i) as Vec<i64>;
+                result = symbol_table_json_array_append_items(result,
+                    symbol_table_type_references_json(names, ast_param_type_node(param) as i64, fn_scope));
+                i = i + 1;
+            }
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_block_references_json(names, ast_fn_body(item), fn_scope));
+        } else if ast_is_const_item(item) {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_type_references_json(names, ast_const_type_node(item), kernel_scope));
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_expr_references_json(names, ast_const_value(item), kernel_scope));
+        } else if ast_is_struct_item(item) {
+            let struct_scope = "struct:" + ast_report_name(names, ast_struct_name_idx(item));
+            let fields = ast_struct_fields(item);
+            let i: i64 = 0;
+            while i < vec_len(fields) {
+                let field = vec_get(fields, i) as Vec<i64>;
+                result = symbol_table_json_array_append_items(result,
+                    symbol_table_type_references_json(names, ast_field_decl_type_node(field), struct_scope));
+                i = i + 1;
+            }
+        }
+        return result + "]";
+    }
+
+    fn symbol_table_references_json(kernel: Vec<i64>) -> str {
+        let names = ast_kernel_names(kernel);
+        let kernel_scope = "kernel:" + ast_report_name(names, ast_name_idx(kernel));
+        let result = "[";
+        let items = ast_kernel_items(kernel);
+        let i: i64 = 0;
+        while i < vec_len(items) {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_item_references_json(kernel, vec_get(items, i) as Vec<i64>, kernel_scope));
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn self_host_symbol_table_json(kernel: Vec<i64>) -> str {
+        let comma = ",";
+        let names = ast_kernel_names(kernel);
+        let items = ast_kernel_items(kernel);
+        return "{" +
+            json_field_str("schema_version", "bunker.self_host.symbol_table.v1") + comma +
+            json_field_str("representation", "bootstrap_ast_walk") + comma +
+            json_field_bool("complete", false) + comma +
+            json_field_bool("declarations", true) + comma +
+            json_field_bool("references", true) + comma +
+            json_field_str("scope_model", "bootstrap kernel/function/struct scopes paired with BUNKER_RESOLVER_JSON validation") + comma +
+            json_field_str("known_limits", "Derived from AST names and paired with BUNKER_RESOLVER_JSON for bootstrap duplicate/unresolved diagnostics; imports, visibility, overloads, and related definition-use spans are not complete yet.") + comma +
+            json_field_str("resolver_report", "BUNKER_RESOLVER_JSON") + comma +
+            json_field_raw("summary", "{" +
+                json_field_i64("interned_name_count", vec_len(names)) + comma +
+                json_field_i64("function_count", ast_report_count_kind(items, NODE_FN)) + comma +
+                json_field_i64("struct_count", ast_report_count_kind(items, NODE_STRUCT)) + comma +
+                json_field_i64("const_count", ast_report_count_kind(items, NODE_CONST)) +
+                "}") + comma +
+            json_field_raw("declaration_table", symbol_table_declarations_json(kernel)) + comma +
+            json_field_raw("reference_table", symbol_table_references_json(kernel)) +
+            "}";
+    }
+
+    fn build_symbol_table_report_comment(kernel: Vec<i64>) -> str {
+        return "/* BUNKER_SYMBOL_TABLE_JSON: " + self_host_symbol_table_json(kernel) + from_char_code(10) +
+            "*/" + from_char_code(10);
+    }

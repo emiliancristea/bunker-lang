@@ -23,6 +23,8 @@ kernel BunkerCompiler {
 
     import "modules/ast_report.bkr";
 
+    import "modules/symbol_table.bkr";
+
     import "modules/type_graph.bkr";
 
     import "modules/resolver.bkr";
