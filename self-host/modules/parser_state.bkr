@@ -15,15 +15,15 @@
     }
 
     fn parser_new(lex_result: Vec<i64>) -> Vec<i64> {
-        return parser_state_from_ref(parser_new_ref(lex_result));
+        return parser_state_from_ref(parser_new_ref(lexer_result_ref_from_result(lex_result)));
     }
 
-    fn parser_new_ref(lex_result: Vec<i64>) -> ParserStateRef {
+    fn parser_new_ref(lex_result: LexerResultRef) -> ParserStateRef {
         let state: Vec<i64> = vec_new();
-        vec_push(state, lexer_result_tokens(lex_result) as i64);
-        vec_push(state, lexer_result_names(lex_result) as i64);
-        vec_push(state, lexer_result_values(lex_result) as i64);
-        vec_push(state, lexer_result_strings(lex_result) as i64);
+        vec_push(state, lexer_result_tokens_ref(lex_result) as i64);
+        vec_push(state, lexer_result_names_ref(lex_result) as i64);
+        vec_push(state, lexer_result_values_ref(lex_result) as i64);
+        vec_push(state, lexer_result_strings_ref(lex_result) as i64);
         vec_push(state, 0);
         vec_push(state, 0);
         vec_push(state, -1);

@@ -205,7 +205,7 @@
         }
 
         let expanded_source = expand_imports(source);
-        let lex_result: Vec<i64> = tokenize(expanded_source);
+        let lex_result: LexerResultRef = tokenize_ref(expanded_source);
         let p: ParserStateRef = parser_new_ref(lex_result);
         let ast: Vec<i64> = parse_kernel_ref(p);
 
