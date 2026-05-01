@@ -15,16 +15,16 @@
         if ast_optional_is_none(type_node) {
             return "bkr_i64";
         }
-        return type_node_to_c_ref(state, ast_type_ref_from_handle(type_node));
+        return type_node_to_c_ref(cgen_state_ref_from_state(state), ast_type_ref_from_handle(type_node));
     }
 
-    fn type_node_to_c_ref(state: Vec<i64>, type_ref: AstTypeRef) -> str {
+    fn type_node_to_c_ref(state: CgenStateRef, type_ref: AstTypeRef) -> str {
         let type_node: i64 = ast_type_ref_handle(type_ref);
         let kind: i64 = ast_type_ref_kind_value(type_ref);
         if kind == TYPE_STRUCT {
             let struct_name_idx: i64 = ast_type_struct_name_idx_value(type_node);
             if struct_name_idx >= 0 {
-                return name_to_c(state, struct_name_idx);
+                return name_to_c_ref(state, struct_name_idx);
             }
         }
         return type_to_c(kind);
@@ -103,7 +103,11 @@
     }
 
     fn name_to_c(state: Vec<i64>, idx: i64) -> str {
-        return name_to_c_from_names(cgen_names(state), idx);
+        return name_to_c_ref(cgen_state_ref_from_state(state), idx);
+    }
+
+    fn name_to_c_ref(state: CgenStateRef, idx: i64) -> str {
+        return name_to_c_from_names(cgen_names_ref(state), idx);
     }
 
     fn type_node_kind(type_node: i64) -> i64 {
@@ -171,17 +175,21 @@
     }
 
     fn infer_c_expr_type(state: Vec<i64>, expr: Vec<i64>) -> i64 {
-        return infer_c_expr_ref_type(state, ast_expr_ref_from_node(expr));
+        return infer_c_expr_ref_type(cgen_state_ref_from_state(state), ast_expr_ref_from_node(expr));
     }
 
     fn infer_c_expr_handle_type(state: Vec<i64>, expr_value: i64) -> i64 {
+        return infer_c_expr_handle_ref_type(cgen_state_ref_from_state(state), expr_value);
+    }
+
+    fn infer_c_expr_handle_ref_type(state: CgenStateRef, expr_value: i64) -> i64 {
         if ast_optional_is_none(expr_value) {
             return TYPE_UNKNOWN;
         }
         return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(expr_value));
     }
 
-    fn infer_c_expr_ref_type(state: Vec<i64>, expr_ref: AstExprRef) -> i64 {
+    fn infer_c_expr_ref_type(state: CgenStateRef, expr_ref: AstExprRef) -> i64 {
         let expr: Vec<i64> = ast_expr_node_from_ref(expr_ref);
         let node_type: i64 = ast_expr_ref_kind(expr_ref);
 
@@ -213,20 +221,20 @@
         }
 
         if node_type == NODE_IDENT {
-            let names: Vec<str> = cgen_names(state);
+            let names: Vec<str> = cgen_names_ref(state);
             let name_idx: i64 = ast_name_idx(expr);
             let raw: str = name_from_table(names, name_idx);
             if raw == "None" {
                 return TYPE_I64;
             }
-            return cgen_lookup_name_type(state, name_idx);
+            return cgen_lookup_name_type_ref(state, name_idx);
         }
 
         if node_type == NODE_INDEX {
             let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_index_base_handle(expr));
             let base: Vec<i64> = ast_expr_node_from_ref(base_ref);
             if ast_expr_ref_kind(base_ref) == NODE_IDENT {
-                return cgen_lookup_array_elem_type(state, ast_name_idx(base));
+                return cgen_lookup_array_elem_type_ref(state, ast_name_idx(base));
             }
             return TYPE_UNKNOWN;
         }
@@ -286,7 +294,7 @@
 
         if node_type == NODE_CALL {
             let name_idx: i64 = ast_call_name_idx(expr);
-            let names: Vec<str> = cgen_names(state);
+            let names: Vec<str> = cgen_names_ref(state);
             let raw: str = name_from_table(names, name_idx);
             if raw == "Some" {
                 return TYPE_I64;
@@ -295,19 +303,19 @@
             if builtin_kind != TYPE_UNKNOWN {
                 return builtin_kind;
             }
-            return cgen_lookup_fn_type(state, name_idx);
+            return cgen_lookup_fn_type_ref(state, name_idx);
         }
 
         return TYPE_UNKNOWN;
     }
 
     fn gen_c_inline_let(state: Vec<i64>, stmt: Vec<i64>) -> str {
-        return gen_c_inline_let_ref(state, ast_stmt_ref_from_node(stmt));
+        return gen_c_inline_let_ref(cgen_state_ref_from_state(state), ast_stmt_ref_from_node(stmt));
     }
 
-    fn gen_c_inline_let_ref(state: Vec<i64>, stmt_ref: AstStmtRef) -> str {
+    fn gen_c_inline_let_ref(state: CgenStateRef, stmt_ref: AstStmtRef) -> str {
         let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
-        let name: str = name_to_c(state, ast_let_name_idx(stmt));
+        let name: str = name_to_c_ref(state, ast_let_name_idx(stmt));
         let type_node: i64 = ast_let_type_handle(stmt);
         let init: i64 = ast_let_init_handle(stmt);
 
@@ -315,7 +323,7 @@
         if ast_optional_is_some(type_node) {
             kind = type_node_kind_ref(ast_type_ref_from_handle(type_node));
         } else if ast_optional_is_some(init) {
-            let init_kind: i64 = infer_c_expr_handle_type(state, init);
+            let init_kind: i64 = infer_c_expr_handle_ref_type(state, init);
             if init_kind != TYPE_UNKNOWN && init_kind != TYPE_VOID {
                 kind = init_kind;
             }
@@ -334,10 +342,10 @@
     }
 
     fn gen_c_inline_block_result(state: Vec<i64>, result_name: str, body: Vec<i64>) -> str {
-        return gen_c_inline_node_result(state, result_name, ast_node_ref_from_node(body));
+        return gen_c_inline_node_result(cgen_state_ref_from_state(state), result_name, ast_node_ref_from_node(body));
     }
 
-    fn gen_c_inline_node_result(state: Vec<i64>, result_name: str, body_ref: AstNodeRef) -> str {
+    fn gen_c_inline_node_result(state: CgenStateRef, result_name: str, body_ref: AstNodeRef) -> str {
         if ast_node_ref_kind(body_ref) != NODE_BLOCK {
             return result_name + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_ref_handle(body_ref))) + "; ";
         }
@@ -376,10 +384,10 @@
     }
 
     fn gen_c_match_condition(state: Vec<i64>, value_name: str, pattern: Vec<i64>) -> str {
-        return gen_c_match_condition_ref(state, value_name, ast_pattern_ref_from_pattern(pattern));
+        return gen_c_match_condition_ref(cgen_state_ref_from_state(state), value_name, ast_pattern_ref_from_pattern(pattern));
     }
 
-    fn gen_c_match_condition_ref(state: Vec<i64>, value_name: str, pattern_ref: AstPatternRef) -> str {
+    fn gen_c_match_condition_ref(state: CgenStateRef, value_name: str, pattern_ref: AstPatternRef) -> str {
         let pattern: Vec<i64> = ast_pattern_from_ref(pattern_ref);
         let kind: i64 = ast_pattern_ref_kind(pattern_ref);
         let value: i64 = ast_pattern_value(pattern);
@@ -406,28 +414,28 @@
     }
 
     fn gen_c_match_bindings(state: Vec<i64>, value_name: str, pattern: Vec<i64>, scrutinee_kind: i64) -> str {
-        return gen_c_match_bindings_ref(state, value_name, ast_pattern_ref_from_pattern(pattern), scrutinee_kind);
+        return gen_c_match_bindings_ref(cgen_state_ref_from_state(state), value_name, ast_pattern_ref_from_pattern(pattern), scrutinee_kind);
     }
 
-    fn gen_c_match_bindings_ref(state: Vec<i64>, value_name: str, pattern_ref: AstPatternRef, scrutinee_kind: i64) -> str {
+    fn gen_c_match_bindings_ref(state: CgenStateRef, value_name: str, pattern_ref: AstPatternRef, scrutinee_kind: i64) -> str {
         let pattern: Vec<i64> = ast_pattern_from_ref(pattern_ref);
         let kind: i64 = ast_pattern_ref_kind(pattern_ref);
         let value: i64 = ast_pattern_value(pattern);
 
         if kind == PAT_BIND {
-            return type_to_c(scrutinee_kind) + " " + name_to_c(state, value) + " = " + value_name + "; ";
+            return type_to_c(scrutinee_kind) + " " + name_to_c_ref(state, value) + " = " + value_name + "; ";
         }
         if kind == PAT_SOME {
-            return "bkr_i64 " + name_to_c(state, value) + " = (" + value_name + " >> 1); ";
+            return "bkr_i64 " + name_to_c_ref(state, value) + " = (" + value_name + " >> 1); ";
         }
         return "";
     }
 
     fn gen_c_match_expr(state: Vec<i64>, expr: Vec<i64>) -> str {
-        return gen_c_match_expr_ref(state, ast_expr_ref_from_node(expr));
+        return gen_c_match_expr_ref(cgen_state_ref_from_state(state), ast_expr_ref_from_node(expr));
     }
 
-    fn gen_c_match_expr_ref(state: Vec<i64>, expr_ref: AstExprRef) -> str {
+    fn gen_c_match_expr_ref(state: CgenStateRef, expr_ref: AstExprRef) -> str {
         let expr: Vec<i64> = ast_expr_node_from_ref(expr_ref);
         let scrutinee_ref: AstExprRef = ast_expr_ref_from_handle(ast_match_scrutinee_handle(expr));
         let scrutinee_kind = infer_c_expr_ref_type(state, scrutinee_ref);
@@ -458,26 +466,26 @@
     }
 
     fn is_raw_payload_call(state: Vec<i64>, expr: Vec<i64>) -> bool {
-        return is_raw_payload_call_ref(state, ast_expr_ref_from_node(expr));
+        return is_raw_payload_call_ref(cgen_state_ref_from_state(state), ast_expr_ref_from_node(expr));
     }
 
-    fn is_raw_payload_call_ref(state: Vec<i64>, expr_ref: AstExprRef) -> bool {
+    fn is_raw_payload_call_ref(state: CgenStateRef, expr_ref: AstExprRef) -> bool {
         if ast_expr_ref_kind(expr_ref) != NODE_CALL {
             return false;
         }
         let expr: Vec<i64> = ast_expr_node_from_ref(expr_ref);
         let name_idx: i64 = ast_call_name_idx(expr);
-        let names: Vec<str> = cgen_names(state);
+        let names: Vec<str> = cgen_names_ref(state);
         let raw: str = name_from_table(names, name_idx);
         return raw == "result_unwrap" || raw == "result_unwrap_err" || raw == "result_value" ||
                raw == "vec_get" || raw == "vec_pop" || raw == "hashmap_get";
     }
 
     fn gen_c_i64_arg(state: Vec<i64>, expr: Vec<i64>) -> str {
-        return gen_c_i64_arg_ref(state, ast_expr_ref_from_node(expr));
+        return gen_c_i64_arg_ref(cgen_state_ref_from_state(state), ast_expr_ref_from_node(expr));
     }
 
-    fn gen_c_i64_arg_ref(state: Vec<i64>, expr_ref: AstExprRef) -> str {
+    fn gen_c_i64_arg_ref(state: CgenStateRef, expr_ref: AstExprRef) -> str {
         let result = gen_c_expr_ref(state, expr_ref);
         let kind = infer_c_expr_ref_type(state, expr_ref);
         if kind == TYPE_STR {
@@ -487,10 +495,10 @@
     }
 
     fn gen_c_init_expr_for_type(state: Vec<i64>, type_node: i64, init: Vec<i64>) -> str {
-        return gen_c_init_expr_for_type_ref(state, type_node, ast_expr_ref_from_node(init));
+        return gen_c_init_expr_for_type_ref(cgen_state_ref_from_state(state), type_node, ast_expr_ref_from_node(init));
     }
 
-    fn gen_c_init_expr_for_type_ref(state: Vec<i64>, type_node: i64, init_ref: AstExprRef) -> str {
+    fn gen_c_init_expr_for_type_ref(state: CgenStateRef, type_node: i64, init_ref: AstExprRef) -> str {
         let result = gen_c_expr_ref(state, init_ref);
         if ast_optional_is_some(type_node) && type_node_kind_ref(ast_type_ref_from_handle(type_node)) == TYPE_STR && is_raw_payload_call_ref(state, init_ref) {
             return "(bkr_str)(intptr_t)(" + result + ")";
@@ -499,10 +507,10 @@
     }
 
     fn gen_c_expr(state: Vec<i64>, expr: Vec<i64>) -> str {
-        return gen_c_expr_ref(state, ast_expr_ref_from_node(expr));
+        return gen_c_expr_ref(cgen_state_ref_from_state(state), ast_expr_ref_from_node(expr));
     }
 
-    fn gen_c_expr_ref(state: Vec<i64>, expr_ref: AstExprRef) -> str {
+    fn gen_c_expr_ref(state: CgenStateRef, expr_ref: AstExprRef) -> str {
         let expr: Vec<i64> = ast_expr_node_from_ref(expr_ref);
         let node_type: i64 = ast_expr_ref_kind(expr_ref);
 
@@ -536,12 +544,12 @@
         }
 
         if node_type == NODE_STRUCT_LIT {
-            let type_name = name_to_c(state, ast_struct_lit_name_idx(expr));
+            let type_name = name_to_c_ref(state, ast_struct_lit_name_idx(expr));
             let result = "(" + type_name + "){";
             let i: i64 = 0;
             while i < ast_struct_lit_field_count(expr) {
                 if i > 0 { result = result + ", "; }
-                result = result + "." + name_to_c(state, ast_struct_lit_field_name_idx(expr, i)) + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_struct_lit_field_value_handle(expr, i)));
+                result = result + "." + name_to_c_ref(state, ast_struct_lit_field_name_idx(expr, i)) + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_struct_lit_field_value_handle(expr, i)));
                 i = i + 1;
             }
             return result + "}";
@@ -549,12 +557,12 @@
 
         if node_type == NODE_IDENT {
             let name_idx: i64 = ast_name_idx(expr);
-            let names: Vec<str> = cgen_names(state);
+            let names: Vec<str> = cgen_names_ref(state);
             let raw: str = name_from_table(names, name_idx);
             if raw == "None" {
                 return "0";
             }
-            return name_to_c(state, name_idx);
+            return name_to_c_ref(state, name_idx);
         }
 
         if node_type == NODE_INDEX {
@@ -566,7 +574,7 @@
         if node_type == NODE_FIELD_ACCESS {
             let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_field_base_handle(expr));
             let field_name: i64 = ast_field_name_idx(expr);
-            return gen_c_expr_ref(state, base_ref) + "." + name_to_c(state, field_name);
+            return gen_c_expr_ref(state, base_ref) + "." + name_to_c_ref(state, field_name);
         }
 
         if node_type == NODE_BINARY {
@@ -618,7 +626,7 @@
 
         if node_type == NODE_CALL {
             let name_idx: i64 = ast_call_name_idx(expr);
-            let names: Vec<str> = cgen_names(state);
+            let names: Vec<str> = cgen_names_ref(state);
             let raw: str = name_from_table(names, name_idx);
             if raw == "Some" && ast_call_arg_count(expr) == 1 {
                 return "(((" + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 0))) + ") << 1) | 1)";
@@ -674,13 +682,13 @@
                 let len_arg_ref: AstExprRef = ast_expr_ref_from_handle(ast_call_arg_handle(expr, 0));
                 let len_arg: Vec<i64> = ast_expr_node_from_ref(len_arg_ref);
                 if ast_expr_ref_kind(len_arg_ref) == NODE_IDENT {
-                    let array_len: i64 = cgen_lookup_array_length(state, ast_name_idx(len_arg));
+                    let array_len: i64 = cgen_lookup_array_length_ref(state, ast_name_idx(len_arg));
                     if array_len >= 0 {
                         return int_to_string(array_len);
                     }
                 }
             }
-            let name: str = name_to_c(state, name_idx);
+            let name: str = name_to_c_ref(state, name_idx);
             let result = name + "(";
             let i: i64 = 0;
             while i < ast_call_arg_count(expr) {
@@ -695,16 +703,17 @@
     }
 
     fn gen_c_stmt(state: Vec<i64>, stmt: Vec<i64>) -> Vec<i64> {
-        return gen_c_stmt_ref(state, ast_stmt_ref_from_node(stmt));
+        gen_c_stmt_ref(cgen_state_ref_from_state(state), ast_stmt_ref_from_node(stmt));
+        return state;
     }
 
-    fn gen_c_stmt_ref(state: Vec<i64>, stmt_ref: AstStmtRef) -> Vec<i64> {
+    fn gen_c_stmt_ref(state: CgenStateRef, stmt_ref: AstStmtRef) -> CgenStateRef {
         let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
         let node_type: i64 = ast_stmt_ref_kind(stmt_ref);
 
         if node_type == NODE_LET {
             let name_idx: i64 = ast_let_name_idx(stmt);
-            let name: str = name_to_c(state, name_idx);
+            let name: str = name_to_c_ref(state, name_idx);
             let type_node: i64 = ast_let_type_handle(stmt);
             let init: i64 = ast_let_init_handle(stmt);
 
@@ -715,9 +724,9 @@
                 if ast_optional_is_some(init) {
                     line = line + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(init));
                 }
-                cgen_emit(state, line + ";");
-                cgen_add_local_type(state, name_idx, elem_kind);
-                cgen_add_array_type(state, name_idx, elem_kind, array_len);
+                cgen_emit_ref(state, line + ";");
+                cgen_add_local_type_ref(state, name_idx, elem_kind);
+                cgen_add_array_type_ref(state, name_idx, elem_kind, array_len);
                 return state;
             }
 
@@ -725,7 +734,7 @@
             if ast_optional_is_some(type_node) {
                 kind = type_node_kind_ref(ast_type_ref_from_handle(type_node));
             } else if ast_optional_is_some(init) {
-                let init_kind: i64 = infer_c_expr_handle_type(state, init);
+                let init_kind: i64 = infer_c_expr_handle_ref_type(state, init);
                 if init_kind != TYPE_UNKNOWN && init_kind != TYPE_VOID {
                     kind = init_kind;
                 }
@@ -739,17 +748,17 @@
             if ast_optional_is_some(init) {
                 line = line + " = " + gen_c_init_expr_for_type_ref(state, type_node, ast_expr_ref_from_handle(init));
             }
-            cgen_emit(state, line + ";");
-            cgen_add_local_type(state, name_idx, kind);
+            cgen_emit_ref(state, line + ";");
+            cgen_add_local_type_ref(state, name_idx, kind);
             return state;
         }
 
         if node_type == NODE_RETURN {
             let expr: i64 = ast_return_expr_handle(stmt);
             if ast_optional_is_some(expr) {
-                cgen_emit(state, "return " + gen_c_expr_ref(state, ast_expr_ref_from_handle(expr)) + ";");
+                cgen_emit_ref(state, "return " + gen_c_expr_ref(state, ast_expr_ref_from_handle(expr)) + ";");
             } else {
-                cgen_emit(state, "return;");
+                cgen_emit_ref(state, "return;");
             }
             return state;
         }
@@ -759,35 +768,35 @@
             let then_block_ref: AstBlockRef = ast_block_ref_from_node(ast_if_then(stmt));
             let else_block: i64 = ast_if_else_handle(stmt);
 
-            cgen_emit(state, "if (" + gen_c_expr_ref(state, cond_ref) + ") {");
-            cgen_indent(state);
+            cgen_emit_ref(state, "if (" + gen_c_expr_ref(state, cond_ref) + ") {");
+            cgen_indent_ref(state);
             gen_c_block_ref(state, then_block_ref);
-            cgen_dedent(state);
+            cgen_dedent_ref(state);
 
             if ast_optional_is_some(else_block) {
-                cgen_emit(state, "} else {");
-                cgen_indent(state);
+                cgen_emit_ref(state, "} else {");
+                cgen_indent_ref(state);
                 gen_c_block_ref(state, ast_block_ref_from_handle(else_block));
-                cgen_dedent(state);
+                cgen_dedent_ref(state);
             }
-            cgen_emit(state, "}");
+            cgen_emit_ref(state, "}");
             return state;
         }
 
         if node_type == NODE_WHILE {
             let cond_ref: AstExprRef = ast_expr_ref_from_handle(ast_while_cond_handle(stmt));
             let body_ref: AstBlockRef = ast_block_ref_from_node(ast_while_body(stmt));
-            cgen_emit(state, "while (" + gen_c_expr_ref(state, cond_ref) + ") {");
-            cgen_indent(state);
+            cgen_emit_ref(state, "while (" + gen_c_expr_ref(state, cond_ref) + ") {");
+            cgen_indent_ref(state);
             gen_c_block_ref(state, body_ref);
-            cgen_dedent(state);
-            cgen_emit(state, "}");
+            cgen_dedent_ref(state);
+            cgen_emit_ref(state, "}");
             return state;
         }
 
         if node_type == NODE_FOR {
             let name_idx: i64 = ast_for_name_idx(stmt);
-            let name: str = name_to_c(state, name_idx);
+            let name: str = name_to_c_ref(state, name_idx);
             let start_ref: AstExprRef = ast_expr_ref_from_handle(ast_for_start_handle(stmt));
             let end_ref: AstExprRef = ast_expr_ref_from_handle(ast_for_end_handle(stmt));
             let inclusive: i64 = ast_for_inclusive(stmt);
@@ -798,45 +807,45 @@
                 cmp = "<=";
             }
 
-            cgen_emit(state, "for (bkr_i64 " + name + " = " + gen_c_expr_ref(state, start_ref) + "; " + name + " " + cmp + " " + gen_c_expr_ref(state, end_ref) + "; " + name + " = " + name + " + 1) {");
-            cgen_indent(state);
-            cgen_add_local_type(state, name_idx, TYPE_I64);
+            cgen_emit_ref(state, "for (bkr_i64 " + name + " = " + gen_c_expr_ref(state, start_ref) + "; " + name + " " + cmp + " " + gen_c_expr_ref(state, end_ref) + "; " + name + " = " + name + " + 1) {");
+            cgen_indent_ref(state);
+            cgen_add_local_type_ref(state, name_idx, TYPE_I64);
             gen_c_block_ref(state, body_ref);
-            cgen_dedent(state);
-            cgen_emit(state, "}");
+            cgen_dedent_ref(state);
+            cgen_emit_ref(state, "}");
             return state;
         }
 
         if node_type == NODE_LOOP {
             let body_ref: AstBlockRef = ast_block_ref_from_node(ast_loop_body(stmt));
-            cgen_emit(state, "while (BKR_TRUE) {");
-            cgen_indent(state);
+            cgen_emit_ref(state, "while (BKR_TRUE) {");
+            cgen_indent_ref(state);
             gen_c_block_ref(state, body_ref);
-            cgen_dedent(state);
-            cgen_emit(state, "}");
+            cgen_dedent_ref(state);
+            cgen_emit_ref(state, "}");
             return state;
         }
 
         if node_type == NODE_ASSIGN {
             let target_ref: AstExprRef = ast_expr_ref_from_handle(ast_assign_target_handle(stmt));
             let value_ref: AstExprRef = ast_expr_ref_from_handle(ast_assign_value_handle(stmt));
-            cgen_emit(state, gen_c_expr_ref(state, target_ref) + " = " + gen_c_expr_ref(state, value_ref) + ";");
+            cgen_emit_ref(state, gen_c_expr_ref(state, target_ref) + " = " + gen_c_expr_ref(state, value_ref) + ";");
             return state;
         }
 
         if node_type == NODE_EXPR_STMT {
             let expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_expr_stmt_expr_handle(stmt));
-            cgen_emit(state, gen_c_expr_ref(state, expr_ref) + ";");
+            cgen_emit_ref(state, gen_c_expr_ref(state, expr_ref) + ";");
             return state;
         }
 
         if node_type == NODE_BREAK {
-            cgen_emit(state, "break;");
+            cgen_emit_ref(state, "break;");
             return state;
         }
 
         if node_type == NODE_CONTINUE {
-            cgen_emit(state, "continue;");
+            cgen_emit_ref(state, "continue;");
             return state;
         }
 
@@ -873,10 +882,11 @@
     }
 
     fn gen_c_block(state: Vec<i64>, block: Vec<i64>) -> Vec<i64> {
-        return gen_c_block_ref(state, ast_block_ref_from_node(block));
+        gen_c_block_ref(cgen_state_ref_from_state(state), ast_block_ref_from_node(block));
+        return state;
     }
 
-    fn gen_c_block_ref(state: Vec<i64>, block_ref: AstBlockRef) -> Vec<i64> {
+    fn gen_c_block_ref(state: CgenStateRef, block_ref: AstBlockRef) -> CgenStateRef {
         let block: Vec<i64> = ast_block_node_from_ref(block_ref);
         let i: i64 = 0;
         let count = ast_block_ref_stmt_count(block_ref);
@@ -888,12 +898,12 @@
     }
 
     fn gen_c_signature(state: Vec<i64>, fn_node: Vec<i64>) -> str {
-        return gen_c_signature_ref(state, ast_item_ref_from_node(fn_node));
+        return gen_c_signature_ref(cgen_state_ref_from_state(state), ast_item_ref_from_node(fn_node));
     }
 
-    fn gen_c_signature_ref(state: Vec<i64>, fn_ref: AstItemRef) -> str {
+    fn gen_c_signature_ref(state: CgenStateRef, fn_ref: AstItemRef) -> str {
         let fn_node: Vec<i64> = ast_item_node_from_ref(fn_ref);
-        let name: str = name_to_c(state, ast_fn_name_idx(fn_node));
+        let name: str = name_to_c_ref(state, ast_fn_name_idx(fn_node));
         let ret_type_node: i64 = ast_fn_return_type_handle(fn_node);
 
         let ret_type: str = "void";
@@ -907,7 +917,7 @@
         while i < ast_fn_param_count(fn_node) {
             let param_ref: AstNodeRef = ast_node_list_get_ref(ast_fn_params(fn_node), i);
             let param: Vec<i64> = ast_node_from_ref(param_ref);
-            let pname: str = name_to_c(state, ast_param_name_idx(param));
+            let pname: str = name_to_c_ref(state, ast_param_name_idx(param));
             let ptype_c: str = type_node_to_c_ref(state, ast_type_ref_from_handle(ast_param_type_handle(param)));
             if i > 0 { param_str = param_str + ", "; }
             param_str = param_str + ptype_c + " " + pname;
@@ -919,48 +929,51 @@
     }
 
     fn gen_c_prototype(state: Vec<i64>, fn_node: Vec<i64>) -> Vec<i64> {
-        return gen_c_prototype_ref(state, ast_item_ref_from_node(fn_node));
+        gen_c_prototype_ref(cgen_state_ref_from_state(state), ast_item_ref_from_node(fn_node));
+        return state;
     }
 
-    fn gen_c_prototype_ref(state: Vec<i64>, fn_ref: AstItemRef) -> Vec<i64> {
-        cgen_emit(state, gen_c_signature_ref(state, fn_ref) + ";");
+    fn gen_c_prototype_ref(state: CgenStateRef, fn_ref: AstItemRef) -> CgenStateRef {
+        cgen_emit_ref(state, gen_c_signature_ref(state, fn_ref) + ";");
         return state;
     }
 
     fn gen_c_fn(state: Vec<i64>, fn_node: Vec<i64>) -> Vec<i64> {
-        return gen_c_fn_ref(state, ast_item_ref_from_node(fn_node));
+        gen_c_fn_ref(cgen_state_ref_from_state(state), ast_item_ref_from_node(fn_node));
+        return state;
     }
 
-    fn gen_c_fn_ref(state: Vec<i64>, fn_ref: AstItemRef) -> Vec<i64> {
+    fn gen_c_fn_ref(state: CgenStateRef, fn_ref: AstItemRef) -> CgenStateRef {
         let fn_node: Vec<i64> = ast_item_node_from_ref(fn_ref);
-        cgen_clear_locals(state);
+        cgen_clear_locals_ref(state);
         let i: i64 = 0;
         while i < ast_fn_param_count(fn_node) {
             let param_ref: AstNodeRef = ast_node_list_get_ref(ast_fn_params(fn_node), i);
             let param: Vec<i64> = ast_node_from_ref(param_ref);
-            cgen_add_local_type(state, ast_param_name_idx(param), type_node_kind_ref(ast_type_ref_from_handle(ast_param_type_handle(param))));
+            cgen_add_local_type_ref(state, ast_param_name_idx(param), type_node_kind_ref(ast_type_ref_from_handle(ast_param_type_handle(param))));
             i = i + 1;
         }
 
         let body_ref: AstBlockRef = ast_block_ref_from_node(ast_fn_body(fn_node));
 
-        cgen_emit(state, gen_c_signature_ref(state, fn_ref) + " {");
-        cgen_indent(state);
+        cgen_emit_ref(state, gen_c_signature_ref(state, fn_ref) + " {");
+        cgen_indent_ref(state);
         gen_c_block_ref(state, body_ref);
-        cgen_dedent(state);
-        cgen_emit(state, "}");
-        cgen_emit(state, "");
+        cgen_dedent_ref(state);
+        cgen_emit_ref(state, "}");
+        cgen_emit_ref(state, "");
         return state;
     }
 
     fn gen_c_const(state: Vec<i64>, const_node: Vec<i64>) -> Vec<i64> {
-        return gen_c_const_ref(state, ast_item_ref_from_node(const_node));
+        gen_c_const_ref(cgen_state_ref_from_state(state), ast_item_ref_from_node(const_node));
+        return state;
     }
 
-    fn gen_c_const_ref(state: Vec<i64>, const_ref: AstItemRef) -> Vec<i64> {
+    fn gen_c_const_ref(state: CgenStateRef, const_ref: AstItemRef) -> CgenStateRef {
         let const_node: Vec<i64> = ast_item_node_from_ref(const_ref);
         let name_idx: i64 = ast_const_name_idx(const_node);
-        let name: str = name_to_c(state, name_idx);
+        let name: str = name_to_c_ref(state, name_idx);
         let type_node: i64 = ast_const_type_handle(const_node);
         let value: i64 = ast_const_value_handle(const_node);
 
@@ -968,7 +981,7 @@
         if ast_optional_is_some(type_node) {
             kind = type_node_kind_ref(ast_type_ref_from_handle(type_node));
         } else if ast_optional_is_some(value) {
-            let value_kind: i64 = infer_c_expr_handle_type(state, value);
+            let value_kind: i64 = infer_c_expr_handle_ref_type(state, value);
             if value_kind != TYPE_UNKNOWN && value_kind != TYPE_VOID {
                 kind = value_kind;
             }
@@ -980,40 +993,42 @@
             c_value = gen_c_expr_ref(state, ast_expr_ref_from_handle(value));
         }
 
-        cgen_emit(state, "static const " + c_type + " " + name + " = " + c_value + ";");
-        cgen_add_global_type(state, name_idx, kind);
+        cgen_emit_ref(state, "static const " + c_type + " " + name + " = " + c_value + ";");
+        cgen_add_global_type_ref(state, name_idx, kind);
         return state;
     }
 
     fn gen_c_struct(state: Vec<i64>, struct_node: Vec<i64>) -> Vec<i64> {
-        return gen_c_struct_ref(state, ast_item_ref_from_node(struct_node));
+        gen_c_struct_ref(cgen_state_ref_from_state(state), ast_item_ref_from_node(struct_node));
+        return state;
     }
 
-    fn gen_c_struct_ref(state: Vec<i64>, struct_ref: AstItemRef) -> Vec<i64> {
+    fn gen_c_struct_ref(state: CgenStateRef, struct_ref: AstItemRef) -> CgenStateRef {
         let struct_node: Vec<i64> = ast_item_node_from_ref(struct_ref);
-        let name: str = name_to_c(state, ast_struct_name_idx(struct_node));
-        cgen_emit(state, "typedef struct " + name + " {");
-        cgen_indent(state);
+        let name: str = name_to_c_ref(state, ast_struct_name_idx(struct_node));
+        cgen_emit_ref(state, "typedef struct " + name + " {");
+        cgen_indent_ref(state);
         let i: i64 = 0;
         while i < ast_struct_field_count(struct_node) {
             let field_ref: AstNodeRef = ast_node_list_get_ref(ast_struct_fields(struct_node), i);
             let field: Vec<i64> = ast_node_from_ref(field_ref);
-            let field_name: str = name_to_c(state, ast_field_decl_name_idx(field));
+            let field_name: str = name_to_c_ref(state, ast_field_decl_name_idx(field));
             let field_type: i64 = ast_field_decl_type_handle(field);
-            cgen_emit(state, type_node_to_c_ref(state, ast_type_ref_from_handle(field_type)) + " " + field_name + ";");
+            cgen_emit_ref(state, type_node_to_c_ref(state, ast_type_ref_from_handle(field_type)) + " " + field_name + ";");
             i = i + 1;
         }
-        cgen_dedent(state);
-        cgen_emit(state, "} " + name + ";");
-        cgen_emit(state, "");
+        cgen_dedent_ref(state);
+        cgen_emit_ref(state, "} " + name + ";");
+        cgen_emit_ref(state, "");
         return state;
     }
 
     fn gen_c_kernel_structs(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
-        return gen_c_kernel_structs_ref(state, ast_node_ref_from_node(kernel));
+        gen_c_kernel_structs_ref(cgen_state_ref_from_state(state), ast_node_ref_from_node(kernel));
+        return state;
     }
 
-    fn gen_c_kernel_structs_ref(state: Vec<i64>, kernel_ref: AstNodeRef) -> Vec<i64> {
+    fn gen_c_kernel_structs_ref(state: CgenStateRef, kernel_ref: AstNodeRef) -> CgenStateRef {
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
         let i: i64 = 0;
         while i < ast_kernel_item_count(kernel) {
@@ -1027,10 +1042,11 @@
     }
 
     fn gen_c_kernel_function_types(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
-        return gen_c_kernel_function_types_ref(state, ast_node_ref_from_node(kernel));
+        gen_c_kernel_function_types_ref(cgen_state_ref_from_state(state), ast_node_ref_from_node(kernel));
+        return state;
     }
 
-    fn gen_c_kernel_function_types_ref(state: Vec<i64>, kernel_ref: AstNodeRef) -> Vec<i64> {
+    fn gen_c_kernel_function_types_ref(state: CgenStateRef, kernel_ref: AstNodeRef) -> CgenStateRef {
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
         let i: i64 = 0;
         while i < ast_kernel_item_count(kernel) {
@@ -1042,7 +1058,7 @@
                 if ast_optional_is_some(ret_type_node) {
                     kind = type_node_kind_ref(ast_type_ref_from_handle(ret_type_node));
                 }
-                cgen_add_fn_type(state, ast_fn_name_idx(item), kind);
+                cgen_add_fn_type_ref(state, ast_fn_name_idx(item), kind);
             }
             i = i + 1;
         }
@@ -1050,10 +1066,11 @@
     }
 
     fn gen_c_kernel_consts(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
-        return gen_c_kernel_consts_ref(state, ast_node_ref_from_node(kernel));
+        gen_c_kernel_consts_ref(cgen_state_ref_from_state(state), ast_node_ref_from_node(kernel));
+        return state;
     }
 
-    fn gen_c_kernel_consts_ref(state: Vec<i64>, kernel_ref: AstNodeRef) -> Vec<i64> {
+    fn gen_c_kernel_consts_ref(state: CgenStateRef, kernel_ref: AstNodeRef) -> CgenStateRef {
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
         let i: i64 = 0;
         while i < ast_kernel_item_count(kernel) {
@@ -1067,10 +1084,11 @@
     }
 
     fn gen_c_kernel_prototypes(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
-        return gen_c_kernel_prototypes_ref(state, ast_node_ref_from_node(kernel));
+        gen_c_kernel_prototypes_ref(cgen_state_ref_from_state(state), ast_node_ref_from_node(kernel));
+        return state;
     }
 
-    fn gen_c_kernel_prototypes_ref(state: Vec<i64>, kernel_ref: AstNodeRef) -> Vec<i64> {
+    fn gen_c_kernel_prototypes_ref(state: CgenStateRef, kernel_ref: AstNodeRef) -> CgenStateRef {
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
         let i: i64 = 0;
         while i < ast_kernel_item_count(kernel) {
@@ -1084,10 +1102,11 @@
     }
 
     fn gen_c_kernel(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
-        return gen_c_kernel_ref(state, ast_node_ref_from_node(kernel));
+        gen_c_kernel_ref(cgen_state_ref_from_state(state), ast_node_ref_from_node(kernel));
+        return state;
     }
 
-    fn gen_c_kernel_ref(state: Vec<i64>, kernel_ref: AstNodeRef) -> Vec<i64> {
+    fn gen_c_kernel_ref(state: CgenStateRef, kernel_ref: AstNodeRef) -> CgenStateRef {
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
         let i: i64 = 0;
         while i < ast_kernel_item_count(kernel) {
@@ -1108,31 +1127,31 @@
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
         let names: Vec<str> = ast_kernel_names(kernel);
         let kernel_name: str = name_to_c_from_names(names, ast_name_idx(kernel));
-        let state: Vec<i64> = cgen_new(kernel_name, names);
+        let state: CgenStateRef = cgen_new_ref(kernel_name, names);
 
-        cgen_emit(state, "/* Generated by Bunker Compiler */");
+        cgen_emit_ref(state, "/* Generated by Bunker Compiler */");
         let quote = from_char_code(34);
-        cgen_emit(state, "#include " + quote + "runtime.h" + quote);
-        cgen_emit(state, "");
+        cgen_emit_ref(state, "#include " + quote + "runtime.h" + quote);
+        cgen_emit_ref(state, "");
 
         gen_c_kernel_structs_ref(state, kernel_ref);
         gen_c_kernel_function_types_ref(state, kernel_ref);
         gen_c_kernel_consts_ref(state, kernel_ref);
-        cgen_emit(state, "");
+        cgen_emit_ref(state, "");
         gen_c_kernel_prototypes_ref(state, kernel_ref);
-        cgen_emit(state, "");
+        cgen_emit_ref(state, "");
         gen_c_kernel_ref(state, kernel_ref);
 
         let entry_idx: i64 = ast_kernel_entry_idx(kernel);
-        let entry_name: str = name_to_c(state, entry_idx);
+        let entry_name: str = name_to_c_ref(state, entry_idx);
 
         // Main wrapper that calls the parsed Bunker main()
-        cgen_emit(state, "int main(void) {");
-        cgen_emit(state, "    return (int)" + entry_name + "();");
-        cgen_emit(state, "}");
+        cgen_emit_ref(state, "int main(void) {");
+        cgen_emit_ref(state, "    return (int)" + entry_name + "();");
+        cgen_emit_ref(state, "}");
 
         // Join lines
-        let lines = cgen_lines(state);
+        let lines = cgen_lines_ref(state);
         let output: str = "";
         let newline: str = from_char_code(10);
         let i: i64 = 0;

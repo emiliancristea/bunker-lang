@@ -15,14 +15,14 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 | 5 | `modules/lexer.bkr` | `LEXER` | Convert source text into token/name/value/string tables through lexer-result helpers. |
 | 6 | `modules/parser_state.bkr` | Parser state helpers | Centralize parser state layout, token table access, position movement, and first-error tracking. |
 | 7 | `modules/parser.bkr` | `PARSER` | Build raw `Vec<i64>` AST nodes from lexer tables through parser-state and AST helpers. |
-| 8 | `modules/cgen_state.bkr` | C codegen state helpers | Centralize C codegen state layout, output lines, indentation, and local/global/function/array type tables. |
-| 9 | `modules/c_codegen.bkr` | `C CODE GENERATOR` | Infer enough expression types for C emission and generate C source through typed AST refs and cgen-state helpers. |
+| 8 | `modules/cgen_state.bkr` | C codegen state helpers | Centralize C codegen state layout behind `CgenStateRef`, output lines, indentation, and local/global/function/array type tables. |
+| 9 | `modules/c_codegen.bkr` | `C CODE GENERATOR` | Infer enough expression types for C emission and generate C source through typed AST refs and `CgenStateRef` cgen-state helpers. |
 | 10 | `modules/report_support.bkr` | Report support helpers | Centralize JSON field/string escaping, report name lookup, diagnostic state, and small vector helpers shared by self-host reports. |
 | 11 | `modules/ast_report.bkr` | Self-host AST report | Produce `BUNKER_AST_JSON`, complete-tree serialization, and AST report summary helpers. |
 | 12 | `modules/symbol_table.bkr` | Self-host symbol table report | Produce `BUNKER_SYMBOL_TABLE_JSON` declaration/reference tables from typed AST refs over the bootstrap AST. |
-| 13 | `modules/type_graph.bkr` | Bootstrap type graph report | Produce `BUNKER_TYPE_GRAPH_JSON` from typed AST refs and expose bootstrap type-state helpers for typecheck. |
+| 13 | `modules/type_graph.bkr` | Bootstrap type graph report | Produce `BUNKER_TYPE_GRAPH_JSON` from typed AST refs and expose `CgenStateRef` bootstrap type-state helpers for typecheck. |
 | 14 | `modules/resolver.bkr` | Bootstrap name resolver | Produce `BUNKER_RESOLVER_JSON` duplicate and unresolved symbol diagnostics from typed AST refs over the bootstrap AST. |
-| 15 | `modules/typecheck.bkr` | Bootstrap typecheck report | Produce `BUNKER_TYPECHECK_JSON` expected/found semantic diagnostics from typed AST refs over the bootstrap AST and bootstrap type-state helpers. |
+| 15 | `modules/typecheck.bkr` | Bootstrap typecheck report | Produce `BUNKER_TYPECHECK_JSON` expected/found semantic diagnostics from typed AST refs over the bootstrap AST and `CgenStateRef` bootstrap type-state helpers. |
 | 16 | `modules/driver.bkr` | `COMPILER DRIVER` | Orchestrate lex, parse, codegen, diagnostics, capability reports, AST tree reports, type graph reports, symbol table reports, resolver reports, typecheck reports, file I/O, and process exit. |
 
 ## Export Contract
@@ -36,14 +36,14 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 | `modules/lexer.bkr` | `tokenize`, `intern_name`, character helpers needed by tokenization. |
 | `modules/parser_state.bkr` | `parser_*` state constructors, token/name/value/string accessors, cursor helpers, and first-error helpers. |
 | `modules/parser.bkr` | `parse_kernel`, token display helpers, grammar routines, parser diagnostic span helpers, and parser-side AST span attachment. |
-| `modules/cgen_state.bkr` | `cgen_*` state constructors, accessors, mutation helpers, and lookup helpers for C codegen state. |
-| `modules/c_codegen.bkr` | `gen_c_program`, C escaping/name helpers, and typed-ref type inference/emission helpers used by codegen. |
+| `modules/cgen_state.bkr` | `CgenStateRef`, `cgen_*_ref` state constructors/accessors/mutation helpers/lookups, and raw `cgen_*` compatibility adapters for C codegen state. |
+| `modules/c_codegen.bkr` | `gen_c_program`, C escaping/name helpers, and typed-ref type inference/emission helpers that consume `CgenStateRef`. |
 | `modules/report_support.bkr` | `json_*`, `ast_report_name`, `resolver_state_*`, and shared diagnostic/vector helpers used by report-producing compiler phases. |
 | `modules/ast_report.bkr` | `build_ast_report_comment`, `self_host_ast_json`, complete-tree `ast_report_*` serializers that consume typed AST refs, and AST report summary/count helpers. |
 | `modules/symbol_table.bkr` | `build_symbol_table_report_comment`, `self_host_symbol_table_json`, and `symbol_table_*` declaration/reference walkers that consume typed AST refs. |
-| `modules/type_graph.bkr` | `build_type_graph_report_comment`, `self_host_type_graph_json`, `type_graph_*` JSON helpers that consume typed AST refs, and bootstrap type-state helpers used by typecheck. |
+| `modules/type_graph.bkr` | `build_type_graph_report_comment`, `self_host_type_graph_json`, `type_graph_*` JSON helpers that consume typed AST refs, and `CgenStateRef` bootstrap type-state helpers used by typecheck. |
 | `modules/resolver.bkr` | `build_resolver_report_comment`, `self_host_resolver_json`, and bootstrap resolver diagnostics helpers that consume typed AST refs. |
-| `modules/typecheck.bkr` | `build_typecheck_report_comment`, `self_host_typecheck_json`, and bootstrap typecheck diagnostics helpers that consume typed AST refs. |
+| `modules/typecheck.bkr` | `build_typecheck_report_comment`, `self_host_typecheck_json`, and bootstrap typecheck diagnostics helpers that consume typed AST refs plus `CgenStateRef` type-state. |
 | `modules/driver.bkr` | `compile_to_c`, `main`, self-host diagnostic JSON helpers, and self-host capability report helpers. |
 
 ## Dependency Rules
@@ -55,7 +55,7 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 - `modules/lexer.bkr` may depend only on constants, lexer-result helpers, and string/Vec builtins.
 - `modules/parser_state.bkr` may depend on constants, lexer-result helpers, and lexer table shapes; direct parser state layout indexing must stay isolated here.
 - `modules/parser.bkr` may depend on constants, parser-state helpers, AST helpers, and lexer table shapes, but must not directly index parser state fields, directly index lexer result fields, or call C codegen.
-- `modules/cgen_state.bkr` may depend on constants and string/Vec builtins; direct C codegen state layout indexing must stay isolated here.
+- `modules/cgen_state.bkr` may depend on constants and string/Vec builtins; direct C codegen state layout indexing must stay isolated here behind `CgenStateRef`.
 - `modules/c_codegen.bkr` may depend on constants, AST accessors, typed AST refs, and cgen-state helpers, but must not construct AST nodes, directly index C codegen state fields, or call file I/O.
 - `modules/report_support.bkr` may depend on constants, AST span/name conventions, and string/Vec builtins, but must not call lexer, parser, C codegen, or file I/O.
 - `modules/ast_report.bkr` may depend on constants, AST accessors, parser token display helpers, and report-support helpers, but must not call lexer, parser entrypoints, C codegen, or file I/O.
