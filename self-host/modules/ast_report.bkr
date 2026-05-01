@@ -17,51 +17,77 @@
     }
 
     fn ast_report_item_name_idx(item: Vec<i64>) -> i64 {
-        if ast_is_fn_item(item) {
+        return ast_report_item_ref_name_idx(ast_item_ref_from_node(item));
+    }
+
+    fn ast_report_item_ref_name_idx(item_ref: AstItemRef) -> i64 {
+        let item: Vec<i64> = ast_item_node_from_ref(item_ref);
+        let kind: i64 = ast_item_ref_kind(item_ref);
+        if kind == NODE_FN {
             return ast_fn_name_idx(item);
         }
-        if ast_is_const_item(item) {
+        if kind == NODE_CONST {
             return ast_const_name_idx(item);
         }
-        if ast_is_struct_item(item) {
+        if kind == NODE_STRUCT {
             return ast_struct_name_idx(item);
         }
         return -1;
     }
 
     fn ast_report_item_param_count(item: Vec<i64>) -> i64 {
-        if ast_is_fn_item(item) {
+        return ast_report_item_ref_param_count(ast_item_ref_from_node(item));
+    }
+
+    fn ast_report_item_ref_param_count(item_ref: AstItemRef) -> i64 {
+        let item: Vec<i64> = ast_item_node_from_ref(item_ref);
+        if ast_item_ref_kind(item_ref) == NODE_FN {
             return ast_fn_param_count(item);
         }
         return 0;
     }
 
     fn ast_report_item_field_count(item: Vec<i64>) -> i64 {
-        if ast_is_struct_item(item) {
+        return ast_report_item_ref_field_count(ast_item_ref_from_node(item));
+    }
+
+    fn ast_report_item_ref_field_count(item_ref: AstItemRef) -> i64 {
+        let item: Vec<i64> = ast_item_node_from_ref(item_ref);
+        if ast_item_ref_kind(item_ref) == NODE_STRUCT {
             return ast_struct_field_count(item);
         }
         return 0;
     }
 
     fn ast_report_item_stmt_count(item: Vec<i64>) -> i64 {
-        if ast_is_fn_item(item) {
+        return ast_report_item_ref_stmt_count(ast_item_ref_from_node(item));
+    }
+
+    fn ast_report_item_ref_stmt_count(item_ref: AstItemRef) -> i64 {
+        let item: Vec<i64> = ast_item_node_from_ref(item_ref);
+        if ast_item_ref_kind(item_ref) == NODE_FN {
             return ast_block_stmt_count(ast_fn_body(item));
         }
         return 0;
     }
 
     fn ast_report_item_json(names: Vec<str>, item: Vec<i64>) -> str {
-        let comma = ",";
+        return ast_report_item_ref_json(names, ast_item_ref_from_node(item));
+    }
+
+    fn ast_report_item_ref_json(names: Vec<str>, item_ref: AstItemRef) -> str {
+        let item_node_ref: AstNodeRef = ast_node_ref_from_handle(ast_item_ref_handle(item_ref));
+        let comma: str = ",";
         return "{" +
-            json_field_str("kind", ast_node_kind_name(ast_kind(item))) + comma +
-            json_field_str("category", ast_category_name(ast_node_category(item))) + comma +
-            json_field_str("name", ast_report_name(names, ast_report_item_name_idx(item))) + comma +
-            json_field_i64("source_start", ast_node_span_start(item)) + comma +
-            json_field_i64("source_end", ast_node_span_end(item)) + comma +
-            json_field_bool("span_known", ast_node_has_span(item)) + comma +
-            json_field_i64("param_count", ast_report_item_param_count(item)) + comma +
-            json_field_i64("field_count", ast_report_item_field_count(item)) + comma +
-            json_field_i64("statement_count", ast_report_item_stmt_count(item)) +
+            json_field_str("kind", ast_node_kind_name(ast_item_ref_kind(item_ref))) + comma +
+            json_field_str("category", ast_category_name(ast_node_category_kind(ast_item_ref_kind(item_ref)))) + comma +
+            json_field_str("name", ast_report_name(names, ast_report_item_ref_name_idx(item_ref))) + comma +
+            json_field_i64("source_start", ast_node_ref_span_start(item_node_ref)) + comma +
+            json_field_i64("source_end", ast_node_ref_span_end(item_node_ref)) + comma +
+            json_field_bool("span_known", ast_node_ref_span_start(item_node_ref) != AST_SPAN_UNKNOWN && ast_node_ref_span_end(item_node_ref) != AST_SPAN_UNKNOWN) + comma +
+            json_field_i64("param_count", ast_report_item_ref_param_count(item_ref)) + comma +
+            json_field_i64("field_count", ast_report_item_ref_field_count(item_ref)) + comma +
+            json_field_i64("statement_count", ast_report_item_ref_stmt_count(item_ref)) +
             "}";
     }
 
@@ -324,15 +350,16 @@
 
     fn self_host_ast_json(source: str, kernel: Vec<i64>) -> str {
         let comma = ",";
+        let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
         let names = ast_kernel_names(kernel);
         let items = ast_kernel_items(kernel);
         let root = "{" +
-            json_field_str("kind", ast_node_kind_name(ast_kind(kernel))) + comma +
+            json_field_str("kind", ast_node_kind_name(ast_node_ref_kind(kernel_ref))) + comma +
             json_field_str("name", ast_report_name(names, ast_name_idx(kernel))) + comma +
             json_field_str("entry", ast_report_name(names, ast_kernel_entry_idx(kernel))) + comma +
-            json_field_i64("source_start", ast_node_span_start(kernel)) + comma +
-            json_field_i64("source_end", ast_node_span_end(kernel)) + comma +
-            json_field_bool("span_known", ast_node_has_span(kernel)) +
+            json_field_i64("source_start", ast_node_ref_span_start(kernel_ref)) + comma +
+            json_field_i64("source_end", ast_node_ref_span_end(kernel_ref)) + comma +
+            json_field_bool("span_known", ast_node_ref_span_start(kernel_ref) != AST_SPAN_UNKNOWN && ast_node_ref_span_end(kernel_ref) != AST_SPAN_UNKNOWN) +
             "}";
         let summary = "{" +
             json_field_i64("source_bytes", len(source)) + comma +

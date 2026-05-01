@@ -107,11 +107,11 @@
             let i: i64 = 0;
             while i < ast_match_arm_count(expr) {
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_pattern_declarations_ref_json(names, ast_pattern_ref_from_pattern(ast_match_pattern(expr, i)), scope));
-                let body: Vec<i64> = ast_match_body(expr, i);
-                if ast_is_block(body) {
+                    symbol_table_pattern_declarations_ref_json(names, ast_pattern_list_get_ref(ast_match_patterns(expr), i), scope));
+                let body_ref: AstNodeRef = ast_node_ref_from_handle(ast_match_body_handle(expr, i));
+                if ast_node_ref_kind(body_ref) == NODE_BLOCK {
                     result = symbol_table_json_array_append_items(result,
-                        symbol_table_block_declarations_ref_json(names, ast_block_ref_from_node(body), scope));
+                        symbol_table_block_declarations_ref_json(names, ast_block_ref_from_handle(ast_node_ref_handle(body_ref)), scope));
                 } else {
                     result = symbol_table_json_array_append_items(result,
                         symbol_table_expr_declarations_ref_json(names, ast_expr_ref_from_handle(ast_match_body_handle(expr, i)), scope));
@@ -411,10 +411,10 @@
                 symbol_table_expr_references_ref_json(names, ast_expr_ref_from_handle(ast_match_scrutinee_handle(expr)), scope));
             let i: i64 = 0;
             while i < ast_match_arm_count(expr) {
-                let body: Vec<i64> = ast_match_body(expr, i);
-                if ast_is_block(body) {
+                let body_ref: AstNodeRef = ast_node_ref_from_handle(ast_match_body_handle(expr, i));
+                if ast_node_ref_kind(body_ref) == NODE_BLOCK {
                     result = symbol_table_json_array_append_items(result,
-                        symbol_table_block_references_ref_json(names, ast_block_ref_from_node(body), scope));
+                        symbol_table_block_references_ref_json(names, ast_block_ref_from_handle(ast_node_ref_handle(body_ref)), scope));
                 } else {
                     result = symbol_table_json_array_append_items(result,
                         symbol_table_expr_references_ref_json(names, ast_expr_ref_from_handle(ast_match_body_handle(expr, i)), scope));

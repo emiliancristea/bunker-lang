@@ -350,7 +350,7 @@
             while i < ast_match_arm_count(expr) {
                 let arm_bindings = resolver_i64_vec_copy(bindings);
                 let pattern_bindings: Vec<i64> = vec_new();
-                state = resolver_pattern_ref_bindings(state, names, ast_pattern_ref_from_pattern(ast_match_pattern(expr, i)), scope, pattern_bindings);
+                state = resolver_pattern_ref_bindings(state, names, ast_pattern_list_get_ref(ast_match_patterns(expr), i), scope, pattern_bindings);
                 let j: i64 = 0;
                 while j < vec_len(pattern_bindings) {
                     let binding_name_idx: i64 = vec_get(pattern_bindings, j);
@@ -358,9 +358,9 @@
                     j = j + 1;
                 }
 
-                let body: Vec<i64> = ast_match_body(expr, i);
-                if ast_is_block(body) {
-                    state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_block_ref_from_node(body), scope, arm_bindings, resolver_empty_i64_vec());
+                let body_ref: AstNodeRef = ast_node_ref_from_handle(ast_match_body_handle(expr, i));
+                if ast_node_ref_kind(body_ref) == NODE_BLOCK {
+                    state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_block_ref_from_handle(ast_node_ref_handle(body_ref)), scope, arm_bindings, resolver_empty_i64_vec());
                 } else {
                     state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_match_body_handle(expr, i)), scope, arm_bindings);
                 }
