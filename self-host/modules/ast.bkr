@@ -359,6 +359,14 @@
         return ast_pattern_kind(ast_pattern_from_ref(pattern_ref));
     }
 
+    fn ast_pattern_ref_span_start(pattern_ref: AstPatternRef) -> i64 {
+        return ast_pattern_span_start(ast_pattern_from_ref(pattern_ref));
+    }
+
+    fn ast_pattern_ref_span_end(pattern_ref: AstPatternRef) -> i64 {
+        return ast_pattern_span_end(ast_pattern_from_ref(pattern_ref));
+    }
+
     fn ast_pattern_from_handle(handle: i64) -> Vec<i64> {
         return handle as Vec<i64>;
     }
@@ -829,6 +837,10 @@
         return vec_get(nodes, index);
     }
 
+    fn ast_node_list_get_ref(nodes: Vec<i64>, index: i64) -> AstNodeRef {
+        return ast_node_ref_from_handle(ast_node_list_get_handle(nodes, index));
+    }
+
     fn ast_i64_list_count(values: Vec<i64>) -> i64 {
         return vec_len(values);
     }
@@ -843,6 +855,10 @@
 
     fn ast_pattern_list_get(patterns: Vec<i64>, index: i64) -> Vec<i64> {
         return ast_pattern_from_handle(vec_get(patterns, index));
+    }
+
+    fn ast_pattern_list_get_ref(patterns: Vec<i64>, index: i64) -> AstPatternRef {
+        return ast_pattern_ref_from_handle(vec_get(patterns, index));
     }
 
     fn ast_kernel_item_count(kernel: Vec<i64>) -> i64 {
