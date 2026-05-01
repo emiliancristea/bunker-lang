@@ -6,6 +6,34 @@
     // Keep all layout construction here so later slices can replace the
     // representation with real Bunker structs/enums behind one boundary.
 
+    struct AstNodeRef {
+        handle: i64,
+    }
+
+    struct AstTypeRef {
+        handle: i64,
+    }
+
+    struct AstExprRef {
+        handle: i64,
+    }
+
+    struct AstStmtRef {
+        handle: i64,
+    }
+
+    struct AstItemRef {
+        handle: i64,
+    }
+
+    struct AstBlockRef {
+        handle: i64,
+    }
+
+    struct AstPatternRef {
+        handle: i64,
+    }
+
     fn ast_new(kind: i64) -> Vec<i64> {
         let node: Vec<i64> = vec_new();
         vec_push(node, kind);
@@ -143,6 +171,34 @@
         return node as i64;
     }
 
+    fn ast_node_ref_from_handle(handle: i64) -> AstNodeRef {
+        return AstNodeRef { handle: handle };
+    }
+
+    fn ast_node_ref_from_node(node: Vec<i64>) -> AstNodeRef {
+        return ast_node_ref_from_handle(ast_node_handle(node));
+    }
+
+    fn ast_node_ref_handle(node_ref: AstNodeRef) -> i64 {
+        return node_ref.handle;
+    }
+
+    fn ast_node_from_ref(node_ref: AstNodeRef) -> Vec<i64> {
+        return ast_node_from_handle(ast_node_ref_handle(node_ref));
+    }
+
+    fn ast_node_ref_kind(node_ref: AstNodeRef) -> i64 {
+        return ast_kind(ast_node_from_ref(node_ref));
+    }
+
+    fn ast_node_ref_span_start(node_ref: AstNodeRef) -> i64 {
+        return ast_node_span_start(ast_node_from_ref(node_ref));
+    }
+
+    fn ast_node_ref_span_end(node_ref: AstNodeRef) -> i64 {
+        return ast_node_span_end(ast_node_from_ref(node_ref));
+    }
+
     fn ast_node_from_handle(handle: i64) -> Vec<i64> {
         return handle as Vec<i64>;
     }
@@ -163,24 +219,144 @@
         return ast_node_handle(type_node);
     }
 
+    fn ast_type_ref_from_handle(handle: i64) -> AstTypeRef {
+        return AstTypeRef { handle: handle };
+    }
+
+    fn ast_type_ref_from_node(type_node: Vec<i64>) -> AstTypeRef {
+        return ast_type_ref_from_handle(ast_type_handle(type_node));
+    }
+
+    fn ast_type_ref_handle(type_ref: AstTypeRef) -> i64 {
+        return type_ref.handle;
+    }
+
+    fn ast_type_node_from_ref(type_ref: AstTypeRef) -> Vec<i64> {
+        return ast_node_from_handle(ast_type_ref_handle(type_ref));
+    }
+
+    fn ast_type_ref_kind_value(type_ref: AstTypeRef) -> i64 {
+        return ast_type_kind_value(ast_type_ref_handle(type_ref));
+    }
+
     fn ast_expr_handle(expr: Vec<i64>) -> i64 {
         return ast_node_handle(expr);
+    }
+
+    fn ast_expr_ref_from_handle(handle: i64) -> AstExprRef {
+        return AstExprRef { handle: handle };
+    }
+
+    fn ast_expr_ref_from_node(expr: Vec<i64>) -> AstExprRef {
+        return ast_expr_ref_from_handle(ast_expr_handle(expr));
+    }
+
+    fn ast_expr_ref_handle(expr_ref: AstExprRef) -> i64 {
+        return expr_ref.handle;
+    }
+
+    fn ast_expr_node_from_ref(expr_ref: AstExprRef) -> Vec<i64> {
+        return ast_node_from_handle(ast_expr_ref_handle(expr_ref));
+    }
+
+    fn ast_expr_ref_kind(expr_ref: AstExprRef) -> i64 {
+        return ast_kind(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_stmt_handle(stmt: Vec<i64>) -> i64 {
         return ast_node_handle(stmt);
     }
 
+    fn ast_stmt_ref_from_handle(handle: i64) -> AstStmtRef {
+        return AstStmtRef { handle: handle };
+    }
+
+    fn ast_stmt_ref_from_node(stmt: Vec<i64>) -> AstStmtRef {
+        return ast_stmt_ref_from_handle(ast_stmt_handle(stmt));
+    }
+
+    fn ast_stmt_ref_handle(stmt_ref: AstStmtRef) -> i64 {
+        return stmt_ref.handle;
+    }
+
+    fn ast_stmt_node_from_ref(stmt_ref: AstStmtRef) -> Vec<i64> {
+        return ast_node_from_handle(ast_stmt_ref_handle(stmt_ref));
+    }
+
+    fn ast_stmt_ref_kind(stmt_ref: AstStmtRef) -> i64 {
+        return ast_kind(ast_stmt_node_from_ref(stmt_ref));
+    }
+
     fn ast_item_handle(item: Vec<i64>) -> i64 {
         return ast_node_handle(item);
+    }
+
+    fn ast_item_ref_from_handle(handle: i64) -> AstItemRef {
+        return AstItemRef { handle: handle };
+    }
+
+    fn ast_item_ref_from_node(item: Vec<i64>) -> AstItemRef {
+        return ast_item_ref_from_handle(ast_item_handle(item));
+    }
+
+    fn ast_item_ref_handle(item_ref: AstItemRef) -> i64 {
+        return item_ref.handle;
+    }
+
+    fn ast_item_node_from_ref(item_ref: AstItemRef) -> Vec<i64> {
+        return ast_node_from_handle(ast_item_ref_handle(item_ref));
+    }
+
+    fn ast_item_ref_kind(item_ref: AstItemRef) -> i64 {
+        return ast_kind(ast_item_node_from_ref(item_ref));
     }
 
     fn ast_block_handle(block: Vec<i64>) -> i64 {
         return ast_node_handle(block);
     }
 
+    fn ast_block_ref_from_handle(handle: i64) -> AstBlockRef {
+        return AstBlockRef { handle: handle };
+    }
+
+    fn ast_block_ref_from_node(block: Vec<i64>) -> AstBlockRef {
+        return ast_block_ref_from_handle(ast_block_handle(block));
+    }
+
+    fn ast_block_ref_handle(block_ref: AstBlockRef) -> i64 {
+        return block_ref.handle;
+    }
+
+    fn ast_block_node_from_ref(block_ref: AstBlockRef) -> Vec<i64> {
+        return ast_node_from_handle(ast_block_ref_handle(block_ref));
+    }
+
+    fn ast_block_ref_stmt_count(block_ref: AstBlockRef) -> i64 {
+        return ast_block_stmt_count(ast_block_node_from_ref(block_ref));
+    }
+
     fn ast_pattern_handle(pattern: Vec<i64>) -> i64 {
         return pattern as i64;
+    }
+
+    fn ast_pattern_ref_from_handle(handle: i64) -> AstPatternRef {
+        return AstPatternRef { handle: handle };
+    }
+
+    fn ast_pattern_ref_from_pattern(pattern: Vec<i64>) -> AstPatternRef {
+        return ast_pattern_ref_from_handle(ast_pattern_handle(pattern));
+    }
+
+    fn ast_pattern_ref_handle(pattern_ref: AstPatternRef) -> i64 {
+        return pattern_ref.handle;
+    }
+
+    fn ast_pattern_from_ref(pattern_ref: AstPatternRef) -> Vec<i64> {
+        return ast_pattern_from_handle(ast_pattern_ref_handle(pattern_ref));
+    }
+
+    fn ast_pattern_ref_kind(pattern_ref: AstPatternRef) -> i64 {
+        return ast_pattern_kind(ast_pattern_from_ref(pattern_ref));
     }
 
     fn ast_pattern_from_handle(handle: i64) -> Vec<i64> {
