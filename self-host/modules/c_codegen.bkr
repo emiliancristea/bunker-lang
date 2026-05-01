@@ -210,8 +210,9 @@
         }
 
         if node_type == NODE_ARRAY_LIT {
-            if ast_array_element_count(expr) > 0 {
-                return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_array_element_handle(expr, 0)));
+            let elements_ref: AstNodeListRef = ast_array_elements_ref(expr);
+            if ast_node_list_ref_count(elements_ref) > 0 {
+                return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(elements_ref, 0)));
             }
             return TYPE_UNKNOWN;
         }
@@ -272,8 +273,9 @@
         }
 
         if node_type == NODE_MATCH {
-            if ast_match_arm_count(expr) > 0 {
-                let body_ref: AstNodeRef = ast_node_ref_from_handle(ast_match_body_handle(expr, 0));
+            let bodies_ref: AstNodeListRef = ast_match_bodies_ref(expr);
+            if ast_node_list_ref_count(bodies_ref) > 0 {
+                let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, 0);
                 if ast_node_ref_kind(body_ref) == NODE_BLOCK {
                     let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_node_ref_handle(body_ref));
                     let body: Vec<i64> = ast_block_node_from_ref(block_ref);
@@ -449,13 +451,15 @@
         let result = "({ " + type_to_c(scrutinee_kind) + " " + value_name + " = " + gen_c_expr_ref(state, scrutinee_ref) + "; " +
             type_to_c(result_kind) + " " + result_name + " = 0; ";
 
+        let patterns_ref: AstPatternListRef = ast_match_patterns_ref(expr);
+        let bodies_ref: AstNodeListRef = ast_match_bodies_ref(expr);
         let i: i64 = 0;
-        while i < ast_match_arm_count(expr) {
+        while i < ast_pattern_list_ref_count(patterns_ref) {
             if i > 0 {
                 result = result + "else ";
             }
-            let pattern_ref: AstPatternRef = ast_pattern_list_get_ref(ast_match_patterns(expr), i);
-            let body_ref: AstNodeRef = ast_node_ref_from_handle(ast_match_body_handle(expr, i));
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
             result = result + "if (" + gen_c_match_condition_ref(state, value_name, pattern_ref) + ") { " +
                 gen_c_match_bindings_ref(state, value_name, pattern_ref, scrutinee_kind) +
                 gen_c_inline_node_result(state, result_name, body_ref) + "} ";
@@ -533,11 +537,12 @@
         }
 
         if node_type == NODE_ARRAY_LIT {
+            let elements_ref: AstNodeListRef = ast_array_elements_ref(expr);
             let result = "{";
             let i: i64 = 0;
-            while i < ast_array_element_count(expr) {
+            while i < ast_node_list_ref_count(elements_ref) {
                 if i > 0 { result = result + ", "; }
-                result = result + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_array_element_handle(expr, i)));
+                result = result + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(elements_ref, i)));
                 i = i + 1;
             }
             return result + "}";
@@ -545,11 +550,13 @@
 
         if node_type == NODE_STRUCT_LIT {
             let type_name = name_to_c_ref(state, ast_struct_lit_name_idx(expr));
+            let field_names_ref: AstI64ListRef = ast_struct_lit_field_names_ref(expr);
+            let field_values_ref: AstNodeListRef = ast_struct_lit_field_values_ref(expr);
             let result = "(" + type_name + "){";
             let i: i64 = 0;
-            while i < ast_struct_lit_field_count(expr) {
+            while i < ast_i64_list_ref_count(field_names_ref) {
                 if i > 0 { result = result + ", "; }
-                result = result + "." + name_to_c_ref(state, ast_struct_lit_field_name_idx(expr, i)) + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_struct_lit_field_value_handle(expr, i)));
+                result = result + "." + name_to_c_ref(state, ast_i64_list_ref_get(field_names_ref, i)) + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(field_values_ref, i)));
                 i = i + 1;
             }
             return result + "}";
@@ -628,48 +635,50 @@
             let name_idx: i64 = ast_call_name_idx(expr);
             let names: Vec<str> = cgen_names_ref(state);
             let raw: str = name_from_table(names, name_idx);
-            if raw == "Some" && ast_call_arg_count(expr) == 1 {
-                return "(((" + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 0))) + ") << 1) | 1)";
+            let args_ref: AstNodeListRef = ast_call_args_ref(expr);
+            let arg_count: i64 = ast_node_list_ref_count(args_ref);
+            if raw == "Some" && arg_count == 1 {
+                return "(((" + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0))) + ") << 1) | 1)";
             }
-            if raw == "result_ok" && ast_call_arg_count(expr) == 1 {
-                let arg: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 0)));
+            if raw == "result_ok" && arg_count == 1 {
+                let arg: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
                 return "bkr_result_ok(" + arg + ")";
             }
-            if raw == "result_err" && ast_call_arg_count(expr) == 1 {
-                let arg2: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 0)));
+            if raw == "result_err" && arg_count == 1 {
+                let arg2: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
                 return "bkr_result_err(" + arg2 + ")";
             }
-            if raw == "vec_push" && ast_call_arg_count(expr) == 2 {
-                let vec_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 0)));
-                let value: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 1)));
+            if raw == "vec_push" && arg_count == 2 {
+                let vec_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let value: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
                 return "vec_push(" + vec_handle + ", " + value + ")";
             }
-            if raw == "vec_set" && ast_call_arg_count(expr) == 3 {
-                let vec_handle2: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 0)));
-                let idx: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 1)));
-                let value2: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 2)));
+            if raw == "vec_set" && arg_count == 3 {
+                let vec_handle2: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let idx: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                let value2: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 2)));
                 return "vec_set(" + vec_handle2 + ", " + idx + ", " + value2 + ")";
             }
-            if raw == "hashmap_insert" && ast_call_arg_count(expr) == 3 {
-                let map_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 0)));
-                let key: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 1)));
-                let value3: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 2)));
+            if raw == "hashmap_insert" && arg_count == 3 {
+                let map_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let key: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                let value3: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 2)));
                 return "hashmap_insert(" + map_handle + ", " + key + ", " + value3 + ")";
             }
-            if raw == "result_is_ok" && ast_call_arg_count(expr) == 1 {
-                let arg3: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 0)));
+            if raw == "result_is_ok" && arg_count == 1 {
+                let arg3: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
                 return "bkr_result_is_ok(" + arg3 + ")";
             }
-            if raw == "result_is_err" && ast_call_arg_count(expr) == 1 {
-                let arg4: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 0)));
+            if raw == "result_is_err" && arg_count == 1 {
+                let arg4: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
                 return "bkr_result_is_err(" + arg4 + ")";
             }
-            if raw == "result_tag" && ast_call_arg_count(expr) == 1 {
-                let arg5: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 0)));
+            if raw == "result_tag" && arg_count == 1 {
+                let arg5: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
                 return "bkr_result_tag(" + arg5 + ")";
             }
-            if (raw == "result_unwrap" || raw == "result_unwrap_err" || raw == "result_value") && ast_call_arg_count(expr) == 1 {
-                let arg6: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, 0)));
+            if (raw == "result_unwrap" || raw == "result_unwrap_err" || raw == "result_value") && arg_count == 1 {
+                let arg6: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
                 if raw == "result_unwrap" {
                     return "bkr_result_unwrap(" + arg6 + ")";
                 }
@@ -678,8 +687,8 @@
                 }
                 return "bkr_result_value(" + arg6 + ")";
             }
-            if raw == "len" && ast_call_arg_count(expr) == 1 {
-                let len_arg_ref: AstExprRef = ast_expr_ref_from_handle(ast_call_arg_handle(expr, 0));
+            if raw == "len" && arg_count == 1 {
+                let len_arg_ref: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0));
                 let len_arg: Vec<i64> = ast_expr_node_from_ref(len_arg_ref);
                 if ast_expr_ref_kind(len_arg_ref) == NODE_IDENT {
                     let array_len: i64 = cgen_lookup_array_length_ref(state, ast_name_idx(len_arg));
@@ -691,9 +700,9 @@
             let name: str = name_to_c_ref(state, name_idx);
             let result = name + "(";
             let i: i64 = 0;
-            while i < ast_call_arg_count(expr) {
+            while i < arg_count {
                 if i > 0 { result = result + ", "; }
-                result = result + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_call_arg_handle(expr, i)));
+                result = result + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, i)));
                 i = i + 1;
             }
             return result + ")";
@@ -913,9 +922,10 @@
 
         // Generate parameter list
         let param_str: str = "";
+        let params_ref: AstNodeListRef = ast_fn_params_ref(fn_node);
         let i: i64 = 0;
-        while i < ast_fn_param_count(fn_node) {
-            let param_ref: AstNodeRef = ast_node_list_get_ref(ast_fn_params(fn_node), i);
+        while i < ast_node_list_ref_count(params_ref) {
+            let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
             let param: Vec<i64> = ast_node_from_ref(param_ref);
             let pname: str = name_to_c_ref(state, ast_param_name_idx(param));
             let ptype_c: str = type_node_to_c_ref(state, ast_type_ref_from_handle(ast_param_type_handle(param)));
@@ -946,9 +956,10 @@
     fn gen_c_fn_ref(state: CgenStateRef, fn_ref: AstItemRef) -> CgenStateRef {
         let fn_node: Vec<i64> = ast_item_node_from_ref(fn_ref);
         cgen_clear_locals_ref(state);
+        let params_ref: AstNodeListRef = ast_fn_params_ref(fn_node);
         let i: i64 = 0;
-        while i < ast_fn_param_count(fn_node) {
-            let param_ref: AstNodeRef = ast_node_list_get_ref(ast_fn_params(fn_node), i);
+        while i < ast_node_list_ref_count(params_ref) {
+            let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
             let param: Vec<i64> = ast_node_from_ref(param_ref);
             cgen_add_local_type_ref(state, ast_param_name_idx(param), type_node_kind_ref(ast_type_ref_from_handle(ast_param_type_handle(param))));
             i = i + 1;
@@ -1008,9 +1019,10 @@
         let name: str = name_to_c_ref(state, ast_struct_name_idx(struct_node));
         cgen_emit_ref(state, "typedef struct " + name + " {");
         cgen_indent_ref(state);
+        let fields_ref: AstNodeListRef = ast_struct_fields_ref(struct_node);
         let i: i64 = 0;
-        while i < ast_struct_field_count(struct_node) {
-            let field_ref: AstNodeRef = ast_node_list_get_ref(ast_struct_fields(struct_node), i);
+        while i < ast_node_list_ref_count(fields_ref) {
+            let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, i);
             let field: Vec<i64> = ast_node_from_ref(field_ref);
             let field_name: str = name_to_c_ref(state, ast_field_decl_name_idx(field));
             let field_type: i64 = ast_field_decl_type_handle(field);
@@ -1030,9 +1042,11 @@
 
     fn gen_c_kernel_structs_ref(state: CgenStateRef, kernel_ref: AstNodeRef) -> CgenStateRef {
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             if ast_item_ref_kind(item_ref) == NODE_STRUCT {
                 gen_c_struct_ref(state, item_ref);
             }
@@ -1048,9 +1062,11 @@
 
     fn gen_c_kernel_function_types_ref(state: CgenStateRef, kernel_ref: AstNodeRef) -> CgenStateRef {
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             if ast_item_ref_kind(item_ref) == NODE_FN {
                 let item: Vec<i64> = ast_item_node_from_ref(item_ref);
                 let ret_type_node: i64 = ast_fn_return_type_handle(item);
@@ -1072,9 +1088,11 @@
 
     fn gen_c_kernel_consts_ref(state: CgenStateRef, kernel_ref: AstNodeRef) -> CgenStateRef {
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             if ast_item_ref_kind(item_ref) == NODE_CONST {
                 gen_c_const_ref(state, item_ref);
             }
@@ -1090,9 +1108,11 @@
 
     fn gen_c_kernel_prototypes_ref(state: CgenStateRef, kernel_ref: AstNodeRef) -> CgenStateRef {
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             if ast_item_ref_kind(item_ref) == NODE_FN {
                 gen_c_prototype_ref(state, item_ref);
             }
@@ -1108,9 +1128,11 @@
 
     fn gen_c_kernel_ref(state: CgenStateRef, kernel_ref: AstNodeRef) -> CgenStateRef {
         let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
-            let item_ref: AstItemRef = ast_item_ref_from_node(ast_kernel_item(kernel, i));
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
             if ast_item_ref_kind(item_ref) == NODE_FN {
                 gen_c_fn_ref(state, item_ref);
             }
