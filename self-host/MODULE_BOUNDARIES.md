@@ -16,7 +16,7 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 | 6 | `modules/parser_state.bkr` | Parser state helpers | Centralize parser state layout, token table access, position movement, and first-error tracking. |
 | 7 | `modules/parser.bkr` | `PARSER` | Build raw `Vec<i64>` AST nodes from lexer tables through parser-state and AST helpers. |
 | 8 | `modules/cgen_state.bkr` | C codegen state helpers | Centralize C codegen state layout, output lines, indentation, and local/global/function/array type tables. |
-| 9 | `modules/c_codegen.bkr` | `C CODE GENERATOR` | Infer enough expression types for C emission and generate C source through AST and cgen-state helpers. |
+| 9 | `modules/c_codegen.bkr` | `C CODE GENERATOR` | Infer enough expression types for C emission and generate C source through typed AST refs and cgen-state helpers. |
 | 10 | `modules/report_support.bkr` | Report support helpers | Centralize JSON field/string escaping, report name lookup, diagnostic state, and small vector helpers shared by self-host reports. |
 | 11 | `modules/ast_report.bkr` | Self-host AST report | Produce `BUNKER_AST_JSON`, complete-tree serialization, and AST report summary helpers. |
 | 12 | `modules/symbol_table.bkr` | Self-host symbol table report | Produce `BUNKER_SYMBOL_TABLE_JSON` declaration/reference tables from typed AST refs over the bootstrap AST. |
@@ -37,7 +37,7 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 | `modules/parser_state.bkr` | `parser_*` state constructors, token/name/value/string accessors, cursor helpers, and first-error helpers. |
 | `modules/parser.bkr` | `parse_kernel`, token display helpers, grammar routines, parser diagnostic span helpers, and parser-side AST span attachment. |
 | `modules/cgen_state.bkr` | `cgen_*` state constructors, accessors, mutation helpers, and lookup helpers for C codegen state. |
-| `modules/c_codegen.bkr` | `gen_c_program`, C escaping/name helpers, type inference helpers used by codegen. |
+| `modules/c_codegen.bkr` | `gen_c_program`, C escaping/name helpers, and typed-ref type inference/emission helpers used by codegen. |
 | `modules/report_support.bkr` | `json_*`, `ast_report_name`, `resolver_state_*`, and shared diagnostic/vector helpers used by report-producing compiler phases. |
 | `modules/ast_report.bkr` | `build_ast_report_comment`, `self_host_ast_json`, complete-tree `ast_report_*` serializers that consume typed AST refs, and AST report summary/count helpers. |
 | `modules/symbol_table.bkr` | `build_symbol_table_report_comment`, `self_host_symbol_table_json`, and `symbol_table_*` declaration/reference walkers that consume typed AST refs. |
@@ -56,7 +56,7 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 - `modules/parser_state.bkr` may depend on constants, lexer-result helpers, and lexer table shapes; direct parser state layout indexing must stay isolated here.
 - `modules/parser.bkr` may depend on constants, parser-state helpers, AST helpers, and lexer table shapes, but must not directly index parser state fields, directly index lexer result fields, or call C codegen.
 - `modules/cgen_state.bkr` may depend on constants and string/Vec builtins; direct C codegen state layout indexing must stay isolated here.
-- `modules/c_codegen.bkr` may depend on constants, AST accessors, and cgen-state helpers, but must not construct AST nodes, directly index C codegen state fields, or call file I/O.
+- `modules/c_codegen.bkr` may depend on constants, AST accessors, typed AST refs, and cgen-state helpers, but must not construct AST nodes, directly index C codegen state fields, or call file I/O.
 - `modules/report_support.bkr` may depend on constants, AST span/name conventions, and string/Vec builtins, but must not call lexer, parser, C codegen, or file I/O.
 - `modules/ast_report.bkr` may depend on constants, AST accessors, parser token display helpers, and report-support helpers, but must not call lexer, parser entrypoints, C codegen, or file I/O.
 - `modules/symbol_table.bkr` may depend on constants, AST accessors, AST report summary helpers, and report-support helpers, but must not call lexer, parser, C codegen, or file I/O.
