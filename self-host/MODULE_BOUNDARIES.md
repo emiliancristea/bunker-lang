@@ -10,7 +10,7 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 |---:|---|---|---|
 | 1 | `modules/constants.bkr` | Token, AST, pattern, and type constants | Shared numeric tags used by all later modules. |
 | 2 | `modules/kind_model.bkr` | Kind model helpers | Centralize node/type/pattern names, AST category mapping, and pure kind predicates behind enum-ready helpers. |
-| 3 | `modules/ast.bkr` | AST layout helpers | Centralize raw AST construction/access, node spans, and block child iteration behind named Bunker functions. |
+| 3 | `modules/ast.bkr` | AST layout helpers | Centralize raw AST construction/access, optional AST handles, node spans, and block child iteration behind named Bunker functions. |
 | 4 | `modules/lexer_result.bkr` | Lexer result helpers | Centralize lexer output table layout for tokens, names, values, and strings. |
 | 5 | `modules/lexer.bkr` | `LEXER` | Convert source text into token/name/value/string tables through lexer-result helpers. |
 | 6 | `modules/parser_state.bkr` | Parser state helpers | Centralize parser state layout, token table access, position movement, and first-error tracking. |
@@ -31,7 +31,7 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 |---|---|
 | `modules/constants.bkr` | All `TOK_*`, `NODE_*`, `AST_*`, `PAT_*`, and `TYPE_*` constants. |
 | `modules/kind_model.bkr` | `ast_node_kind_name`, `ast_type_kind_name`, `ast_pattern_kind_name`, `ast_category_name`, `ast_node_category_kind`, and pure `ast_is_*_kind` predicates. |
-| `modules/ast.bkr` | `ast_*` constructors/accessors, source-span helpers, typed collection bridge helpers, block iteration helpers, node-level category helpers, and predicates for the current AST vector/type/pattern layout. |
+| `modules/ast.bkr` | `ast_*` constructors/accessors, optional AST handle helpers, source-span helpers, typed collection bridge helpers, block iteration helpers, node-level category helpers, and predicates for the current AST vector/type/pattern layout. |
 | `modules/lexer_result.bkr` | `lexer_result_*` constructors/accessors for the current lexer output table layout. |
 | `modules/lexer.bkr` | `tokenize`, `intern_name`, character helpers needed by tokenization. |
 | `modules/parser_state.bkr` | `parser_*` state constructors, token/name/value/string accessors, cursor helpers, and first-error helpers. |

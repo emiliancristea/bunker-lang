@@ -106,10 +106,10 @@
     }
 
     fn ast_report_optional_node_json(names: Vec<str>, node_value: i64) -> str {
-        if node_value == 0 {
+        if ast_optional_is_none(node_value) {
             return "null";
         }
-        return ast_report_node_json(names, node_value as Vec<i64>);
+        return ast_report_node_json(names, ast_optional_node(node_value));
     }
 
     fn ast_report_block_statements_json(names: Vec<str>, block: Vec<i64>) -> str {

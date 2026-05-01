@@ -45,12 +45,12 @@
 
     fn symbol_table_type_references_json(names: Vec<str>, type_node: i64, scope: str) -> str {
         let result = "[";
-        if type_node != 0 && ast_type_kind_value(type_node) == TYPE_STRUCT {
+        if ast_optional_is_some(type_node) && ast_type_kind_value(type_node) == TYPE_STRUCT {
             result = symbol_table_json_array_append(result,
                 symbol_table_node_entry_json("type_reference",
                     ast_report_name(names, ast_type_struct_name_idx_value(type_node)),
                     scope,
-                    type_node as Vec<i64>));
+                    ast_optional_node(type_node)));
         }
         return result + "]";
     }
@@ -70,11 +70,11 @@
 
     fn symbol_table_expr_declarations_json(names: Vec<str>, expr_value: i64, scope: str) -> str {
         let result = "[";
-        if expr_value == 0 {
+        if ast_optional_is_none(expr_value) {
             return result + "]";
         }
 
-        let expr = expr_value as Vec<i64>;
+        let expr = ast_optional_node(expr_value);
         let kind = ast_kind(expr);
         if kind == NODE_MATCH {
             let i: i64 = 0;
@@ -159,9 +159,10 @@
                 symbol_table_expr_declarations_json(names, ast_if_cond(stmt) as i64, scope));
             result = symbol_table_json_array_append_items(result,
                 symbol_table_block_declarations_json(names, ast_if_then(stmt), scope));
-            if ast_if_else(stmt) != 0 {
+            let else_block = ast_if_else(stmt);
+            if ast_optional_is_some(else_block) {
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_block_declarations_json(names, ast_if_else(stmt) as Vec<i64>, scope));
+                    symbol_table_block_declarations_json(names, ast_optional_node(else_block), scope));
             }
         } else if kind == NODE_WHILE {
             result = symbol_table_json_array_append_items(result,
@@ -274,11 +275,11 @@
 
     fn symbol_table_expr_references_json(names: Vec<str>, expr_value: i64, scope: str) -> str {
         let result = "[";
-        if expr_value == 0 {
+        if ast_optional_is_none(expr_value) {
             return result + "]";
         }
 
-        let expr = expr_value as Vec<i64>;
+        let expr = ast_optional_node(expr_value);
         let kind = ast_kind(expr);
         if kind == NODE_IDENT {
             result = symbol_table_json_array_append(result,
@@ -385,9 +386,10 @@
                 symbol_table_expr_references_json(names, ast_if_cond(stmt) as i64, scope));
             result = symbol_table_json_array_append_items(result,
                 symbol_table_block_references_json(names, ast_if_then(stmt), scope));
-            if ast_if_else(stmt) != 0 {
+            let else_block = ast_if_else(stmt);
+            if ast_optional_is_some(else_block) {
                 result = symbol_table_json_array_append_items(result,
-                    symbol_table_block_references_json(names, ast_if_else(stmt) as Vec<i64>, scope));
+                    symbol_table_block_references_json(names, ast_optional_node(else_block), scope));
             }
         } else if kind == NODE_WHILE {
             result = symbol_table_json_array_append_items(result,

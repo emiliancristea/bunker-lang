@@ -164,14 +164,14 @@
 
     fn resolver_type_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
                                  type_node: i64, scope: str) -> Vec<str> {
-        if type_node != 0 && ast_type_kind_value(type_node) == TYPE_STRUCT {
+        if ast_optional_is_some(type_node) && ast_type_kind_value(type_node) == TYPE_STRUCT {
             let name_idx = ast_type_struct_name_idx_value(type_node);
             if !resolver_has_struct_name(kernel, name_idx) {
                 state = resolver_append_unresolved_node(state,
                     ast_report_name(names, name_idx),
                     scope,
                     "type_reference",
-                    type_node as Vec<i64>,
+                    ast_optional_node(type_node),
                     "declared struct type");
             }
         }
@@ -194,11 +194,11 @@
 
     fn resolver_expr_diagnostics(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
                                  expr_value: i64, scope: str, bindings: Vec<i64>) -> Vec<str> {
-        if expr_value == 0 {
+        if ast_optional_is_none(expr_value) {
             return state;
         }
 
-        let expr = expr_value as Vec<i64>;
+        let expr = ast_optional_node(expr_value);
         let kind = ast_kind(expr);
         if kind == NODE_IDENT {
             let name_idx = ast_name_idx(expr);
@@ -305,8 +305,9 @@
         } else if kind == NODE_IF {
             state = resolver_expr_diagnostics(state, kernel, names, ast_if_cond(stmt) as i64, scope, bindings);
             state = resolver_block_diagnostics(state, kernel, names, ast_if_then(stmt), scope, bindings, resolver_empty_i64_vec());
-            if ast_if_else(stmt) != 0 {
-                state = resolver_block_diagnostics(state, kernel, names, ast_if_else(stmt) as Vec<i64>, scope, bindings, resolver_empty_i64_vec());
+            let else_block = ast_if_else(stmt);
+            if ast_optional_is_some(else_block) {
+                state = resolver_block_diagnostics(state, kernel, names, ast_optional_node(else_block), scope, bindings, resolver_empty_i64_vec());
             }
         } else if kind == NODE_WHILE {
             state = resolver_expr_diagnostics(state, kernel, names, ast_while_cond(stmt) as i64, scope, bindings);
