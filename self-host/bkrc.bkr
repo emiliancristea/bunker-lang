@@ -21,6 +21,8 @@ kernel BunkerCompiler {
 
     import "modules/report_support.bkr";
 
+    import "modules/ast_report.bkr";
+
     import "modules/type_graph.bkr";
 
     import "modules/resolver.bkr";
