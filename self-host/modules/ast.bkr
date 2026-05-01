@@ -34,6 +34,22 @@
         handle: i64,
     }
 
+    struct AstNodeListRef {
+        handle: i64,
+    }
+
+    struct AstI64ListRef {
+        handle: i64,
+    }
+
+    struct AstPatternListRef {
+        handle: i64,
+    }
+
+    struct AstStringListRef {
+        handle: i64,
+    }
+
     fn ast_new(kind: i64) -> Vec<i64> {
         let node: Vec<i64> = vec_new();
         vec_push(node, kind);
@@ -203,18 +219,6 @@
         return handle as Vec<i64>;
     }
 
-    fn ast_node_list_from_handle(handle: i64) -> Vec<i64> {
-        return handle as Vec<i64>;
-    }
-
-    fn ast_i64_list_from_handle(handle: i64) -> Vec<i64> {
-        return handle as Vec<i64>;
-    }
-
-    fn ast_string_list_from_handle(handle: i64) -> Vec<str> {
-        return handle as Vec<str>;
-    }
-
     fn ast_type_handle(type_node: Vec<i64>) -> i64 {
         return ast_node_handle(type_node);
     }
@@ -371,31 +375,130 @@
         return handle as Vec<i64>;
     }
 
+    fn ast_node_list_ref_from_handle(handle: i64) -> AstNodeListRef {
+        return AstNodeListRef { handle: handle };
+    }
+
+    fn ast_node_list_ref_from_list(nodes: Vec<i64>) -> AstNodeListRef {
+        return ast_node_list_ref_from_handle(nodes as i64);
+    }
+
+    fn ast_node_list_ref_handle(nodes_ref: AstNodeListRef) -> i64 {
+        return nodes_ref.handle;
+    }
+
+    fn ast_node_list_from_ref(nodes_ref: AstNodeListRef) -> Vec<i64> {
+        return ast_node_list_ref_handle(nodes_ref) as Vec<i64>;
+    }
+
+    fn ast_node_list_from_handle(handle: i64) -> Vec<i64> {
+        return ast_node_list_from_ref(ast_node_list_ref_from_handle(handle));
+    }
+
+    fn ast_i64_list_ref_from_handle(handle: i64) -> AstI64ListRef {
+        return AstI64ListRef { handle: handle };
+    }
+
+    fn ast_i64_list_ref_from_list(values: Vec<i64>) -> AstI64ListRef {
+        return ast_i64_list_ref_from_handle(values as i64);
+    }
+
+    fn ast_i64_list_ref_handle(values_ref: AstI64ListRef) -> i64 {
+        return values_ref.handle;
+    }
+
+    fn ast_i64_list_from_ref(values_ref: AstI64ListRef) -> Vec<i64> {
+        return ast_i64_list_ref_handle(values_ref) as Vec<i64>;
+    }
+
+    fn ast_i64_list_from_handle(handle: i64) -> Vec<i64> {
+        return ast_i64_list_from_ref(ast_i64_list_ref_from_handle(handle));
+    }
+
+    fn ast_pattern_list_ref_from_handle(handle: i64) -> AstPatternListRef {
+        return AstPatternListRef { handle: handle };
+    }
+
+    fn ast_pattern_list_ref_from_list(patterns: Vec<i64>) -> AstPatternListRef {
+        return ast_pattern_list_ref_from_handle(patterns as i64);
+    }
+
+    fn ast_pattern_list_ref_handle(patterns_ref: AstPatternListRef) -> i64 {
+        return patterns_ref.handle;
+    }
+
+    fn ast_pattern_list_from_ref(patterns_ref: AstPatternListRef) -> Vec<i64> {
+        return ast_pattern_list_ref_handle(patterns_ref) as Vec<i64>;
+    }
+
+    fn ast_pattern_list_from_handle(handle: i64) -> Vec<i64> {
+        return ast_pattern_list_from_ref(ast_pattern_list_ref_from_handle(handle));
+    }
+
+    fn ast_string_list_ref_from_handle(handle: i64) -> AstStringListRef {
+        return AstStringListRef { handle: handle };
+    }
+
+    fn ast_string_list_ref_from_list(values: Vec<str>) -> AstStringListRef {
+        return ast_string_list_ref_from_handle(values as i64);
+    }
+
+    fn ast_string_list_ref_handle(values_ref: AstStringListRef) -> i64 {
+        return values_ref.handle;
+    }
+
+    fn ast_string_list_from_ref(values_ref: AstStringListRef) -> Vec<str> {
+        return ast_string_list_ref_handle(values_ref) as Vec<str>;
+    }
+
+    fn ast_string_list_from_handle(handle: i64) -> Vec<str> {
+        return ast_string_list_from_ref(ast_string_list_ref_from_handle(handle));
+    }
+
     fn ast_node_list_handle(nodes: Vec<i64>) -> i64 {
-        return nodes as i64;
+        return ast_node_list_ref_handle(ast_node_list_ref_from_list(nodes));
     }
 
     fn ast_i64_list_handle(values: Vec<i64>) -> i64 {
-        return values as i64;
+        return ast_i64_list_ref_handle(ast_i64_list_ref_from_list(values));
+    }
+
+    fn ast_pattern_list_handle(patterns: Vec<i64>) -> i64 {
+        return ast_pattern_list_ref_handle(ast_pattern_list_ref_from_list(patterns));
     }
 
     fn ast_string_list_handle(values: Vec<str>) -> i64 {
-        return values as i64;
+        return ast_string_list_ref_handle(ast_string_list_ref_from_list(values));
     }
 
     fn ast_node_list_append(nodes: Vec<i64>, node: Vec<i64>) -> Vec<i64> {
-        vec_push(nodes, ast_node_handle(node));
+        ast_node_list_append_ref(ast_node_list_ref_from_list(nodes), node);
         return nodes;
     }
 
+    fn ast_node_list_append_ref(nodes_ref: AstNodeListRef, node: Vec<i64>) -> AstNodeListRef {
+        vec_push(ast_node_list_from_ref(nodes_ref), ast_node_handle(node));
+        return nodes_ref;
+    }
+
     fn ast_pattern_list_append(patterns: Vec<i64>, pattern: Vec<i64>) -> Vec<i64> {
-        vec_push(patterns, ast_pattern_handle(pattern));
+        ast_pattern_list_append_ref(ast_pattern_list_ref_from_list(patterns), pattern);
         return patterns;
     }
 
+    fn ast_pattern_list_append_ref(patterns_ref: AstPatternListRef, pattern: Vec<i64>) -> AstPatternListRef {
+        vec_push(ast_pattern_list_from_ref(patterns_ref), ast_pattern_handle(pattern));
+        return patterns_ref;
+    }
+
     fn ast_i64_list_append(values: Vec<i64>, value: i64) -> Vec<i64> {
-        vec_push(values, value);
+        ast_i64_list_append_ref(ast_i64_list_ref_from_list(values), value);
         return values;
+    }
+
+    fn ast_i64_list_append_ref(values_ref: AstI64ListRef, value: i64) -> AstI64ListRef {
+        vec_push(ast_i64_list_from_ref(values_ref), value);
+        return values_ref;
     }
 
     fn ast_field_node(node: Vec<i64>, index: i64) -> Vec<i64> {
@@ -403,19 +506,35 @@
     }
 
     fn ast_field_node_list(node: Vec<i64>, index: i64) -> Vec<i64> {
-        return ast_node_list_from_handle(ast_field(node, index));
+        return ast_node_list_from_ref(ast_field_node_list_ref(node, index));
+    }
+
+    fn ast_field_node_list_ref(node: Vec<i64>, index: i64) -> AstNodeListRef {
+        return ast_node_list_ref_from_handle(ast_field(node, index));
     }
 
     fn ast_field_i64_list(node: Vec<i64>, index: i64) -> Vec<i64> {
-        return ast_i64_list_from_handle(ast_field(node, index));
+        return ast_i64_list_from_ref(ast_field_i64_list_ref(node, index));
+    }
+
+    fn ast_field_i64_list_ref(node: Vec<i64>, index: i64) -> AstI64ListRef {
+        return ast_i64_list_ref_from_handle(ast_field(node, index));
     }
 
     fn ast_field_pattern_list(node: Vec<i64>, index: i64) -> Vec<i64> {
-        return ast_i64_list_from_handle(ast_field(node, index));
+        return ast_pattern_list_from_ref(ast_field_pattern_list_ref(node, index));
+    }
+
+    fn ast_field_pattern_list_ref(node: Vec<i64>, index: i64) -> AstPatternListRef {
+        return ast_pattern_list_ref_from_handle(ast_field(node, index));
     }
 
     fn ast_field_string_list(node: Vec<i64>, index: i64) -> Vec<str> {
-        return ast_string_list_from_handle(ast_field(node, index));
+        return ast_string_list_from_ref(ast_field_string_list_ref(node, index));
+    }
+
+    fn ast_field_string_list_ref(node: Vec<i64>, index: i64) -> AstStringListRef {
+        return ast_string_list_ref_from_handle(ast_field(node, index));
     }
 
     fn ast_optional_none() -> i64 {
@@ -527,11 +646,19 @@
     }
 
     fn ast_call_args(node: Vec<i64>) -> Vec<i64> {
-        return ast_field_node_list(node, 2);
+        return ast_node_list_from_ref(ast_call_args_ref(node));
+    }
+
+    fn ast_call_args_ref(node: Vec<i64>) -> AstNodeListRef {
+        return ast_field_node_list_ref(node, 2);
     }
 
     fn ast_array_elements(node: Vec<i64>) -> Vec<i64> {
-        return ast_field_node_list(node, 1);
+        return ast_node_list_from_ref(ast_array_elements_ref(node));
+    }
+
+    fn ast_array_elements_ref(node: Vec<i64>) -> AstNodeListRef {
+        return ast_field_node_list_ref(node, 1);
     }
 
     fn ast_index_base(node: Vec<i64>) -> Vec<i64> {
@@ -567,11 +694,19 @@
     }
 
     fn ast_struct_lit_field_names(node: Vec<i64>) -> Vec<i64> {
-        return ast_field_i64_list(node, 2);
+        return ast_i64_list_from_ref(ast_struct_lit_field_names_ref(node));
+    }
+
+    fn ast_struct_lit_field_names_ref(node: Vec<i64>) -> AstI64ListRef {
+        return ast_field_i64_list_ref(node, 2);
     }
 
     fn ast_struct_lit_field_values(node: Vec<i64>) -> Vec<i64> {
-        return ast_field_node_list(node, 3);
+        return ast_node_list_from_ref(ast_struct_lit_field_values_ref(node));
+    }
+
+    fn ast_struct_lit_field_values_ref(node: Vec<i64>) -> AstNodeListRef {
+        return ast_field_node_list_ref(node, 3);
     }
 
     fn ast_ternary_cond(node: Vec<i64>) -> Vec<i64> {
@@ -607,11 +742,19 @@
     }
 
     fn ast_match_patterns(node: Vec<i64>) -> Vec<i64> {
-        return ast_field_pattern_list(node, 2);
+        return ast_pattern_list_from_ref(ast_match_patterns_ref(node));
+    }
+
+    fn ast_match_patterns_ref(node: Vec<i64>) -> AstPatternListRef {
+        return ast_field_pattern_list_ref(node, 2);
     }
 
     fn ast_match_bodies(node: Vec<i64>) -> Vec<i64> {
-        return ast_field_node_list(node, 3);
+        return ast_node_list_from_ref(ast_match_bodies_ref(node));
+    }
+
+    fn ast_match_bodies_ref(node: Vec<i64>) -> AstNodeListRef {
+        return ast_field_node_list_ref(node, 3);
     }
 
     fn ast_pattern_kind(pattern: Vec<i64>) -> i64 {
@@ -755,7 +898,11 @@
     }
 
     fn ast_fn_params(node: Vec<i64>) -> Vec<i64> {
-        return ast_field_node_list(node, 2);
+        return ast_node_list_from_ref(ast_fn_params_ref(node));
+    }
+
+    fn ast_fn_params_ref(node: Vec<i64>) -> AstNodeListRef {
+        return ast_field_node_list_ref(node, 2);
     }
 
     fn ast_fn_return_type(node: Vec<i64>) -> i64 {
@@ -795,7 +942,11 @@
     }
 
     fn ast_struct_fields(node: Vec<i64>) -> Vec<i64> {
-        return ast_field_node_list(node, 2);
+        return ast_node_list_from_ref(ast_struct_fields_ref(node));
+    }
+
+    fn ast_struct_fields_ref(node: Vec<i64>) -> AstNodeListRef {
+        return ast_field_node_list_ref(node, 2);
     }
 
     fn ast_field_decl_name_idx(node: Vec<i64>) -> i64 {
@@ -811,7 +962,11 @@
     }
 
     fn ast_kernel_items(node: Vec<i64>) -> Vec<i64> {
-        return ast_field_node_list(node, 2);
+        return ast_node_list_from_ref(ast_kernel_items_ref(node));
+    }
+
+    fn ast_kernel_items_ref(node: Vec<i64>) -> AstNodeListRef {
+        return ast_field_node_list_ref(node, 2);
     }
 
     fn ast_kernel_entry_idx(node: Vec<i64>) -> i64 {
@@ -819,130 +974,174 @@
     }
 
     fn ast_kernel_names(node: Vec<i64>) -> Vec<str> {
-        return ast_field_string_list(node, 4);
+        return ast_string_list_from_ref(ast_kernel_names_ref(node));
+    }
+
+    fn ast_kernel_names_ref(node: Vec<i64>) -> AstStringListRef {
+        return ast_field_string_list_ref(node, 4);
     }
 
     // Typed collection bridge helpers. These still read bootstrap Vec storage,
     // but callers no longer need to know which fields are node arrays.
 
     fn ast_node_list_count(nodes: Vec<i64>) -> i64 {
-        return vec_len(nodes);
+        return ast_node_list_ref_count(ast_node_list_ref_from_list(nodes));
+    }
+
+    fn ast_node_list_ref_count(nodes_ref: AstNodeListRef) -> i64 {
+        return vec_len(ast_node_list_from_ref(nodes_ref));
     }
 
     fn ast_node_list_get(nodes: Vec<i64>, index: i64) -> Vec<i64> {
-        return ast_node_from_handle(vec_get(nodes, index));
+        return ast_node_list_ref_get(ast_node_list_ref_from_list(nodes), index);
+    }
+
+    fn ast_node_list_ref_get(nodes_ref: AstNodeListRef, index: i64) -> Vec<i64> {
+        return ast_node_from_handle(ast_node_list_ref_get_handle(nodes_ref, index));
     }
 
     fn ast_node_list_get_handle(nodes: Vec<i64>, index: i64) -> i64 {
-        return vec_get(nodes, index);
+        return ast_node_list_ref_get_handle(ast_node_list_ref_from_list(nodes), index);
+    }
+
+    fn ast_node_list_ref_get_handle(nodes_ref: AstNodeListRef, index: i64) -> i64 {
+        return vec_get(ast_node_list_from_ref(nodes_ref), index);
     }
 
     fn ast_node_list_get_ref(nodes: Vec<i64>, index: i64) -> AstNodeRef {
-        return ast_node_ref_from_handle(ast_node_list_get_handle(nodes, index));
+        return ast_node_list_ref_get_ref(ast_node_list_ref_from_list(nodes), index);
+    }
+
+    fn ast_node_list_ref_get_ref(nodes_ref: AstNodeListRef, index: i64) -> AstNodeRef {
+        return ast_node_ref_from_handle(ast_node_list_ref_get_handle(nodes_ref, index));
     }
 
     fn ast_i64_list_count(values: Vec<i64>) -> i64 {
-        return vec_len(values);
+        return ast_i64_list_ref_count(ast_i64_list_ref_from_list(values));
+    }
+
+    fn ast_i64_list_ref_count(values_ref: AstI64ListRef) -> i64 {
+        return vec_len(ast_i64_list_from_ref(values_ref));
     }
 
     fn ast_i64_list_get(values: Vec<i64>, index: i64) -> i64 {
-        return vec_get(values, index);
+        return ast_i64_list_ref_get(ast_i64_list_ref_from_list(values), index);
+    }
+
+    fn ast_i64_list_ref_get(values_ref: AstI64ListRef, index: i64) -> i64 {
+        return vec_get(ast_i64_list_from_ref(values_ref), index);
     }
 
     fn ast_pattern_list_count(patterns: Vec<i64>) -> i64 {
-        return vec_len(patterns);
+        return ast_pattern_list_ref_count(ast_pattern_list_ref_from_list(patterns));
+    }
+
+    fn ast_pattern_list_ref_count(patterns_ref: AstPatternListRef) -> i64 {
+        return vec_len(ast_pattern_list_from_ref(patterns_ref));
     }
 
     fn ast_pattern_list_get(patterns: Vec<i64>, index: i64) -> Vec<i64> {
-        return ast_pattern_from_handle(vec_get(patterns, index));
+        return ast_pattern_list_ref_get(ast_pattern_list_ref_from_list(patterns), index);
+    }
+
+    fn ast_pattern_list_ref_get(patterns_ref: AstPatternListRef, index: i64) -> Vec<i64> {
+        return ast_pattern_from_handle(ast_pattern_list_ref_get_handle(patterns_ref, index));
+    }
+
+    fn ast_pattern_list_ref_get_handle(patterns_ref: AstPatternListRef, index: i64) -> i64 {
+        return vec_get(ast_pattern_list_from_ref(patterns_ref), index);
     }
 
     fn ast_pattern_list_get_ref(patterns: Vec<i64>, index: i64) -> AstPatternRef {
-        return ast_pattern_ref_from_handle(vec_get(patterns, index));
+        return ast_pattern_list_ref_get_ref(ast_pattern_list_ref_from_list(patterns), index);
+    }
+
+    fn ast_pattern_list_ref_get_ref(patterns_ref: AstPatternListRef, index: i64) -> AstPatternRef {
+        return ast_pattern_ref_from_handle(ast_pattern_list_ref_get_handle(patterns_ref, index));
     }
 
     fn ast_kernel_item_count(kernel: Vec<i64>) -> i64 {
-        return ast_node_list_count(ast_kernel_items(kernel));
+        return ast_node_list_ref_count(ast_kernel_items_ref(kernel));
     }
 
     fn ast_kernel_item(kernel: Vec<i64>, index: i64) -> Vec<i64> {
-        return ast_node_list_get(ast_kernel_items(kernel), index);
+        return ast_node_list_ref_get(ast_kernel_items_ref(kernel), index);
     }
 
     fn ast_kernel_item_handle(kernel: Vec<i64>, index: i64) -> i64 {
-        return ast_node_list_get_handle(ast_kernel_items(kernel), index);
+        return ast_node_list_ref_get_handle(ast_kernel_items_ref(kernel), index);
     }
 
     fn ast_fn_param_count(fn_node: Vec<i64>) -> i64 {
-        return ast_node_list_count(ast_fn_params(fn_node));
+        return ast_node_list_ref_count(ast_fn_params_ref(fn_node));
     }
 
     fn ast_fn_param(fn_node: Vec<i64>, index: i64) -> Vec<i64> {
-        return ast_node_list_get(ast_fn_params(fn_node), index);
+        return ast_node_list_ref_get(ast_fn_params_ref(fn_node), index);
     }
 
     fn ast_struct_field_count(struct_node: Vec<i64>) -> i64 {
-        return ast_node_list_count(ast_struct_fields(struct_node));
+        return ast_node_list_ref_count(ast_struct_fields_ref(struct_node));
     }
 
     fn ast_struct_field(struct_node: Vec<i64>, index: i64) -> Vec<i64> {
-        return ast_node_list_get(ast_struct_fields(struct_node), index);
+        return ast_node_list_ref_get(ast_struct_fields_ref(struct_node), index);
     }
 
     fn ast_call_arg_count(call_node: Vec<i64>) -> i64 {
-        return ast_node_list_count(ast_call_args(call_node));
+        return ast_node_list_ref_count(ast_call_args_ref(call_node));
     }
 
     fn ast_call_arg(call_node: Vec<i64>, index: i64) -> Vec<i64> {
-        return ast_node_list_get(ast_call_args(call_node), index);
+        return ast_node_list_ref_get(ast_call_args_ref(call_node), index);
     }
 
     fn ast_call_arg_handle(call_node: Vec<i64>, index: i64) -> i64 {
-        return ast_node_list_get_handle(ast_call_args(call_node), index);
+        return ast_node_list_ref_get_handle(ast_call_args_ref(call_node), index);
     }
 
     fn ast_array_element_count(array_node: Vec<i64>) -> i64 {
-        return ast_node_list_count(ast_array_elements(array_node));
+        return ast_node_list_ref_count(ast_array_elements_ref(array_node));
     }
 
     fn ast_array_element(array_node: Vec<i64>, index: i64) -> Vec<i64> {
-        return ast_node_list_get(ast_array_elements(array_node), index);
+        return ast_node_list_ref_get(ast_array_elements_ref(array_node), index);
     }
 
     fn ast_array_element_handle(array_node: Vec<i64>, index: i64) -> i64 {
-        return ast_node_list_get_handle(ast_array_elements(array_node), index);
+        return ast_node_list_ref_get_handle(ast_array_elements_ref(array_node), index);
     }
 
     fn ast_match_arm_count(match_node: Vec<i64>) -> i64 {
-        return ast_pattern_list_count(ast_match_patterns(match_node));
+        return ast_pattern_list_ref_count(ast_match_patterns_ref(match_node));
     }
 
     fn ast_match_pattern(match_node: Vec<i64>, index: i64) -> Vec<i64> {
-        return ast_pattern_list_get(ast_match_patterns(match_node), index);
+        return ast_pattern_list_ref_get(ast_match_patterns_ref(match_node), index);
     }
 
     fn ast_match_body(match_node: Vec<i64>, index: i64) -> Vec<i64> {
-        return ast_node_list_get(ast_match_bodies(match_node), index);
+        return ast_node_list_ref_get(ast_match_bodies_ref(match_node), index);
     }
 
     fn ast_match_body_handle(match_node: Vec<i64>, index: i64) -> i64 {
-        return ast_node_list_get_handle(ast_match_bodies(match_node), index);
+        return ast_node_list_ref_get_handle(ast_match_bodies_ref(match_node), index);
     }
 
     fn ast_struct_lit_field_count(node: Vec<i64>) -> i64 {
-        return ast_i64_list_count(ast_struct_lit_field_names(node));
+        return ast_i64_list_ref_count(ast_struct_lit_field_names_ref(node));
     }
 
     fn ast_struct_lit_field_name_idx(node: Vec<i64>, index: i64) -> i64 {
-        return ast_i64_list_get(ast_struct_lit_field_names(node), index);
+        return ast_i64_list_ref_get(ast_struct_lit_field_names_ref(node), index);
     }
 
     fn ast_struct_lit_field_value(node: Vec<i64>, index: i64) -> Vec<i64> {
-        return ast_node_list_get(ast_struct_lit_field_values(node), index);
+        return ast_node_list_ref_get(ast_struct_lit_field_values_ref(node), index);
     }
 
     fn ast_struct_lit_field_value_handle(node: Vec<i64>, index: i64) -> i64 {
-        return ast_node_list_get_handle(ast_struct_lit_field_values(node), index);
+        return ast_node_list_ref_get_handle(ast_struct_lit_field_values_ref(node), index);
     }
 
     fn ast_type(kind: i64) -> Vec<i64> {
@@ -992,7 +1191,7 @@
     fn ast_match(scrutinee: Vec<i64>, patterns: Vec<i64>, bodies: Vec<i64>) -> Vec<i64> {
         let node: Vec<i64> = ast_new(NODE_MATCH);
         ast_push(node, ast_expr_handle(scrutinee));
-        ast_push(node, ast_i64_list_handle(patterns));
+        ast_push(node, ast_pattern_list_handle(patterns));
         ast_push(node, ast_node_list_handle(bodies));
         return node;
     }
