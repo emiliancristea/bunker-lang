@@ -92,10 +92,14 @@
     }
 
     fn ast_report_count_kind(items: Vec<i64>, kind: i64) -> i64 {
+        return ast_report_count_kind_ref(ast_node_list_ref_from_list(items), kind);
+    }
+
+    fn ast_report_count_kind_ref(items_ref: AstNodeListRef, kind: i64) -> i64 {
         let count: i64 = 0;
         let i: i64 = 0;
-        while i < ast_node_list_count(items) {
-            let item_ref: AstNodeRef = ast_node_list_get_ref(items, i);
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
             if ast_node_ref_kind(item_ref) == kind {
                 count = count + 1;
             }
@@ -105,27 +109,35 @@
     }
 
     fn ast_report_items_json(kernel: Vec<i64>) -> str {
-        let names = ast_kernel_names(kernel);
+        return ast_report_items_json_ref(ast_kernel_names(kernel), ast_kernel_items_ref(kernel));
+    }
+
+    fn ast_report_items_json_ref(names: Vec<str>, items_ref: AstNodeListRef) -> str {
         let result = "[";
         let i: i64 = 0;
-        while i < ast_kernel_item_count(kernel) {
+        while i < ast_node_list_ref_count(items_ref) {
             if i > 0 {
                 result = result + ",";
             }
-            result = result + ast_report_item_json(names, ast_kernel_item(kernel, i));
+            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
+            result = result + ast_report_item_ref_json(names, ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref)));
             i = i + 1;
         }
         return result + "]";
     }
 
     fn ast_report_node_array_json(names: Vec<str>, nodes: Vec<i64>) -> str {
+        return ast_report_node_array_json_ref(names, ast_node_list_ref_from_list(nodes));
+    }
+
+    fn ast_report_node_array_json_ref(names: Vec<str>, nodes_ref: AstNodeListRef) -> str {
         let result = "[";
         let i: i64 = 0;
-        while i < ast_node_list_count(nodes) {
+        while i < ast_node_list_ref_count(nodes_ref) {
             if i > 0 {
                 result = result + ",";
             }
-            result = result + ast_report_node_ref_json(names, ast_node_list_get_ref(nodes, i));
+            result = result + ast_report_node_ref_json(names, ast_node_list_ref_get_ref(nodes_ref, i));
             i = i + 1;
         }
         return result + "]";
@@ -177,15 +189,19 @@
     }
 
     fn ast_report_match_arms_json(names: Vec<str>, patterns: Vec<i64>, bodies: Vec<i64>) -> str {
+        return ast_report_match_arms_json_ref(names, ast_pattern_list_ref_from_list(patterns), ast_node_list_ref_from_list(bodies));
+    }
+
+    fn ast_report_match_arms_json_ref(names: Vec<str>, patterns_ref: AstPatternListRef, bodies_ref: AstNodeListRef) -> str {
         let result = "[";
         let i: i64 = 0;
-        while i < ast_pattern_list_count(patterns) {
+        while i < ast_pattern_list_ref_count(patterns_ref) {
             if i > 0 {
                 result = result + ",";
             }
             result = result + "{" +
-                json_field_raw("pattern", ast_report_pattern_ref_json(names, ast_pattern_list_get_ref(patterns, i))) + "," +
-                json_field_raw("body", ast_report_node_ref_json(names, ast_node_list_get_ref(bodies, i))) +
+                json_field_raw("pattern", ast_report_pattern_ref_json(names, ast_pattern_list_ref_get_ref(patterns_ref, i))) + "," +
+                json_field_raw("body", ast_report_node_ref_json(names, ast_node_list_ref_get_ref(bodies_ref, i))) +
                 "}";
             i = i + 1;
         }
@@ -227,11 +243,11 @@
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_name_idx(node))) + comma +
                 json_field_str("entry", ast_report_name(names, ast_kernel_entry_idx(node))) + comma +
-                json_field_raw("items", ast_report_node_array_json(names, ast_kernel_items(node)));
+                json_field_raw("items", ast_report_node_array_json_ref(names, ast_kernel_items_ref(node)));
         } else if kind == NODE_FN {
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_fn_name_idx(node))) + comma +
-                json_field_raw("params", ast_report_node_array_json(names, ast_fn_params(node))) + comma +
+                json_field_raw("params", ast_report_node_array_json_ref(names, ast_fn_params_ref(node))) + comma +
                 json_field_raw("return_type", ast_report_optional_node_json(names, ast_fn_return_type_handle(node))) + comma +
                 json_field_raw("body", ast_report_node_json(names, ast_fn_body(node)));
         } else if kind == NODE_PARAM {
@@ -296,7 +312,7 @@
         } else if kind == NODE_CALL {
             result = result + comma +
                 json_field_str("callee", ast_report_name(names, ast_call_name_idx(node))) + comma +
-                json_field_raw("args", ast_report_node_array_json(names, ast_call_args(node)));
+                json_field_raw("args", ast_report_node_array_json_ref(names, ast_call_args_ref(node)));
         } else if kind == NODE_IDENT {
             result = result + comma + json_field_str("name", ast_report_name(names, ast_name_idx(node)));
         } else if kind == NODE_INT_LIT {
@@ -318,7 +334,7 @@
         } else if kind == NODE_FLOAT_LIT {
             result = result + comma + json_field_str("value", ast_value(node) as str);
         } else if kind == NODE_ARRAY_LIT {
-            result = result + comma + json_field_raw("elements", ast_report_node_array_json(names, ast_array_elements(node)));
+            result = result + comma + json_field_raw("elements", ast_report_node_array_json_ref(names, ast_array_elements_ref(node)));
         } else if kind == NODE_INDEX {
             result = result + comma +
                 json_field_raw("base", ast_report_node_json(names, ast_index_base(node))) + comma +
@@ -326,7 +342,7 @@
         } else if kind == NODE_STRUCT {
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_struct_name_idx(node))) + comma +
-                json_field_raw("fields", ast_report_node_array_json(names, ast_struct_fields(node)));
+                json_field_raw("fields", ast_report_node_array_json_ref(names, ast_struct_fields_ref(node)));
         } else if kind == NODE_FIELD {
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_field_decl_name_idx(node))) + comma +
@@ -342,7 +358,7 @@
         } else if kind == NODE_MATCH {
             result = result + comma +
                 json_field_raw("scrutinee", ast_report_node_json(names, ast_match_scrutinee(node))) + comma +
-                json_field_raw("arms", ast_report_match_arms_json(names, ast_match_patterns(node), ast_match_bodies(node)));
+                json_field_raw("arms", ast_report_match_arms_json_ref(names, ast_match_patterns_ref(node), ast_match_bodies_ref(node)));
         }
 
         return result + "}";
@@ -352,7 +368,7 @@
         let comma = ",";
         let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
         let names = ast_kernel_names(kernel);
-        let items = ast_kernel_items(kernel);
+        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
         let root = "{" +
             json_field_str("kind", ast_node_kind_name(ast_node_ref_kind(kernel_ref))) + comma +
             json_field_str("name", ast_report_name(names, ast_name_idx(kernel))) + comma +
@@ -364,10 +380,10 @@
         let summary = "{" +
             json_field_i64("source_bytes", len(source)) + comma +
             json_field_i64("source_lines", source_line_count(source)) + comma +
-            json_field_i64("item_count", ast_kernel_item_count(kernel)) + comma +
-            json_field_i64("function_count", ast_report_count_kind(items, NODE_FN)) + comma +
-            json_field_i64("struct_count", ast_report_count_kind(items, NODE_STRUCT)) + comma +
-            json_field_i64("const_count", ast_report_count_kind(items, NODE_CONST)) +
+            json_field_i64("item_count", ast_node_list_ref_count(items_ref)) + comma +
+            json_field_i64("function_count", ast_report_count_kind_ref(items_ref, NODE_FN)) + comma +
+            json_field_i64("struct_count", ast_report_count_kind_ref(items_ref, NODE_STRUCT)) + comma +
+            json_field_i64("const_count", ast_report_count_kind_ref(items_ref, NODE_CONST)) +
             "}";
         return "{" +
             json_field_str("schema_version", "bunker.self_host.ast.v1") + comma +
@@ -376,7 +392,7 @@
             json_field_bool("complete_tree", true) + comma +
             json_field_raw("root", root) + comma +
             json_field_raw("summary", summary) + comma +
-            json_field_raw("items", ast_report_items_json(kernel)) + comma +
+            json_field_raw("items", ast_report_items_json_ref(names, items_ref)) + comma +
             json_field_raw("tree", ast_report_node_ref_json(names, ast_node_ref_from_node(kernel))) +
             "}";
     }
