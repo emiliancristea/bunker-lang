@@ -115,6 +115,7 @@ These are the next concrete PR-sized slices.
 | Q-052 | DONE | Route type-graph collections through typed refs. | `modules/type_graph.bkr` now walks kernel items, params, fields, and summary counts through typed AST collection refs while preserving raw wrapper entry points. |
 | Q-053 | DONE | Route resolver collections through typed refs. | `modules/resolver.bkr` now walks kernel items, params, fields, call args, arrays, struct literal fields, and match arms through typed AST collection refs. |
 | Q-054 | DONE | Route typecheck collections through typed refs. | `modules/typecheck.bkr` now walks kernel items, call args, params, struct literal values, arrays, and match bodies through typed AST collection refs. |
+| Q-055 | DONE | Finish AST report collection refs. | `modules/ast_report.bkr` now uses typed collection refs for item param/field counts and struct literal field serialization. |
 
 ## Language Core
 
@@ -429,3 +430,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-01 | Routed type-graph collections through typed refs. | `modules/type_graph.bkr` now walks declaration, function-state, and summary collection paths through typed AST collection refs while preserving the `BUNKER_TYPE_GRAPH_JSON` contract. |
 | 2026-05-01 | Routed resolver collections through typed refs. | `modules/resolver.bkr` now validates declaration/reference collection paths through typed AST collection refs while preserving the `BUNKER_RESOLVER_JSON` contract. |
 | 2026-05-01 | Routed typecheck collections through typed refs. | `modules/typecheck.bkr` now validates semantic collection paths through typed AST collection refs while preserving the `BUNKER_TYPECHECK_JSON` contract. |
+| 2026-05-01 | Finished AST report collection refs. | `modules/ast_report.bkr` now serializes struct literal fields and item param/field counts through typed AST collection refs while preserving the `BUNKER_AST_JSON` contract. |

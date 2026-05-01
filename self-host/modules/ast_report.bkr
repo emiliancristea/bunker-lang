@@ -42,7 +42,7 @@
     fn ast_report_item_ref_param_count(item_ref: AstItemRef) -> i64 {
         let item: Vec<i64> = ast_item_node_from_ref(item_ref);
         if ast_item_ref_kind(item_ref) == NODE_FN {
-            return ast_fn_param_count(item);
+            return ast_node_list_ref_count(ast_fn_params_ref(item));
         }
         return 0;
     }
@@ -54,7 +54,7 @@
     fn ast_report_item_ref_field_count(item_ref: AstItemRef) -> i64 {
         let item: Vec<i64> = ast_item_node_from_ref(item_ref);
         if ast_item_ref_kind(item_ref) == NODE_STRUCT {
-            return ast_struct_field_count(item);
+            return ast_node_list_ref_count(ast_struct_fields_ref(item));
         }
         return 0;
     }
@@ -209,15 +209,17 @@
     }
 
     fn ast_report_struct_lit_fields_json(names: Vec<str>, node: Vec<i64>) -> str {
+        let field_names_ref: AstI64ListRef = ast_struct_lit_field_names_ref(node);
+        let field_values_ref: AstNodeListRef = ast_struct_lit_field_values_ref(node);
         let result = "[";
         let i: i64 = 0;
-        while i < ast_struct_lit_field_count(node) {
+        while i < ast_i64_list_ref_count(field_names_ref) {
             if i > 0 {
                 result = result + ",";
             }
             result = result + "{" +
-                json_field_str("name", ast_report_name(names, ast_struct_lit_field_name_idx(node, i))) + "," +
-                json_field_raw("value", ast_report_node_ref_json(names, ast_node_ref_from_handle(ast_struct_lit_field_value_handle(node, i)))) +
+                json_field_str("name", ast_report_name(names, ast_i64_list_ref_get(field_names_ref, i))) + "," +
+                json_field_raw("value", ast_report_node_ref_json(names, ast_node_list_ref_get_ref(field_values_ref, i))) +
                 "}";
             i = i + 1;
         }
