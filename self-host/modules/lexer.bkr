@@ -55,6 +55,10 @@
     }
 
     fn tokenize(source: str) -> Vec<i64> {
+        return lexer_result_from_ref(tokenize_ref(source));
+    }
+
+    fn tokenize_ref(source: str) -> LexerResultRef {
         let tokens: Vec<i64> = vec_new();  // [type, start, end, type, start, end, ...]
         let names: Vec<str> = vec_new();   // identifier/keyword strings
         let values: Vec<i64> = vec_new();  // integer values
@@ -69,7 +73,7 @@
                 vec_push(tokens, TOK_EOF);
                 vec_push(tokens, pos);
                 vec_push(tokens, pos);
-                return lexer_result_new(tokens, names, values, strings);
+                return lexer_result_new_ref(tokens, names, values, strings);
             }
 
             let start = pos;
@@ -226,5 +230,5 @@
         vec_push(tokens, pos);
         vec_push(tokens, pos);
 
-        return lexer_result_new(tokens, names, values, strings);
+        return lexer_result_new_ref(tokens, names, values, strings);
     }
