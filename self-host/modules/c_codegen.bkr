@@ -811,7 +811,7 @@
             let param = ast_fn_param(fn_node, i);
             let pname = name_to_c(state, ast_param_name_idx(param));
             let ptype = ast_param_type_node(param);
-            let ptype_c = type_node_to_c(state, ptype as i64);
+            let ptype_c = type_node_to_c(state, ast_type_handle(ptype));
             if i > 0 { param_str = param_str + ", "; }
             param_str = param_str + ptype_c + " " + pname;
             i = i + 1;
@@ -832,7 +832,7 @@
         while i < ast_fn_param_count(fn_node) {
             let param = ast_fn_param(fn_node, i);
             let ptype = ast_param_type_node(param);
-            cgen_add_local_type(state, ast_param_name_idx(param), ast_type_kind_value(ptype as i64));
+            cgen_add_local_type(state, ast_param_name_idx(param), ast_type_kind_value(ast_type_handle(ptype)));
             i = i + 1;
         }
 
