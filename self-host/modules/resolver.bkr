@@ -214,7 +214,7 @@
             }
             let i: i64 = 0;
             while i < ast_call_arg_count(expr) {
-                state = resolver_expr_diagnostics(state, kernel, names, ast_call_arg(expr, i) as i64, scope, bindings);
+                state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_call_arg(expr, i)), scope, bindings);
                 i = i + 1;
             }
         } else if kind == NODE_STRUCT_LIT {
@@ -237,31 +237,31 @@
                         state = resolver_append_unresolved_node(state, field_name, scope, "field_initializer", expr, "field declared on struct " + struct_name);
                     }
                 }
-                state = resolver_expr_diagnostics(state, kernel, names, ast_struct_lit_field_value(expr, i) as i64, scope, bindings);
+                state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_struct_lit_field_value(expr, i)), scope, bindings);
                 i = i + 1;
             }
         } else if kind == NODE_FIELD_ACCESS {
-            state = resolver_expr_diagnostics(state, kernel, names, ast_field_base(expr) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_field_base(expr)), scope, bindings);
         } else if kind == NODE_BINARY {
-            state = resolver_expr_diagnostics(state, kernel, names, ast_binary_left(expr) as i64, scope, bindings);
-            state = resolver_expr_diagnostics(state, kernel, names, ast_binary_right(expr) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_binary_left(expr)), scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_binary_right(expr)), scope, bindings);
         } else if kind == NODE_UNARY {
-            state = resolver_expr_diagnostics(state, kernel, names, ast_unary_operand(expr) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_unary_operand(expr)), scope, bindings);
         } else if kind == NODE_TERNARY {
-            state = resolver_expr_diagnostics(state, kernel, names, ast_ternary_cond(expr) as i64, scope, bindings);
-            state = resolver_expr_diagnostics(state, kernel, names, ast_ternary_then(expr) as i64, scope, bindings);
-            state = resolver_expr_diagnostics(state, kernel, names, ast_ternary_else(expr) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_ternary_cond(expr)), scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_ternary_then(expr)), scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_ternary_else(expr)), scope, bindings);
         } else if kind == NODE_ARRAY_LIT {
             let i: i64 = 0;
             while i < ast_array_element_count(expr) {
-                state = resolver_expr_diagnostics(state, kernel, names, ast_array_element(expr, i) as i64, scope, bindings);
+                state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_array_element(expr, i)), scope, bindings);
                 i = i + 1;
             }
         } else if kind == NODE_INDEX {
-            state = resolver_expr_diagnostics(state, kernel, names, ast_index_base(expr) as i64, scope, bindings);
-            state = resolver_expr_diagnostics(state, kernel, names, ast_index_expr(expr) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_index_base(expr)), scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_index_expr(expr)), scope, bindings);
         } else if kind == NODE_MATCH {
-            state = resolver_expr_diagnostics(state, kernel, names, ast_match_scrutinee(expr) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_match_scrutinee(expr)), scope, bindings);
             let i: i64 = 0;
             while i < ast_match_arm_count(expr) {
                 let arm_bindings = resolver_i64_vec_copy(bindings);
@@ -278,7 +278,7 @@
                 if ast_is_block(body) {
                     state = resolver_block_diagnostics(state, kernel, names, body, scope, arm_bindings, resolver_empty_i64_vec());
                 } else {
-                    state = resolver_expr_diagnostics(state, kernel, names, body as i64, scope, arm_bindings);
+                    state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(body), scope, arm_bindings);
                 }
                 i = i + 1;
             }
@@ -303,19 +303,19 @@
         } else if kind == NODE_RETURN {
             state = resolver_expr_diagnostics(state, kernel, names, ast_return_expr(stmt), scope, bindings);
         } else if kind == NODE_IF {
-            state = resolver_expr_diagnostics(state, kernel, names, ast_if_cond(stmt) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_if_cond(stmt)), scope, bindings);
             state = resolver_block_diagnostics(state, kernel, names, ast_if_then(stmt), scope, bindings, resolver_empty_i64_vec());
             let else_block = ast_if_else(stmt);
             if ast_optional_is_some(else_block) {
                 state = resolver_block_diagnostics(state, kernel, names, ast_optional_node(else_block), scope, bindings, resolver_empty_i64_vec());
             }
         } else if kind == NODE_WHILE {
-            state = resolver_expr_diagnostics(state, kernel, names, ast_while_cond(stmt) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_while_cond(stmt)), scope, bindings);
             state = resolver_block_diagnostics(state, kernel, names, ast_while_body(stmt), scope, bindings, resolver_empty_i64_vec());
         } else if kind == NODE_FOR {
             let name_idx = ast_for_name_idx(stmt);
-            state = resolver_expr_diagnostics(state, kernel, names, ast_for_start(stmt) as i64, scope, bindings);
-            state = resolver_expr_diagnostics(state, kernel, names, ast_for_end(stmt) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_for_start(stmt)), scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_for_end(stmt)), scope, bindings);
             if resolver_i64_vec_contains(declared, name_idx) {
                 state = resolver_append_duplicate_node(state, ast_report_name(names, name_idx), scope, "for binding", stmt);
             }
@@ -324,10 +324,10 @@
         } else if kind == NODE_LOOP {
             state = resolver_block_diagnostics(state, kernel, names, ast_loop_body(stmt), scope, bindings, resolver_empty_i64_vec());
         } else if kind == NODE_ASSIGN {
-            state = resolver_expr_diagnostics(state, kernel, names, ast_assign_target(stmt) as i64, scope, bindings);
-            state = resolver_expr_diagnostics(state, kernel, names, ast_assign_value(stmt) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_assign_target(stmt)), scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_assign_value(stmt)), scope, bindings);
         } else if kind == NODE_EXPR_STMT {
-            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_stmt_expr(stmt) as i64, scope, bindings);
+            state = resolver_expr_diagnostics(state, kernel, names, ast_expr_handle(ast_expr_stmt_expr(stmt)), scope, bindings);
         }
         return state;
     }
@@ -357,7 +357,7 @@
         while i < ast_fn_param_count(item) {
             let param = ast_fn_param(item, i);
             let name_idx = ast_param_name_idx(param);
-            state = resolver_type_diagnostics(state, kernel, names, ast_param_type_node(param) as i64, fn_scope);
+            state = resolver_type_diagnostics(state, kernel, names, ast_type_handle(ast_param_type_node(param)), fn_scope);
             if resolver_i64_vec_contains(declared, name_idx) {
                 state = resolver_append_duplicate_node(state, ast_report_name(names, name_idx), fn_scope, "parameter", param);
             } else {

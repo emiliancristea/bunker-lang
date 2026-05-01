@@ -114,7 +114,7 @@
             json_field_str("name", ast_report_name(names, ast_param_name_idx(param))) + comma +
             json_field_i64("source_start", ast_node_span_start(param)) + comma +
             json_field_i64("source_end", ast_node_span_end(param)) + comma +
-            json_field_raw("declared_type", type_graph_type_node_json(names, ast_param_type_node(param) as i64, "declared")) +
+            json_field_raw("declared_type", type_graph_type_node_json(names, ast_type_handle(ast_param_type_node(param)), "declared")) +
             "}";
     }
 
@@ -293,7 +293,7 @@
         let i: i64 = 0;
         while i < ast_fn_param_count(fn_node) {
             let param = ast_fn_param(fn_node, i);
-            let param_type = ast_param_type_node(param) as i64;
+            let param_type = ast_type_handle(ast_param_type_node(param));
             cgen_add_local_type(state, ast_param_name_idx(param), ast_type_kind_value(param_type));
             type_graph_maybe_add_array_type(state, ast_param_name_idx(param), param_type);
             i = i + 1;

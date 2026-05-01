@@ -203,16 +203,17 @@
                 json_field_str("name", ast_report_name(names, ast_param_name_idx(node))) + comma +
                 json_field_raw("type", ast_report_node_json(names, ast_param_type_node(node)));
         } else if kind == NODE_TYPE {
-            let type_kind = ast_type_kind_value(node as i64);
+            let type_handle = ast_type_handle(node);
+            let type_kind = ast_type_kind_value(type_handle);
             result = result + comma +
                 json_field_str("type_kind", ast_type_kind_name(type_kind)) + comma +
                 json_field_i64("type_tag", type_kind);
             if type_kind == TYPE_STRUCT {
-                result = result + comma + json_field_str("struct_name", ast_report_name(names, ast_type_struct_name_idx_value(node as i64)));
+                result = result + comma + json_field_str("struct_name", ast_report_name(names, ast_type_struct_name_idx_value(type_handle)));
             } else if type_kind == TYPE_ARRAY {
                 result = result + comma +
-                    json_field_str("element_type_kind", ast_type_kind_name(ast_type_array_elem_kind_value(node as i64))) + comma +
-                    json_field_i64("array_len", ast_type_array_len_value(node as i64));
+                    json_field_str("element_type_kind", ast_type_kind_name(ast_type_array_elem_kind_value(type_handle))) + comma +
+                    json_field_i64("array_len", ast_type_array_len_value(type_handle));
             }
         } else if kind == NODE_BLOCK {
             result = result + comma + json_field_raw("statements", ast_report_block_statements_json(names, node));
