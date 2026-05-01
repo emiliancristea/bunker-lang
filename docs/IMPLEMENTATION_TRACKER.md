@@ -30,7 +30,7 @@ Current bootstrap state after the latest self-host work:
 - CI gates arithmetic, functions, control flow, structs, arrays, strings, constants, recursion, bitwise ops, ternary, match, Option, Result, Vec, and HashMap fixtures through generated and stage2 compilers.
 - CI compares selected self-host outputs against Rust JIT results and checks stage1/stage2 generated C determinism.
 - The Rust compiler is still the production compiler and the bootstrap driver.
-- The self-host compiler entrypoint is now module-composed: constants, AST helpers, lexer result helpers, lexer, parser state, parser, C codegen state, C codegen, report support, resolver, and driver live in imported Bunker modules.
+- The self-host compiler entrypoint is now module-composed: constants, AST helpers, lexer result helpers, lexer, parser state, parser, C codegen state, C codegen, report support, type graph, resolver, typecheck, and driver live in imported Bunker modules.
 - AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, AST kind/category/span reasoning now goes through named helpers, lexer result layout is centralized in `modules/lexer_result.bkr`, parser state layout is centralized in `modules/parser_state.bkr`, and C codegen state layout is centralized in `modules/cgen_state.bkr`; the AST, lexer result, parser state, and codegen state representations still use raw `Vec<i64>` during bootstrap.
 - Self-host compiler outputs include `BUNKER_CAPABILITY_JSON`, a machine-readable capability report for agents that states supported constructs, current AI-diagnostic support, and known bootstrap limits.
 - Successful self-host compiler outputs include `BUNKER_AST_JSON`, a machine-readable AST report with root/item summaries plus a complete nested AST tree for agent inspection.
@@ -88,6 +88,7 @@ These are the next concrete PR-sized slices.
 | Q-025 | DONE | Add self-host typecheck reports for agents. | Successful generated self-host outputs include `BUNKER_TYPECHECK_JSON` with expected/found semantic diagnostics, and CI checks both clean and intentionally broken typecheck inputs. |
 | Q-026 | DONE | Extract shared self-host report support helpers. | `modules/report_support.bkr` owns JSON field/string escaping, report name lookup, diagnostic state, and shared vector helpers so resolver/typecheck report modules can be extracted from `driver.bkr` next. |
 | Q-027 | DONE | Extract self-host resolver pass into its own module. | `modules/resolver.bkr` owns `BUNKER_RESOLVER_JSON`, duplicate detection, unresolved symbol diagnostics, and resolver report comment generation; `driver.bkr` only orchestrates the report. |
+| Q-028 | DONE | Extract self-host type graph and typecheck passes. | `modules/type_graph.bkr` owns `BUNKER_TYPE_GRAPH_JSON` plus bootstrap type-state helpers, `modules/typecheck.bkr` owns `BUNKER_TYPECHECK_JSON`, and `driver.bkr` only orchestrates both reports. |
 
 ## Language Core
 
@@ -223,7 +224,7 @@ These are the next concrete PR-sized slices.
 | CF-004 | PARTIAL | P0 | Source spans on AST nodes. | Self-host AST nodes and patterns carry byte start/end offsets; final gate requires file, line, column, byte offsets, and source excerpts across compiler phases. |
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
-| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass reports annotation, return, condition, assignment, range, and direct call-argument mismatches from Bunker driver code; final gate requires a dedicated Bunker typechecker module and full subset enforcement. |
+| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr` and reports annotation, return, condition, assignment, range, and direct call-argument mismatches; final gate requires full subset enforcement and separation from codegen inference. |
 | CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass lives in `modules/resolver.bkr` and reports duplicate declarations plus unresolved identifiers/calls/types/struct literal fields; final gate requires import graph, visibility, overloads, and definition-use related spans. |
 | CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
 | CF-010 | TODO | P0 | Semantic validation passes. | Non-type semantic errors are separate and tested. |
@@ -291,10 +292,10 @@ These are the next concrete PR-sized slices.
 | A-008 | PARTIAL | P0 | Prompt-ready explanations. | Errors include short AI repair context. |
 | A-009 | TODO | P0 | Multi-error recovery. | Parser/typechecker return multiple useful diagnostics. |
 | A-010 | PARTIAL | P0 | Machine-readable AST dump. | Self-host generated outputs include `BUNKER_AST_JSON` root/top-level summaries plus a complete nested `tree`; final gate requires Rust and self-host compiler modes to expose the same stable AST dump contract. |
-| A-011 | PARTIAL | P0 | Machine-readable type graph. | Self-host generated outputs include `BUNKER_TYPE_GRAPH_JSON` for declared types plus bootstrap-inferred locals/returns; final gate requires a real typechecker-backed graph across Rust and self-host compiler modes. |
+| A-011 | PARTIAL | P0 | Machine-readable type graph. | Self-host generated outputs include `BUNKER_TYPE_GRAPH_JSON` from `modules/type_graph.bkr` for declared types plus bootstrap-inferred locals/returns; final gate requires a real typechecker-backed graph across Rust and self-host compiler modes. |
 | A-012 | PARTIAL | P0 | Machine-readable symbol table. | Self-host generated outputs include `BUNKER_SYMBOL_TABLE_JSON` declarations/references and `BUNKER_RESOLVER_JSON` duplicate/unresolved diagnostics; final gate requires import-aware visibility, overloads, and related definition-use spans. |
 | A-013 | PARTIAL | P0 | Capability report. | Self-host generated outputs include `BUNKER_CAPABILITY_JSON`; final gate requires CLI-native capability reports across Rust and self-host compiler modes. |
-| A-014 | PARTIAL | P0 | Machine-readable typecheck diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` for bootstrap expected/found semantic diagnostics; final gate requires stable codes, related origins, fix edits, and parity across Rust and self-host compiler modes. |
+| A-014 | PARTIAL | P0 | Machine-readable typecheck diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` from `modules/typecheck.bkr` for bootstrap expected/found semantic diagnostics; final gate requires stable codes, related origins, fix edits, and parity across Rust and self-host compiler modes. |
 
 ## Safety And Production Readiness
 
@@ -375,3 +376,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-04-25 | Added self-host typecheck reports. | `BUNKER_TYPECHECK_JSON` now carries bootstrap expected/found semantic diagnostics for agents, with clean and intentionally broken CI checks. |
 | 2026-05-01 | Extracted self-host report support helpers. | `modules/report_support.bkr` now owns shared JSON/report/diagnostic helper plumbing used by driver reports, preparing resolver/typecheck module extraction. |
 | 2026-05-01 | Extracted self-host resolver module. | `modules/resolver.bkr` now owns bootstrap name-resolution diagnostics and `BUNKER_RESOLVER_JSON`; `driver.bkr` delegates resolver report generation. |
+| 2026-05-01 | Extracted self-host type graph and typecheck modules. | `modules/type_graph.bkr` now owns `BUNKER_TYPE_GRAPH_JSON` plus bootstrap type-state helpers, and `modules/typecheck.bkr` owns `BUNKER_TYPECHECK_JSON`; `driver.bkr` delegates both reports. |

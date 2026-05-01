@@ -17,8 +17,10 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 | 7 | `modules/cgen_state.bkr` | C codegen state helpers | Centralize C codegen state layout, output lines, indentation, and local/global/function/array type tables. |
 | 8 | `modules/c_codegen.bkr` | `C CODE GENERATOR` | Infer enough expression types for C emission and generate C source through AST and cgen-state helpers. |
 | 9 | `modules/report_support.bkr` | Report support helpers | Centralize JSON field/string escaping, report name lookup, diagnostic state, and small vector helpers shared by self-host reports. |
-| 10 | `modules/resolver.bkr` | Bootstrap name resolver | Produce `BUNKER_RESOLVER_JSON` duplicate and unresolved symbol diagnostics from the raw AST. |
-| 11 | `modules/driver.bkr` | `COMPILER DRIVER` | Orchestrate lex, parse, codegen, diagnostics, capability reports, AST tree reports, type graph reports, symbol table reports, resolver reports, typecheck reports, file I/O, and process exit. |
+| 10 | `modules/type_graph.bkr` | Bootstrap type graph report | Produce `BUNKER_TYPE_GRAPH_JSON` and expose bootstrap type-state helpers for typecheck. |
+| 11 | `modules/resolver.bkr` | Bootstrap name resolver | Produce `BUNKER_RESOLVER_JSON` duplicate and unresolved symbol diagnostics from the raw AST. |
+| 12 | `modules/typecheck.bkr` | Bootstrap typecheck report | Produce `BUNKER_TYPECHECK_JSON` expected/found semantic diagnostics from the raw AST and bootstrap type-state helpers. |
+| 13 | `modules/driver.bkr` | `COMPILER DRIVER` | Orchestrate lex, parse, codegen, diagnostics, capability reports, AST tree reports, type graph reports, symbol table reports, resolver reports, typecheck reports, file I/O, and process exit. |
 
 ## Export Contract
 
@@ -33,8 +35,10 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 | `modules/cgen_state.bkr` | `cgen_*` state constructors, accessors, mutation helpers, and lookup helpers for C codegen state. |
 | `modules/c_codegen.bkr` | `gen_c_program`, C escaping/name helpers, type inference helpers used by codegen. |
 | `modules/report_support.bkr` | `json_*`, `ast_report_name`, `resolver_state_*`, and shared diagnostic/vector helpers used by report-producing compiler phases. |
+| `modules/type_graph.bkr` | `build_type_graph_report_comment`, `self_host_type_graph_json`, `type_graph_*` JSON helpers, and bootstrap type-state helpers used by typecheck. |
 | `modules/resolver.bkr` | `build_resolver_report_comment`, `self_host_resolver_json`, and bootstrap resolver diagnostics helpers. |
-| `modules/driver.bkr` | `compile_to_c`, `main`, self-host diagnostic JSON helpers, self-host capability report helpers, self-host AST tree report helpers, self-host type graph report helpers, self-host symbol table report helpers, and self-host typecheck report helpers. |
+| `modules/typecheck.bkr` | `build_typecheck_report_comment`, `self_host_typecheck_json`, and bootstrap typecheck diagnostics helpers. |
+| `modules/driver.bkr` | `compile_to_c`, `main`, self-host diagnostic JSON helpers, self-host capability report helpers, self-host AST tree report helpers, and self-host symbol table report helpers. |
 
 ## Dependency Rules
 
@@ -47,7 +51,9 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 - `modules/cgen_state.bkr` may depend on constants and string/Vec builtins; direct C codegen state layout indexing must stay isolated here.
 - `modules/c_codegen.bkr` may depend on constants, AST accessors, and cgen-state helpers, but must not construct AST nodes, directly index C codegen state fields, or call file I/O.
 - `modules/report_support.bkr` may depend on constants, AST span/name conventions, and string/Vec builtins, but must not call lexer, parser, C codegen, or file I/O.
+- `modules/type_graph.bkr` may depend on constants, AST accessors, cgen-state helpers, codegen type inference helpers, and report-support helpers, but must not call lexer, parser, or file I/O.
 - `modules/resolver.bkr` may depend on constants, AST accessors, and report-support helpers, but must not call lexer, parser, C codegen, or file I/O.
+- `modules/typecheck.bkr` may depend on constants, AST accessors, cgen-state helpers, codegen type inference helpers, type-graph helpers, and report-support helpers, but must not call lexer, parser, or file I/O.
 - `modules/driver.bkr` is the only compiler module that should call `read_file`, `write_file`, and `file_exists`.
 
 ## Q-005 Handoff
