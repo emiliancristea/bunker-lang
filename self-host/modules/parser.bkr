@@ -885,7 +885,8 @@
 
         let body: Vec<i64> = parse_block(p);
 
-        return parser_set_node_span_from_start(p, ast_fn(name_idx, params, ret_type, body), start);
+        let fn_ref: AstItemRef = ast_fn_ref(name_idx, ast_node_list_ref_from_list(params), ret_type, ast_block_ref_from_node(body));
+        return ast_item_node_from_ref(parser_set_item_ref_span_from_start(p, fn_ref, start));
     }
 
     fn parse_const(p: ParserStateRef) -> Vec<i64> {
@@ -907,7 +908,8 @@
 
         parser_expect_ref(p, TOK_SEMICOLON);
 
-        return parser_set_node_span_from_start(p, ast_const(name_idx, type_node, value), start);
+        let const_ref: AstItemRef = ast_const_ref(name_idx, type_node, value);
+        return ast_item_node_from_ref(parser_set_item_ref_span_from_start(p, const_ref, start));
     }
 
     fn parse_struct(p: ParserStateRef) -> Vec<i64> {
@@ -934,7 +936,8 @@
 
         parser_expect_ref(p, TOK_RBRACE);
 
-        return parser_set_node_span_from_start(p, ast_struct(name_idx, fields), start);
+        let struct_ref: AstItemRef = ast_struct_ref(name_idx, ast_node_list_ref_from_list(fields));
+        return ast_item_node_from_ref(parser_set_item_ref_span_from_start(p, struct_ref, start));
     }
 
     fn parse_kernel(p: Vec<i64>) -> Vec<i64> {
