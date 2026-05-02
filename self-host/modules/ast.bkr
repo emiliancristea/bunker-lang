@@ -1181,7 +1181,7 @@
     }
 
     fn ast_type_ref(kind: i64) -> AstTypeRef {
-        let node_ref = ast_node_ref_new(NODE_TYPE);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_TYPE);
         ast_node_ref_push(node_ref, kind);
         return ast_type_ref_from_handle(ast_node_ref_handle(node_ref));
     }
@@ -1191,7 +1191,7 @@
     }
 
     fn ast_type_array_ref(elem_kind: i64, len_value: i64) -> AstTypeRef {
-        let node_ref = ast_node_ref_new(NODE_TYPE);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_TYPE);
         ast_node_ref_push(node_ref, TYPE_ARRAY);
         ast_node_ref_push(node_ref, elem_kind);
         ast_node_ref_push(node_ref, len_value);
@@ -1203,7 +1203,7 @@
     }
 
     fn ast_type_struct_ref(name_idx: i64) -> AstTypeRef {
-        let node_ref = ast_node_ref_new(NODE_TYPE);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_TYPE);
         ast_node_ref_push(node_ref, TYPE_STRUCT);
         ast_node_ref_push(node_ref, name_idx);
         return ast_type_ref_from_handle(ast_node_ref_handle(node_ref));
@@ -1231,7 +1231,7 @@
     }
 
     fn ast_match_ref(scrutinee_ref: AstExprRef, patterns_ref: AstPatternListRef, bodies_ref: AstNodeListRef) -> AstExprRef {
-        let node_ref = ast_node_ref_new(NODE_MATCH);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_MATCH);
         ast_node_ref_push(node_ref, ast_expr_ref_handle(scrutinee_ref));
         ast_node_ref_push(node_ref, ast_pattern_list_ref_handle(patterns_ref));
         ast_node_ref_push(node_ref, ast_node_list_ref_handle(bodies_ref));
@@ -1243,7 +1243,7 @@
     }
 
     fn ast_int_lit_ref(value: i64) -> AstExprRef {
-        let node_ref = ast_node_ref_new(NODE_INT_LIT);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_INT_LIT);
         ast_node_ref_push(node_ref, value);
         return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
@@ -1253,7 +1253,7 @@
     }
 
     fn ast_float_lit_ref(value: str) -> AstExprRef {
-        let node_ref = ast_node_ref_new(NODE_FLOAT_LIT);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_FLOAT_LIT);
         ast_node_ref_push(node_ref, value as i64);
         return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
@@ -1263,7 +1263,7 @@
     }
 
     fn ast_bool_lit_ref(value: i64) -> AstExprRef {
-        let node_ref = ast_node_ref_new(NODE_BOOL_LIT);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_BOOL_LIT);
         ast_node_ref_push(node_ref, value);
         return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
@@ -1273,7 +1273,7 @@
     }
 
     fn ast_str_lit_ref(value: str) -> AstExprRef {
-        let node_ref = ast_node_ref_new(NODE_STR_LIT);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_STR_LIT);
         ast_node_ref_push(node_ref, value as i64);
         return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
@@ -1283,7 +1283,7 @@
     }
 
     fn ast_array_lit_ref(elements_ref: AstNodeListRef) -> AstExprRef {
-        let node_ref = ast_node_ref_new(NODE_ARRAY_LIT);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_ARRAY_LIT);
         ast_node_ref_push(node_ref, ast_node_list_ref_handle(elements_ref));
         return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
@@ -1293,7 +1293,7 @@
     }
 
     fn ast_struct_lit_ref(name_idx: i64, field_names_ref: AstI64ListRef, field_values_ref: AstNodeListRef) -> AstExprRef {
-        let node_ref = ast_node_ref_new(NODE_STRUCT_LIT);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_STRUCT_LIT);
         ast_node_ref_push(node_ref, name_idx);
         ast_node_ref_push(node_ref, ast_i64_list_ref_handle(field_names_ref));
         ast_node_ref_push(node_ref, ast_node_list_ref_handle(field_values_ref));
@@ -1305,7 +1305,7 @@
     }
 
     fn ast_call_ref(name_idx: i64, args_ref: AstNodeListRef) -> AstExprRef {
-        let node_ref = ast_node_ref_new(NODE_CALL);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_CALL);
         ast_node_ref_push(node_ref, name_idx);
         ast_node_ref_push(node_ref, ast_node_list_ref_handle(args_ref));
         return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
@@ -1316,7 +1316,7 @@
     }
 
     fn ast_ident_ref(name_idx: i64) -> AstExprRef {
-        let node_ref = ast_node_ref_new(NODE_IDENT);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_IDENT);
         ast_node_ref_push(node_ref, name_idx);
         return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
@@ -1326,7 +1326,7 @@
     }
 
     fn ast_unary_ref(op: i64, operand_ref: AstExprRef) -> AstExprRef {
-        let node_ref = ast_node_ref_new(NODE_UNARY);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_UNARY);
         ast_node_ref_push(node_ref, op);
         ast_node_ref_push(node_ref, ast_expr_ref_handle(operand_ref));
         return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
@@ -1337,7 +1337,7 @@
     }
 
     fn ast_index_ref(base_ref: AstExprRef, index_ref: AstExprRef) -> AstExprRef {
-        let node_ref = ast_node_ref_new(NODE_INDEX);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_INDEX);
         ast_node_ref_push(node_ref, ast_expr_ref_handle(base_ref));
         ast_node_ref_push(node_ref, ast_expr_ref_handle(index_ref));
         return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
@@ -1348,7 +1348,7 @@
     }
 
     fn ast_field_access_ref(base_ref: AstExprRef, field_name: i64) -> AstExprRef {
-        let node_ref = ast_node_ref_new(NODE_FIELD_ACCESS);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_FIELD_ACCESS);
         ast_node_ref_push(node_ref, ast_expr_ref_handle(base_ref));
         ast_node_ref_push(node_ref, field_name);
         return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
@@ -1359,7 +1359,7 @@
     }
 
     fn ast_binary_ref(op: i64, left_ref: AstExprRef, right_ref: AstExprRef) -> AstExprRef {
-        let node_ref = ast_node_ref_new(NODE_BINARY);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_BINARY);
         ast_node_ref_push(node_ref, op);
         ast_node_ref_push(node_ref, ast_expr_ref_handle(left_ref));
         ast_node_ref_push(node_ref, ast_expr_ref_handle(right_ref));
@@ -1371,7 +1371,7 @@
     }
 
     fn ast_ternary_ref(cond_ref: AstExprRef, then_expr_ref: AstExprRef, else_expr_ref: AstExprRef) -> AstExprRef {
-        let node_ref = ast_node_ref_new(NODE_TERNARY);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_TERNARY);
         ast_node_ref_push(node_ref, ast_expr_ref_handle(cond_ref));
         ast_node_ref_push(node_ref, ast_expr_ref_handle(then_expr_ref));
         ast_node_ref_push(node_ref, ast_expr_ref_handle(else_expr_ref));
@@ -1383,7 +1383,7 @@
     }
 
     fn ast_let_ref(name_idx: i64, type_node: i64, init: i64) -> AstStmtRef {
-        let node_ref = ast_node_ref_new(NODE_LET);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_LET);
         ast_node_ref_push(node_ref, name_idx);
         ast_node_ref_push(node_ref, type_node);
         ast_node_ref_push(node_ref, init);
@@ -1395,7 +1395,7 @@
     }
 
     fn ast_return_ref(expr: i64) -> AstStmtRef {
-        let node_ref = ast_node_ref_new(NODE_RETURN);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_RETURN);
         ast_node_ref_push(node_ref, expr);
         return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
     }
@@ -1421,7 +1421,7 @@
     }
 
     fn ast_assign_ref(target_ref: AstExprRef, value_ref: AstExprRef) -> AstStmtRef {
-        let node_ref = ast_node_ref_new(NODE_ASSIGN);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_ASSIGN);
         ast_node_ref_push(node_ref, ast_expr_ref_handle(target_ref));
         ast_node_ref_push(node_ref, ast_expr_ref_handle(value_ref));
         return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
@@ -1432,7 +1432,7 @@
     }
 
     fn ast_expr_stmt_ref(expr_ref: AstExprRef) -> AstStmtRef {
-        let node_ref = ast_node_ref_new(NODE_EXPR_STMT);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_EXPR_STMT);
         ast_node_ref_push(node_ref, ast_expr_ref_handle(expr_ref));
         return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
     }
@@ -1472,8 +1472,8 @@
     }
 
     fn ast_block_with_ref(stmt_ref: AstStmtRef) -> AstBlockRef {
-        let stmt = ast_stmt_node_from_ref(stmt_ref);
-        let block_ref = ast_block_ref();
+        let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
+        let block_ref: AstBlockRef = ast_block_ref();
         ast_node_ref_set_span(ast_node_ref_from_handle(ast_block_ref_handle(block_ref)), ast_node_span_start(stmt), ast_node_span_end(stmt));
         ast_block_append_ref(block_ref, stmt_ref);
         return block_ref;
@@ -1484,7 +1484,7 @@
     }
 
     fn ast_if_ref(cond_ref: AstExprRef, then_block_ref: AstBlockRef, else_block: i64) -> AstStmtRef {
-        let node_ref = ast_node_ref_new(NODE_IF);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_IF);
         ast_node_ref_push(node_ref, ast_expr_ref_handle(cond_ref));
         ast_node_ref_push(node_ref, ast_block_ref_handle(then_block_ref));
         ast_node_ref_push(node_ref, else_block);
@@ -1496,7 +1496,7 @@
     }
 
     fn ast_for_ref(name_idx: i64, start_expr_ref: AstExprRef, end_expr_ref: AstExprRef, inclusive: i64, body_ref: AstBlockRef) -> AstStmtRef {
-        let node_ref = ast_node_ref_new(NODE_FOR);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_FOR);
         ast_node_ref_push(node_ref, name_idx);
         ast_node_ref_push(node_ref, ast_expr_ref_handle(start_expr_ref));
         ast_node_ref_push(node_ref, ast_expr_ref_handle(end_expr_ref));
@@ -1510,7 +1510,7 @@
     }
 
     fn ast_while_ref(cond_ref: AstExprRef, body_ref: AstBlockRef) -> AstStmtRef {
-        let node_ref = ast_node_ref_new(NODE_WHILE);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_WHILE);
         ast_node_ref_push(node_ref, ast_expr_ref_handle(cond_ref));
         ast_node_ref_push(node_ref, ast_block_ref_handle(body_ref));
         return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
@@ -1521,7 +1521,7 @@
     }
 
     fn ast_loop_ref(body_ref: AstBlockRef) -> AstStmtRef {
-        let node_ref = ast_node_ref_new(NODE_LOOP);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_LOOP);
         ast_node_ref_push(node_ref, ast_block_ref_handle(body_ref));
         return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
     }
@@ -1531,7 +1531,7 @@
     }
 
     fn ast_param_ref(name_idx: i64, type_ref: AstTypeRef) -> AstNodeRef {
-        let node_ref = ast_node_ref_new(NODE_PARAM);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_PARAM);
         ast_node_ref_push(node_ref, name_idx);
         ast_node_ref_push(node_ref, ast_type_ref_handle(type_ref));
         return node_ref;
@@ -1542,7 +1542,7 @@
     }
 
     fn ast_fn_ref(name_idx: i64, params_ref: AstNodeListRef, ret_type: i64, body_ref: AstBlockRef) -> AstItemRef {
-        let node_ref = ast_node_ref_new(NODE_FN);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_FN);
         ast_node_ref_push(node_ref, name_idx);
         ast_node_ref_push(node_ref, ast_node_list_ref_handle(params_ref));
         ast_node_ref_push(node_ref, ret_type);
@@ -1555,7 +1555,7 @@
     }
 
     fn ast_const_ref(name_idx: i64, type_node: i64, value: i64) -> AstItemRef {
-        let node_ref = ast_node_ref_new(NODE_CONST);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_CONST);
         ast_node_ref_push(node_ref, name_idx);
         ast_node_ref_push(node_ref, type_node);
         ast_node_ref_push(node_ref, value);
@@ -1567,7 +1567,7 @@
     }
 
     fn ast_field_decl_ref(field_name: i64, field_type_ref: AstTypeRef) -> AstNodeRef {
-        let node_ref = ast_node_ref_new(NODE_FIELD);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_FIELD);
         ast_node_ref_push(node_ref, field_name);
         ast_node_ref_push(node_ref, ast_type_ref_handle(field_type_ref));
         return node_ref;
@@ -1578,7 +1578,7 @@
     }
 
     fn ast_struct_ref(name_idx: i64, fields_ref: AstNodeListRef) -> AstItemRef {
-        let node_ref = ast_node_ref_new(NODE_STRUCT);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_STRUCT);
         ast_node_ref_push(node_ref, name_idx);
         ast_node_ref_push(node_ref, ast_node_list_ref_handle(fields_ref));
         return ast_item_ref_from_handle(ast_node_ref_handle(node_ref));
@@ -1589,7 +1589,7 @@
     }
 
     fn ast_kernel_ref(name_idx: i64, items_ref: AstNodeListRef, main_name_idx: i64, names_ref: AstStringListRef) -> AstNodeRef {
-        let node_ref = ast_node_ref_new(NODE_KERNEL);
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_KERNEL);
         ast_node_ref_push(node_ref, name_idx);
         ast_node_ref_push(node_ref, ast_node_list_ref_handle(items_ref));
         ast_node_ref_push(node_ref, main_name_idx);

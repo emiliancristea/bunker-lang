@@ -131,6 +131,12 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -n -E 'let node_ref = ast_node_ref_new|let block_ref = ast_block_ref|let stmt = ast_stmt_node_from_ref' "$ast" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Typed AST constructor locals must carry explicit types for stage2 codegen."
+            cat "$matches"
+            exit 1
+          fi
 
   self-host-smoke:
     name: Self-host smoke inputs
