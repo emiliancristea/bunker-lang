@@ -162,6 +162,12 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -n -E 'ast_block\(|ast_block_append\(' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser block construction must route through typed AstBlockRef helpers."
+            cat "$matches"
+            exit 1
+          fi
       - name: Require AST constructors through typed refs
         shell: bash
         run: |

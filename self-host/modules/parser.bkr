@@ -805,7 +805,7 @@
     // Parse a block (handles if/while inside)
     fn parse_block(p: ParserStateRef) -> Vec<i64> {
         let start = parser_current_token_start(p);
-        let node: Vec<i64> = ast_block();
+        let block_ref: AstBlockRef = ast_block_ref();
         parser_expect_ref(p, TOK_LBRACE);
 
         while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
@@ -813,10 +813,10 @@
 
             if tok == TOK_IF {
                 let if_node: Vec<i64> = parse_if_stmt(p);
-                ast_block_append(node, if_node);
+                ast_block_append_ref(block_ref, ast_stmt_ref_from_node(if_node));
             } else if tok == TOK_FOR {
                 let for_node: Vec<i64> = parse_for_stmt(p);
-                ast_block_append(node, for_node);
+                ast_block_append_ref(block_ref, ast_stmt_ref_from_node(for_node));
             } else if tok == TOK_WHILE {
                 let stmt_start = parser_current_token_start(p);
                 parser_advance_ref(p);
@@ -824,21 +824,21 @@
                 let body: Vec<i64> = parse_block(p);
                 let while_ref: AstStmtRef = ast_while_ref(ast_expr_ref_from_node(cond), ast_block_ref_from_node(body));
                 let while_node: Vec<i64> = ast_stmt_node_from_ref(parser_set_stmt_ref_span(while_ref, stmt_start, parser_previous_token_end(p)));
-                ast_block_append(node, while_node);
+                ast_block_append_ref(block_ref, ast_stmt_ref_from_node(while_node));
             } else if tok == TOK_LOOP {
                 let stmt_start = parser_current_token_start(p);
                 parser_advance_ref(p);
                 let body: Vec<i64> = parse_block(p);
                 let loop_ref: AstStmtRef = ast_loop_ref(ast_block_ref_from_node(body));
                 let loop_node: Vec<i64> = ast_stmt_node_from_ref(parser_set_stmt_ref_span(loop_ref, stmt_start, parser_previous_token_end(p)));
-                ast_block_append(node, loop_node);
+                ast_block_append_ref(block_ref, ast_stmt_ref_from_node(loop_node));
             } else {
                 let stmt: Vec<i64> = parse_simple_stmt(p);
-                ast_block_append(node, stmt);
+                ast_block_append_ref(block_ref, ast_stmt_ref_from_node(stmt));
             }
         }
         parser_expect_ref(p, TOK_RBRACE);
-        return parser_set_node_span_from_start(p, node, start);
+        return ast_block_node_from_ref(parser_set_block_ref_span_from_start(p, block_ref, start));
     }
 
     fn parse_params(p: ParserStateRef) -> Vec<i64> {
