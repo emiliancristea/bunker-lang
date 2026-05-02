@@ -50,16 +50,52 @@
         handle: i64,
     }
 
-    fn ast_new(kind: i64) -> Vec<i64> {
+    fn ast_node_ref_new(kind: i64) -> AstNodeRef {
         let node: Vec<i64> = vec_new();
         vec_push(node, kind);
         vec_push(node, AST_SPAN_UNKNOWN);
         vec_push(node, AST_SPAN_UNKNOWN);
-        return node;
+        return AstNodeRef { handle: node as i64 };
+    }
+
+    fn ast_node_ref_push(node_ref: AstNodeRef, value: i64) -> AstNodeRef {
+        vec_push(ast_node_from_ref(node_ref), value);
+        return node_ref;
+    }
+
+    fn ast_node_ref_set_span(node_ref: AstNodeRef, start: i64, end: i64) -> AstNodeRef {
+        let node: Vec<i64> = ast_node_from_ref(node_ref);
+        vec_set(node, AST_NODE_SPAN_START_INDEX, start);
+        vec_set(node, AST_NODE_SPAN_END_INDEX, end);
+        return node_ref;
+    }
+
+    fn ast_node_ref_set_span_from(node_ref: AstNodeRef, span: Vec<i64>) -> AstNodeRef {
+        return ast_node_ref_set_span(node_ref, ast_span_start(span), ast_span_end(span));
+    }
+
+    fn ast_pattern_ref_new(kind: i64, value: i64) -> AstPatternRef {
+        let pattern: Vec<i64> = vec_new();
+        vec_push(pattern, kind);
+        vec_push(pattern, AST_SPAN_UNKNOWN);
+        vec_push(pattern, AST_SPAN_UNKNOWN);
+        vec_push(pattern, value);
+        return AstPatternRef { handle: pattern as i64 };
+    }
+
+    fn ast_pattern_ref_set_span(pattern_ref: AstPatternRef, start: i64, end: i64) -> AstPatternRef {
+        let pattern: Vec<i64> = ast_pattern_from_ref(pattern_ref);
+        vec_set(pattern, AST_NODE_SPAN_START_INDEX, start);
+        vec_set(pattern, AST_NODE_SPAN_END_INDEX, end);
+        return pattern_ref;
+    }
+
+    fn ast_new(kind: i64) -> Vec<i64> {
+        return ast_node_from_ref(ast_node_ref_new(kind));
     }
 
     fn ast_push(node: Vec<i64>, value: i64) -> Vec<i64> {
-        vec_push(node, value);
+        ast_node_ref_push(ast_node_ref_from_node(node), value);
         return node;
     }
 
@@ -113,13 +149,13 @@
     }
 
     fn ast_set_span(node: Vec<i64>, start: i64, end: i64) -> Vec<i64> {
-        vec_set(node, AST_NODE_SPAN_START_INDEX, start);
-        vec_set(node, AST_NODE_SPAN_END_INDEX, end);
+        ast_node_ref_set_span(ast_node_ref_from_node(node), start, end);
         return node;
     }
 
     fn ast_set_span_from(node: Vec<i64>, span: Vec<i64>) -> Vec<i64> {
-        return ast_set_span(node, ast_span_start(span), ast_span_end(span));
+        ast_node_ref_set_span_from(ast_node_ref_from_node(node), span);
+        return node;
     }
 
     fn ast_has_field(node: Vec<i64>, index: i64) -> bool {
@@ -1166,12 +1202,7 @@
     }
 
     fn ast_pattern(kind: i64, value: i64) -> Vec<i64> {
-        let pattern: Vec<i64> = vec_new();
-        vec_push(pattern, kind);
-        vec_push(pattern, AST_SPAN_UNKNOWN);
-        vec_push(pattern, AST_SPAN_UNKNOWN);
-        vec_push(pattern, value);
-        return pattern;
+        return ast_pattern_from_ref(ast_pattern_ref_new(kind, value));
     }
 
     fn ast_pattern_span_start(pattern: Vec<i64>) -> i64 {
@@ -1183,8 +1214,7 @@
     }
 
     fn ast_set_pattern_span(pattern: Vec<i64>, start: i64, end: i64) -> Vec<i64> {
-        vec_set(pattern, AST_NODE_SPAN_START_INDEX, start);
-        vec_set(pattern, AST_NODE_SPAN_END_INDEX, end);
+        ast_pattern_ref_set_span(ast_pattern_ref_from_pattern(pattern), start, end);
         return pattern;
     }
 
