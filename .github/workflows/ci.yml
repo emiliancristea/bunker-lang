@@ -113,6 +113,31 @@ jobs:
             exit 1
           fi
 
+      - name: Require AST constructors through typed refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'let node: Vec<i64> = ast_new\(|return ast_new\(NODE_' "$ast" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "AST constructors must route through typed Ast*Ref helpers."
+            cat "$matches"
+            exit 1
+          fi
+          grep -n 'return ast_block_stmt_count(ast_block_node_from_ref(block_ref))' "$ast" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Typed block count helper must not recurse through the raw adapter."
+            cat "$matches"
+            exit 1
+          fi
+          grep -n -E 'let node_ref = ast_node_ref_new|let block_ref = ast_block_ref|let stmt = ast_stmt_node_from_ref' "$ast" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Typed AST constructor locals must carry explicit types for stage2 codegen."
+            cat "$matches"
+            exit 1
+          fi
+
   self-host-smoke:
     name: Self-host smoke inputs
     runs-on: ubuntu-latest

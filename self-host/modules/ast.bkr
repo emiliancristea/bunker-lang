@@ -372,7 +372,7 @@
     }
 
     fn ast_block_ref_stmt_count(block_ref: AstBlockRef) -> i64 {
-        return ast_block_stmt_count(ast_block_node_from_ref(block_ref));
+        return vec_len(ast_block_node_from_ref(block_ref)) - AST_NODE_DATA_START;
     }
 
     fn ast_pattern_handle(pattern: Vec<i64>) -> i64 {
@@ -1180,25 +1180,37 @@
         return ast_node_list_ref_get_handle(ast_struct_lit_field_values_ref(node), index);
     }
 
+    fn ast_type_ref(kind: i64) -> AstTypeRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_TYPE);
+        ast_node_ref_push(node_ref, kind);
+        return ast_type_ref_from_handle(ast_node_ref_handle(node_ref));
+    }
+
     fn ast_type(kind: i64) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_TYPE);
-        ast_push(node, kind);
-        return node;
+        return ast_type_node_from_ref(ast_type_ref(kind));
+    }
+
+    fn ast_type_array_ref(elem_kind: i64, len_value: i64) -> AstTypeRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_TYPE);
+        ast_node_ref_push(node_ref, TYPE_ARRAY);
+        ast_node_ref_push(node_ref, elem_kind);
+        ast_node_ref_push(node_ref, len_value);
+        return ast_type_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_type_array(elem_kind: i64, len_value: i64) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_TYPE);
-        ast_push(node, TYPE_ARRAY);
-        ast_push(node, elem_kind);
-        ast_push(node, len_value);
-        return node;
+        return ast_type_node_from_ref(ast_type_array_ref(elem_kind, len_value));
+    }
+
+    fn ast_type_struct_ref(name_idx: i64) -> AstTypeRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_TYPE);
+        ast_node_ref_push(node_ref, TYPE_STRUCT);
+        ast_node_ref_push(node_ref, name_idx);
+        return ast_type_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_type_struct(name_idx: i64) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_TYPE);
-        ast_push(node, TYPE_STRUCT);
-        ast_push(node, name_idx);
-        return node;
+        return ast_type_node_from_ref(ast_type_struct_ref(name_idx));
     }
 
     fn ast_pattern(kind: i64, value: i64) -> Vec<i64> {
@@ -1218,143 +1230,227 @@
         return pattern;
     }
 
+    fn ast_match_ref(scrutinee_ref: AstExprRef, patterns_ref: AstPatternListRef, bodies_ref: AstNodeListRef) -> AstExprRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_MATCH);
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(scrutinee_ref));
+        ast_node_ref_push(node_ref, ast_pattern_list_ref_handle(patterns_ref));
+        ast_node_ref_push(node_ref, ast_node_list_ref_handle(bodies_ref));
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
+    }
+
     fn ast_match(scrutinee: Vec<i64>, patterns: Vec<i64>, bodies: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_MATCH);
-        ast_push(node, ast_expr_handle(scrutinee));
-        ast_push(node, ast_pattern_list_handle(patterns));
-        ast_push(node, ast_node_list_handle(bodies));
-        return node;
+        return ast_expr_node_from_ref(ast_match_ref(ast_expr_ref_from_node(scrutinee), ast_pattern_list_ref_from_list(patterns), ast_node_list_ref_from_list(bodies)));
+    }
+
+    fn ast_int_lit_ref(value: i64) -> AstExprRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_INT_LIT);
+        ast_node_ref_push(node_ref, value);
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_int_lit(value: i64) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_INT_LIT);
-        ast_push(node, value);
-        return node;
+        return ast_expr_node_from_ref(ast_int_lit_ref(value));
+    }
+
+    fn ast_float_lit_ref(value: str) -> AstExprRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_FLOAT_LIT);
+        ast_node_ref_push(node_ref, value as i64);
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_float_lit(value: str) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_FLOAT_LIT);
-        ast_push(node, value as i64);
-        return node;
+        return ast_expr_node_from_ref(ast_float_lit_ref(value));
+    }
+
+    fn ast_bool_lit_ref(value: i64) -> AstExprRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_BOOL_LIT);
+        ast_node_ref_push(node_ref, value);
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_bool_lit(value: i64) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_BOOL_LIT);
-        ast_push(node, value);
-        return node;
+        return ast_expr_node_from_ref(ast_bool_lit_ref(value));
+    }
+
+    fn ast_str_lit_ref(value: str) -> AstExprRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_STR_LIT);
+        ast_node_ref_push(node_ref, value as i64);
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_str_lit(value: str) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_STR_LIT);
-        ast_push(node, value as i64);
-        return node;
+        return ast_expr_node_from_ref(ast_str_lit_ref(value));
+    }
+
+    fn ast_array_lit_ref(elements_ref: AstNodeListRef) -> AstExprRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_ARRAY_LIT);
+        ast_node_ref_push(node_ref, ast_node_list_ref_handle(elements_ref));
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_array_lit(elements: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_ARRAY_LIT);
-        ast_push(node, ast_node_list_handle(elements));
-        return node;
+        return ast_expr_node_from_ref(ast_array_lit_ref(ast_node_list_ref_from_list(elements)));
+    }
+
+    fn ast_struct_lit_ref(name_idx: i64, field_names_ref: AstI64ListRef, field_values_ref: AstNodeListRef) -> AstExprRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_STRUCT_LIT);
+        ast_node_ref_push(node_ref, name_idx);
+        ast_node_ref_push(node_ref, ast_i64_list_ref_handle(field_names_ref));
+        ast_node_ref_push(node_ref, ast_node_list_ref_handle(field_values_ref));
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_struct_lit(name_idx: i64, field_names: Vec<i64>, field_values: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_STRUCT_LIT);
-        ast_push(node, name_idx);
-        ast_push(node, ast_i64_list_handle(field_names));
-        ast_push(node, ast_node_list_handle(field_values));
-        return node;
+        return ast_expr_node_from_ref(ast_struct_lit_ref(name_idx, ast_i64_list_ref_from_list(field_names), ast_node_list_ref_from_list(field_values)));
+    }
+
+    fn ast_call_ref(name_idx: i64, args_ref: AstNodeListRef) -> AstExprRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_CALL);
+        ast_node_ref_push(node_ref, name_idx);
+        ast_node_ref_push(node_ref, ast_node_list_ref_handle(args_ref));
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_call(name_idx: i64, args: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_CALL);
-        ast_push(node, name_idx);
-        ast_push(node, ast_node_list_handle(args));
-        return node;
+        return ast_expr_node_from_ref(ast_call_ref(name_idx, ast_node_list_ref_from_list(args)));
+    }
+
+    fn ast_ident_ref(name_idx: i64) -> AstExprRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_IDENT);
+        ast_node_ref_push(node_ref, name_idx);
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_ident(name_idx: i64) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_IDENT);
-        ast_push(node, name_idx);
-        return node;
+        return ast_expr_node_from_ref(ast_ident_ref(name_idx));
+    }
+
+    fn ast_unary_ref(op: i64, operand_ref: AstExprRef) -> AstExprRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_UNARY);
+        ast_node_ref_push(node_ref, op);
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(operand_ref));
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_unary(op: i64, operand: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_UNARY);
-        ast_push(node, op);
-        ast_push(node, ast_expr_handle(operand));
-        return node;
+        return ast_expr_node_from_ref(ast_unary_ref(op, ast_expr_ref_from_node(operand)));
+    }
+
+    fn ast_index_ref(base_ref: AstExprRef, index_ref: AstExprRef) -> AstExprRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_INDEX);
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(base_ref));
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(index_ref));
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_index(base: Vec<i64>, index: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_INDEX);
-        ast_push(node, ast_expr_handle(base));
-        ast_push(node, ast_expr_handle(index));
-        return node;
+        return ast_expr_node_from_ref(ast_index_ref(ast_expr_ref_from_node(base), ast_expr_ref_from_node(index)));
+    }
+
+    fn ast_field_access_ref(base_ref: AstExprRef, field_name: i64) -> AstExprRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_FIELD_ACCESS);
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(base_ref));
+        ast_node_ref_push(node_ref, field_name);
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_field_access(base: Vec<i64>, field_name: i64) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_FIELD_ACCESS);
-        ast_push(node, ast_expr_handle(base));
-        ast_push(node, field_name);
-        return node;
+        return ast_expr_node_from_ref(ast_field_access_ref(ast_expr_ref_from_node(base), field_name));
+    }
+
+    fn ast_binary_ref(op: i64, left_ref: AstExprRef, right_ref: AstExprRef) -> AstExprRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_BINARY);
+        ast_node_ref_push(node_ref, op);
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(left_ref));
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(right_ref));
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_binary(op: i64, left: Vec<i64>, right: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_BINARY);
-        ast_push(node, op);
-        ast_push(node, ast_expr_handle(left));
-        ast_push(node, ast_expr_handle(right));
-        return node;
+        return ast_expr_node_from_ref(ast_binary_ref(op, ast_expr_ref_from_node(left), ast_expr_ref_from_node(right)));
+    }
+
+    fn ast_ternary_ref(cond_ref: AstExprRef, then_expr_ref: AstExprRef, else_expr_ref: AstExprRef) -> AstExprRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_TERNARY);
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(cond_ref));
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(then_expr_ref));
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(else_expr_ref));
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_ternary(cond: Vec<i64>, then_expr: Vec<i64>, else_expr: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_TERNARY);
-        ast_push(node, ast_expr_handle(cond));
-        ast_push(node, ast_expr_handle(then_expr));
-        ast_push(node, ast_expr_handle(else_expr));
-        return node;
+        return ast_expr_node_from_ref(ast_ternary_ref(ast_expr_ref_from_node(cond), ast_expr_ref_from_node(then_expr), ast_expr_ref_from_node(else_expr)));
+    }
+
+    fn ast_let_ref(name_idx: i64, type_node: i64, init: i64) -> AstStmtRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_LET);
+        ast_node_ref_push(node_ref, name_idx);
+        ast_node_ref_push(node_ref, type_node);
+        ast_node_ref_push(node_ref, init);
+        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_let(name_idx: i64, type_node: i64, init: i64) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_LET);
-        ast_push(node, name_idx);
-        ast_push(node, type_node);
-        ast_push(node, init);
-        return node;
+        return ast_stmt_node_from_ref(ast_let_ref(name_idx, type_node, init));
+    }
+
+    fn ast_return_ref(expr: i64) -> AstStmtRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_RETURN);
+        ast_node_ref_push(node_ref, expr);
+        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_return(expr: i64) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_RETURN);
-        ast_push(node, expr);
-        return node;
+        return ast_stmt_node_from_ref(ast_return_ref(expr));
+    }
+
+    fn ast_break_ref() -> AstStmtRef {
+        return ast_stmt_ref_from_handle(ast_node_ref_handle(ast_node_ref_new(NODE_BREAK)));
     }
 
     fn ast_break() -> Vec<i64> {
-        return ast_new(NODE_BREAK);
+        return ast_stmt_node_from_ref(ast_break_ref());
+    }
+
+    fn ast_continue_ref() -> AstStmtRef {
+        return ast_stmt_ref_from_handle(ast_node_ref_handle(ast_node_ref_new(NODE_CONTINUE)));
     }
 
     fn ast_continue() -> Vec<i64> {
-        return ast_new(NODE_CONTINUE);
+        return ast_stmt_node_from_ref(ast_continue_ref());
+    }
+
+    fn ast_assign_ref(target_ref: AstExprRef, value_ref: AstExprRef) -> AstStmtRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_ASSIGN);
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(target_ref));
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(value_ref));
+        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_assign(target: Vec<i64>, value: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_ASSIGN);
-        ast_push(node, ast_expr_handle(target));
-        ast_push(node, ast_expr_handle(value));
-        return node;
+        return ast_stmt_node_from_ref(ast_assign_ref(ast_expr_ref_from_node(target), ast_expr_ref_from_node(value)));
+    }
+
+    fn ast_expr_stmt_ref(expr_ref: AstExprRef) -> AstStmtRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_EXPR_STMT);
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(expr_ref));
+        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_expr_stmt(expr: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_EXPR_STMT);
-        ast_push(node, ast_expr_handle(expr));
-        return node;
+        return ast_stmt_node_from_ref(ast_expr_stmt_ref(ast_expr_ref_from_node(expr)));
+    }
+
+    fn ast_block_ref() -> AstBlockRef {
+        return ast_block_ref_from_handle(ast_node_ref_handle(ast_node_ref_new(NODE_BLOCK)));
     }
 
     fn ast_block() -> Vec<i64> {
-        return ast_new(NODE_BLOCK);
+        return ast_block_node_from_ref(ast_block_ref());
     }
 
     fn ast_block_stmt_count(block: Vec<i64>) -> i64 {
-        return vec_len(block) - AST_NODE_DATA_START;
+        return ast_block_ref_stmt_count(ast_block_ref_from_node(block));
     }
 
     fn ast_block_stmt(block: Vec<i64>, index: i64) -> Vec<i64> {
@@ -1365,92 +1461,142 @@
         return ast_block_stmt(block, ast_block_stmt_count(block) - 1);
     }
 
+    fn ast_block_append_ref(block_ref: AstBlockRef, stmt_ref: AstStmtRef) -> AstBlockRef {
+        ast_node_ref_push(ast_node_ref_from_handle(ast_block_ref_handle(block_ref)), ast_stmt_ref_handle(stmt_ref));
+        return block_ref;
+    }
+
     fn ast_block_append(block: Vec<i64>, stmt: Vec<i64>) -> Vec<i64> {
-        ast_push(block, ast_stmt_handle(stmt));
+        ast_block_append_ref(ast_block_ref_from_node(block), ast_stmt_ref_from_node(stmt));
         return block;
     }
 
+    fn ast_block_with_ref(stmt_ref: AstStmtRef) -> AstBlockRef {
+        let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
+        let block_ref: AstBlockRef = ast_block_ref();
+        ast_node_ref_set_span(ast_node_ref_from_handle(ast_block_ref_handle(block_ref)), ast_node_span_start(stmt), ast_node_span_end(stmt));
+        ast_block_append_ref(block_ref, stmt_ref);
+        return block_ref;
+    }
+
     fn ast_block_with(stmt: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_block();
-        ast_set_span(node, ast_node_span_start(stmt), ast_node_span_end(stmt));
-        ast_block_append(node, stmt);
-        return node;
+        return ast_block_node_from_ref(ast_block_with_ref(ast_stmt_ref_from_node(stmt)));
+    }
+
+    fn ast_if_ref(cond_ref: AstExprRef, then_block_ref: AstBlockRef, else_block: i64) -> AstStmtRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_IF);
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(cond_ref));
+        ast_node_ref_push(node_ref, ast_block_ref_handle(then_block_ref));
+        ast_node_ref_push(node_ref, else_block);
+        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_if(cond: Vec<i64>, then_block: Vec<i64>, else_block: i64) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_IF);
-        ast_push(node, ast_expr_handle(cond));
-        ast_push(node, ast_block_handle(then_block));
-        ast_push(node, else_block);
-        return node;
+        return ast_stmt_node_from_ref(ast_if_ref(ast_expr_ref_from_node(cond), ast_block_ref_from_node(then_block), else_block));
+    }
+
+    fn ast_for_ref(name_idx: i64, start_expr_ref: AstExprRef, end_expr_ref: AstExprRef, inclusive: i64, body_ref: AstBlockRef) -> AstStmtRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_FOR);
+        ast_node_ref_push(node_ref, name_idx);
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(start_expr_ref));
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(end_expr_ref));
+        ast_node_ref_push(node_ref, inclusive);
+        ast_node_ref_push(node_ref, ast_block_ref_handle(body_ref));
+        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_for(name_idx: i64, start_expr: Vec<i64>, end_expr: Vec<i64>, inclusive: i64, body: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_FOR);
-        ast_push(node, name_idx);
-        ast_push(node, ast_expr_handle(start_expr));
-        ast_push(node, ast_expr_handle(end_expr));
-        ast_push(node, inclusive);
-        ast_push(node, ast_block_handle(body));
-        return node;
+        return ast_stmt_node_from_ref(ast_for_ref(name_idx, ast_expr_ref_from_node(start_expr), ast_expr_ref_from_node(end_expr), inclusive, ast_block_ref_from_node(body)));
+    }
+
+    fn ast_while_ref(cond_ref: AstExprRef, body_ref: AstBlockRef) -> AstStmtRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_WHILE);
+        ast_node_ref_push(node_ref, ast_expr_ref_handle(cond_ref));
+        ast_node_ref_push(node_ref, ast_block_ref_handle(body_ref));
+        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_while(cond: Vec<i64>, body: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_WHILE);
-        ast_push(node, ast_expr_handle(cond));
-        ast_push(node, ast_block_handle(body));
-        return node;
+        return ast_stmt_node_from_ref(ast_while_ref(ast_expr_ref_from_node(cond), ast_block_ref_from_node(body)));
+    }
+
+    fn ast_loop_ref(body_ref: AstBlockRef) -> AstStmtRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_LOOP);
+        ast_node_ref_push(node_ref, ast_block_ref_handle(body_ref));
+        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_loop(body: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_LOOP);
-        ast_push(node, ast_block_handle(body));
-        return node;
+        return ast_stmt_node_from_ref(ast_loop_ref(ast_block_ref_from_node(body)));
+    }
+
+    fn ast_param_ref(name_idx: i64, type_ref: AstTypeRef) -> AstNodeRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_PARAM);
+        ast_node_ref_push(node_ref, name_idx);
+        ast_node_ref_push(node_ref, ast_type_ref_handle(type_ref));
+        return node_ref;
     }
 
     fn ast_param(name_idx: i64, type_node: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_PARAM);
-        ast_push(node, name_idx);
-        ast_push(node, ast_type_handle(type_node));
-        return node;
+        return ast_node_from_ref(ast_param_ref(name_idx, ast_type_ref_from_node(type_node)));
+    }
+
+    fn ast_fn_ref(name_idx: i64, params_ref: AstNodeListRef, ret_type: i64, body_ref: AstBlockRef) -> AstItemRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_FN);
+        ast_node_ref_push(node_ref, name_idx);
+        ast_node_ref_push(node_ref, ast_node_list_ref_handle(params_ref));
+        ast_node_ref_push(node_ref, ret_type);
+        ast_node_ref_push(node_ref, ast_block_ref_handle(body_ref));
+        return ast_item_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_fn(name_idx: i64, params: Vec<i64>, ret_type: i64, body: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_FN);
-        ast_push(node, name_idx);
-        ast_push(node, ast_node_list_handle(params));
-        ast_push(node, ret_type);
-        ast_push(node, ast_block_handle(body));
-        return node;
+        return ast_item_node_from_ref(ast_fn_ref(name_idx, ast_node_list_ref_from_list(params), ret_type, ast_block_ref_from_node(body)));
+    }
+
+    fn ast_const_ref(name_idx: i64, type_node: i64, value: i64) -> AstItemRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_CONST);
+        ast_node_ref_push(node_ref, name_idx);
+        ast_node_ref_push(node_ref, type_node);
+        ast_node_ref_push(node_ref, value);
+        return ast_item_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_const(name_idx: i64, type_node: i64, value: i64) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_CONST);
-        ast_push(node, name_idx);
-        ast_push(node, type_node);
-        ast_push(node, value);
-        return node;
+        return ast_item_node_from_ref(ast_const_ref(name_idx, type_node, value));
+    }
+
+    fn ast_field_decl_ref(field_name: i64, field_type_ref: AstTypeRef) -> AstNodeRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_FIELD);
+        ast_node_ref_push(node_ref, field_name);
+        ast_node_ref_push(node_ref, ast_type_ref_handle(field_type_ref));
+        return node_ref;
     }
 
     fn ast_field_decl(field_name: i64, field_type: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_FIELD);
-        ast_push(node, field_name);
-        ast_push(node, ast_type_handle(field_type));
-        return node;
+        return ast_node_from_ref(ast_field_decl_ref(field_name, ast_type_ref_from_node(field_type)));
+    }
+
+    fn ast_struct_ref(name_idx: i64, fields_ref: AstNodeListRef) -> AstItemRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_STRUCT);
+        ast_node_ref_push(node_ref, name_idx);
+        ast_node_ref_push(node_ref, ast_node_list_ref_handle(fields_ref));
+        return ast_item_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
     fn ast_struct(name_idx: i64, fields: Vec<i64>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_STRUCT);
-        ast_push(node, name_idx);
-        ast_push(node, ast_node_list_handle(fields));
-        return node;
+        return ast_item_node_from_ref(ast_struct_ref(name_idx, ast_node_list_ref_from_list(fields)));
+    }
+
+    fn ast_kernel_ref(name_idx: i64, items_ref: AstNodeListRef, main_name_idx: i64, names_ref: AstStringListRef) -> AstNodeRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_KERNEL);
+        ast_node_ref_push(node_ref, name_idx);
+        ast_node_ref_push(node_ref, ast_node_list_ref_handle(items_ref));
+        ast_node_ref_push(node_ref, main_name_idx);
+        ast_node_ref_push(node_ref, ast_string_list_ref_handle(names_ref));
+        return node_ref;
     }
 
     fn ast_kernel(name_idx: i64, items: Vec<i64>, main_name_idx: i64, names: Vec<str>) -> Vec<i64> {
-        let node: Vec<i64> = ast_new(NODE_KERNEL);
-        ast_push(node, name_idx);
-        ast_push(node, ast_node_list_handle(items));
-        ast_push(node, main_name_idx);
-        ast_push(node, ast_string_list_handle(names));
-        return node;
+        return ast_node_from_ref(ast_kernel_ref(name_idx, ast_node_list_ref_from_list(items), main_name_idx, ast_string_list_ref_from_list(names)));
     }
