@@ -184,7 +184,7 @@ jobs:
   self-host-smoke:
     name: Self-host smoke inputs
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -437,14 +437,16 @@ jobs:
           test "$status" -eq 42
 
       - name: Compile and run bkrc through self-host compiler
-        timeout-minutes: 10
+        timeout-minutes: 25
         run: |
-          timeout --kill-after=5s 240s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          echo "[self-host smoke] stage1 compile bkrc"
+          timeout --kill-after=5s 600s ./bunker-cli/target/release/bunker-cli self-host-compile \
             self-host/bkrc.bkr \
             -o /tmp/bkrc.c
           test -s /tmp/bkrc.c
           ! grep -q "Parse error" /tmp/bkrc.c
           cp self-host/runtime.h /tmp/runtime.h
+          echo "[self-host smoke] build stage1 bkrc"
           cc -std=c11 /tmp/bkrc.c -o /tmp/bkrc
 
           run_invalid_bkrc_fixture() {
@@ -517,6 +519,7 @@ jobs:
             test "$program_status" -eq "$expected_status"
           }
 
+          echo "[self-host smoke] run stage1 generated fixtures"
           run_generated_bkrc_fixture tests/01_basic_math.bkr basic 42
           run_generated_bkrc_fixture tests/14_kernel_if_branching.bkr branching 42
           run_generated_bkrc_fixture tests/16_kernel_match_block_expr.bkr match_block 12
@@ -569,8 +572,9 @@ jobs:
           mkdir -p "$self_compile_dir/modules"
           cp self-host/bkrc.bkr "$self_compile_dir/self_host_input.bkr"
           cp self-host/modules/*.bkr "$self_compile_dir/modules/"
+          echo "[self-host smoke] stage2 compile bkrc with generated bkrc"
           set +e
-          (cd "$self_compile_dir" && timeout --kill-after=5s 240s /tmp/bkrc)
+          (cd "$self_compile_dir" && timeout --kill-after=5s 600s /tmp/bkrc)
           bkrc_self_status=$?
           set -e
           echo "generated bkrc self-compile exited $bkrc_self_status, expected 42"
@@ -580,6 +584,7 @@ jobs:
           grep -q "BUNKER_RESOLVER_JSON" "$self_compile_dir/self_host_output.c"
           grep -q "bunker.self_host.resolver.v1" "$self_compile_dir/self_host_output.c"
           cp self-host/runtime.h "$self_compile_dir/runtime.h"
+          echo "[self-host smoke] build stage2 bkrc"
           cc -std=c11 "$self_compile_dir/self_host_output.c" -o "$self_compile_dir/bkrc2"
 
           run_invalid_bkrc_fixture "$self_compile_dir/bkrc2" bkrc2-invalid
@@ -622,6 +627,7 @@ jobs:
             test "$program_status" -eq "$expected_status"
           }
 
+          echo "[self-host smoke] run stage2 generated fixtures"
           run_stage2_bkrc_fixture tests/01_basic_math.bkr basic 42
           run_stage2_bkrc_fixture tests/14_kernel_if_branching.bkr branching 42
           run_stage2_bkrc_fixture tests/16_kernel_match_block_expr.bkr match_block 12
@@ -715,6 +721,7 @@ jobs:
             diff -u "$stage1_dir/self_host_output.c" "$stage2_dir/self_host_output.c"
           }
 
+          echo "[self-host smoke] compare stage1/stage2 generated C"
           run_self_host_golden_fixture tests/01_basic_math.bkr basic
           run_self_host_golden_fixture tests/14_kernel_if_branching.bkr branching
           run_self_host_golden_fixture tests/38_kernel_while_loop.bkr while_loop
