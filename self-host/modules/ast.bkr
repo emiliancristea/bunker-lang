@@ -371,6 +371,26 @@
         return ast_node_from_handle(ast_block_ref_handle(block_ref));
     }
 
+    fn ast_node_ref_from_type_ref(type_ref: AstTypeRef) -> AstNodeRef {
+        return ast_node_ref_from_handle(ast_type_ref_handle(type_ref));
+    }
+
+    fn ast_node_ref_from_expr_ref(expr_ref: AstExprRef) -> AstNodeRef {
+        return ast_node_ref_from_handle(ast_expr_ref_handle(expr_ref));
+    }
+
+    fn ast_node_ref_from_stmt_ref(stmt_ref: AstStmtRef) -> AstNodeRef {
+        return ast_node_ref_from_handle(ast_stmt_ref_handle(stmt_ref));
+    }
+
+    fn ast_node_ref_from_item_ref(item_ref: AstItemRef) -> AstNodeRef {
+        return ast_node_ref_from_handle(ast_item_ref_handle(item_ref));
+    }
+
+    fn ast_node_ref_from_block_ref(block_ref: AstBlockRef) -> AstNodeRef {
+        return ast_node_ref_from_handle(ast_block_ref_handle(block_ref));
+    }
+
     fn ast_block_ref_stmt_count(block_ref: AstBlockRef) -> i64 {
         return vec_len(ast_block_node_from_ref(block_ref)) - AST_NODE_DATA_START;
     }

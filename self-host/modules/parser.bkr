@@ -156,6 +156,31 @@
         return ast_node_ref_set_span(node_ref, start, parser_end_for_span(p, start));
     }
 
+    fn parser_set_type_ref_span_from_start(p: ParserStateRef, type_ref: AstTypeRef, start: i64) -> AstTypeRef {
+        parser_set_node_ref_span_from_start(p, ast_node_ref_from_type_ref(type_ref), start);
+        return type_ref;
+    }
+
+    fn parser_set_expr_ref_span_from_start(p: ParserStateRef, expr_ref: AstExprRef, start: i64) -> AstExprRef {
+        parser_set_node_ref_span_from_start(p, ast_node_ref_from_expr_ref(expr_ref), start);
+        return expr_ref;
+    }
+
+    fn parser_set_stmt_ref_span_from_start(p: ParserStateRef, stmt_ref: AstStmtRef, start: i64) -> AstStmtRef {
+        parser_set_node_ref_span_from_start(p, ast_node_ref_from_stmt_ref(stmt_ref), start);
+        return stmt_ref;
+    }
+
+    fn parser_set_item_ref_span_from_start(p: ParserStateRef, item_ref: AstItemRef, start: i64) -> AstItemRef {
+        parser_set_node_ref_span_from_start(p, ast_node_ref_from_item_ref(item_ref), start);
+        return item_ref;
+    }
+
+    fn parser_set_block_ref_span_from_start(p: ParserStateRef, block_ref: AstBlockRef, start: i64) -> AstBlockRef {
+        parser_set_node_ref_span_from_start(p, ast_node_ref_from_block_ref(block_ref), start);
+        return block_ref;
+    }
+
     fn parser_set_node_span_from_start(p: ParserStateRef, node: Vec<i64>, start: i64) -> Vec<i64> {
         return ast_node_from_ref(parser_set_node_ref_span_from_start(p, ast_node_ref_from_node(node), start));
     }
