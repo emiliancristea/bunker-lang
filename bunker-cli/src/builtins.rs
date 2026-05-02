@@ -257,6 +257,15 @@ static TYPECHECK_BUILTINS: &[TypecheckBuiltinSpec] = &[
         return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
     },
     TypecheckBuiltinSpec {
+        name: "join_lines",
+        arity_error: "join_lines expects 1 argument (Vec<str> handle)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Any,
+            type_error: "",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
+    },
+    TypecheckBuiltinSpec {
         name: "vec_new",
         arity_error: "vec_new expects 0 arguments",
         params: &[],
@@ -597,6 +606,11 @@ static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
         name: "str_eq",
         params: &[RuntimeBuiltinType::Str, RuntimeBuiltinType::Str],
         return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "join_lines",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::Str),
     },
     RuntimeBuiltinSpec {
         name: "vec_new",

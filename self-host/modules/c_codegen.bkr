@@ -90,6 +90,7 @@
         if raw == "parse_int" { return "parse_int"; }
         if raw == "int_to_string" { return "int_to_string"; }
         if raw == "from_char_code" { return "from_char_code"; }
+        if raw == "join_lines" { return "join_lines"; }
         return "";
     }
 
@@ -160,6 +161,7 @@
         if raw == "trim" { return TYPE_STR; }
         if raw == "int_to_string" { return TYPE_STR; }
         if raw == "from_char_code" { return TYPE_STR; }
+        if raw == "join_lines" { return TYPE_STR; }
         if raw == "read_file" { return TYPE_STR; }
         if raw == "write_file" { return TYPE_BOOL; }
         if raw == "file_exists" { return TYPE_BOOL; }
@@ -1172,15 +1174,6 @@
         cgen_emit_ref(state, "    return (int)" + entry_name + "();");
         cgen_emit_ref(state, "}");
 
-        // Join lines
         let lines = cgen_lines_ref(state);
-        let output: str = "";
-        let newline: str = from_char_code(10);
-        let i: i64 = 0;
-        while i < vec_len(lines) {
-            let line: str = vec_get(lines, i);
-            output = output + line + newline;
-            i = i + 1;
-        }
-        return output;
+        return join_lines(lines);
     }
