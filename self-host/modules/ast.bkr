@@ -372,7 +372,7 @@
     }
 
     fn ast_block_ref_stmt_count(block_ref: AstBlockRef) -> i64 {
-        return ast_block_stmt_count(ast_block_node_from_ref(block_ref));
+        return vec_len(ast_block_node_from_ref(block_ref)) - AST_NODE_DATA_START;
     }
 
     fn ast_pattern_handle(pattern: Vec<i64>) -> i64 {

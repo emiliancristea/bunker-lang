@@ -125,6 +125,12 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -n 'return ast_block_stmt_count(ast_block_node_from_ref(block_ref))' "$ast" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Typed block count helper must not recurse through the raw adapter."
+            cat "$matches"
+            exit 1
+          fi
 
   self-host-smoke:
     name: Self-host smoke inputs
