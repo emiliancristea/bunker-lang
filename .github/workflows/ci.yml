@@ -207,6 +207,14 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -q 'fn parse_match_expr_ref(p: ParserStateRef) -> AstExprRef' "$parser"
+          grep -q 'fn parse_atom_ref(p: ParserStateRef) -> AstExprRef' "$parser"
+          grep -n -E 'parse_(match_expr|atom)\(p\);' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser atom consumers must use parse_match_expr_ref/parse_atom_ref instead of raw atom wrappers."
+            cat "$matches"
+            exit 1
+          fi
       - name: Require AST constructors through typed refs
         shell: bash
         run: |
