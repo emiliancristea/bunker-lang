@@ -316,6 +316,10 @@
     }
 
     fn parse_match_pattern(p: ParserStateRef) -> Vec<i64> {
+        return ast_pattern_from_ref(parse_match_pattern_ref(p));
+    }
+
+    fn parse_match_pattern_ref(p: ParserStateRef) -> AstPatternRef {
         let start = parser_current_token_start(p);
         let tok = parser_peek_ref(p);
 
@@ -323,17 +327,17 @@
             let val_idx = parser_peek_value_ref(p);
             let val = parser_get_value_ref(p, val_idx);
             parser_advance_ref(p);
-            return ast_pattern_from_ref(parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_INT, val), start));
+            return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_INT, val), start);
         }
 
         if tok == TOK_TRUE {
             parser_advance_ref(p);
-            return ast_pattern_from_ref(parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_BOOL, 1), start));
+            return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_BOOL, 1), start);
         }
 
         if tok == TOK_FALSE {
             parser_advance_ref(p);
-            return ast_pattern_from_ref(parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_BOOL, 0), start));
+            return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_BOOL, 0), start);
         }
 
         if is_name_token(tok) {
@@ -342,28 +346,28 @@
             parser_advance_ref(p);
 
             if raw_name == "_" {
-                return ast_pattern_from_ref(parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_WILDCARD, 0), start));
+                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_WILDCARD, 0), start);
             }
 
             if raw_name == "Some" && parser_peek_ref(p) == TOK_LPAREN {
                 parser_advance_ref(p);
                 let bind_idx = parser_expect_name(p);
                 parser_expect_ref(p, TOK_RPAREN);
-                return ast_pattern_from_ref(parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_SOME, bind_idx), start));
+                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_SOME, bind_idx), start);
             }
 
             if raw_name == "None" {
-                return ast_pattern_from_ref(parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_NONE, 0), start));
+                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_NONE, 0), start);
             }
 
-            return ast_pattern_from_ref(parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_BIND, name_idx), start));
+            return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_BIND, name_idx), start);
         }
 
         parser_mark_error_ref(p, TOK_IDENT);
         if tok != TOK_EOF {
             parser_advance_ref(p);
         }
-        return ast_pattern_from_ref(parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_WILDCARD, 0), start));
+        return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_WILDCARD, 0), start);
     }
 
     fn parse_match_expr(p: ParserStateRef) -> Vec<i64> {
@@ -372,11 +376,11 @@
         let scrutinee_ref: AstExprRef = parse_expr_ref(p);
         parser_expect_ref(p, TOK_LBRACE);
 
-        let patterns: Vec<i64> = vec_new();
-        let bodies: Vec<i64> = vec_new();
+        let patterns_ref: AstPatternListRef = ast_pattern_list_ref_from_list(vec_new());
+        let bodies_ref: AstNodeListRef = ast_node_list_ref_from_list(vec_new());
 
         while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
-            let pattern: Vec<i64> = parse_match_pattern(p);
+            let pattern_ref: AstPatternRef = parse_match_pattern_ref(p);
             parser_expect_ref(p, TOK_FAT_ARROW);
 
             let body: Vec<i64> = vec_new();
@@ -390,13 +394,13 @@
                 parser_expect_ref(p, TOK_SEMICOLON);
             }
 
-            ast_pattern_list_append(patterns, pattern);
-            ast_node_list_append(bodies, body);
+            ast_pattern_list_append_pattern_ref(patterns_ref, pattern_ref);
+            ast_node_list_append_ref(bodies_ref, body);
         }
 
         parser_expect_ref(p, TOK_RBRACE);
 
-        return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_match_ref(scrutinee_ref, ast_pattern_list_ref_from_list(patterns), ast_node_list_ref_from_list(bodies)), start));
+        return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_match_ref(scrutinee_ref, patterns_ref, bodies_ref), start));
     }
 
     fn parse_atom(p: ParserStateRef) -> Vec<i64> {
