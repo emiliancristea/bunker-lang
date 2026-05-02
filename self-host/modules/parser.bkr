@@ -156,6 +156,10 @@
         return ast_node_ref_set_span(node_ref, start, parser_end_for_span(p, start));
     }
 
+    fn parser_set_node_ref_span(node_ref: AstNodeRef, start: i64, end: i64) -> AstNodeRef {
+        return ast_node_ref_set_span(node_ref, start, end);
+    }
+
     fn parser_set_type_ref_span_from_start(p: ParserStateRef, type_ref: AstTypeRef, start: i64) -> AstTypeRef {
         parser_set_node_ref_span_from_start(p, ast_node_ref_from_type_ref(type_ref), start);
         return type_ref;
@@ -166,8 +170,18 @@
         return expr_ref;
     }
 
+    fn parser_set_expr_ref_span(expr_ref: AstExprRef, start: i64, end: i64) -> AstExprRef {
+        parser_set_node_ref_span(ast_node_ref_from_expr_ref(expr_ref), start, end);
+        return expr_ref;
+    }
+
     fn parser_set_stmt_ref_span_from_start(p: ParserStateRef, stmt_ref: AstStmtRef, start: i64) -> AstStmtRef {
         parser_set_node_ref_span_from_start(p, ast_node_ref_from_stmt_ref(stmt_ref), start);
+        return stmt_ref;
+    }
+
+    fn parser_set_stmt_ref_span(stmt_ref: AstStmtRef, start: i64, end: i64) -> AstStmtRef {
+        parser_set_node_ref_span(ast_node_ref_from_stmt_ref(stmt_ref), start, end);
         return stmt_ref;
     }
 
@@ -514,15 +528,15 @@
             parser_advance_ref(p);
             let idx: Vec<i64> = parse_expr(p);
             parser_expect_ref(p, TOK_RBRACKET);
-            base = ast_index(base, idx);
-            ast_set_span(base, start, parser_previous_token_end(p));
+            let index_ref: AstExprRef = ast_index_ref(ast_expr_ref_from_node(base), ast_expr_ref_from_node(idx));
+            base = ast_expr_node_from_ref(parser_set_expr_ref_span(index_ref, start, parser_previous_token_end(p)));
         }
         while parser_peek_ref(p) == TOK_DOT {
             let start = ast_node_span_start(base);
             parser_advance_ref(p);
             let field_name = parser_expect_name(p);
-            base = ast_field_access(base, field_name);
-            ast_set_span(base, start, parser_previous_token_end(p));
+            let field_ref: AstExprRef = ast_field_access_ref(ast_expr_ref_from_node(base), field_name);
+            base = ast_expr_node_from_ref(parser_set_expr_ref_span(field_ref, start, parser_previous_token_end(p)));
         }
         return base;
     }
@@ -534,8 +548,8 @@
             let start = ast_node_span_start(left);
             parser_advance_ref(p);
             let right: Vec<i64> = parse_postfix(p);
-            left = ast_binary(op, left, right);
-            ast_set_span(left, start, ast_node_span_end(right));
+            let binary_ref: AstExprRef = ast_binary_ref(op, ast_expr_ref_from_node(left), ast_expr_ref_from_node(right));
+            left = ast_expr_node_from_ref(parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right)));
         }
         return left;
     }
@@ -547,8 +561,8 @@
             let start = ast_node_span_start(left);
             parser_advance_ref(p);
             let right: Vec<i64> = parse_mul(p);
-            left = ast_binary(op, left, right);
-            ast_set_span(left, start, ast_node_span_end(right));
+            let binary_ref: AstExprRef = ast_binary_ref(op, ast_expr_ref_from_node(left), ast_expr_ref_from_node(right));
+            left = ast_expr_node_from_ref(parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right)));
         }
         return left;
     }
@@ -560,8 +574,8 @@
             let start = ast_node_span_start(left);
             parser_advance_ref(p);
             let right: Vec<i64> = parse_add(p);
-            left = ast_binary(op, left, right);
-            ast_set_span(left, start, ast_node_span_end(right));
+            let binary_ref: AstExprRef = ast_binary_ref(op, ast_expr_ref_from_node(left), ast_expr_ref_from_node(right));
+            left = ast_expr_node_from_ref(parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right)));
         }
         return left;
     }
@@ -572,8 +586,8 @@
             let start = ast_node_span_start(left);
             parser_advance_ref(p);
             let right: Vec<i64> = parse_shift(p);
-            left = ast_binary(TOK_BIT_AND, left, right);
-            ast_set_span(left, start, ast_node_span_end(right));
+            let binary_ref: AstExprRef = ast_binary_ref(TOK_BIT_AND, ast_expr_ref_from_node(left), ast_expr_ref_from_node(right));
+            left = ast_expr_node_from_ref(parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right)));
         }
         return left;
     }
@@ -584,8 +598,8 @@
             let start = ast_node_span_start(left);
             parser_advance_ref(p);
             let right: Vec<i64> = parse_bit_and(p);
-            left = ast_binary(TOK_BIT_XOR, left, right);
-            ast_set_span(left, start, ast_node_span_end(right));
+            let binary_ref: AstExprRef = ast_binary_ref(TOK_BIT_XOR, ast_expr_ref_from_node(left), ast_expr_ref_from_node(right));
+            left = ast_expr_node_from_ref(parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right)));
         }
         return left;
     }
@@ -596,8 +610,8 @@
             let start = ast_node_span_start(left);
             parser_advance_ref(p);
             let right: Vec<i64> = parse_bit_xor(p);
-            left = ast_binary(TOK_BIT_OR, left, right);
-            ast_set_span(left, start, ast_node_span_end(right));
+            let binary_ref: AstExprRef = ast_binary_ref(TOK_BIT_OR, ast_expr_ref_from_node(left), ast_expr_ref_from_node(right));
+            left = ast_expr_node_from_ref(parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right)));
         }
         return left;
     }
@@ -609,8 +623,8 @@
             let start = ast_node_span_start(left);
             parser_advance_ref(p);
             let right: Vec<i64> = parse_bit_or(p);
-            let node: Vec<i64> = ast_binary(tok, left, right);
-            return ast_set_span(node, start, ast_node_span_end(right));
+            let binary_ref: AstExprRef = ast_binary_ref(tok, ast_expr_ref_from_node(left), ast_expr_ref_from_node(right));
+            return ast_expr_node_from_ref(parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right)));
         }
         return left;
     }
@@ -621,8 +635,8 @@
             let start = ast_node_span_start(left);
             parser_advance_ref(p);
             let right: Vec<i64> = parse_comparison(p);
-            left = ast_binary(TOK_AND, left, right);
-            ast_set_span(left, start, ast_node_span_end(right));
+            let binary_ref: AstExprRef = ast_binary_ref(TOK_AND, ast_expr_ref_from_node(left), ast_expr_ref_from_node(right));
+            left = ast_expr_node_from_ref(parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right)));
         }
         return left;
     }
@@ -633,8 +647,8 @@
             let start = ast_node_span_start(left);
             parser_advance_ref(p);
             let right: Vec<i64> = parse_and(p);
-            left = ast_binary(TOK_OR, left, right);
-            ast_set_span(left, start, ast_node_span_end(right));
+            let binary_ref: AstExprRef = ast_binary_ref(TOK_OR, ast_expr_ref_from_node(left), ast_expr_ref_from_node(right));
+            left = ast_expr_node_from_ref(parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right)));
         }
         return left;
     }
@@ -646,8 +660,8 @@
             let then_expr: Vec<i64> = parse_expr(p);
             parser_expect_ref(p, TOK_COLON);
             let else_expr: Vec<i64> = parse_expr(p);
-            let node: Vec<i64> = ast_ternary(cond, then_expr, else_expr);
-            return ast_set_span(node, ast_node_span_start(cond), ast_node_span_end(else_expr));
+            let ternary_ref: AstExprRef = ast_ternary_ref(ast_expr_ref_from_node(cond), ast_expr_ref_from_node(then_expr), ast_expr_ref_from_node(else_expr));
+            return ast_expr_node_from_ref(parser_set_expr_ref_span(ternary_ref, ast_node_span_start(cond), ast_node_span_end(else_expr)));
         }
         return cond;
     }
@@ -725,7 +739,8 @@
             parser_advance_ref(p);
             let value: Vec<i64> = parse_expr(p);
             parser_expect_ref(p, TOK_SEMICOLON);
-            return ast_set_span(ast_assign(expr, value), assign_start, parser_previous_token_end(p));
+            let assign_ref: AstStmtRef = ast_assign_ref(ast_expr_ref_from_node(expr), ast_expr_ref_from_node(value));
+            return ast_stmt_node_from_ref(parser_set_stmt_ref_span(assign_ref, assign_start, parser_previous_token_end(p)));
         }
 
         if !parser_expect_ref(p, TOK_SEMICOLON) {
@@ -738,7 +753,8 @@
             }
         }
 
-        return ast_set_span(ast_expr_stmt(expr), ast_node_span_start(expr), parser_previous_token_end(p));
+        let expr_stmt_ref: AstStmtRef = ast_expr_stmt_ref(ast_expr_ref_from_node(expr));
+        return ast_stmt_node_from_ref(parser_set_stmt_ref_span(expr_stmt_ref, ast_node_span_start(expr), parser_previous_token_end(p)));
     }
 
     fn parse_if_stmt(p: ParserStateRef) -> Vec<i64> {
