@@ -104,9 +104,12 @@ jobs:
           set -euo pipefail
           parser='self-host/modules/parser.bkr'
           grep -q 'fn parser_set_node_ref_span_from_start(p: ParserStateRef, node_ref: AstNodeRef, start: i64) -> AstNodeRef' "$parser"
+          grep -q 'fn parser_set_node_ref_span(node_ref: AstNodeRef, start: i64, end: i64) -> AstNodeRef' "$parser"
           grep -q 'fn parser_set_type_ref_span_from_start(p: ParserStateRef, type_ref: AstTypeRef, start: i64) -> AstTypeRef' "$parser"
           grep -q 'fn parser_set_expr_ref_span_from_start(p: ParserStateRef, expr_ref: AstExprRef, start: i64) -> AstExprRef' "$parser"
+          grep -q 'fn parser_set_expr_ref_span(expr_ref: AstExprRef, start: i64, end: i64) -> AstExprRef' "$parser"
           grep -q 'fn parser_set_stmt_ref_span_from_start(p: ParserStateRef, stmt_ref: AstStmtRef, start: i64) -> AstStmtRef' "$parser"
+          grep -q 'fn parser_set_stmt_ref_span(stmt_ref: AstStmtRef, start: i64, end: i64) -> AstStmtRef' "$parser"
           grep -q 'fn parser_set_item_ref_span_from_start(p: ParserStateRef, item_ref: AstItemRef, start: i64) -> AstItemRef' "$parser"
           grep -q 'fn parser_set_block_ref_span_from_start(p: ParserStateRef, block_ref: AstBlockRef, start: i64) -> AstBlockRef' "$parser"
           grep -q 'fn parser_set_pattern_ref_span_from_start(p: ParserStateRef, pattern_ref: AstPatternRef, start: i64) -> AstPatternRef' "$parser"
@@ -120,6 +123,12 @@ jobs:
           grep -n -E 'parser_set_node_span_from_start\(p, ast_(type|type_array|type_struct|match|int_lit|float_lit|bool_lit|str_lit|array_lit|struct_lit|call|ident|unary)\(|parser_set_pattern_span_from_start\(p, ast_pattern\(' "$parser" > "$matches" || true
           if [ -s "$matches" ]; then
             echo "Parser primary/type/pattern construction must route through typed Ast*Ref constructors."
+            cat "$matches"
+            exit 1
+          fi
+          grep -n -E 'ast_(index|field_access|binary|ternary|assign|expr_stmt)\(' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser postfix/operator/assignment construction must route through typed Ast*Ref constructors."
             cat "$matches"
             exit 1
           fi
