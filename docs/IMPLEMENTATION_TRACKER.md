@@ -138,6 +138,7 @@ These are the next concrete PR-sized slices.
 | Q-075 | DONE | Route parser atom consumers through refs. | Parser match-expression and atom internals now expose `parse_match_expr_ref` and `parse_atom_ref`, and postfix parsing consumes atoms without raw atom-node roundtrips. |
 | Q-076 | DONE | Route parser postfix consumers through refs. | Parser postfix parsing now exposes `parse_postfix_ref`, and multiplication-level parsing consumes typed postfix refs without raw postfix-node roundtrips. |
 | Q-077 | DONE | Route parser multiplicative consumers through refs. | Parser multiplicative parsing now exposes `parse_mul_ref`, and additive parsing consumes typed multiplicative refs without raw multiplicative-node roundtrips. |
+| Q-078 | DONE | Route parser additive consumers through refs. | Parser additive parsing now exposes `parse_add_ref`, and shift parsing consumes typed additive refs without raw additive-node roundtrips. |
 
 ## Language Core
 
@@ -480,3 +481,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-02 | Routed parser atom consumers through typed refs. | Match-expression and atom parsing now return `AstExprRef` internally, unary operands recurse through typed atoms, and postfix parsing starts from `parse_atom_ref`. |
 | 2026-05-02 | Routed parser postfix consumers through typed refs. | `parse_postfix_ref` now owns typed index/field-access chaining, and `parse_mul` consumes postfix expressions through `AstExprRef` operands. |
 | 2026-05-02 | Routed parser multiplicative consumers through typed refs. | `parse_mul_ref` now owns `*`, `/`, and `%` expression construction, and `parse_add` consumes multiplicative expressions through `AstExprRef` operands. |
+| 2026-05-02 | Routed parser additive consumers through typed refs. | `parse_add_ref` now owns `+` and `-` expression construction, and `parse_shift` consumes additive expressions through `AstExprRef` operands. |
