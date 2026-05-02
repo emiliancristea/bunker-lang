@@ -540,37 +540,44 @@
     }
 
     fn parse_postfix(p: ParserStateRef) -> Vec<i64> {
+        return ast_expr_node_from_ref(parse_postfix_ref(p));
+    }
+
+    fn parse_postfix_ref(p: ParserStateRef) -> AstExprRef {
         let base_ref: AstExprRef = parse_atom_ref(p);
-        let base: Vec<i64> = ast_expr_node_from_ref(base_ref);
+        let base_node: Vec<i64> = ast_expr_node_from_ref(base_ref);
         while parser_peek_ref(p) == TOK_LBRACKET {
-            let start = ast_node_span_start(base);
+            let start = ast_node_span_start(base_node);
             parser_advance_ref(p);
             let idx_ref: AstExprRef = parse_expr_ref(p);
             parser_expect_ref(p, TOK_RBRACKET);
             let index_ref: AstExprRef = ast_index_ref(base_ref, idx_ref);
             base_ref = parser_set_expr_ref_span(index_ref, start, parser_previous_token_end(p));
-            base = ast_expr_node_from_ref(base_ref);
+            base_node = ast_expr_node_from_ref(base_ref);
         }
         while parser_peek_ref(p) == TOK_DOT {
-            let start = ast_node_span_start(base);
+            let start = ast_node_span_start(base_node);
             parser_advance_ref(p);
             let field_name = parser_expect_name(p);
             let field_ref: AstExprRef = ast_field_access_ref(base_ref, field_name);
             base_ref = parser_set_expr_ref_span(field_ref, start, parser_previous_token_end(p));
-            base = ast_expr_node_from_ref(base_ref);
+            base_node = ast_expr_node_from_ref(base_ref);
         }
-        return ast_expr_node_from_ref(base_ref);
+        return base_ref;
     }
 
     fn parse_mul(p: ParserStateRef) -> Vec<i64> {
-        let left: Vec<i64> = parse_postfix(p);
+        let left_ref: AstExprRef = parse_postfix_ref(p);
+        let left: Vec<i64> = ast_expr_node_from_ref(left_ref);
         while parser_peek_ref(p) == TOK_STAR || parser_peek_ref(p) == TOK_SLASH || parser_peek_ref(p) == TOK_PERCENT {
             let op = parser_peek_ref(p);
             let start = ast_node_span_start(left);
             parser_advance_ref(p);
-            let right: Vec<i64> = parse_postfix(p);
-            let binary_ref: AstExprRef = ast_binary_ref(op, ast_expr_ref_from_node(left), ast_expr_ref_from_node(right));
-            left = ast_expr_node_from_ref(parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right)));
+            let right_ref: AstExprRef = parse_postfix_ref(p);
+            let right: Vec<i64> = ast_expr_node_from_ref(right_ref);
+            let binary_ref: AstExprRef = ast_binary_ref(op, left_ref, right_ref);
+            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right));
+            left = ast_expr_node_from_ref(left_ref);
         }
         return left;
     }

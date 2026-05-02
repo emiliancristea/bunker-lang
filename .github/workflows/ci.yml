@@ -215,6 +215,13 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -q 'fn parse_postfix_ref(p: ParserStateRef) -> AstExprRef' "$parser"
+          grep -n -E 'parse_postfix\(p\);|ast_expr_ref_from_node\(parse_postfix\(' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser postfix consumers must use parse_postfix_ref instead of raw postfix wrappers."
+            cat "$matches"
+            exit 1
+          fi
       - name: Require AST constructors through typed refs
         shell: bash
         run: |
