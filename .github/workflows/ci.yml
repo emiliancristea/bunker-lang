@@ -117,6 +117,12 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -n -E 'parser_set_node_span_from_start\(p, ast_(type|type_array|type_struct|match|int_lit|float_lit|bool_lit|str_lit|array_lit|struct_lit|call|ident|unary)\(|parser_set_pattern_span_from_start\(p, ast_pattern\(' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser primary/type/pattern construction must route through typed Ast*Ref constructors."
+            cat "$matches"
+            exit 1
+          fi
 
       - name: Require AST constructors through typed refs
         shell: bash
