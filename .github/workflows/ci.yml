@@ -138,6 +138,12 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -n -E 'ast_(if|for|while|loop)\(' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser control-flow construction must route through typed AstStmtRef constructors."
+            cat "$matches"
+            exit 1
+          fi
 
       - name: Require AST constructors through typed refs
         shell: bash
