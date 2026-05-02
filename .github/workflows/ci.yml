@@ -181,7 +181,7 @@ jobs:
             exit 1
           fi
           grep -q 'fn parse_expr_ref(p: ParserStateRef) -> AstExprRef' "$parser"
-          grep -n 'parse_expr(p);' "$parser" | grep -v 'return ast_expr_ref_from_node(parse_expr(p));' > "$matches" || true
+          grep -n -E 'parse_expr\(p\);|ast_expr_ref_from_node\(parse_expr\(' "$parser" > "$matches" || true
           if [ -s "$matches" ]; then
             echo "Parser expression consumers must use parse_expr_ref instead of raw parse_expr nodes."
             cat "$matches"
@@ -282,6 +282,13 @@ jobs:
           grep -n -E 'parse_or\(p\);|ast_expr_ref_from_node\(parse_or\(' "$parser" > "$matches" || true
           if [ -s "$matches" ]; then
             echo "Parser logical-or consumers must use parse_or_ref instead of raw parse_or wrappers."
+            cat "$matches"
+            exit 1
+          fi
+          grep -q 'fn parse_ternary_ref(p: ParserStateRef) -> AstExprRef' "$parser"
+          grep -n -E 'parse_ternary\(p\);|ast_expr_ref_from_node\(parse_ternary\(' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser ternary consumers must use parse_ternary_ref instead of raw parse_ternary wrappers."
             cat "$matches"
             exit 1
           fi
