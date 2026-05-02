@@ -547,6 +547,11 @@
         return patterns_ref;
     }
 
+    fn ast_pattern_list_append_pattern_ref(patterns_ref: AstPatternListRef, pattern_ref: AstPatternRef) -> AstPatternListRef {
+        vec_push(ast_pattern_list_from_ref(patterns_ref), ast_pattern_ref_handle(pattern_ref));
+        return patterns_ref;
+    }
+
     fn ast_i64_list_append(values: Vec<i64>, value: i64) -> Vec<i64> {
         ast_i64_list_append_ref(ast_i64_list_ref_from_list(values), value);
         return values;

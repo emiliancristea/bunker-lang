@@ -194,6 +194,19 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -q 'fn parse_match_pattern_ref(p: ParserStateRef) -> AstPatternRef' "$parser"
+          grep -n 'parse_match_pattern(p);' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser pattern consumers must use parse_match_pattern_ref instead of raw parse_match_pattern nodes."
+            cat "$matches"
+            exit 1
+          fi
+          grep -n -E 'ast_pattern_list_append\(' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser pattern-list consumers must use typed pattern-list append helpers."
+            cat "$matches"
+            exit 1
+          fi
       - name: Require AST constructors through typed refs
         shell: bash
         run: |
