@@ -2,7 +2,7 @@
 
 This is the authoritative implementation tracker for moving Bunker from a bootstrap language into a production language and then into full self-hosting.
 
-Last updated: 2026-05-01
+Last updated: 2026-05-02
 
 ## Operating Rules
 
@@ -31,7 +31,7 @@ Current bootstrap state after the latest self-host work:
 - CI compares selected self-host outputs against Rust JIT results and checks stage1/stage2 generated C determinism.
 - The Rust compiler is still the production compiler and the bootstrap driver.
 - The self-host compiler entrypoint is now module-composed: constants, kind model, AST helpers, lexer result helpers, lexer, parser state, parser, C codegen state, C codegen, report support, AST report, symbol table, type graph, resolver, typecheck, and driver live in imported Bunker modules.
-- AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, AST/tag naming and category reasoning now goes through `modules/kind_model.bkr`, typed AST collection refs/access, optional AST handles, node/type/expression/pattern handle conversion, internal AST field conversions, semantic child-handle access, explicit handle-named optional field access, and read-only AST wrapper structs now route through AST bridge helpers; C codegen plus the AST report, symbol-table report, type-graph report, resolver report, and typecheck report passes now recursively consume typed AST refs over the bootstrap layout, with raw AST kind/predicate reads isolated to the AST boundary. Lexer result layout is centralized in `modules/lexer_result.bkr`, parser state layout is centralized in `modules/parser_state.bkr`, and C codegen state layout is centralized in `modules/cgen_state.bkr`; `LexerResultRef` wraps lexer output tables, `ParserStateRef` wraps parser cursor/error state, and `CgenStateRef` wraps mutable codegen/type-state consumers while raw state adapters remain for bootstrap compatibility. The AST, lexer result, parser state, and codegen state representations still use raw `Vec<i64>` during bootstrap.
+- AST construction plus parser/codegen AST reads are centralized in Bunker helper functions, AST/tag naming and category reasoning now goes through `modules/kind_model.bkr`, typed AST collection refs/access, typed parser-side span refs, optional AST handles, node/type/expression/pattern handle conversion, internal AST field conversions, semantic child-handle access, explicit handle-named optional field access, and read-only AST wrapper structs now route through AST bridge helpers; C codegen plus the AST report, symbol-table report, type-graph report, resolver report, and typecheck report passes now recursively consume typed AST refs over the bootstrap layout, with raw AST kind/predicate reads isolated to the AST boundary. Lexer result layout is centralized in `modules/lexer_result.bkr`, parser state layout is centralized in `modules/parser_state.bkr`, and C codegen state layout is centralized in `modules/cgen_state.bkr`; `LexerResultRef` wraps lexer output tables, `ParserStateRef` wraps parser cursor/error state, and `CgenStateRef` wraps mutable codegen/type-state consumers while raw state adapters remain for bootstrap compatibility. The AST, lexer result, parser state, and codegen state representations still use raw `Vec<i64>` during bootstrap.
 - Self-host compiler outputs include `BUNKER_CAPABILITY_JSON`, a machine-readable capability report for agents that states supported constructs, current AI-diagnostic support, and known bootstrap limits.
 - Successful self-host compiler outputs include `BUNKER_AST_JSON`, a machine-readable AST report with root/item summaries plus a complete nested AST tree for agent inspection.
 - Successful self-host compiler outputs include `BUNKER_TYPE_GRAPH_JSON`, a machine-readable declaration and bootstrap-inference type graph for agent inspection.
@@ -119,6 +119,7 @@ These are the next concrete PR-sized slices.
 | Q-056 | DONE | Route C codegen collections through typed refs. | `modules/c_codegen.bkr` now walks expression lists, params, fields, match arms, struct literal fields, and kernel item loops through typed AST collection refs. |
 | Q-057 | DONE | Guard raw collection boundaries in CI. | GitHub Actions now fails if raw AST collection traversal helpers are used outside `modules/ast.bkr`, keeping typed collection refs enforced for compiler consumers. |
 | Q-058 | DONE | Add typed AST builder refs. | `modules/ast.bkr` now constructs and mutates node/pattern headers through `AstNodeRef` and `AstPatternRef` builder helpers while preserving raw `Vec<i64>` constructor adapters. |
+| Q-059 | DONE | Add parser span refs. | `modules/parser.bkr` now attaches node/pattern spans through `AstNodeRef` and `AstPatternRef` parser helpers, with a CI guard preventing helper regression to direct raw span mutation. |
 
 ## Language Core
 
@@ -437,3 +438,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-01 | Routed C codegen collections through typed refs. | `modules/c_codegen.bkr` now emits expression, declaration, and kernel collection paths through typed AST collection refs while preserving generated C behavior. |
 | 2026-05-01 | Added raw collection boundary guard. | CI now rejects raw AST collection traversal helper use outside `modules/ast.bkr`, preserving the typed AST collection boundary for self-host compiler consumers. |
 | 2026-05-02 | Added typed AST builder refs. | `modules/ast.bkr` now creates and mutates node/pattern headers through typed builder refs while preserving raw bootstrap constructor adapters. |
+| 2026-05-02 | Added parser-side typed span refs. | `modules/parser.bkr` now assigns parser spans through `AstNodeRef` and `AstPatternRef` helpers while preserving raw parser construction compatibility; CI guards the start-span helper boundary. |
