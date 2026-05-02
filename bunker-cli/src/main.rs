@@ -818,6 +818,8 @@ fn unique_self_host_temp_dir() -> PathBuf {
 fn cleanup_self_host_temp_dir(temp_dir: &PathBuf) {
     let _ = fs::remove_file(temp_dir.join("self_host_input.bkr"));
     let _ = fs::remove_file(temp_dir.join("self_host_output.c"));
+    let _ = fs::remove_file(temp_dir.join("self_host_trace.enabled"));
+    let _ = fs::remove_file(temp_dir.join("self_host_trace.log"));
     let _ = fs::remove_file(temp_dir.join("test.c"));
     let _ = fs::remove_dir(temp_dir);
 }
@@ -932,6 +934,14 @@ fn self_host_compile(
     let temp_output = temp_dir.join("self_host_output.c");
     fs::write(&temp_input, input_source)
         .with_context(|| format!("Failed to write temp input: {}", temp_input.display()))?;
+    if env::var_os("BUNKER_SELF_HOST_TRACE").is_some() {
+        let trace_marker = temp_dir.join("self_host_trace.enabled");
+        fs::write(&trace_marker, b"1")
+            .with_context(|| format!("Failed to write trace marker: {}", trace_marker.display()))?;
+        let trace_log = temp_dir.join("self_host_trace.log");
+        fs::write(&trace_log, b"[self-host trace] rust:temp_ready\n")
+            .with_context(|| format!("Failed to write trace log: {}", trace_log.display()))?;
+    }
 
     if format == OutputFormat::Text {
         println!(

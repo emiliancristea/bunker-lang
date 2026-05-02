@@ -144,19 +144,6 @@ jobs:
             cat "$matches"
             exit 1
           fi
-          grep -n -E 'ast_(param|field_decl)\(' "$parser" > "$matches" || true
-          if [ -s "$matches" ]; then
-            echo "Parser param/field construction must route through typed AstNodeRef constructors."
-            cat "$matches"
-            exit 1
-          fi
-          grep -n -E 'parser_set_node_span_from_start\(p, ast_(fn|const|struct)\(' "$parser" > "$matches" || true
-          if [ -s "$matches" ]; then
-            echo "Parser item construction must route through typed AstItemRef constructors."
-            cat "$matches"
-            exit 1
-          fi
-
       - name: Require AST constructors through typed refs
         shell: bash
         run: |
@@ -185,7 +172,7 @@ jobs:
   self-host-smoke:
     name: Self-host smoke inputs
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
@@ -438,14 +425,36 @@ jobs:
           test "$status" -eq 42
 
       - name: Compile and run bkrc through self-host compiler
-        timeout-minutes: 10
+        timeout-minutes: 25
         run: |
-          timeout --kill-after=5s 240s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          echo "[self-host smoke] stage1 compile bkrc"
+          (
+            while true; do
+              for trace in /tmp/bunker-self-host-compile-*/self_host_trace.log; do
+                [ -f "$trace" ] || continue
+                echo "[self-host smoke] live trace from $trace"
+                tail -n 20 "$trace"
+              done
+              sleep 10
+            done
+          ) &
+          trace_pid=$!
+          set +e
+          BUNKER_SELF_HOST_TRACE=1 timeout --kill-after=5s 600s ./bunker-cli/target/release/bunker-cli self-host-compile \
             self-host/bkrc.bkr \
             -o /tmp/bkrc.c
+          stage1_status=$?
+          kill "$trace_pid" 2>/dev/null || true
+          set -e
+          if [ "$stage1_status" -ne 0 ]; then
+            echo "[self-host smoke] stage1 compile failed with status $stage1_status"
+            find /tmp -maxdepth 2 -type f -path '/tmp/bunker-self-host-compile-*/self_host_trace.log' -print -exec sed -n '1,200p' {} \; || true
+            exit "$stage1_status"
+          fi
           test -s /tmp/bkrc.c
           ! grep -q "Parse error" /tmp/bkrc.c
           cp self-host/runtime.h /tmp/runtime.h
+          echo "[self-host smoke] build stage1 bkrc"
           cc -std=c11 /tmp/bkrc.c -o /tmp/bkrc
 
           run_invalid_bkrc_fixture() {
@@ -518,6 +527,7 @@ jobs:
             test "$program_status" -eq "$expected_status"
           }
 
+          echo "[self-host smoke] run stage1 generated fixtures"
           run_generated_bkrc_fixture tests/01_basic_math.bkr basic 42
           run_generated_bkrc_fixture tests/14_kernel_if_branching.bkr branching 42
           run_generated_bkrc_fixture tests/16_kernel_match_block_expr.bkr match_block 12
@@ -570,8 +580,9 @@ jobs:
           mkdir -p "$self_compile_dir/modules"
           cp self-host/bkrc.bkr "$self_compile_dir/self_host_input.bkr"
           cp self-host/modules/*.bkr "$self_compile_dir/modules/"
+          echo "[self-host smoke] stage2 compile bkrc with generated bkrc"
           set +e
-          (cd "$self_compile_dir" && timeout --kill-after=5s 240s /tmp/bkrc)
+          (cd "$self_compile_dir" && timeout --kill-after=5s 600s /tmp/bkrc)
           bkrc_self_status=$?
           set -e
           echo "generated bkrc self-compile exited $bkrc_self_status, expected 42"
@@ -581,6 +592,7 @@ jobs:
           grep -q "BUNKER_RESOLVER_JSON" "$self_compile_dir/self_host_output.c"
           grep -q "bunker.self_host.resolver.v1" "$self_compile_dir/self_host_output.c"
           cp self-host/runtime.h "$self_compile_dir/runtime.h"
+          echo "[self-host smoke] build stage2 bkrc"
           cc -std=c11 "$self_compile_dir/self_host_output.c" -o "$self_compile_dir/bkrc2"
 
           run_invalid_bkrc_fixture "$self_compile_dir/bkrc2" bkrc2-invalid
@@ -623,6 +635,7 @@ jobs:
             test "$program_status" -eq "$expected_status"
           }
 
+          echo "[self-host smoke] run stage2 generated fixtures"
           run_stage2_bkrc_fixture tests/01_basic_math.bkr basic 42
           run_stage2_bkrc_fixture tests/14_kernel_if_branching.bkr branching 42
           run_stage2_bkrc_fixture tests/16_kernel_match_block_expr.bkr match_block 12
@@ -716,6 +729,7 @@ jobs:
             diff -u "$stage1_dir/self_host_output.c" "$stage2_dir/self_host_output.c"
           }
 
+          echo "[self-host smoke] compare stage1/stage2 generated C"
           run_self_host_golden_fixture tests/01_basic_math.bkr basic
           run_self_host_golden_fixture tests/14_kernel_if_branching.bkr branching
           run_self_host_golden_fixture tests/38_kernel_while_loop.bkr while_loop

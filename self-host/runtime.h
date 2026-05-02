@@ -188,6 +188,33 @@ static inline bkr_str bkr_str_concat(bkr_str a, bkr_str b) {
     return result;
 }
 
+static inline bkr_str join_lines(bkr_i64 handle) {
+    BkrVec* v = (BkrVec*)(intptr_t)handle;
+    if (!v || v->len <= 0) return "";
+
+    bkr_i64 total = 0;
+    for (bkr_i64 i = 0; i < v->len; i++) {
+        bkr_str line = (bkr_str)(intptr_t)v->data[i];
+        if (line) total += (bkr_i64)strlen(line);
+        total += 1;
+    }
+
+    char* result = (char*)malloc((size_t)total + 1);
+    if (!result) return "";
+    char* cursor = result;
+    for (bkr_i64 i = 0; i < v->len; i++) {
+        bkr_str line = (bkr_str)(intptr_t)v->data[i];
+        if (line) {
+            size_t len = strlen(line);
+            memcpy(cursor, line, len);
+            cursor += len;
+        }
+        *cursor++ = '\n';
+    }
+    *cursor = '\0';
+    return result;
+}
+
 static inline bkr_bool bkr_str_eq(bkr_str a, bkr_str b) {
     return strcmp(a, b) == 0 ? BKR_TRUE : BKR_FALSE;
 }

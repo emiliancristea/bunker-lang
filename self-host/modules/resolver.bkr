@@ -126,6 +126,7 @@
         if name == "parse_int" { return true; }
         if name == "int_to_string" { return true; }
         if name == "from_char_code" { return true; }
+        if name == "join_lines" { return true; }
         if name == "result_ok" { return true; }
         if name == "result_err" { return true; }
         if name == "result_is_ok" { return true; }

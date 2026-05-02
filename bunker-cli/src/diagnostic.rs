@@ -546,6 +546,7 @@ fn type_error_search_needles(message: &str) -> Vec<String> {
         "hashmap_len",
         "hashmap_clear",
         "hashmap_keys",
+        "join_lines",
         "result_ok",
         "result_err",
         "result_is_ok",

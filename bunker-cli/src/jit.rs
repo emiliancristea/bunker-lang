@@ -453,6 +453,46 @@ extern "C" fn bunker_str_eq(a_ptr: i64, b_ptr: i64) -> i64 {
     }
 }
 
+/// Join a Vec<str> handle into one newline-terminated string in a single pass.
+extern "C" fn bunker_join_lines(vec_ptr: i64) -> i64 {
+    if vec_ptr == 0 {
+        return alloc_bunker_string("");
+    }
+
+    unsafe {
+        let header = vec_ptr as *const i64;
+        let length = *header.offset(1);
+        let data_ptr = *header.offset(2) as *const i64;
+        if length <= 0 || data_ptr.is_null() {
+            return alloc_bunker_string("");
+        }
+
+        let mut total_len: usize = 0;
+        let mut i: i64 = 0;
+        while i < length {
+            let str_ptr = *data_ptr.offset(i as isize);
+            if str_ptr != 0 {
+                total_len = total_len.saturating_add(*(str_ptr as *const i64) as usize);
+            }
+            total_len = total_len.saturating_add(1);
+            i += 1;
+        }
+
+        let mut output = String::with_capacity(total_len);
+        i = 0;
+        while i < length {
+            let str_ptr = *data_ptr.offset(i as isize);
+            if let Some(line) = read_bunker_string(str_ptr) {
+                output.push_str(&line);
+            }
+            output.push('\n');
+            i += 1;
+        }
+
+        alloc_bunker_string(&output)
+    }
+}
+
 // ============================================================================
 // Vec<T> Dynamic Array Runtime Functions
 // ============================================================================
@@ -1338,6 +1378,7 @@ impl KernelJit {
         builder.symbol("bunker_char_code_at", bunker_char_code_at as *const u8);
         builder.symbol("bunker_from_char_code", bunker_from_char_code as *const u8);
         builder.symbol("bunker_str_eq", bunker_str_eq as *const u8);
+        builder.symbol("bunker_join_lines", bunker_join_lines as *const u8);
         // Vec operations
         builder.symbol("bunker_vec_new", bunker_vec_new as *const u8);
         builder.symbol("bunker_vec_push", bunker_vec_push as *const u8);
@@ -1391,6 +1432,7 @@ impl KernelJit {
         let char_code_at_func = declare_char_code_at_func(&mut module)?;
         let from_char_code_func = declare_from_char_code_func(&mut module)?;
         let str_eq_func = declare_str_eq_func(&mut module)?;
+        let join_lines_func = declare_join_lines_func(&mut module)?;
         // Vec operations
         let vec_new_func = declare_vec_new_func(&mut module)?;
         let vec_push_func = declare_vec_push_func(&mut module)?;
@@ -1439,6 +1481,7 @@ impl KernelJit {
             ("char_code_at", char_code_at_func),
             ("from_char_code", from_char_code_func),
             ("str_eq", str_eq_func),
+            ("join_lines", join_lines_func),
             ("vec_new", vec_new_func),
             ("vec_push", vec_push_func),
             ("vec_pop", vec_pop_func),
@@ -4873,6 +4916,16 @@ fn declare_str_eq_func(module: &mut JITModule) -> Result<FuncId> {
     module
         .declare_function("bunker_str_eq", Linkage::Import, &sig)
         .map_err(|e| anyhow!("Failed to declare runtime bunker_str_eq: {}", e))
+}
+
+fn declare_join_lines_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64)); // Vec<str> handle
+    sig.returns.push(AbiParam::new(types::I64)); // joined string ptr
+
+    module
+        .declare_function("bunker_join_lines", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_join_lines: {}", e))
 }
 
 // ============================================================================
