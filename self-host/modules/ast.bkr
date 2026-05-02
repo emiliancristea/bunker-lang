@@ -675,6 +675,10 @@
         return ast_field(node, 1);
     }
 
+    fn ast_node_ref_name_idx(node_ref: AstNodeRef) -> i64 {
+        return ast_name_idx(ast_node_from_ref(node_ref));
+    }
+
     fn ast_value(node: Vec<i64>) -> i64 {
         return ast_field(node, 1);
     }
@@ -963,12 +967,24 @@
         return ast_field(node, 1);
     }
 
+    fn ast_param_ref_name_idx(node_ref: AstNodeRef) -> i64 {
+        return ast_param_name_idx(ast_node_from_ref(node_ref));
+    }
+
     fn ast_param_type_node(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 2);
     }
 
     fn ast_param_type_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 2);
+    }
+
+    fn ast_param_ref_type_handle(node_ref: AstNodeRef) -> i64 {
+        return ast_param_type_handle(ast_node_from_ref(node_ref));
+    }
+
+    fn ast_param_ref_type_ref(node_ref: AstNodeRef) -> AstTypeRef {
+        return ast_type_ref_from_handle(ast_param_ref_type_handle(node_ref));
     }
 
     fn ast_fn_name_idx(node: Vec<i64>) -> i64 {
@@ -987,6 +1003,10 @@
         return ast_field_node_list_ref(node, 2);
     }
 
+    fn ast_fn_ref_params_ref(item_ref: AstItemRef) -> AstNodeListRef {
+        return ast_fn_params_ref(ast_item_node_from_ref(item_ref));
+    }
+
     fn ast_fn_return_type(node: Vec<i64>) -> i64 {
         return ast_fn_return_type_handle(node);
     }
@@ -995,8 +1015,16 @@
         return ast_field(node, 3);
     }
 
+    fn ast_fn_ref_return_type_handle(item_ref: AstItemRef) -> i64 {
+        return ast_fn_return_type_handle(ast_item_node_from_ref(item_ref));
+    }
+
     fn ast_fn_body(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 4);
+    }
+
+    fn ast_fn_ref_body_ref(item_ref: AstItemRef) -> AstBlockRef {
+        return ast_block_ref_from_node(ast_fn_body(ast_item_node_from_ref(item_ref)));
     }
 
     fn ast_const_name_idx(node: Vec<i64>) -> i64 {
@@ -1015,12 +1043,20 @@
         return ast_field(node, 2);
     }
 
+    fn ast_const_ref_type_handle(item_ref: AstItemRef) -> i64 {
+        return ast_const_type_handle(ast_item_node_from_ref(item_ref));
+    }
+
     fn ast_const_value(node: Vec<i64>) -> i64 {
         return ast_const_value_handle(node);
     }
 
     fn ast_const_value_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 3);
+    }
+
+    fn ast_const_ref_value_handle(item_ref: AstItemRef) -> i64 {
+        return ast_const_value_handle(ast_item_node_from_ref(item_ref));
     }
 
     fn ast_struct_name_idx(node: Vec<i64>) -> i64 {
@@ -1039,8 +1075,16 @@
         return ast_field_node_list_ref(node, 2);
     }
 
+    fn ast_struct_ref_fields_ref(item_ref: AstItemRef) -> AstNodeListRef {
+        return ast_struct_fields_ref(ast_item_node_from_ref(item_ref));
+    }
+
     fn ast_field_decl_name_idx(node: Vec<i64>) -> i64 {
         return ast_field(node, 1);
+    }
+
+    fn ast_field_decl_ref_name_idx(node_ref: AstNodeRef) -> i64 {
+        return ast_field_decl_name_idx(ast_node_from_ref(node_ref));
     }
 
     fn ast_field_decl_type_node(node: Vec<i64>) -> i64 {
@@ -1051,6 +1095,14 @@
         return ast_field(node, 2);
     }
 
+    fn ast_field_decl_ref_type_handle(node_ref: AstNodeRef) -> i64 {
+        return ast_field_decl_type_handle(ast_node_from_ref(node_ref));
+    }
+
+    fn ast_field_decl_ref_type_ref(node_ref: AstNodeRef) -> AstTypeRef {
+        return ast_type_ref_from_handle(ast_field_decl_ref_type_handle(node_ref));
+    }
+
     fn ast_kernel_items(node: Vec<i64>) -> Vec<i64> {
         return ast_node_list_from_ref(ast_kernel_items_ref(node));
     }
@@ -1059,16 +1111,32 @@
         return ast_field_node_list_ref(node, 2);
     }
 
+    fn ast_kernel_ref_items_ref(node_ref: AstNodeRef) -> AstNodeListRef {
+        return ast_kernel_items_ref(ast_node_from_ref(node_ref));
+    }
+
     fn ast_kernel_entry_idx(node: Vec<i64>) -> i64 {
         return ast_field(node, 3);
+    }
+
+    fn ast_kernel_ref_entry_idx(node_ref: AstNodeRef) -> i64 {
+        return ast_kernel_entry_idx(ast_node_from_ref(node_ref));
     }
 
     fn ast_kernel_names(node: Vec<i64>) -> Vec<str> {
         return ast_string_list_from_ref(ast_kernel_names_ref(node));
     }
 
+    fn ast_kernel_ref_names(node_ref: AstNodeRef) -> Vec<str> {
+        return ast_kernel_names(ast_node_from_ref(node_ref));
+    }
+
     fn ast_kernel_names_ref(node: Vec<i64>) -> AstStringListRef {
         return ast_field_string_list_ref(node, 4);
+    }
+
+    fn ast_kernel_ref_names_ref(node_ref: AstNodeRef) -> AstStringListRef {
+        return ast_kernel_names_ref(ast_node_from_ref(node_ref));
     }
 
     // Typed collection bridge helpers. These still read bootstrap Vec storage,
@@ -1104,6 +1172,10 @@
 
     fn ast_node_list_ref_get_ref(nodes_ref: AstNodeListRef, index: i64) -> AstNodeRef {
         return ast_node_ref_from_handle(ast_node_list_ref_get_handle(nodes_ref, index));
+    }
+
+    fn ast_node_list_ref_get_item_ref(nodes_ref: AstNodeListRef, index: i64) -> AstItemRef {
+        return ast_item_ref_from_handle(ast_node_list_ref_get_handle(nodes_ref, index));
     }
 
     fn ast_i64_list_count(values: Vec<i64>) -> i64 {
