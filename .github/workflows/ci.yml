@@ -187,6 +187,13 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -q 'fn parse_type_ref(p: ParserStateRef) -> AstTypeRef' "$parser"
+          grep -n 'parse_type(p);' "$parser" | grep -v 'return ast_type_ref_from_node(parse_type(p));' > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser type consumers must use parse_type_ref instead of raw parse_type nodes."
+            cat "$matches"
+            exit 1
+          fi
       - name: Require AST constructors through typed refs
         shell: bash
         run: |

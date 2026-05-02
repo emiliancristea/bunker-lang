@@ -277,7 +277,7 @@
         let consumed = false;
         if tok == TOK_LBRACKET {
             parser_advance_ref(p);
-            let elem_type: Vec<i64> = parse_type(p);
+            let elem_type_ref: AstTypeRef = parse_type_ref(p);
             parser_expect_ref(p, TOK_SEMICOLON);
             let len_value: i64 = 0;
             if parser_peek_ref(p) == TOK_INT {
@@ -287,7 +287,7 @@
                 parser_mark_error_ref(p, TOK_INT);
             }
             parser_expect_ref(p, TOK_RBRACKET);
-            return ast_type_node_from_ref(parser_set_type_ref_span_from_start(p, ast_type_array_ref(ast_type_ref_kind_value(ast_type_ref_from_node(elem_type)), len_value), start));
+            return ast_type_node_from_ref(parser_set_type_ref_span_from_start(p, ast_type_array_ref(ast_type_ref_kind_value(elem_type_ref), len_value), start));
         }
         if tok == TOK_I32 { kind = TYPE_I32; parser_advance_ref(p); consumed = true; }
         if tok == TOK_I64 { kind = TYPE_I64; parser_advance_ref(p); consumed = true; }
@@ -309,6 +309,10 @@
             parser_advance_ref(p);
         }
         return ast_type_node_from_ref(parser_set_type_ref_span_from_start(p, ast_type_ref(kind), start));
+    }
+
+    fn parse_type_ref(p: ParserStateRef) -> AstTypeRef {
+        return ast_type_ref_from_node(parse_type(p));
     }
 
     fn parse_match_pattern(p: ParserStateRef) -> Vec<i64> {
@@ -670,7 +674,7 @@
         let expr: Vec<i64> = parse_ternary(p);
         while parser_peek_ident_is(p, "as") {
             parser_advance_ref(p);
-            parse_type(p);
+            parse_type_ref(p);
         }
         return expr;
     }
@@ -691,7 +695,7 @@
         let type_node: i64 = ast_optional_none();
         if parser_peek_ref(p) == TOK_COLON {
             parser_advance_ref(p);
-            type_node = ast_type_handle(parse_type(p));
+            type_node = ast_type_ref_handle(parse_type_ref(p));
         }
 
         let init: i64 = ast_optional_none();
@@ -873,9 +877,9 @@
             let param_start = parser_current_token_start(p);
             let name_idx = parser_expect_name(p);
             parser_expect_ref(p, TOK_COLON);
-            let ptype: Vec<i64> = parse_type(p);
+            let ptype_ref: AstTypeRef = parse_type_ref(p);
 
-            let param_ref: AstNodeRef = parser_set_node_ref_span(ast_param_ref(name_idx, ast_type_ref_from_node(ptype)), param_start, parser_previous_token_end(p));
+            let param_ref: AstNodeRef = parser_set_node_ref_span(ast_param_ref(name_idx, ptype_ref), param_start, parser_previous_token_end(p));
             let param: Vec<i64> = ast_node_from_ref(param_ref);
             ast_node_list_append(params, param);
 
@@ -884,9 +888,9 @@
                 let param2_start = parser_current_token_start(p);
                 let name_idx2 = parser_expect_name(p);
                 parser_expect_ref(p, TOK_COLON);
-                let ptype2: Vec<i64> = parse_type(p);
+                let ptype2_ref: AstTypeRef = parse_type_ref(p);
 
-                let param2_ref: AstNodeRef = parser_set_node_ref_span(ast_param_ref(name_idx2, ast_type_ref_from_node(ptype2)), param2_start, parser_previous_token_end(p));
+                let param2_ref: AstNodeRef = parser_set_node_ref_span(ast_param_ref(name_idx2, ptype2_ref), param2_start, parser_previous_token_end(p));
                 let param2: Vec<i64> = ast_node_from_ref(param2_ref);
                 ast_node_list_append(params, param2);
             }
@@ -904,7 +908,7 @@
         let ret_type: i64 = ast_optional_none();
         if parser_peek_ref(p) == TOK_ARROW {
             parser_advance_ref(p);
-            ret_type = ast_type_handle(parse_type(p));
+            ret_type = ast_type_ref_handle(parse_type_ref(p));
         }
 
         let body_ref: AstBlockRef = parse_block_ref(p);
@@ -921,7 +925,7 @@
         let type_node: i64 = ast_optional_none();
         if parser_peek_ref(p) == TOK_COLON {
             parser_advance_ref(p);
-            type_node = ast_type_handle(parse_type(p));
+            type_node = ast_type_ref_handle(parse_type_ref(p));
         }
 
         let value: i64 = ast_optional_none();
@@ -947,9 +951,9 @@
             let field_start = parser_current_token_start(p);
             let field_name = parser_expect_name(p);
             parser_expect_ref(p, TOK_COLON);
-            let field_type: Vec<i64> = parse_type(p);
+            let field_type_ref: AstTypeRef = parse_type_ref(p);
 
-            let field_ref: AstNodeRef = parser_set_node_ref_span(ast_field_decl_ref(field_name, ast_type_ref_from_node(field_type)), field_start, parser_previous_token_end(p));
+            let field_ref: AstNodeRef = parser_set_node_ref_span(ast_field_decl_ref(field_name, field_type_ref), field_start, parser_previous_token_end(p));
             let field: Vec<i64> = ast_node_from_ref(field_ref);
             ast_node_list_append(fields, field);
 
