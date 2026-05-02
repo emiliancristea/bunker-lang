@@ -152,12 +152,20 @@
         return ast_span(start, parser_end_for_span(p, start));
     }
 
+    fn parser_set_node_ref_span_from_start(p: ParserStateRef, node_ref: AstNodeRef, start: i64) -> AstNodeRef {
+        return ast_node_ref_set_span(node_ref, start, parser_end_for_span(p, start));
+    }
+
     fn parser_set_node_span_from_start(p: ParserStateRef, node: Vec<i64>, start: i64) -> Vec<i64> {
-        return ast_set_span(node, start, parser_end_for_span(p, start));
+        return ast_node_from_ref(parser_set_node_ref_span_from_start(p, ast_node_ref_from_node(node), start));
+    }
+
+    fn parser_set_pattern_ref_span_from_start(p: ParserStateRef, pattern_ref: AstPatternRef, start: i64) -> AstPatternRef {
+        return ast_pattern_ref_set_span(pattern_ref, start, parser_end_for_span(p, start));
     }
 
     fn parser_set_pattern_span_from_start(p: ParserStateRef, pattern: Vec<i64>, start: i64) -> Vec<i64> {
-        return ast_set_pattern_span(pattern, start, parser_end_for_span(p, start));
+        return ast_pattern_from_ref(parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_from_pattern(pattern), start));
     }
 
     fn parser_error_span(p: Vec<i64>) -> Vec<i64> {

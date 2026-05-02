@@ -98,6 +98,21 @@ jobs:
             exit 1
           fi
 
+      - name: Require parser start spans through typed AST refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          parser='self-host/modules/parser.bkr'
+          grep -q 'fn parser_set_node_ref_span_from_start(p: ParserStateRef, node_ref: AstNodeRef, start: i64) -> AstNodeRef' "$parser"
+          grep -q 'fn parser_set_pattern_ref_span_from_start(p: ParserStateRef, pattern_ref: AstPatternRef, start: i64) -> AstPatternRef' "$parser"
+          matches="$(mktemp)"
+          grep -n -E 'return ast_set_span\(node, start, parser_end_for_span|return ast_set_pattern_span\(pattern, start, parser_end_for_span' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser start-span adapters must route through typed AstNodeRef/AstPatternRef helpers."
+            cat "$matches"
+            exit 1
+          fi
+
   self-host-smoke:
     name: Self-host smoke inputs
     runs-on: ubuntu-latest
