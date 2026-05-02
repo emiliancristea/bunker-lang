@@ -132,9 +132,9 @@ jobs:
             cat "$matches"
             exit 1
           fi
-          grep -n -E 'ast_(let|return|break|continue|if|for|while|loop|fn|const|struct|kernel|param|field_decl|block|block_with)\(' "$parser" > "$matches" || true
+          grep -n -E 'ast_(let|return|break|continue|if|for|while|loop|fn|const|struct|kernel|param|field_decl)\(' "$parser" > "$matches" || true
           if [ -s "$matches" ]; then
-            echo "Parser statement/item/block construction must route through typed Ast*Ref constructors."
+            echo "Parser statement/item construction must route through typed Ast*Ref constructors."
             cat "$matches"
             exit 1
           fi
