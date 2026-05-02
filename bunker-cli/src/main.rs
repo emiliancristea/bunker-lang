@@ -938,6 +938,9 @@ fn self_host_compile(
         let trace_marker = temp_dir.join("self_host_trace.enabled");
         fs::write(&trace_marker, b"1")
             .with_context(|| format!("Failed to write trace marker: {}", trace_marker.display()))?;
+        let trace_log = temp_dir.join("self_host_trace.log");
+        fs::write(&trace_log, b"[self-host trace] rust:temp_ready\n")
+            .with_context(|| format!("Failed to write trace log: {}", trace_log.display()))?;
     }
 
     if format == OutputFormat::Text {

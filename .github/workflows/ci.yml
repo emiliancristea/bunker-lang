@@ -428,11 +428,23 @@ jobs:
         timeout-minutes: 25
         run: |
           echo "[self-host smoke] stage1 compile bkrc"
+          (
+            while true; do
+              for trace in /tmp/bunker-self-host-compile-*/self_host_trace.log; do
+                [ -f "$trace" ] || continue
+                echo "[self-host smoke] live trace from $trace"
+                tail -n 20 "$trace"
+              done
+              sleep 10
+            done
+          ) &
+          trace_pid=$!
           set +e
           BUNKER_SELF_HOST_TRACE=1 timeout --kill-after=5s 600s ./bunker-cli/target/release/bunker-cli self-host-compile \
             self-host/bkrc.bkr \
             -o /tmp/bkrc.c
           stage1_status=$?
+          kill "$trace_pid" 2>/dev/null || true
           set -e
           if [ "$stage1_status" -ne 0 ]; then
             echo "[self-host smoke] stage1 compile failed with status $stage1_status"
