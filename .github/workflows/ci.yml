@@ -103,6 +103,7 @@ jobs:
         run: |
           set -euo pipefail
           parser='self-host/modules/parser.bkr'
+          ast='self-host/modules/ast.bkr'
           grep -q 'fn parser_set_node_ref_span_from_start(p: ParserStateRef, node_ref: AstNodeRef, start: i64) -> AstNodeRef' "$parser"
           grep -q 'fn parser_set_node_ref_span(node_ref: AstNodeRef, start: i64, end: i64) -> AstNodeRef' "$parser"
           grep -q 'fn parser_set_type_ref_span_from_start(p: ParserStateRef, type_ref: AstTypeRef, start: i64) -> AstTypeRef' "$parser"
@@ -162,6 +163,14 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -q 'fn ast_node_list_append_expr_ref(nodes_ref: AstNodeListRef, expr_ref: AstExprRef) -> AstNodeListRef' "$ast"
+          grep -q 'fn ast_node_list_append_item_ref(nodes_ref: AstNodeListRef, item_ref: AstItemRef) -> AstNodeListRef' "$ast"
+          grep -n -E 'ast_node_list_append\(|ast_node_list_append_ref\(' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser node-list appends must use typed AST node-list append refs."
+            cat "$matches"
+            exit 1
+          fi
           grep -n -E 'ast_block\(|ast_block_append\(|ast_block_with\(' "$parser" > "$matches" || true
           if [ -s "$matches" ]; then
             echo "Parser block construction must route through typed AstBlockRef helpers."
@@ -177,6 +186,16 @@ jobs:
           grep -n -E 'ast_stmt_ref_from_node\(parse_(let|return|simple|if|for)_stmt\(|let [A-Za-z0-9_]+: Vec<i64> = parse_(let|return|simple|if|for)_stmt\(' "$parser" > "$matches" || true
           if [ -s "$matches" ]; then
             echo "Parser statement consumers must use parse_*_stmt_ref helpers instead of raw statement wrappers."
+            cat "$matches"
+            exit 1
+          fi
+          grep -q 'fn parse_params_ref(p: ParserStateRef) -> AstNodeListRef' "$parser"
+          grep -q 'fn parse_fn_ref(p: ParserStateRef) -> AstItemRef' "$parser"
+          grep -q 'fn parse_const_ref(p: ParserStateRef) -> AstItemRef' "$parser"
+          grep -q 'fn parse_struct_ref(p: ParserStateRef) -> AstItemRef' "$parser"
+          grep -n -E 'parse_params\(p\);|parse_(fn|const|struct)\(p\);|let [A-Za-z0-9_]+: Vec<i64> = parse_(params|fn|const|struct)\(' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser param/item consumers must use typed parse_*_ref helpers instead of raw wrappers."
             cat "$matches"
             exit 1
           fi

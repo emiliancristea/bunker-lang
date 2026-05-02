@@ -537,6 +537,23 @@
         return nodes_ref;
     }
 
+    fn ast_node_list_append_node_ref(nodes_ref: AstNodeListRef, node_ref: AstNodeRef) -> AstNodeListRef {
+        vec_push(ast_node_list_from_ref(nodes_ref), ast_node_ref_handle(node_ref));
+        return nodes_ref;
+    }
+
+    fn ast_node_list_append_expr_ref(nodes_ref: AstNodeListRef, expr_ref: AstExprRef) -> AstNodeListRef {
+        return ast_node_list_append_node_ref(nodes_ref, ast_node_ref_from_expr_ref(expr_ref));
+    }
+
+    fn ast_node_list_append_item_ref(nodes_ref: AstNodeListRef, item_ref: AstItemRef) -> AstNodeListRef {
+        return ast_node_list_append_node_ref(nodes_ref, ast_node_ref_from_item_ref(item_ref));
+    }
+
+    fn ast_node_list_append_block_ref(nodes_ref: AstNodeListRef, block_ref: AstBlockRef) -> AstNodeListRef {
+        return ast_node_list_append_node_ref(nodes_ref, ast_node_ref_from_block_ref(block_ref));
+    }
+
     fn ast_pattern_list_append(patterns: Vec<i64>, pattern: Vec<i64>) -> Vec<i64> {
         ast_pattern_list_append_ref(ast_pattern_list_ref_from_list(patterns), pattern);
         return patterns;
@@ -958,6 +975,10 @@
         return ast_field(node, 1);
     }
 
+    fn ast_fn_ref_name_idx(item_ref: AstItemRef) -> i64 {
+        return ast_fn_name_idx(ast_item_node_from_ref(item_ref));
+    }
+
     fn ast_fn_params(node: Vec<i64>) -> Vec<i64> {
         return ast_node_list_from_ref(ast_fn_params_ref(node));
     }
@@ -982,6 +1003,10 @@
         return ast_field(node, 1);
     }
 
+    fn ast_const_ref_name_idx(item_ref: AstItemRef) -> i64 {
+        return ast_const_name_idx(ast_item_node_from_ref(item_ref));
+    }
+
     fn ast_const_type_node(node: Vec<i64>) -> i64 {
         return ast_const_type_handle(node);
     }
@@ -1000,6 +1025,10 @@
 
     fn ast_struct_name_idx(node: Vec<i64>) -> i64 {
         return ast_field(node, 1);
+    }
+
+    fn ast_struct_ref_name_idx(item_ref: AstItemRef) -> i64 {
+        return ast_struct_name_idx(ast_item_node_from_ref(item_ref));
     }
 
     fn ast_struct_fields(node: Vec<i64>) -> Vec<i64> {

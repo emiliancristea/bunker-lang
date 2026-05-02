@@ -148,6 +148,7 @@ These are the next concrete PR-sized slices.
 | Q-085 | DONE | Route parser logical-or consumers through refs. | Parser logical-or parsing now exposes `parse_or_ref`, and ternary parsing consumes typed logical-or refs without raw logical-or-node roundtrips. |
 | Q-086 | DONE | Close parser expression ladder refs. | Parser ternary parsing now exposes `parse_ternary_ref`, and `parse_expr_ref` owns expression parsing directly while `parse_expr` remains only as the raw compatibility adapter. |
 | Q-087 | DONE | Close parser type refs. | Parser type parsing is now owned by `parse_type_ref`, while `parse_type` remains only as the raw compatibility adapter and CI rejects the old raw type-parser roundtrip. |
+| Q-088 | DONE | Route parser node-list appends through typed refs. | Parser arrays, calls, struct literals, match bodies, params, fields, and kernel items now append typed AST refs into node lists, with raw node-list append use rejected in parser CI guards. |
 
 ## Language Core
 
@@ -500,3 +501,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-02 | Routed parser logical-or consumers through typed refs. | `parse_or_ref` now owns `||` expression construction, and `parse_ternary` consumes logical-or expressions through `AstExprRef` operands. |
 | 2026-05-02 | Closed parser expression ladder refs. | `parse_ternary_ref` now owns ternary construction, and `parse_expr_ref` no longer roundtrips through raw `parse_expr` nodes. |
 | 2026-05-02 | Closed parser type refs. | `parse_type_ref` now owns primitive, array, struct, and bootstrap generic type parsing directly, leaving `parse_type` as a compatibility wrapper only. |
+| 2026-05-02 | Routed parser node-list appends through typed refs. | AST now exposes typed node-list append helpers, and parser child-list construction no longer appends raw AST nodes for arrays, calls, struct literals, match bodies, params, fields, or kernel items. |

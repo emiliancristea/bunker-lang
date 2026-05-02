@@ -389,19 +389,17 @@
             let pattern_ref: AstPatternRef = parse_match_pattern_ref(p);
             parser_expect_ref(p, TOK_FAT_ARROW);
 
-            let body: Vec<i64> = vec_new();
             if parser_peek_ref(p) == TOK_LBRACE {
-                body = ast_block_node_from_ref(parse_block_ref(p));
+                ast_node_list_append_block_ref(bodies_ref, parse_block_ref(p));
                 if parser_peek_ref(p) == TOK_SEMICOLON || parser_peek_ref(p) == TOK_COMMA {
                     parser_advance_ref(p);
                 }
             } else {
-                body = ast_expr_node_from_ref(parse_expr_ref(p));
+                ast_node_list_append_expr_ref(bodies_ref, parse_expr_ref(p));
                 parser_expect_ref(p, TOK_SEMICOLON);
             }
 
             ast_pattern_list_append_pattern_ref(patterns_ref, pattern_ref);
-            ast_node_list_append_ref(bodies_ref, body);
         }
 
         parser_expect_ref(p, TOK_RBRACE);
@@ -460,15 +458,16 @@
         if tok == TOK_LBRACKET {
             parser_advance_ref(p);
             let elements: Vec<i64> = vec_new();
+            let elements_ref: AstNodeListRef = ast_node_list_ref_from_list(elements);
             while parser_peek_ref(p) != TOK_RBRACKET && parser_peek_ref(p) != TOK_EOF {
                 let elem_ref: AstExprRef = parse_expr_ref(p);
-                ast_node_list_append(elements, ast_expr_node_from_ref(elem_ref));
+                ast_node_list_append_expr_ref(elements_ref, elem_ref);
                 if parser_peek_ref(p) == TOK_COMMA {
                     parser_advance_ref(p);
                 }
             }
             parser_expect_ref(p, TOK_RBRACKET);
-            return parser_set_expr_ref_span_from_start(p, ast_array_lit_ref(ast_node_list_ref_from_list(elements)), start);
+            return parser_set_expr_ref_span_from_start(p, ast_array_lit_ref(elements_ref), start);
         }
 
         if is_name_token(tok) {
@@ -485,36 +484,39 @@
                 parser_advance_ref(p);
                 let field_names: Vec<i64> = vec_new();
                 let field_values: Vec<i64> = vec_new();
+                let field_names_ref: AstI64ListRef = ast_i64_list_ref_from_list(field_names);
+                let field_values_ref: AstNodeListRef = ast_node_list_ref_from_list(field_values);
                 while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
                     let field_name = parser_expect_name(p);
                     parser_expect_ref(p, TOK_COLON);
                     let field_value_ref: AstExprRef = parse_expr_ref(p);
-                    ast_i64_list_append(field_names, field_name);
-                    ast_node_list_append(field_values, ast_expr_node_from_ref(field_value_ref));
+                    ast_i64_list_append_ref(field_names_ref, field_name);
+                    ast_node_list_append_expr_ref(field_values_ref, field_value_ref);
                     if parser_peek_ref(p) == TOK_COMMA {
                         parser_advance_ref(p);
                     }
                 }
                 parser_expect_ref(p, TOK_RBRACE);
-                return parser_set_expr_ref_span_from_start(p, ast_struct_lit_ref(name_idx, ast_i64_list_ref_from_list(field_names), ast_node_list_ref_from_list(field_values)), start);
+                return parser_set_expr_ref_span_from_start(p, ast_struct_lit_ref(name_idx, field_names_ref, field_values_ref), start);
             }
 
             // Check for function call with simple args
             if parser_peek_ref(p) == TOK_LPAREN {
                 parser_advance_ref(p);
                 let args: Vec<i64> = vec_new();
+                let args_ref: AstNodeListRef = ast_node_list_ref_from_list(args);
 
                 // Parse function call arguments as full expressions
                 while parser_peek_ref(p) != TOK_RPAREN && parser_peek_ref(p) != TOK_EOF {
                     let arg_ref: AstExprRef = parse_expr_ref(p);
-                    ast_node_list_append(args, ast_expr_node_from_ref(arg_ref));
+                    ast_node_list_append_expr_ref(args_ref, arg_ref);
                     if parser_peek_ref(p) == TOK_COMMA {
                         parser_advance_ref(p);
                     }
                 }
                 parser_expect_ref(p, TOK_RPAREN);
 
-                return parser_set_expr_ref_span_from_start(p, ast_call_ref(name_idx, ast_node_list_ref_from_list(args)), start);
+                return parser_set_expr_ref_span_from_start(p, ast_call_ref(name_idx, args_ref), start);
             }
 
             return parser_set_expr_ref_span_from_start(p, ast_ident_ref(name_idx), start);
@@ -958,7 +960,12 @@
     }
 
     fn parse_params(p: ParserStateRef) -> Vec<i64> {
+        return ast_node_list_from_ref(parse_params_ref(p));
+    }
+
+    fn parse_params_ref(p: ParserStateRef) -> AstNodeListRef {
         let params: Vec<i64> = vec_new();
+        let params_ref: AstNodeListRef = ast_node_list_ref_from_list(params);
         parser_expect_ref(p, TOK_LPAREN);
         if parser_peek_ref(p) != TOK_RPAREN {
             // First param
@@ -968,8 +975,7 @@
             let ptype_ref: AstTypeRef = parse_type_ref(p);
 
             let param_ref: AstNodeRef = parser_set_node_ref_span(ast_param_ref(name_idx, ptype_ref), param_start, parser_previous_token_end(p));
-            let param: Vec<i64> = ast_node_from_ref(param_ref);
-            ast_node_list_append(params, param);
+            ast_node_list_append_node_ref(params_ref, param_ref);
 
             while parser_peek_ref(p) == TOK_COMMA {
                 parser_advance_ref(p);
@@ -979,19 +985,22 @@
                 let ptype2_ref: AstTypeRef = parse_type_ref(p);
 
                 let param2_ref: AstNodeRef = parser_set_node_ref_span(ast_param_ref(name_idx2, ptype2_ref), param2_start, parser_previous_token_end(p));
-                let param2: Vec<i64> = ast_node_from_ref(param2_ref);
-                ast_node_list_append(params, param2);
+                ast_node_list_append_node_ref(params_ref, param2_ref);
             }
         }
         parser_expect_ref(p, TOK_RPAREN);
-        return params;
+        return params_ref;
     }
 
     fn parse_fn(p: ParserStateRef) -> Vec<i64> {
+        return ast_item_node_from_ref(parse_fn_ref(p));
+    }
+
+    fn parse_fn_ref(p: ParserStateRef) -> AstItemRef {
         let start = parser_current_token_start(p);
         parser_expect_ref(p, TOK_FN);
         let name_idx = parser_expect_name(p);
-        let params: Vec<i64> = parse_params(p);
+        let params_ref: AstNodeListRef = parse_params_ref(p);
 
         let ret_type: i64 = ast_optional_none();
         if parser_peek_ref(p) == TOK_ARROW {
@@ -1001,11 +1010,15 @@
 
         let body_ref: AstBlockRef = parse_block_ref(p);
 
-        let fn_ref: AstItemRef = ast_fn_ref(name_idx, ast_node_list_ref_from_list(params), ret_type, body_ref);
-        return ast_item_node_from_ref(parser_set_item_ref_span_from_start(p, fn_ref, start));
+        let fn_ref: AstItemRef = ast_fn_ref(name_idx, params_ref, ret_type, body_ref);
+        return parser_set_item_ref_span_from_start(p, fn_ref, start);
     }
 
     fn parse_const(p: ParserStateRef) -> Vec<i64> {
+        return ast_item_node_from_ref(parse_const_ref(p));
+    }
+
+    fn parse_const_ref(p: ParserStateRef) -> AstItemRef {
         let start = parser_current_token_start(p);
         parser_expect_ref(p, TOK_CONST);
         let name_idx = parser_expect_name(p);
@@ -1025,16 +1038,21 @@
         parser_expect_ref(p, TOK_SEMICOLON);
 
         let const_ref: AstItemRef = ast_const_ref(name_idx, type_node, value);
-        return ast_item_node_from_ref(parser_set_item_ref_span_from_start(p, const_ref, start));
+        return parser_set_item_ref_span_from_start(p, const_ref, start);
     }
 
     fn parse_struct(p: ParserStateRef) -> Vec<i64> {
+        return ast_item_node_from_ref(parse_struct_ref(p));
+    }
+
+    fn parse_struct_ref(p: ParserStateRef) -> AstItemRef {
         let start = parser_current_token_start(p);
         parser_expect_ref(p, TOK_STRUCT);
         let name_idx = parser_expect_name(p);
         parser_expect_ref(p, TOK_LBRACE);
 
         let fields: Vec<i64> = vec_new();
+        let fields_ref: AstNodeListRef = ast_node_list_ref_from_list(fields);
         while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
             let field_start = parser_current_token_start(p);
             let field_name = parser_expect_name(p);
@@ -1042,8 +1060,7 @@
             let field_type_ref: AstTypeRef = parse_type_ref(p);
 
             let field_ref: AstNodeRef = parser_set_node_ref_span(ast_field_decl_ref(field_name, field_type_ref), field_start, parser_previous_token_end(p));
-            let field: Vec<i64> = ast_node_from_ref(field_ref);
-            ast_node_list_append(fields, field);
+            ast_node_list_append_node_ref(fields_ref, field_ref);
 
             if parser_peek_ref(p) == TOK_COMMA {
                 parser_advance_ref(p);
@@ -1052,8 +1069,8 @@
 
         parser_expect_ref(p, TOK_RBRACE);
 
-        let struct_ref: AstItemRef = ast_struct_ref(name_idx, ast_node_list_ref_from_list(fields));
-        return ast_item_node_from_ref(parser_set_item_ref_span_from_start(p, struct_ref, start));
+        let struct_ref: AstItemRef = ast_struct_ref(name_idx, fields_ref);
+        return parser_set_item_ref_span_from_start(p, struct_ref, start);
     }
 
     fn parse_kernel(p: Vec<i64>) -> Vec<i64> {
@@ -1067,29 +1084,27 @@
         parser_expect_ref(p, TOK_LBRACE);
 
         let items: Vec<i64> = vec_new();
+        let items_ref: AstNodeListRef = ast_node_list_ref_from_list(items);
         let main_name_idx: i64 = -1;
         while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
             let tok = parser_peek_ref(p);
             if tok == TOK_FN {
-                let fn_node: Vec<i64> = parse_fn(p);
-                let fn_name_idx = ast_fn_name_idx(fn_node);
+                let fn_ref: AstItemRef = parse_fn_ref(p);
+                let fn_name_idx = ast_fn_ref_name_idx(fn_ref);
                 if parser_get_name_ref(p, fn_name_idx) == "main" {
                     main_name_idx = fn_name_idx;
                 }
-                ast_node_list_append(items, fn_node);
+                ast_node_list_append_item_ref(items_ref, fn_ref);
             } else if tok == TOK_CONST {
-                let const_node: Vec<i64> = parse_const(p);
-                ast_node_list_append(items, const_node);
+                ast_node_list_append_item_ref(items_ref, parse_const_ref(p));
             } else if tok == TOK_STRUCT {
-                let struct_node: Vec<i64> = parse_struct(p);
-                ast_node_list_append(items, struct_node);
+                ast_node_list_append_item_ref(items_ref, parse_struct_ref(p));
             } else {
                 parser_advance_ref(p);  // skip unknown
             }
         }
         parser_expect_ref(p, TOK_RBRACE);
 
-        let items_ref: AstNodeListRef = ast_node_list_ref_from_list(items);
         let names_ref: AstStringListRef = ast_string_list_ref_from_list(parser_names_ref(p));
         let kernel_ref: AstNodeRef = ast_kernel_ref(name_idx, items_ref, main_name_idx, names_ref);
         return ast_node_from_ref(parser_set_node_ref_span_from_start(p, kernel_ref, start));
