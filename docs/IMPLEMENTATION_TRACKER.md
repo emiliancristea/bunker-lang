@@ -145,6 +145,7 @@ These are the next concrete PR-sized slices.
 | Q-082 | DONE | Route parser bitwise-or consumers through refs. | Parser bitwise-or parsing now exposes `parse_bit_or_ref`, and comparison parsing consumes typed bitwise-or refs without raw bitwise-or-node roundtrips. |
 | Q-083 | DONE | Route parser comparison consumers through refs. | Parser comparison parsing now exposes `parse_comparison_ref`, and logical-and parsing consumes typed comparison refs without raw comparison-node roundtrips. |
 | Q-084 | DONE | Route parser logical-and consumers through refs. | Parser logical-and parsing now exposes `parse_and_ref`, and logical-or parsing consumes typed logical-and refs without raw logical-and-node roundtrips. |
+| Q-085 | DONE | Route parser logical-or consumers through refs. | Parser logical-or parsing now exposes `parse_or_ref`, and ternary parsing consumes typed logical-or refs without raw logical-or-node roundtrips. |
 
 ## Language Core
 
@@ -494,3 +495,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-02 | Routed parser bitwise-or consumers through typed refs. | `parse_bit_or_ref` now owns `|` expression construction, and `parse_comparison` consumes bitwise-or expressions through `AstExprRef` operands. |
 | 2026-05-02 | Routed parser comparison consumers through typed refs. | `parse_comparison_ref` now owns equality and ordering expression construction, and `parse_and` consumes comparison expressions through `AstExprRef` operands. |
 | 2026-05-02 | Routed parser logical-and consumers through typed refs. | `parse_and_ref` now owns `&&` expression construction, and `parse_or` consumes logical-and expressions through `AstExprRef` operands. |
+| 2026-05-02 | Routed parser logical-or consumers through typed refs. | `parse_or_ref` now owns `||` expression construction, and `parse_ternary` consumes logical-or expressions through `AstExprRef` operands. |
