@@ -197,28 +197,60 @@
             "*/";
     }
 
+    fn self_host_trace_enabled() -> bool {
+        return file_exists("self_host_trace.enabled");
+    }
+
+    fn self_host_trace_phase(phase: str) -> i64 {
+        if self_host_trace_enabled() {
+            println("[self-host trace] " + phase);
+        }
+        return 0;
+    }
+
     fn compile_to_c(source: str) -> str {
+        self_host_trace_phase("compile_to_c:begin");
         let capability_report = build_capability_report_comment();
+        self_host_trace_phase("compile_to_c:capability_report");
         let missing_import = first_missing_import_path(source);
         if len(missing_import) > 0 {
+            self_host_trace_phase("compile_to_c:missing_import");
             return capability_report + build_import_diagnostic(missing_import) + from_char_code(10);
         }
 
         let expanded_source = expand_imports(source);
+        self_host_trace_phase("compile_to_c:imports_expanded");
         let lex_result: LexerResultRef = tokenize_ref(expanded_source);
+        self_host_trace_phase("compile_to_c:tokenized");
         let p: ParserStateRef = parser_new_ref(lex_result);
+        self_host_trace_phase("compile_to_c:parser_state");
         let ast: Vec<i64> = parse_kernel_ref(p);
+        self_host_trace_phase("compile_to_c:parsed");
 
         if parser_has_error_ref(p) {
+            self_host_trace_phase("compile_to_c:parse_error");
             return capability_report + build_parse_diagnostic(expanded_source, p) + from_char_code(10);
         }
 
-        return capability_report + build_ast_report_comment(expanded_source, ast) +
-            build_type_graph_report_comment(ast) +
-            build_symbol_table_report_comment(ast) +
-            build_resolver_report_comment(ast) +
-            build_typecheck_report_comment(ast) +
-            gen_c_program(ast);
+        let ast_report = build_ast_report_comment(expanded_source, ast);
+        self_host_trace_phase("compile_to_c:ast_report");
+        let type_graph_report = build_type_graph_report_comment(ast);
+        self_host_trace_phase("compile_to_c:type_graph_report");
+        let symbol_table_report = build_symbol_table_report_comment(ast);
+        self_host_trace_phase("compile_to_c:symbol_table_report");
+        let resolver_report = build_resolver_report_comment(ast);
+        self_host_trace_phase("compile_to_c:resolver_report");
+        let typecheck_report = build_typecheck_report_comment(ast);
+        self_host_trace_phase("compile_to_c:typecheck_report");
+        let c_program = gen_c_program(ast);
+        self_host_trace_phase("compile_to_c:c_program");
+
+        return capability_report + ast_report +
+            type_graph_report +
+            symbol_table_report +
+            resolver_report +
+            typecheck_report +
+            c_program;
     }
 
     fn main() -> i32 {
