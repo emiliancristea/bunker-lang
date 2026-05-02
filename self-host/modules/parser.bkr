@@ -376,8 +376,10 @@
         let scrutinee_ref: AstExprRef = parse_expr_ref(p);
         parser_expect_ref(p, TOK_LBRACE);
 
-        let patterns_ref: AstPatternListRef = ast_pattern_list_ref_from_list(vec_new());
-        let bodies_ref: AstNodeListRef = ast_node_list_ref_from_list(vec_new());
+        let patterns: Vec<i64> = vec_new();
+        let bodies: Vec<i64> = vec_new();
+        let patterns_ref: AstPatternListRef = ast_pattern_list_ref_from_list(patterns);
+        let bodies_ref: AstNodeListRef = ast_node_list_ref_from_list(bodies);
 
         while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
             let pattern_ref: AstPatternRef = parse_match_pattern_ref(p);
