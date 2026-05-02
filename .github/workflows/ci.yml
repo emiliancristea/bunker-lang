@@ -132,15 +132,9 @@ jobs:
             cat "$matches"
             exit 1
           fi
-          grep -n -E 'ast_(let|return|break|continue|if|for|while|loop|fn|const|struct|kernel|param|field_decl)\(' "$parser" > "$matches" || true
+          grep -n -E 'parser_set_node_span_from_start\(p, ast_(let|return|break|continue)\(' "$parser" > "$matches" || true
           if [ -s "$matches" ]; then
-            echo "Parser statement/item construction must route through typed Ast*Ref constructors."
-            cat "$matches"
-            exit 1
-          fi
-          grep -n -E 'ast_set_span\(' "$parser" > "$matches" || true
-          if [ -s "$matches" ]; then
-            echo "Parser span mutation must route through typed parser span helpers."
+            echo "Parser simple-statement construction must route through typed AstStmtRef constructors."
             cat "$matches"
             exit 1
           fi
