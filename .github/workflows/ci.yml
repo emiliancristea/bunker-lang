@@ -162,9 +162,15 @@ jobs:
             cat "$matches"
             exit 1
           fi
-          grep -n -E 'ast_block\(|ast_block_append\(' "$parser" > "$matches" || true
+          grep -n -E 'ast_block\(|ast_block_append\(|ast_block_with\(' "$parser" > "$matches" || true
           if [ -s "$matches" ]; then
             echo "Parser block construction must route through typed AstBlockRef helpers."
+            cat "$matches"
+            exit 1
+          fi
+          grep -n -E 'ast_block_(ref_from_node|handle)\(parse_block\(' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser block consumers must use parse_block_ref instead of raw parse_block adapters."
             cat "$matches"
             exit 1
           fi
