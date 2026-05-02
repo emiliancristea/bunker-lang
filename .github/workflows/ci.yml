@@ -271,6 +271,13 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -q 'fn parse_and_ref(p: ParserStateRef) -> AstExprRef' "$parser"
+          grep -n -E 'parse_and\(p\);|ast_expr_ref_from_node\(parse_and\(' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser logical-and consumers must use parse_and_ref instead of raw parse_and wrappers."
+            cat "$matches"
+            exit 1
+          fi
       - name: Require AST constructors through typed refs
         shell: bash
         run: |
