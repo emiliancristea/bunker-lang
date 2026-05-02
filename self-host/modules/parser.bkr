@@ -973,5 +973,8 @@
         }
         parser_expect_ref(p, TOK_RBRACE);
 
-        return parser_set_node_span_from_start(p, ast_kernel(name_idx, items, main_name_idx, parser_names_ref(p)), start);
+        let items_ref: AstNodeListRef = ast_node_list_ref_from_list(items);
+        let names_ref: AstStringListRef = ast_string_list_ref_from_list(parser_names_ref(p));
+        let kernel_ref: AstNodeRef = ast_kernel_ref(name_idx, items_ref, main_name_idx, names_ref);
+        return ast_node_from_ref(parser_set_node_ref_span_from_start(p, kernel_ref, start));
     }
