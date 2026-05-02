@@ -693,7 +693,8 @@
         }
         parser_expect_ref(p, TOK_SEMICOLON);
 
-        return parser_set_node_span_from_start(p, ast_let(name_idx, type_node, init), start);
+        let let_ref: AstStmtRef = ast_let_ref(name_idx, type_node, init);
+        return ast_stmt_node_from_ref(parser_set_stmt_ref_span_from_start(p, let_ref, start));
     }
 
     fn parse_return_stmt(p: ParserStateRef) -> Vec<i64> {
@@ -704,7 +705,8 @@
             expr = ast_expr_handle(parse_expr(p));
         }
         parser_expect_ref(p, TOK_SEMICOLON);
-        return parser_set_node_span_from_start(p, ast_return(expr), start);
+        let return_ref: AstStmtRef = ast_return_ref(expr);
+        return ast_stmt_node_from_ref(parser_set_stmt_ref_span_from_start(p, return_ref, start));
     }
 
     // Simplified statement that doesn't recurse into blocks
@@ -723,13 +725,15 @@
         if tok == TOK_BREAK {
             parser_advance_ref(p);
             parser_expect_ref(p, TOK_SEMICOLON);
-            return parser_set_node_span_from_start(p, ast_break(), start);
+            let break_ref: AstStmtRef = ast_break_ref();
+            return ast_stmt_node_from_ref(parser_set_stmt_ref_span_from_start(p, break_ref, start));
         }
 
         if tok == TOK_CONTINUE {
             parser_advance_ref(p);
             parser_expect_ref(p, TOK_SEMICOLON);
-            return parser_set_node_span_from_start(p, ast_continue(), start);
+            let continue_ref: AstStmtRef = ast_continue_ref();
+            return ast_stmt_node_from_ref(parser_set_stmt_ref_span_from_start(p, continue_ref, start));
         }
 
         // Expression statement or assignment

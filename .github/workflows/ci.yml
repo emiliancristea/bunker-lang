@@ -132,6 +132,12 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -n -E 'parser_set_node_span_from_start\(p, ast_(let|return|break|continue)\(' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser simple-statement construction must route through typed AstStmtRef constructors."
+            cat "$matches"
+            exit 1
+          fi
 
       - name: Require AST constructors through typed refs
         shell: bash
