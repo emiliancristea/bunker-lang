@@ -271,6 +271,10 @@
 
     // Parse type
     fn parse_type(p: ParserStateRef) -> Vec<i64> {
+        return ast_type_node_from_ref(parse_type_ref(p));
+    }
+
+    fn parse_type_ref(p: ParserStateRef) -> AstTypeRef {
         let start = parser_current_token_start(p);
         let tok = parser_peek_ref(p);
         let kind: i64 = TYPE_I64;
@@ -287,7 +291,7 @@
                 parser_mark_error_ref(p, TOK_INT);
             }
             parser_expect_ref(p, TOK_RBRACKET);
-            return ast_type_node_from_ref(parser_set_type_ref_span_from_start(p, ast_type_array_ref(ast_type_ref_kind_value(elem_type_ref), len_value), start));
+            return parser_set_type_ref_span_from_start(p, ast_type_array_ref(ast_type_ref_kind_value(elem_type_ref), len_value), start);
         }
         if tok == TOK_I32 { kind = TYPE_I32; parser_advance_ref(p); consumed = true; }
         if tok == TOK_I64 { kind = TYPE_I64; parser_advance_ref(p); consumed = true; }
@@ -302,17 +306,13 @@
                 skip_type_tail(p);
                 consumed = true;
             } else {
-                return ast_type_node_from_ref(parser_set_type_ref_span_from_start(p, ast_type_struct_ref(name_idx), start));
+                return parser_set_type_ref_span_from_start(p, ast_type_struct_ref(name_idx), start);
             }
         }
         if !consumed && tok != TOK_EOF {
             parser_advance_ref(p);
         }
-        return ast_type_node_from_ref(parser_set_type_ref_span_from_start(p, ast_type_ref(kind), start));
-    }
-
-    fn parse_type_ref(p: ParserStateRef) -> AstTypeRef {
-        return ast_type_ref_from_node(parse_type(p));
+        return parser_set_type_ref_span_from_start(p, ast_type_ref(kind), start);
     }
 
     fn parse_match_pattern(p: ParserStateRef) -> Vec<i64> {
