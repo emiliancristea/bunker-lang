@@ -144,6 +144,12 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -n -E 'ast_(param|field_decl)\(' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser param/field construction must route through typed AstNodeRef constructors."
+            cat "$matches"
+            exit 1
+          fi
 
       - name: Require AST constructors through typed refs
         shell: bash
