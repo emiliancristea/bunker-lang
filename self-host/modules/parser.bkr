@@ -851,8 +851,8 @@
             parser_expect_ref(p, TOK_COLON);
             let ptype: Vec<i64> = parse_type(p);
 
-            let param_ref: AstNodeRef = parser_set_node_ref_span(ast_param_ref(name_idx, ast_type_ref_from_node(ptype)), param_start, parser_previous_token_end(p));
-            let param: Vec<i64> = ast_node_from_ref(param_ref);
+            let param: Vec<i64> = ast_param(name_idx, ptype);
+            ast_set_span(param, param_start, parser_previous_token_end(p));
             ast_node_list_append(params, param);
 
             while parser_peek_ref(p) == TOK_COMMA {
@@ -862,8 +862,8 @@
                 parser_expect_ref(p, TOK_COLON);
                 let ptype2: Vec<i64> = parse_type(p);
 
-                let param2_ref: AstNodeRef = parser_set_node_ref_span(ast_param_ref(name_idx2, ast_type_ref_from_node(ptype2)), param2_start, parser_previous_token_end(p));
-                let param2: Vec<i64> = ast_node_from_ref(param2_ref);
+                let param2: Vec<i64> = ast_param(name_idx2, ptype2);
+                ast_set_span(param2, param2_start, parser_previous_token_end(p));
                 ast_node_list_append(params, param2);
             }
         }
@@ -885,8 +885,7 @@
 
         let body: Vec<i64> = parse_block(p);
 
-        let fn_ref: AstItemRef = ast_fn_ref(name_idx, ast_node_list_ref_from_list(params), ret_type, ast_block_ref_from_node(body));
-        return ast_item_node_from_ref(parser_set_item_ref_span_from_start(p, fn_ref, start));
+        return parser_set_node_span_from_start(p, ast_fn(name_idx, params, ret_type, body), start);
     }
 
     fn parse_const(p: ParserStateRef) -> Vec<i64> {
@@ -908,8 +907,7 @@
 
         parser_expect_ref(p, TOK_SEMICOLON);
 
-        let const_ref: AstItemRef = ast_const_ref(name_idx, type_node, value);
-        return ast_item_node_from_ref(parser_set_item_ref_span_from_start(p, const_ref, start));
+        return parser_set_node_span_from_start(p, ast_const(name_idx, type_node, value), start);
     }
 
     fn parse_struct(p: ParserStateRef) -> Vec<i64> {
@@ -925,8 +923,8 @@
             parser_expect_ref(p, TOK_COLON);
             let field_type: Vec<i64> = parse_type(p);
 
-            let field_ref: AstNodeRef = parser_set_node_ref_span(ast_field_decl_ref(field_name, ast_type_ref_from_node(field_type)), field_start, parser_previous_token_end(p));
-            let field: Vec<i64> = ast_node_from_ref(field_ref);
+            let field: Vec<i64> = ast_field_decl(field_name, field_type);
+            ast_set_span(field, field_start, parser_previous_token_end(p));
             ast_node_list_append(fields, field);
 
             if parser_peek_ref(p) == TOK_COMMA {
@@ -936,8 +934,7 @@
 
         parser_expect_ref(p, TOK_RBRACE);
 
-        let struct_ref: AstItemRef = ast_struct_ref(name_idx, ast_node_list_ref_from_list(fields));
-        return ast_item_node_from_ref(parser_set_item_ref_span_from_start(p, struct_ref, start));
+        return parser_set_node_span_from_start(p, ast_struct(name_idx, fields), start);
     }
 
     fn parse_kernel(p: Vec<i64>) -> Vec<i64> {
