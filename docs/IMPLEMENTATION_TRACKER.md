@@ -140,6 +140,7 @@ These are the next concrete PR-sized slices.
 | Q-077 | DONE | Route parser multiplicative consumers through refs. | Parser multiplicative parsing now exposes `parse_mul_ref`, and additive parsing consumes typed multiplicative refs without raw multiplicative-node roundtrips. |
 | Q-078 | DONE | Route parser additive consumers through refs. | Parser additive parsing now exposes `parse_add_ref`, and shift parsing consumes typed additive refs without raw additive-node roundtrips. |
 | Q-079 | DONE | Route parser shift consumers through refs. | Parser shift parsing now exposes `parse_shift_ref`, and bitwise-and parsing consumes typed shift refs without raw shift-node roundtrips. |
+| Q-080 | DONE | Route parser bitwise-and consumers through refs. | Parser bitwise-and parsing now exposes `parse_bit_and_ref`, and bitwise-xor parsing consumes typed bitwise-and refs without raw bitwise-and-node roundtrips. |
 
 ## Language Core
 
@@ -484,3 +485,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-02 | Routed parser multiplicative consumers through typed refs. | `parse_mul_ref` now owns `*`, `/`, and `%` expression construction, and `parse_add` consumes multiplicative expressions through `AstExprRef` operands. |
 | 2026-05-02 | Routed parser additive consumers through typed refs. | `parse_add_ref` now owns `+` and `-` expression construction, and `parse_shift` consumes additive expressions through `AstExprRef` operands. |
 | 2026-05-02 | Routed parser shift consumers through typed refs. | `parse_shift_ref` now owns `<<` and `>>` expression construction, and `parse_bit_and` consumes shift expressions through `AstExprRef` operands. |
+| 2026-05-02 | Routed parser bitwise-and consumers through typed refs. | `parse_bit_and_ref` now owns `&` expression construction, and `parse_bit_xor` consumes bitwise-and expressions through `AstExprRef` operands. |
