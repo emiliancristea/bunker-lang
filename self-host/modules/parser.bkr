@@ -371,6 +371,10 @@
     }
 
     fn parse_match_expr(p: ParserStateRef) -> Vec<i64> {
+        return ast_expr_node_from_ref(parse_match_expr_ref(p));
+    }
+
+    fn parse_match_expr_ref(p: ParserStateRef) -> AstExprRef {
         let start = parser_current_token_start(p);
         parser_expect_ref(p, TOK_MATCH);
         let scrutinee_ref: AstExprRef = parse_expr_ref(p);
@@ -402,51 +406,55 @@
 
         parser_expect_ref(p, TOK_RBRACE);
 
-        return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_match_ref(scrutinee_ref, patterns_ref, bodies_ref), start));
+        return parser_set_expr_ref_span_from_start(p, ast_match_ref(scrutinee_ref, patterns_ref, bodies_ref), start);
     }
 
     fn parse_atom(p: ParserStateRef) -> Vec<i64> {
+        return ast_expr_node_from_ref(parse_atom_ref(p));
+    }
+
+    fn parse_atom_ref(p: ParserStateRef) -> AstExprRef {
         let start = parser_current_token_start(p);
         let tok = parser_peek_ref(p);
 
         if tok == TOK_MATCH {
-            return parse_match_expr(p);
+            return parse_match_expr_ref(p);
         }
 
         if tok == TOK_INT {
             let val_idx = parser_peek_value_ref(p);
             let val = parser_get_value_ref(p, val_idx);
             parser_advance_ref(p);
-            return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_int_lit_ref(val), start));
+            return parser_set_expr_ref_span_from_start(p, ast_int_lit_ref(val), start);
         }
 
         if tok == TOK_FLOAT {
             let str_idx = parser_peek_value_ref(p);
             parser_advance_ref(p);
-            return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_float_lit_ref(parser_get_string_ref(p, str_idx)), start));
+            return parser_set_expr_ref_span_from_start(p, ast_float_lit_ref(parser_get_string_ref(p, str_idx)), start);
         }
 
         if tok == TOK_TRUE {
             parser_advance_ref(p);
-            return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_bool_lit_ref(1), start));
+            return parser_set_expr_ref_span_from_start(p, ast_bool_lit_ref(1), start);
         }
 
         if tok == TOK_FALSE {
             parser_advance_ref(p);
-            return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_bool_lit_ref(0), start));
+            return parser_set_expr_ref_span_from_start(p, ast_bool_lit_ref(0), start);
         }
 
         if tok == TOK_STR {
             let str_idx = parser_peek_value_ref(p);
             parser_advance_ref(p);
-            return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_str_lit_ref(parser_get_string_ref(p, str_idx)), start));
+            return parser_set_expr_ref_span_from_start(p, ast_str_lit_ref(parser_get_string_ref(p, str_idx)), start);
         }
 
         if tok == TOK_LPAREN {
             parser_advance_ref(p);
             let expr_ref: AstExprRef = parse_expr_ref(p);
             parser_expect_ref(p, TOK_RPAREN);
-            return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, expr_ref, start));
+            return parser_set_expr_ref_span_from_start(p, expr_ref, start);
         }
 
         if tok == TOK_LBRACKET {
@@ -460,7 +468,7 @@
                 }
             }
             parser_expect_ref(p, TOK_RBRACKET);
-            return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_array_lit_ref(ast_node_list_ref_from_list(elements)), start));
+            return parser_set_expr_ref_span_from_start(p, ast_array_lit_ref(ast_node_list_ref_from_list(elements)), start);
         }
 
         if is_name_token(tok) {
@@ -488,7 +496,7 @@
                     }
                 }
                 parser_expect_ref(p, TOK_RBRACE);
-                return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_struct_lit_ref(name_idx, ast_i64_list_ref_from_list(field_names), ast_node_list_ref_from_list(field_values)), start));
+                return parser_set_expr_ref_span_from_start(p, ast_struct_lit_ref(name_idx, ast_i64_list_ref_from_list(field_names), ast_node_list_ref_from_list(field_values)), start);
             }
 
             // Check for function call with simple args
@@ -506,49 +514,52 @@
                 }
                 parser_expect_ref(p, TOK_RPAREN);
 
-                return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_call_ref(name_idx, ast_node_list_ref_from_list(args)), start));
+                return parser_set_expr_ref_span_from_start(p, ast_call_ref(name_idx, ast_node_list_ref_from_list(args)), start);
             }
 
-            return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_ident_ref(name_idx), start));
+            return parser_set_expr_ref_span_from_start(p, ast_ident_ref(name_idx), start);
         }
 
         if tok == TOK_NOT {
             parser_advance_ref(p);
-            let operand: Vec<i64> = parse_atom(p);
-            return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_unary_ref(TOK_NOT, ast_expr_ref_from_node(operand)), start));
+            let operand_ref: AstExprRef = parse_atom_ref(p);
+            return parser_set_expr_ref_span_from_start(p, ast_unary_ref(TOK_NOT, operand_ref), start);
         }
 
         if tok == TOK_MINUS {
             parser_advance_ref(p);
-            let operand: Vec<i64> = parse_atom(p);
-            return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_unary_ref(TOK_MINUS, ast_expr_ref_from_node(operand)), start));
+            let operand_ref: AstExprRef = parse_atom_ref(p);
+            return parser_set_expr_ref_span_from_start(p, ast_unary_ref(TOK_MINUS, operand_ref), start);
         }
 
         // Default: consume the unexpected token so callers always make progress.
         if tok != TOK_EOF {
             parser_advance_ref(p);
         }
-        return ast_expr_node_from_ref(parser_set_expr_ref_span_from_start(p, ast_int_lit_ref(0), start));
+        return parser_set_expr_ref_span_from_start(p, ast_int_lit_ref(0), start);
     }
 
     fn parse_postfix(p: ParserStateRef) -> Vec<i64> {
-        let base: Vec<i64> = parse_atom(p);
+        let base_ref: AstExprRef = parse_atom_ref(p);
+        let base: Vec<i64> = ast_expr_node_from_ref(base_ref);
         while parser_peek_ref(p) == TOK_LBRACKET {
             let start = ast_node_span_start(base);
             parser_advance_ref(p);
             let idx_ref: AstExprRef = parse_expr_ref(p);
             parser_expect_ref(p, TOK_RBRACKET);
-            let index_ref: AstExprRef = ast_index_ref(ast_expr_ref_from_node(base), idx_ref);
-            base = ast_expr_node_from_ref(parser_set_expr_ref_span(index_ref, start, parser_previous_token_end(p)));
+            let index_ref: AstExprRef = ast_index_ref(base_ref, idx_ref);
+            base_ref = parser_set_expr_ref_span(index_ref, start, parser_previous_token_end(p));
+            base = ast_expr_node_from_ref(base_ref);
         }
         while parser_peek_ref(p) == TOK_DOT {
             let start = ast_node_span_start(base);
             parser_advance_ref(p);
             let field_name = parser_expect_name(p);
-            let field_ref: AstExprRef = ast_field_access_ref(ast_expr_ref_from_node(base), field_name);
-            base = ast_expr_node_from_ref(parser_set_expr_ref_span(field_ref, start, parser_previous_token_end(p)));
+            let field_ref: AstExprRef = ast_field_access_ref(base_ref, field_name);
+            base_ref = parser_set_expr_ref_span(field_ref, start, parser_previous_token_end(p));
+            base = ast_expr_node_from_ref(base_ref);
         }
-        return base;
+        return ast_expr_node_from_ref(base_ref);
     }
 
     fn parse_mul(p: ParserStateRef) -> Vec<i64> {
