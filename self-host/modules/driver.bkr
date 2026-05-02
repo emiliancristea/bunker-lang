@@ -203,7 +203,12 @@
 
     fn self_host_trace_phase(phase: str) -> i64 {
         if self_host_trace_enabled() {
-            println("[self-host trace] " + phase);
+            let trace_path = "self_host_trace.log";
+            let existing = "";
+            if file_exists(trace_path) {
+                existing = read_file(trace_path);
+            }
+            write_file(trace_path, existing + "[self-host trace] " + phase + from_char_code(10));
         }
         return 0;
     }

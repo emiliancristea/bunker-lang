@@ -428,11 +428,17 @@ jobs:
         timeout-minutes: 25
         run: |
           echo "[self-host smoke] stage1 compile bkrc"
-          touch self_host_trace.enabled
-          timeout --kill-after=5s 600s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          set +e
+          BUNKER_SELF_HOST_TRACE=1 timeout --kill-after=5s 600s ./bunker-cli/target/release/bunker-cli self-host-compile \
             self-host/bkrc.bkr \
             -o /tmp/bkrc.c
-          rm -f self_host_trace.enabled
+          stage1_status=$?
+          set -e
+          if [ "$stage1_status" -ne 0 ]; then
+            echo "[self-host smoke] stage1 compile failed with status $stage1_status"
+            find /tmp -maxdepth 2 -type f -path '/tmp/bunker-self-host-compile-*/self_host_trace.log' -print -exec sed -n '1,200p' {} \; || true
+            exit "$stage1_status"
+          fi
           test -s /tmp/bkrc.c
           ! grep -q "Parse error" /tmp/bkrc.c
           cp self-host/runtime.h /tmp/runtime.h
