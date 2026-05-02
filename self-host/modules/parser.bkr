@@ -684,6 +684,10 @@
     }
 
     fn parse_comparison(p: ParserStateRef) -> Vec<i64> {
+        return ast_expr_node_from_ref(parse_comparison_ref(p));
+    }
+
+    fn parse_comparison_ref(p: ParserStateRef) -> AstExprRef {
         let left_ref: AstExprRef = parse_bit_or_ref(p);
         let left: Vec<i64> = ast_expr_node_from_ref(left_ref);
         let tok = parser_peek_ref(p);
@@ -693,19 +697,22 @@
             let right_ref: AstExprRef = parse_bit_or_ref(p);
             let right: Vec<i64> = ast_expr_node_from_ref(right_ref);
             let binary_ref: AstExprRef = ast_binary_ref(tok, left_ref, right_ref);
-            return ast_expr_node_from_ref(parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right)));
+            return parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right));
         }
-        return left;
+        return left_ref;
     }
 
     fn parse_and(p: ParserStateRef) -> Vec<i64> {
-        let left: Vec<i64> = parse_comparison(p);
+        let left_ref: AstExprRef = parse_comparison_ref(p);
+        let left: Vec<i64> = ast_expr_node_from_ref(left_ref);
         while parser_peek_ref(p) == TOK_AND {
             let start = ast_node_span_start(left);
             parser_advance_ref(p);
-            let right: Vec<i64> = parse_comparison(p);
-            let binary_ref: AstExprRef = ast_binary_ref(TOK_AND, ast_expr_ref_from_node(left), ast_expr_ref_from_node(right));
-            left = ast_expr_node_from_ref(parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right)));
+            let right_ref: AstExprRef = parse_comparison_ref(p);
+            let right: Vec<i64> = ast_expr_node_from_ref(right_ref);
+            let binary_ref: AstExprRef = ast_binary_ref(TOK_AND, left_ref, right_ref);
+            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right));
+            left = ast_expr_node_from_ref(left_ref);
         }
         return left;
     }
