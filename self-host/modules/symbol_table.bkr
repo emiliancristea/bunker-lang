@@ -181,57 +181,56 @@
 
     fn symbol_table_stmt_declarations_ref_json(names: Vec<str>, stmt_ref: AstStmtRef, scope: str) -> str {
         let result = "[";
-        let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
         let kind: i64 = ast_stmt_ref_kind(stmt_ref);
         if kind == NODE_LET {
             result = symbol_table_json_array_append(result,
                 symbol_table_node_ref_entry_json("local",
-                    ast_report_name(names, ast_let_name_idx(stmt)),
+                    ast_report_name(names, ast_let_ref_name_idx(stmt_ref)),
                     scope,
-                    ast_node_ref_from_handle(ast_stmt_ref_handle(stmt_ref))));
+                    ast_node_ref_from_stmt_ref(stmt_ref)));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_let_init_handle(stmt), scope));
+                symbol_table_expr_declarations_json(names, ast_let_ref_init_handle(stmt_ref), scope));
         } else if kind == NODE_RETURN {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_return_expr_handle(stmt), scope));
+                symbol_table_expr_declarations_json(names, ast_return_ref_expr_handle(stmt_ref), scope));
         } else if kind == NODE_IF {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_if_cond_handle(stmt), scope));
+                symbol_table_expr_declarations_json(names, ast_if_ref_cond_handle(stmt_ref), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_block_declarations_ref_json(names, ast_block_ref_from_node(ast_if_then(stmt)), scope));
-            let else_block: i64 = ast_if_else_handle(stmt);
+                symbol_table_block_declarations_ref_json(names, ast_if_ref_then_block_ref(stmt_ref), scope));
+            let else_block: i64 = ast_if_ref_else_handle(stmt_ref);
             if ast_optional_is_some(else_block) {
                 result = symbol_table_json_array_append_items(result,
                     symbol_table_block_declarations_ref_json(names, ast_block_ref_from_handle(else_block), scope));
             }
         } else if kind == NODE_WHILE {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_while_cond_handle(stmt), scope));
+                symbol_table_expr_declarations_json(names, ast_while_ref_cond_handle(stmt_ref), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_block_declarations_ref_json(names, ast_block_ref_from_node(ast_while_body(stmt)), scope));
+                symbol_table_block_declarations_ref_json(names, ast_while_ref_body_ref(stmt_ref), scope));
         } else if kind == NODE_FOR {
             result = symbol_table_json_array_append(result,
                 symbol_table_node_ref_entry_json("for_binding",
-                    ast_report_name(names, ast_for_name_idx(stmt)),
+                    ast_report_name(names, ast_for_ref_name_idx(stmt_ref)),
                     scope,
-                    ast_node_ref_from_handle(ast_stmt_ref_handle(stmt_ref))));
+                    ast_node_ref_from_stmt_ref(stmt_ref)));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_for_start_handle(stmt), scope));
+                symbol_table_expr_declarations_json(names, ast_for_ref_start_handle(stmt_ref), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_for_end_handle(stmt), scope));
+                symbol_table_expr_declarations_json(names, ast_for_ref_end_handle(stmt_ref), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_block_declarations_ref_json(names, ast_block_ref_from_node(ast_for_body(stmt)), scope));
+                symbol_table_block_declarations_ref_json(names, ast_for_ref_body_ref(stmt_ref), scope));
         } else if kind == NODE_LOOP {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_block_declarations_ref_json(names, ast_block_ref_from_node(ast_loop_body(stmt)), scope));
+                symbol_table_block_declarations_ref_json(names, ast_loop_ref_body_ref(stmt_ref), scope));
         } else if kind == NODE_ASSIGN {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_assign_target_handle(stmt), scope));
+                symbol_table_expr_declarations_json(names, ast_assign_ref_target_handle(stmt_ref), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_assign_value_handle(stmt), scope));
+                symbol_table_expr_declarations_json(names, ast_assign_ref_value_handle(stmt_ref), scope));
         } else if kind == NODE_EXPR_STMT {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_declarations_json(names, ast_expr_stmt_expr_handle(stmt), scope));
+                symbol_table_expr_declarations_json(names, ast_expr_stmt_ref_expr_handle(stmt_ref), scope));
         }
         return result + "]";
     }
@@ -242,11 +241,10 @@
 
     fn symbol_table_block_declarations_ref_json(names: Vec<str>, block_ref: AstBlockRef, scope: str) -> str {
         let result = "[";
-        let block: Vec<i64> = ast_block_node_from_ref(block_ref);
         let i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_stmt_declarations_ref_json(names, ast_stmt_ref_from_node(ast_block_stmt(block, i)), scope));
+                symbol_table_stmt_declarations_ref_json(names, ast_block_ref_stmt_ref(block_ref, i), scope));
             i = i + 1;
         }
         return result + "]";
@@ -449,49 +447,48 @@
 
     fn symbol_table_stmt_references_ref_json(names: Vec<str>, stmt_ref: AstStmtRef, scope: str) -> str {
         let result = "[";
-        let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
         let kind: i64 = ast_stmt_ref_kind(stmt_ref);
         if kind == NODE_LET {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_type_references_json(names, ast_let_type_handle(stmt), scope));
+                symbol_table_type_references_json(names, ast_let_ref_type_handle(stmt_ref), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_let_init_handle(stmt), scope));
+                symbol_table_expr_references_json(names, ast_let_ref_init_handle(stmt_ref), scope));
         } else if kind == NODE_RETURN {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_return_expr_handle(stmt), scope));
+                symbol_table_expr_references_json(names, ast_return_ref_expr_handle(stmt_ref), scope));
         } else if kind == NODE_IF {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_if_cond_handle(stmt), scope));
+                symbol_table_expr_references_json(names, ast_if_ref_cond_handle(stmt_ref), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_block_references_ref_json(names, ast_block_ref_from_node(ast_if_then(stmt)), scope));
-            let else_block: i64 = ast_if_else_handle(stmt);
+                symbol_table_block_references_ref_json(names, ast_if_ref_then_block_ref(stmt_ref), scope));
+            let else_block: i64 = ast_if_ref_else_handle(stmt_ref);
             if ast_optional_is_some(else_block) {
                 result = symbol_table_json_array_append_items(result,
                     symbol_table_block_references_ref_json(names, ast_block_ref_from_handle(else_block), scope));
             }
         } else if kind == NODE_WHILE {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_while_cond_handle(stmt), scope));
+                symbol_table_expr_references_json(names, ast_while_ref_cond_handle(stmt_ref), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_block_references_ref_json(names, ast_block_ref_from_node(ast_while_body(stmt)), scope));
+                symbol_table_block_references_ref_json(names, ast_while_ref_body_ref(stmt_ref), scope));
         } else if kind == NODE_FOR {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_for_start_handle(stmt), scope));
+                symbol_table_expr_references_json(names, ast_for_ref_start_handle(stmt_ref), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_for_end_handle(stmt), scope));
+                symbol_table_expr_references_json(names, ast_for_ref_end_handle(stmt_ref), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_block_references_ref_json(names, ast_block_ref_from_node(ast_for_body(stmt)), scope));
+                symbol_table_block_references_ref_json(names, ast_for_ref_body_ref(stmt_ref), scope));
         } else if kind == NODE_LOOP {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_block_references_ref_json(names, ast_block_ref_from_node(ast_loop_body(stmt)), scope));
+                symbol_table_block_references_ref_json(names, ast_loop_ref_body_ref(stmt_ref), scope));
         } else if kind == NODE_ASSIGN {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_assign_target_handle(stmt), scope));
+                symbol_table_expr_references_json(names, ast_assign_ref_target_handle(stmt_ref), scope));
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_assign_value_handle(stmt), scope));
+                symbol_table_expr_references_json(names, ast_assign_ref_value_handle(stmt_ref), scope));
         } else if kind == NODE_EXPR_STMT {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_expr_references_json(names, ast_expr_stmt_expr_handle(stmt), scope));
+                symbol_table_expr_references_json(names, ast_expr_stmt_ref_expr_handle(stmt_ref), scope));
         }
         return result + "]";
     }
@@ -502,11 +499,10 @@
 
     fn symbol_table_block_references_ref_json(names: Vec<str>, block_ref: AstBlockRef, scope: str) -> str {
         let result = "[";
-        let block: Vec<i64> = ast_block_node_from_ref(block_ref);
         let i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
             result = symbol_table_json_array_append_items(result,
-                symbol_table_stmt_references_ref_json(names, ast_stmt_ref_from_node(ast_block_stmt(block, i)), scope));
+                symbol_table_stmt_references_ref_json(names, ast_block_ref_stmt_ref(block_ref, i), scope));
             i = i + 1;
         }
         return result + "]";
