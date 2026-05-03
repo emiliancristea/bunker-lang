@@ -354,6 +354,19 @@ jobs:
             exit 1
           fi
 
+      - name: Require type-graph top-level AST refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          type_graph='self-host/modules/type_graph.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'ast_item_node_from_ref\(|ast_node_from_ref\(kernel_ref\)|ast_node_from_ref\(param_ref\)|ast_node_from_ref\(field_ref\)|ast_fn_params_ref\(|ast_struct_fields_ref\(|ast_kernel_items_ref\(|ast_kernel_names\(|ast_fn_body\(|ast_fn_name_idx\(|ast_fn_return_type_handle\(|ast_const_name_idx\(|ast_const_type_handle\(|ast_const_value_handle\(|ast_struct_name_idx\(|ast_param_name_idx\(|ast_field_decl_name_idx\(' "$type_graph" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Type-graph top-level item/kernel paths must use typed AST ref accessors."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require AST constructors through typed refs
         shell: bash
         run: |
