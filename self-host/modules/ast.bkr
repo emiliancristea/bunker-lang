@@ -851,12 +851,20 @@
         return ast_field(node, 1);
     }
 
+    fn ast_let_ref_name_idx(stmt_ref: AstStmtRef) -> i64 {
+        return ast_let_name_idx(ast_stmt_node_from_ref(stmt_ref));
+    }
+
     fn ast_let_type_node(node: Vec<i64>) -> i64 {
         return ast_let_type_handle(node);
     }
 
     fn ast_let_type_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 2);
+    }
+
+    fn ast_let_ref_type_handle(stmt_ref: AstStmtRef) -> i64 {
+        return ast_let_type_handle(ast_stmt_node_from_ref(stmt_ref));
     }
 
     fn ast_let_init(node: Vec<i64>) -> i64 {
@@ -867,12 +875,20 @@
         return ast_field(node, 3);
     }
 
+    fn ast_let_ref_init_handle(stmt_ref: AstStmtRef) -> i64 {
+        return ast_let_init_handle(ast_stmt_node_from_ref(stmt_ref));
+    }
+
     fn ast_return_expr(node: Vec<i64>) -> i64 {
         return ast_return_expr_handle(node);
     }
 
     fn ast_return_expr_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 1);
+    }
+
+    fn ast_return_ref_expr_handle(stmt_ref: AstStmtRef) -> i64 {
+        return ast_return_expr_handle(ast_stmt_node_from_ref(stmt_ref));
     }
 
     fn ast_if_cond(node: Vec<i64>) -> Vec<i64> {
@@ -887,6 +903,10 @@
         return ast_field_node(node, 2);
     }
 
+    fn ast_if_ref_then_block_ref(stmt_ref: AstStmtRef) -> AstBlockRef {
+        return ast_block_ref_from_node(ast_if_then(ast_stmt_node_from_ref(stmt_ref)));
+    }
+
     fn ast_if_else(node: Vec<i64>) -> i64 {
         return ast_if_else_handle(node);
     }
@@ -895,8 +915,16 @@
         return ast_field(node, 3);
     }
 
+    fn ast_if_ref_else_handle(stmt_ref: AstStmtRef) -> i64 {
+        return ast_if_else_handle(ast_stmt_node_from_ref(stmt_ref));
+    }
+
     fn ast_for_name_idx(node: Vec<i64>) -> i64 {
         return ast_field(node, 1);
+    }
+
+    fn ast_for_ref_name_idx(stmt_ref: AstStmtRef) -> i64 {
+        return ast_for_name_idx(ast_stmt_node_from_ref(stmt_ref));
     }
 
     fn ast_for_start(node: Vec<i64>) -> Vec<i64> {
@@ -923,8 +951,16 @@
         return ast_field_node(node, 5);
     }
 
+    fn ast_for_ref_body_ref(stmt_ref: AstStmtRef) -> AstBlockRef {
+        return ast_block_ref_from_node(ast_for_body(ast_stmt_node_from_ref(stmt_ref)));
+    }
+
     fn ast_loop_body(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 1);
+    }
+
+    fn ast_loop_ref_body_ref(stmt_ref: AstStmtRef) -> AstBlockRef {
+        return ast_block_ref_from_node(ast_loop_body(ast_stmt_node_from_ref(stmt_ref)));
     }
 
     fn ast_while_cond(node: Vec<i64>) -> Vec<i64> {
@@ -937,6 +973,10 @@
 
     fn ast_while_body(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 2);
+    }
+
+    fn ast_while_ref_body_ref(stmt_ref: AstStmtRef) -> AstBlockRef {
+        return ast_block_ref_from_node(ast_while_body(ast_stmt_node_from_ref(stmt_ref)));
     }
 
     fn ast_assign_target(node: Vec<i64>) -> Vec<i64> {
@@ -1581,6 +1621,10 @@
 
     fn ast_block_stmt(block: Vec<i64>, index: i64) -> Vec<i64> {
         return ast_node_from_handle(vec_get(block, AST_NODE_DATA_START + index));
+    }
+
+    fn ast_block_ref_stmt_ref(block_ref: AstBlockRef, index: i64) -> AstStmtRef {
+        return ast_stmt_ref_from_node(ast_block_stmt(ast_block_node_from_ref(block_ref), index));
     }
 
     fn ast_block_last_stmt(block: Vec<i64>) -> Vec<i64> {

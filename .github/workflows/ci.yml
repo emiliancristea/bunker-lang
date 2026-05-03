@@ -367,6 +367,19 @@ jobs:
             exit 1
           fi
 
+      - name: Require type-graph statement AST refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          type_graph='self-host/modules/type_graph.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'ast_stmt_node_from_ref\(|ast_block_node_from_ref\(|ast_block_stmt\(|ast_let_name_idx\(|ast_let_type_handle\(|ast_let_init_handle\(|ast_if_then\(|ast_if_else_handle\(|ast_while_body\(|ast_for_name_idx\(|ast_for_body\(|ast_loop_body\(|ast_return_expr_handle\(' "$type_graph" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Type-graph statement/block paths must use typed AST ref accessors."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require typecheck top-level AST refs
         shell: bash
         run: |

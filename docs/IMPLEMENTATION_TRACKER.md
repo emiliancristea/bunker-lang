@@ -155,6 +155,7 @@ These are the next concrete PR-sized slices.
 | Q-092 | DONE | Route type-graph item access through typed refs. | Type-graph seed state and report generation now consume typed function, param, const, struct, field, and kernel accessors, with CI rejecting raw top-level item/kernel unpacking in the type-graph pass. |
 | Q-093 | DONE | Route typecheck item access through typed refs. | Typecheck function lookup, call-argument checks, const checks, function checks, and kernel traversal now consume typed function, param, const, and kernel accessors, with CI rejecting raw top-level item/kernel unpacking in the typecheck pass. |
 | Q-094 | DONE | Route AST-report summary item access through typed refs. | AST report item summaries and kernel root metadata now consume typed item/kernel accessors, with CI rejecting raw item unpacking in AST-report summary paths while leaving complete-tree serialization intact. |
+| Q-095 | DONE | Route type-graph statement access through typed refs. | AST exposes typed statement/block semantic accessors, and type-graph local/return report walking consumes them with CI rejecting raw statement/block unpacking in the type-graph pass. |
 
 ## Language Core
 
@@ -514,3 +515,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-03 | Routed type-graph item access through typed refs. | Type graph seed-state and JSON report generation now use semantic AST ref accessors for kernel/item/param/field traversal instead of raw top-level node unpacking. |
 | 2026-05-03 | Routed typecheck item access through typed refs. | Function lookup, call-argument checks, const checks, function checks, and kernel traversal now use semantic AST ref accessors instead of raw top-level node unpacking. |
 | 2026-05-03 | Routed AST-report summary item access through typed refs. | Item summaries and kernel root metadata now use semantic AST ref accessors while complete-tree serialization remains the raw shape reporter. |
+| 2026-05-03 | Routed type-graph statement access through typed refs. | Type graph local and return report walking now uses typed statement/block semantic accessors instead of raw statement/block node unpacking. |
