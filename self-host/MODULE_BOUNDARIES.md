@@ -42,7 +42,7 @@ The production self-host compiler entrypoint remains `bkrc.bkr`, but it is now a
 | `modules/ast_report.bkr` | `build_ast_report_comment`, `self_host_ast_json`, complete-tree `ast_report_*` serializers that consume typed AST refs and typed AST collection refs, and AST report summary/count helpers. |
 | `modules/symbol_table.bkr` | `build_symbol_table_report_comment`, `self_host_symbol_table_json`, and `symbol_table_*` declaration/reference walkers that consume typed AST refs, typed AST collection refs, and typed top-level item/kernel accessors. |
 | `modules/type_graph.bkr` | `build_type_graph_report_comment`, `self_host_type_graph_json`, `type_graph_*` JSON helpers that consume typed AST refs and typed AST collection refs, and `CgenStateRef` bootstrap type-state helpers used by typecheck. |
-| `modules/resolver.bkr` | `build_resolver_report_comment`, `self_host_resolver_json`, and bootstrap resolver diagnostics helpers that consume typed AST refs and typed AST collection refs. |
+| `modules/resolver.bkr` | `build_resolver_report_comment`, `self_host_resolver_json`, and bootstrap resolver diagnostics helpers that consume typed AST refs, typed AST collection refs, and semantic top-level item/kernel accessors. |
 | `modules/typecheck.bkr` | `build_typecheck_report_comment`, `self_host_typecheck_json`, and bootstrap typecheck diagnostics helpers that consume typed AST refs, typed AST collection refs, and `CgenStateRef` type-state. |
 | `modules/driver.bkr` | `compile_to_c`, `main`, self-host diagnostic JSON helpers, and self-host capability report helpers. |
 
