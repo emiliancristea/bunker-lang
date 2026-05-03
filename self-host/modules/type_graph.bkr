@@ -273,14 +273,13 @@
     }
 
     fn type_graph_let_ref_json(state: CgenStateRef, names: Vec<str>, stmt_ref: AstStmtRef) -> str {
-        let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
-        let stmt_node_ref: AstNodeRef = ast_node_ref_from_handle(ast_stmt_ref_handle(stmt_ref));
+        let stmt_node_ref: AstNodeRef = ast_node_ref_from_stmt_ref(stmt_ref);
         let comma = ",";
-        let type_node: i64 = ast_let_type_handle(stmt);
-        let init: i64 = ast_let_init_handle(stmt);
+        let type_node: i64 = ast_let_ref_type_handle(stmt_ref);
+        let init: i64 = ast_let_ref_init_handle(stmt_ref);
         let effective_kind: i64 = type_graph_effective_kind_ref(state, type_node, init);
         let result = "{" +
-            json_field_str("name", ast_report_name(names, ast_let_name_idx(stmt))) + comma +
+            json_field_str("name", ast_report_name(names, ast_let_ref_name_idx(stmt_ref))) + comma +
             json_field_i64("source_start", ast_node_ref_span_start(stmt_node_ref)) + comma +
             json_field_i64("source_end", ast_node_ref_span_end(stmt_node_ref)) + comma +
             json_field_raw("declared_type", type_graph_type_node_json(names, type_node, "declared")) + comma +
@@ -295,13 +294,13 @@
     }
 
     fn type_graph_add_let_ref_to_state(state: CgenStateRef, stmt_ref: AstStmtRef) -> CgenStateRef {
-        let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
-        let type_node: i64 = ast_let_type_handle(stmt);
-        let init: i64 = ast_let_init_handle(stmt);
+        let type_node: i64 = ast_let_ref_type_handle(stmt_ref);
+        let init: i64 = ast_let_ref_init_handle(stmt_ref);
         let kind: i64 = type_graph_effective_kind_ref(state, type_node, init);
-        cgen_add_local_type_ref(state, ast_let_name_idx(stmt), kind);
+        let name_idx: i64 = ast_let_ref_name_idx(stmt_ref);
+        cgen_add_local_type_ref(state, name_idx, kind);
         if ast_optional_is_some(type_node) {
-            type_graph_maybe_add_array_type_ref(state, ast_let_name_idx(stmt), ast_type_ref_from_handle(type_node));
+            type_graph_maybe_add_array_type_ref(state, name_idx, ast_type_ref_from_handle(type_node));
         }
         return state;
     }
@@ -312,28 +311,26 @@
 
     fn type_graph_block_locals_ref_json(state: CgenStateRef, names: Vec<str>, block_ref: AstBlockRef) -> str {
         let result = "[";
-        let block: Vec<i64> = ast_block_node_from_ref(block_ref);
         let i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
-            let stmt_ref: AstStmtRef = ast_stmt_ref_from_node(ast_block_stmt(block, i));
-            let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
+            let stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, i);
             let kind: i64 = ast_stmt_ref_kind(stmt_ref);
             if kind == NODE_LET {
                 result = type_graph_json_array_append(result, type_graph_let_ref_json(state, names, stmt_ref));
                 type_graph_add_let_ref_to_state(state, stmt_ref);
             } else if kind == NODE_IF {
-                result = type_graph_json_array_append_items(result, type_graph_block_locals_ref_json(state, names, ast_block_ref_from_node(ast_if_then(stmt))));
-                let else_block: i64 = ast_if_else_handle(stmt);
+                result = type_graph_json_array_append_items(result, type_graph_block_locals_ref_json(state, names, ast_if_ref_then_block_ref(stmt_ref)));
+                let else_block: i64 = ast_if_ref_else_handle(stmt_ref);
                 if ast_optional_is_some(else_block) {
                     result = type_graph_json_array_append_items(result, type_graph_block_locals_ref_json(state, names, ast_block_ref_from_handle(else_block)));
                 }
             } else if kind == NODE_WHILE {
-                result = type_graph_json_array_append_items(result, type_graph_block_locals_ref_json(state, names, ast_block_ref_from_node(ast_while_body(stmt))));
+                result = type_graph_json_array_append_items(result, type_graph_block_locals_ref_json(state, names, ast_while_ref_body_ref(stmt_ref)));
             } else if kind == NODE_FOR {
-                cgen_add_local_type_ref(state, ast_for_name_idx(stmt), TYPE_I64);
-                result = type_graph_json_array_append_items(result, type_graph_block_locals_ref_json(state, names, ast_block_ref_from_node(ast_for_body(stmt))));
+                cgen_add_local_type_ref(state, ast_for_ref_name_idx(stmt_ref), TYPE_I64);
+                result = type_graph_json_array_append_items(result, type_graph_block_locals_ref_json(state, names, ast_for_ref_body_ref(stmt_ref)));
             } else if kind == NODE_LOOP {
-                result = type_graph_json_array_append_items(result, type_graph_block_locals_ref_json(state, names, ast_block_ref_from_node(ast_loop_body(stmt))));
+                result = type_graph_json_array_append_items(result, type_graph_block_locals_ref_json(state, names, ast_loop_ref_body_ref(stmt_ref)));
             }
             i = i + 1;
         }
@@ -345,13 +342,12 @@
     }
 
     fn type_graph_return_ref_json(state: CgenStateRef, stmt_ref: AstStmtRef) -> str {
-        let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
-        let stmt_node_ref: AstNodeRef = ast_node_ref_from_handle(ast_stmt_ref_handle(stmt_ref));
+        let stmt_node_ref: AstNodeRef = ast_node_ref_from_stmt_ref(stmt_ref);
         let comma = ",";
         return "{" +
             json_field_i64("source_start", ast_node_ref_span_start(stmt_node_ref)) + comma +
             json_field_i64("source_end", ast_node_ref_span_end(stmt_node_ref)) + comma +
-            json_field_raw("expr_type", type_graph_expr_handle_ref_json(state, ast_return_expr_handle(stmt))) +
+            json_field_raw("expr_type", type_graph_expr_handle_ref_json(state, ast_return_ref_expr_handle(stmt_ref))) +
             "}";
     }
 
@@ -361,26 +357,24 @@
 
     fn type_graph_block_returns_ref_json(state: CgenStateRef, names: Vec<str>, block_ref: AstBlockRef) -> str {
         let result = "[";
-        let block: Vec<i64> = ast_block_node_from_ref(block_ref);
         let i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
-            let stmt_ref: AstStmtRef = ast_stmt_ref_from_node(ast_block_stmt(block, i));
-            let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
+            let stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, i);
             let kind: i64 = ast_stmt_ref_kind(stmt_ref);
             if kind == NODE_RETURN {
                 result = type_graph_json_array_append(result, type_graph_return_ref_json(state, stmt_ref));
             } else if kind == NODE_IF {
-                result = type_graph_json_array_append_items(result, type_graph_block_returns_ref_json(state, names, ast_block_ref_from_node(ast_if_then(stmt))));
-                let else_block: i64 = ast_if_else_handle(stmt);
+                result = type_graph_json_array_append_items(result, type_graph_block_returns_ref_json(state, names, ast_if_ref_then_block_ref(stmt_ref)));
+                let else_block: i64 = ast_if_ref_else_handle(stmt_ref);
                 if ast_optional_is_some(else_block) {
                     result = type_graph_json_array_append_items(result, type_graph_block_returns_ref_json(state, names, ast_block_ref_from_handle(else_block)));
                 }
             } else if kind == NODE_WHILE {
-                result = type_graph_json_array_append_items(result, type_graph_block_returns_ref_json(state, names, ast_block_ref_from_node(ast_while_body(stmt))));
+                result = type_graph_json_array_append_items(result, type_graph_block_returns_ref_json(state, names, ast_while_ref_body_ref(stmt_ref)));
             } else if kind == NODE_FOR {
-                result = type_graph_json_array_append_items(result, type_graph_block_returns_ref_json(state, names, ast_block_ref_from_node(ast_for_body(stmt))));
+                result = type_graph_json_array_append_items(result, type_graph_block_returns_ref_json(state, names, ast_for_ref_body_ref(stmt_ref)));
             } else if kind == NODE_LOOP {
-                result = type_graph_json_array_append_items(result, type_graph_block_returns_ref_json(state, names, ast_block_ref_from_node(ast_loop_body(stmt))));
+                result = type_graph_json_array_append_items(result, type_graph_block_returns_ref_json(state, names, ast_loop_ref_body_ref(stmt_ref)));
             }
             i = i + 1;
         }
