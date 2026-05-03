@@ -63,8 +63,7 @@
     }
 
     fn typecheck_return_ref_kind(fn_ref: AstItemRef) -> i64 {
-        let fn_node: Vec<i64> = ast_item_node_from_ref(fn_ref);
-        let return_type: i64 = ast_fn_return_type_handle(fn_node);
+        let return_type: i64 = ast_fn_ref_return_type_handle(fn_ref);
         if ast_optional_is_none(return_type) {
             return TYPE_VOID;
         }
@@ -150,15 +149,12 @@
     }
 
     fn typecheck_find_function_ref(kernel_ref: AstNodeRef, name_idx: i64) -> i64 {
-        let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
-        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         let i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
-            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
-            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
-            let item: Vec<i64> = ast_item_node_from_ref(item_ref);
-            if ast_item_ref_kind(item_ref) == NODE_FN && ast_fn_name_idx(item) == name_idx {
-                return ast_node_ref_handle(item_node_ref);
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_FN && ast_fn_ref_name_idx(item_ref) == name_idx {
+                return ast_item_ref_handle(item_ref);
             }
             i = i + 1;
         }
@@ -204,20 +200,20 @@
             return state;
         }
 
-        let fn_node: Vec<i64> = ast_item_node_from_ref(ast_item_ref_from_handle(fn_value));
+        let fn_ref: AstItemRef = ast_item_ref_from_handle(fn_value);
         let fn_name: str = ast_report_name(names, name_idx);
         let args_ref: AstNodeListRef = ast_call_args_ref(expr);
-        let params_ref: AstNodeListRef = ast_fn_params_ref(fn_node);
+        let params_ref: AstNodeListRef = ast_fn_ref_params_ref(fn_ref);
         let i: i64 = 0;
         while i < ast_node_list_ref_count(args_ref) && i < ast_node_list_ref_count(params_ref) {
-            let param: Vec<i64> = ast_node_list_ref_get(params_ref, i);
-            let param_type: i64 = ast_param_type_handle(param);
+            let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
+            let param_type: i64 = ast_param_ref_type_handle(param_ref);
             let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
             let arg_ref: AstExprRef = ast_expr_ref_from_handle(ast_node_ref_handle(arg_node_ref));
             let expected_kind: i64 = typecheck_declared_ref_kind(ast_type_ref_from_handle(param_type));
             let found_kind: i64 = typecheck_expr_ref_kind(cstate, arg_ref);
             let hint: str = "Change argument " + int_to_string(i + 1) + " for " + fn_name +
-                " to match parameter " + ast_report_name(names, ast_param_name_idx(param)) +
+                " to match parameter " + ast_report_name(names, ast_param_ref_name_idx(param_ref)) +
                 " or update the function signature.";
             state = typecheck_maybe_append_mismatch_ref(state, "call_argument_type_mismatch", fn_name,
                 scope, arg_node_ref, expected_kind, found_kind, hint);
@@ -447,13 +443,12 @@
 
     fn typecheck_const_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
                                        cstate: CgenStateRef, item_ref: AstItemRef, kernel_scope: str) -> Vec<str> {
-        let item: Vec<i64> = ast_item_node_from_ref(item_ref);
-        let item_node_ref: AstNodeRef = ast_node_ref_from_handle(ast_item_ref_handle(item_ref));
-        let const_name: str = ast_report_name(names, ast_const_name_idx(item));
-        let value: i64 = ast_const_value_handle(item);
+        let item_node_ref: AstNodeRef = ast_node_ref_from_item_ref(item_ref);
+        let const_name: str = ast_report_name(names, ast_const_ref_name_idx(item_ref));
+        let value: i64 = ast_const_ref_value_handle(item_ref);
         state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
             value, kernel_scope, TYPE_UNKNOWN);
-        let type_node: i64 = ast_const_type_handle(item);
+        let type_node: i64 = ast_const_ref_type_handle(item_ref);
         if ast_optional_is_some(type_node) && ast_optional_is_some(value) {
             let expected_kind: i64 = typecheck_declared_ref_kind(ast_type_ref_from_handle(type_node));
             let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(value));
@@ -473,13 +468,12 @@
 
     fn typecheck_function_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
                                           item_ref: AstItemRef) -> Vec<str> {
-        let item: Vec<i64> = ast_item_node_from_ref(item_ref);
-        let fn_name: str = ast_report_name(names, ast_fn_name_idx(item));
+        let fn_name: str = ast_report_name(names, ast_fn_ref_name_idx(item_ref));
         let scope: str = "function:" + fn_name;
         let cstate: CgenStateRef = type_graph_function_state_ref(kernel_ref, item_ref);
         let expected_return_kind: i64 = typecheck_return_ref_kind(item_ref);
         return typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
-            ast_block_ref_from_node(ast_fn_body(item)), scope, expected_return_kind);
+            ast_fn_ref_body_ref(item_ref), scope, expected_return_kind);
     }
 
     fn typecheck_kernel_diagnostics(state: Vec<str>, kernel: Vec<i64>) -> Vec<str> {
@@ -487,15 +481,13 @@
     }
 
     fn typecheck_kernel_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef) -> Vec<str> {
-        let kernel: Vec<i64> = ast_node_from_ref(kernel_ref);
-        let names: Vec<str> = ast_kernel_names(kernel);
-        let kernel_scope: str = "kernel:" + ast_report_name(names, ast_name_idx(kernel));
+        let names: Vec<str> = ast_kernel_ref_names(kernel_ref);
+        let kernel_scope: str = "kernel:" + ast_report_name(names, ast_node_ref_name_idx(kernel_ref));
         let cstate: CgenStateRef = type_graph_seed_state_ref(kernel_ref);
-        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         let i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
-            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
-            let item_ref: AstItemRef = ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref));
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             let kind: i64 = ast_item_ref_kind(item_ref);
             if kind == NODE_CONST {
                 state = typecheck_const_ref_diagnostics(state, kernel_ref, names, cstate,

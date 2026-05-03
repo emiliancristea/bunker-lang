@@ -153,6 +153,7 @@ These are the next concrete PR-sized slices.
 | Q-090 | DONE | Route symbol-table item access through typed refs. | Symbol-table declaration/reference reports now consume typed function, param, const, struct, field, and kernel accessors, with CI rejecting raw top-level item/kernel unpacking in the symbol-table pass. |
 | Q-091 | DONE | Route resolver item access through typed refs. | Resolver duplicate/unresolved diagnostics now consume typed function, param, const, struct, field, and kernel accessors, with CI rejecting raw top-level item/kernel unpacking in the resolver pass. |
 | Q-092 | DONE | Route type-graph item access through typed refs. | Type-graph seed state and report generation now consume typed function, param, const, struct, field, and kernel accessors, with CI rejecting raw top-level item/kernel unpacking in the type-graph pass. |
+| Q-093 | DONE | Route typecheck item access through typed refs. | Typecheck function lookup, call-argument checks, const checks, function checks, and kernel traversal now consume typed function, param, const, and kernel accessors, with CI rejecting raw top-level item/kernel unpacking in the typecheck pass. |
 
 ## Language Core
 
@@ -510,3 +511,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-03 | Routed symbol-table item access through typed refs. | Declaration and reference report generation now uses semantic AST ref accessors for kernel/item/param/field traversal instead of raw top-level node unpacking. |
 | 2026-05-03 | Routed resolver item access through typed refs. | Duplicate and unresolved diagnostic generation now uses semantic AST ref accessors for kernel/item/param/field traversal instead of raw top-level node unpacking. |
 | 2026-05-03 | Routed type-graph item access through typed refs. | Type graph seed-state and JSON report generation now use semantic AST ref accessors for kernel/item/param/field traversal instead of raw top-level node unpacking. |
+| 2026-05-03 | Routed typecheck item access through typed refs. | Function lookup, call-argument checks, const checks, function checks, and kernel traversal now use semantic AST ref accessors instead of raw top-level node unpacking. |
