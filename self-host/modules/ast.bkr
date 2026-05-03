@@ -959,6 +959,10 @@
         return ast_field(node, 4);
     }
 
+    fn ast_for_ref_inclusive(stmt_ref: AstStmtRef) -> i64 {
+        return ast_for_inclusive(ast_stmt_node_from_ref(stmt_ref));
+    }
+
     fn ast_for_body(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 5);
     }
