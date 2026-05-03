@@ -280,14 +280,12 @@
                 let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, 0);
                 if ast_node_ref_kind(body_ref) == NODE_BLOCK {
                     let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_node_ref_handle(body_ref));
-                    let body: Vec<i64> = ast_block_node_from_ref(block_ref);
                     if ast_block_ref_stmt_count(block_ref) <= 0 {
                         return TYPE_UNKNOWN;
                     }
-                    let last_stmt_ref: AstStmtRef = ast_stmt_ref_from_node(ast_block_last_stmt(body));
-                    let last_stmt: Vec<i64> = ast_stmt_node_from_ref(last_stmt_ref);
+                    let last_stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, ast_block_ref_stmt_count(block_ref) - 1);
                     if ast_stmt_ref_kind(last_stmt_ref) == NODE_EXPR_STMT {
-                        return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_expr_stmt_expr_handle(last_stmt)));
+                        return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(last_stmt_ref)));
                     }
                     return TYPE_UNKNOWN;
                 }
@@ -318,10 +316,9 @@
     }
 
     fn gen_c_inline_let_ref(state: CgenStateRef, stmt_ref: AstStmtRef) -> str {
-        let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
-        let name: str = name_to_c_ref(state, ast_let_name_idx(stmt));
-        let type_node: i64 = ast_let_type_handle(stmt);
-        let init: i64 = ast_let_init_handle(stmt);
+        let name: str = name_to_c_ref(state, ast_let_ref_name_idx(stmt_ref));
+        let type_node: i64 = ast_let_ref_type_handle(stmt_ref);
+        let init: i64 = ast_let_ref_init_handle(stmt_ref);
 
         let kind = TYPE_I64;
         if ast_optional_is_some(type_node) {
@@ -355,26 +352,24 @@
         }
 
         let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_node_ref_handle(body_ref));
-        let body: Vec<i64> = ast_block_node_from_ref(block_ref);
         let result = "{ ";
         let i: i64 = 0;
         let count = ast_block_ref_stmt_count(block_ref);
         while i < count {
-            let stmt_ref: AstStmtRef = ast_stmt_ref_from_node(ast_block_stmt(body, i));
-            let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
+            let stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, i);
             let stmt_type: i64 = ast_stmt_ref_kind(stmt_ref);
             let is_last = i == count - 1;
 
             if is_last && stmt_type == NODE_EXPR_STMT {
-                result = result + result_name + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_expr_stmt_expr_handle(stmt))) + "; ";
+                result = result + result_name + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(stmt_ref))) + "; ";
             } else if stmt_type == NODE_LET {
                 result = result + gen_c_inline_let_ref(state, stmt_ref);
             } else if stmt_type == NODE_ASSIGN {
-                result = result + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_assign_target_handle(stmt))) + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_assign_value_handle(stmt))) + "; ";
+                result = result + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_assign_ref_target_handle(stmt_ref))) + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_assign_ref_value_handle(stmt_ref))) + "; ";
             } else if stmt_type == NODE_EXPR_STMT {
-                result = result + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_expr_stmt_expr_handle(stmt))) + "; ";
+                result = result + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(stmt_ref))) + "; ";
             } else if stmt_type == NODE_RETURN {
-                let ret_expr: i64 = ast_return_expr_handle(stmt);
+                let ret_expr: i64 = ast_return_ref_expr_handle(stmt_ref);
                 if ast_optional_is_some(ret_expr) {
                     result = result + "return " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ret_expr)) + "; ";
                 } else {
@@ -719,14 +714,13 @@
     }
 
     fn gen_c_stmt_ref(state: CgenStateRef, stmt_ref: AstStmtRef) -> CgenStateRef {
-        let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
         let node_type: i64 = ast_stmt_ref_kind(stmt_ref);
 
         if node_type == NODE_LET {
-            let name_idx: i64 = ast_let_name_idx(stmt);
+            let name_idx: i64 = ast_let_ref_name_idx(stmt_ref);
             let name: str = name_to_c_ref(state, name_idx);
-            let type_node: i64 = ast_let_type_handle(stmt);
-            let init: i64 = ast_let_init_handle(stmt);
+            let type_node: i64 = ast_let_ref_type_handle(stmt_ref);
+            let init: i64 = ast_let_ref_init_handle(stmt_ref);
 
             if ast_optional_is_some(type_node) && type_node_kind_ref(ast_type_ref_from_handle(type_node)) == TYPE_ARRAY {
                 let elem_kind: i64 = type_node_array_elem_kind_ref(ast_type_ref_from_handle(type_node));
@@ -765,7 +759,7 @@
         }
 
         if node_type == NODE_RETURN {
-            let expr: i64 = ast_return_expr_handle(stmt);
+            let expr: i64 = ast_return_ref_expr_handle(stmt_ref);
             if ast_optional_is_some(expr) {
                 cgen_emit_ref(state, "return " + gen_c_expr_ref(state, ast_expr_ref_from_handle(expr)) + ";");
             } else {
@@ -775,9 +769,9 @@
         }
 
         if node_type == NODE_IF {
-            let cond_ref: AstExprRef = ast_expr_ref_from_handle(ast_if_cond_handle(stmt));
-            let then_block_ref: AstBlockRef = ast_block_ref_from_node(ast_if_then(stmt));
-            let else_block: i64 = ast_if_else_handle(stmt);
+            let cond_ref: AstExprRef = ast_expr_ref_from_handle(ast_if_ref_cond_handle(stmt_ref));
+            let then_block_ref: AstBlockRef = ast_if_ref_then_block_ref(stmt_ref);
+            let else_block: i64 = ast_if_ref_else_handle(stmt_ref);
 
             cgen_emit_ref(state, "if (" + gen_c_expr_ref(state, cond_ref) + ") {");
             cgen_indent_ref(state);
@@ -795,8 +789,8 @@
         }
 
         if node_type == NODE_WHILE {
-            let cond_ref: AstExprRef = ast_expr_ref_from_handle(ast_while_cond_handle(stmt));
-            let body_ref: AstBlockRef = ast_block_ref_from_node(ast_while_body(stmt));
+            let cond_ref: AstExprRef = ast_expr_ref_from_handle(ast_while_ref_cond_handle(stmt_ref));
+            let body_ref: AstBlockRef = ast_while_ref_body_ref(stmt_ref);
             cgen_emit_ref(state, "while (" + gen_c_expr_ref(state, cond_ref) + ") {");
             cgen_indent_ref(state);
             gen_c_block_ref(state, body_ref);
@@ -806,12 +800,12 @@
         }
 
         if node_type == NODE_FOR {
-            let name_idx: i64 = ast_for_name_idx(stmt);
+            let name_idx: i64 = ast_for_ref_name_idx(stmt_ref);
             let name: str = name_to_c_ref(state, name_idx);
-            let start_ref: AstExprRef = ast_expr_ref_from_handle(ast_for_start_handle(stmt));
-            let end_ref: AstExprRef = ast_expr_ref_from_handle(ast_for_end_handle(stmt));
-            let inclusive: i64 = ast_for_inclusive(stmt);
-            let body_ref: AstBlockRef = ast_block_ref_from_node(ast_for_body(stmt));
+            let start_ref: AstExprRef = ast_expr_ref_from_handle(ast_for_ref_start_handle(stmt_ref));
+            let end_ref: AstExprRef = ast_expr_ref_from_handle(ast_for_ref_end_handle(stmt_ref));
+            let inclusive: i64 = ast_for_ref_inclusive(stmt_ref);
+            let body_ref: AstBlockRef = ast_for_ref_body_ref(stmt_ref);
 
             let cmp = "<";
             if inclusive != 0 {
@@ -828,7 +822,7 @@
         }
 
         if node_type == NODE_LOOP {
-            let body_ref: AstBlockRef = ast_block_ref_from_node(ast_loop_body(stmt));
+            let body_ref: AstBlockRef = ast_loop_ref_body_ref(stmt_ref);
             cgen_emit_ref(state, "while (BKR_TRUE) {");
             cgen_indent_ref(state);
             gen_c_block_ref(state, body_ref);
@@ -838,14 +832,14 @@
         }
 
         if node_type == NODE_ASSIGN {
-            let target_ref: AstExprRef = ast_expr_ref_from_handle(ast_assign_target_handle(stmt));
-            let value_ref: AstExprRef = ast_expr_ref_from_handle(ast_assign_value_handle(stmt));
+            let target_ref: AstExprRef = ast_expr_ref_from_handle(ast_assign_ref_target_handle(stmt_ref));
+            let value_ref: AstExprRef = ast_expr_ref_from_handle(ast_assign_ref_value_handle(stmt_ref));
             cgen_emit_ref(state, gen_c_expr_ref(state, target_ref) + " = " + gen_c_expr_ref(state, value_ref) + ";");
             return state;
         }
 
         if node_type == NODE_EXPR_STMT {
-            let expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_expr_stmt_expr_handle(stmt));
+            let expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(stmt_ref));
             cgen_emit_ref(state, gen_c_expr_ref(state, expr_ref) + ";");
             return state;
         }
@@ -898,11 +892,10 @@
     }
 
     fn gen_c_block_ref(state: CgenStateRef, block_ref: AstBlockRef) -> CgenStateRef {
-        let block: Vec<i64> = ast_block_node_from_ref(block_ref);
         let i: i64 = 0;
         let count = ast_block_ref_stmt_count(block_ref);
         while i < count {
-            gen_c_stmt_ref(state, ast_stmt_ref_from_node(ast_block_stmt(block, i)));
+            gen_c_stmt_ref(state, ast_block_ref_stmt_ref(block_ref, i));
             i = i + 1;
         }
         return state;

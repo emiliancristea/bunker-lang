@@ -328,6 +328,19 @@ jobs:
             exit 1
           fi
 
+      - name: Require C codegen statement AST refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          cgen='self-host/modules/c_codegen.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'ast_stmt_node_from_ref\(|ast_block_node_from_ref\(|ast_block_stmt\(|ast_let_name_idx\(|ast_let_type_handle\(|ast_let_init_handle\(|ast_if_cond_handle\(|ast_if_then\(|ast_if_else_handle\(|ast_while_cond_handle\(|ast_while_body\(|ast_for_name_idx\(|ast_for_start_handle\(|ast_for_end_handle\(|ast_for_inclusive\(|ast_for_body\(|ast_loop_body\(|ast_return_expr_handle\(|ast_assign_target_handle\(|ast_assign_value_handle\(|ast_expr_stmt_expr_handle\(' "$cgen" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "C codegen statement/block paths must use typed AST ref accessors."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require symbol-table top-level AST refs
         shell: bash
         run: |
