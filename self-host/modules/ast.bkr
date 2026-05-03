@@ -899,6 +899,10 @@
         return ast_field(node, 1);
     }
 
+    fn ast_if_ref_cond_handle(stmt_ref: AstStmtRef) -> i64 {
+        return ast_if_cond_handle(ast_stmt_node_from_ref(stmt_ref));
+    }
+
     fn ast_if_then(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 2);
     }
@@ -935,12 +939,20 @@
         return ast_field(node, 2);
     }
 
+    fn ast_for_ref_start_handle(stmt_ref: AstStmtRef) -> i64 {
+        return ast_for_start_handle(ast_stmt_node_from_ref(stmt_ref));
+    }
+
     fn ast_for_end(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 3);
     }
 
     fn ast_for_end_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 3);
+    }
+
+    fn ast_for_ref_end_handle(stmt_ref: AstStmtRef) -> i64 {
+        return ast_for_end_handle(ast_stmt_node_from_ref(stmt_ref));
     }
 
     fn ast_for_inclusive(node: Vec<i64>) -> i64 {
@@ -971,6 +983,10 @@
         return ast_field(node, 1);
     }
 
+    fn ast_while_ref_cond_handle(stmt_ref: AstStmtRef) -> i64 {
+        return ast_while_cond_handle(ast_stmt_node_from_ref(stmt_ref));
+    }
+
     fn ast_while_body(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 2);
     }
@@ -987,6 +1003,10 @@
         return ast_field(node, 1);
     }
 
+    fn ast_assign_ref_target_handle(stmt_ref: AstStmtRef) -> i64 {
+        return ast_assign_target_handle(ast_stmt_node_from_ref(stmt_ref));
+    }
+
     fn ast_assign_value(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 2);
     }
@@ -995,12 +1015,20 @@
         return ast_field(node, 2);
     }
 
+    fn ast_assign_ref_value_handle(stmt_ref: AstStmtRef) -> i64 {
+        return ast_assign_value_handle(ast_stmt_node_from_ref(stmt_ref));
+    }
+
     fn ast_expr_stmt_expr(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 1);
     }
 
     fn ast_expr_stmt_expr_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 1);
+    }
+
+    fn ast_expr_stmt_ref_expr_handle(stmt_ref: AstStmtRef) -> i64 {
+        return ast_expr_stmt_expr_handle(ast_stmt_node_from_ref(stmt_ref));
     }
 
     fn ast_param_name_idx(node: Vec<i64>) -> i64 {
