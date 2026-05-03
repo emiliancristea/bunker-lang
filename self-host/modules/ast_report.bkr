@@ -21,16 +21,15 @@
     }
 
     fn ast_report_item_ref_name_idx(item_ref: AstItemRef) -> i64 {
-        let item: Vec<i64> = ast_item_node_from_ref(item_ref);
         let kind: i64 = ast_item_ref_kind(item_ref);
         if kind == NODE_FN {
-            return ast_fn_name_idx(item);
+            return ast_fn_ref_name_idx(item_ref);
         }
         if kind == NODE_CONST {
-            return ast_const_name_idx(item);
+            return ast_const_ref_name_idx(item_ref);
         }
         if kind == NODE_STRUCT {
-            return ast_struct_name_idx(item);
+            return ast_struct_ref_name_idx(item_ref);
         }
         return -1;
     }
@@ -40,9 +39,8 @@
     }
 
     fn ast_report_item_ref_param_count(item_ref: AstItemRef) -> i64 {
-        let item: Vec<i64> = ast_item_node_from_ref(item_ref);
         if ast_item_ref_kind(item_ref) == NODE_FN {
-            return ast_node_list_ref_count(ast_fn_params_ref(item));
+            return ast_node_list_ref_count(ast_fn_ref_params_ref(item_ref));
         }
         return 0;
     }
@@ -52,9 +50,8 @@
     }
 
     fn ast_report_item_ref_field_count(item_ref: AstItemRef) -> i64 {
-        let item: Vec<i64> = ast_item_node_from_ref(item_ref);
         if ast_item_ref_kind(item_ref) == NODE_STRUCT {
-            return ast_node_list_ref_count(ast_struct_fields_ref(item));
+            return ast_node_list_ref_count(ast_struct_ref_fields_ref(item_ref));
         }
         return 0;
     }
@@ -64,9 +61,8 @@
     }
 
     fn ast_report_item_ref_stmt_count(item_ref: AstItemRef) -> i64 {
-        let item: Vec<i64> = ast_item_node_from_ref(item_ref);
         if ast_item_ref_kind(item_ref) == NODE_FN {
-            return ast_block_stmt_count(ast_fn_body(item));
+            return ast_block_ref_stmt_count(ast_fn_ref_body_ref(item_ref));
         }
         return 0;
     }
@@ -76,7 +72,7 @@
     }
 
     fn ast_report_item_ref_json(names: Vec<str>, item_ref: AstItemRef) -> str {
-        let item_node_ref: AstNodeRef = ast_node_ref_from_handle(ast_item_ref_handle(item_ref));
+        let item_node_ref: AstNodeRef = ast_node_ref_from_item_ref(item_ref);
         let comma: str = ",";
         return "{" +
             json_field_str("kind", ast_node_kind_name(ast_item_ref_kind(item_ref))) + comma +
@@ -109,7 +105,8 @@
     }
 
     fn ast_report_items_json(kernel: Vec<i64>) -> str {
-        return ast_report_items_json_ref(ast_kernel_names(kernel), ast_kernel_items_ref(kernel));
+        let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
+        return ast_report_items_json_ref(ast_kernel_ref_names(kernel_ref), ast_kernel_ref_items_ref(kernel_ref));
     }
 
     fn ast_report_items_json_ref(names: Vec<str>, items_ref: AstNodeListRef) -> str {
@@ -119,8 +116,7 @@
             if i > 0 {
                 result = result + ",";
             }
-            let item_node_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
-            result = result + ast_report_item_ref_json(names, ast_item_ref_from_handle(ast_node_ref_handle(item_node_ref)));
+            result = result + ast_report_item_ref_json(names, ast_node_list_ref_get_item_ref(items_ref, i));
             i = i + 1;
         }
         return result + "]";
@@ -369,12 +365,12 @@
     fn self_host_ast_json(source: str, kernel: Vec<i64>) -> str {
         let comma = ",";
         let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
-        let names = ast_kernel_names(kernel);
-        let items_ref: AstNodeListRef = ast_kernel_items_ref(kernel);
+        let names = ast_kernel_ref_names(kernel_ref);
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         let root = "{" +
             json_field_str("kind", ast_node_kind_name(ast_node_ref_kind(kernel_ref))) + comma +
-            json_field_str("name", ast_report_name(names, ast_name_idx(kernel))) + comma +
-            json_field_str("entry", ast_report_name(names, ast_kernel_entry_idx(kernel))) + comma +
+            json_field_str("name", ast_report_name(names, ast_node_ref_name_idx(kernel_ref))) + comma +
+            json_field_str("entry", ast_report_name(names, ast_kernel_ref_entry_idx(kernel_ref))) + comma +
             json_field_i64("source_start", ast_node_ref_span_start(kernel_ref)) + comma +
             json_field_i64("source_end", ast_node_ref_span_end(kernel_ref)) + comma +
             json_field_bool("span_known", ast_node_ref_span_start(kernel_ref) != AST_SPAN_UNKNOWN && ast_node_ref_span_end(kernel_ref) != AST_SPAN_UNKNOWN) +
