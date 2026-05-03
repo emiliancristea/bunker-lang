@@ -387,13 +387,12 @@
     fn resolver_stmt_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
                                      stmt_ref: AstStmtRef, scope: str,
                                      bindings: Vec<i64>, declared: Vec<i64>) -> Vec<str> {
-        let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
-        let stmt_node_ref: AstNodeRef = ast_node_ref_from_handle(ast_stmt_ref_handle(stmt_ref));
+        let stmt_node_ref: AstNodeRef = ast_node_ref_from_stmt_ref(stmt_ref);
         let kind: i64 = ast_stmt_ref_kind(stmt_ref);
         if kind == NODE_LET {
-            let name_idx: i64 = ast_let_name_idx(stmt);
-            state = resolver_type_handle_diagnostics(state, kernel_ref, names, ast_let_type_handle(stmt), scope);
-            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_let_init_handle(stmt), scope, bindings);
+            let name_idx: i64 = ast_let_ref_name_idx(stmt_ref);
+            state = resolver_type_handle_diagnostics(state, kernel_ref, names, ast_let_ref_type_handle(stmt_ref), scope);
+            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_let_ref_init_handle(stmt_ref), scope, bindings);
             if resolver_i64_vec_contains(declared, name_idx) {
                 state = resolver_append_duplicate_node_ref(state, ast_report_name(names, name_idx), scope, "local", stmt_node_ref);
             } else {
@@ -401,33 +400,33 @@
             }
             vec_push(bindings, name_idx);
         } else if kind == NODE_RETURN {
-            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_return_expr_handle(stmt), scope, bindings);
+            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_return_ref_expr_handle(stmt_ref), scope, bindings);
         } else if kind == NODE_IF {
-            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_if_cond_handle(stmt), scope, bindings);
-            state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_block_ref_from_node(ast_if_then(stmt)), scope, bindings, resolver_empty_i64_vec());
-            let else_block: i64 = ast_if_else_handle(stmt);
+            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_if_ref_cond_handle(stmt_ref), scope, bindings);
+            state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_if_ref_then_block_ref(stmt_ref), scope, bindings, resolver_empty_i64_vec());
+            let else_block: i64 = ast_if_ref_else_handle(stmt_ref);
             if ast_optional_is_some(else_block) {
                 state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_block_ref_from_handle(else_block), scope, bindings, resolver_empty_i64_vec());
             }
         } else if kind == NODE_WHILE {
-            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_while_cond_handle(stmt), scope, bindings);
-            state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_block_ref_from_node(ast_while_body(stmt)), scope, bindings, resolver_empty_i64_vec());
+            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_while_ref_cond_handle(stmt_ref), scope, bindings);
+            state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_while_ref_body_ref(stmt_ref), scope, bindings, resolver_empty_i64_vec());
         } else if kind == NODE_FOR {
-            let name_idx: i64 = ast_for_name_idx(stmt);
-            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_for_start_handle(stmt), scope, bindings);
-            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_for_end_handle(stmt), scope, bindings);
+            let name_idx: i64 = ast_for_ref_name_idx(stmt_ref);
+            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_for_ref_start_handle(stmt_ref), scope, bindings);
+            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_for_ref_end_handle(stmt_ref), scope, bindings);
             if resolver_i64_vec_contains(declared, name_idx) {
                 state = resolver_append_duplicate_node_ref(state, ast_report_name(names, name_idx), scope, "for binding", stmt_node_ref);
             }
             let loop_bindings = resolver_i64_vec_with(bindings, name_idx);
-            state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_block_ref_from_node(ast_for_body(stmt)), scope, loop_bindings, resolver_empty_i64_vec());
+            state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_for_ref_body_ref(stmt_ref), scope, loop_bindings, resolver_empty_i64_vec());
         } else if kind == NODE_LOOP {
-            state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_block_ref_from_node(ast_loop_body(stmt)), scope, bindings, resolver_empty_i64_vec());
+            state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_loop_ref_body_ref(stmt_ref), scope, bindings, resolver_empty_i64_vec());
         } else if kind == NODE_ASSIGN {
-            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_assign_target_handle(stmt), scope, bindings);
-            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_assign_value_handle(stmt), scope, bindings);
+            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_assign_ref_target_handle(stmt_ref), scope, bindings);
+            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_assign_ref_value_handle(stmt_ref), scope, bindings);
         } else if kind == NODE_EXPR_STMT {
-            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_expr_stmt_expr_handle(stmt), scope, bindings);
+            state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_expr_stmt_ref_expr_handle(stmt_ref), scope, bindings);
         }
         return state;
     }
@@ -442,13 +441,12 @@
     fn resolver_block_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
                                       block_ref: AstBlockRef, scope: str,
                                       parent_bindings: Vec<i64>, declared_seed: Vec<i64>) -> Vec<str> {
-        let block: Vec<i64> = ast_block_node_from_ref(block_ref);
         let bindings = resolver_i64_vec_copy(parent_bindings);
         let declared = resolver_i64_vec_copy(declared_seed);
         let i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
             state = resolver_stmt_ref_diagnostics(state, kernel_ref, names,
-                ast_stmt_ref_from_node(ast_block_stmt(block, i)), scope, bindings, declared);
+                ast_block_ref_stmt_ref(block_ref, i), scope, bindings, declared);
             i = i + 1;
         }
         return state;

@@ -157,6 +157,7 @@ These are the next concrete PR-sized slices.
 | Q-094 | DONE | Route AST-report summary item access through typed refs. | AST report item summaries and kernel root metadata now consume typed item/kernel accessors, with CI rejecting raw item unpacking in AST-report summary paths while leaving complete-tree serialization intact. |
 | Q-095 | DONE | Route type-graph statement access through typed refs. | AST exposes typed statement/block semantic accessors, and type-graph local/return report walking consumes them with CI rejecting raw statement/block unpacking in the type-graph pass. |
 | Q-096 | DONE | Route symbol-table statement access through typed refs. | AST exposes the remaining typed statement semantic handle accessors needed by symbol-table report walking, and symbol-table declaration/reference walks consume them with CI rejecting raw statement/block unpacking in the symbol-table pass. |
+| Q-097 | DONE | Route resolver statement access through typed refs. | Resolver duplicate/unresolved diagnostics now consume typed statement/block semantic accessors, with CI rejecting raw statement/block unpacking in the resolver pass. |
 
 ## Language Core
 
@@ -518,3 +519,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-03 | Routed AST-report summary item access through typed refs. | Item summaries and kernel root metadata now use semantic AST ref accessors while complete-tree serialization remains the raw shape reporter. |
 | 2026-05-03 | Routed type-graph statement access through typed refs. | Type graph local and return report walking now uses typed statement/block semantic accessors instead of raw statement/block node unpacking. |
 | 2026-05-03 | Routed symbol-table statement access through typed refs. | Symbol-table declaration/reference walking now uses typed statement/block semantic accessors instead of raw statement/block node unpacking. |
+| 2026-05-03 | Routed resolver statement access through typed refs. | Resolver duplicate and unresolved diagnostic walking now uses typed statement/block semantic accessors instead of raw statement/block node unpacking. |
