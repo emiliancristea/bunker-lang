@@ -328,15 +328,14 @@
     fn typecheck_stmt_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
                                       cstate: CgenStateRef, stmt_ref: AstStmtRef, scope: str,
                                       expected_return_kind: i64) -> Vec<str> {
-        let stmt: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
-        let stmt_node_ref: AstNodeRef = ast_node_ref_from_handle(ast_stmt_ref_handle(stmt_ref));
+        let stmt_node_ref: AstNodeRef = ast_node_ref_from_stmt_ref(stmt_ref);
         let kind: i64 = ast_stmt_ref_kind(stmt_ref);
         if kind == NODE_LET {
-            let init: i64 = ast_let_init_handle(stmt);
-            let name: str = ast_report_name(names, ast_let_name_idx(stmt));
+            let init: i64 = ast_let_ref_init_handle(stmt_ref);
+            let name: str = ast_report_name(names, ast_let_ref_name_idx(stmt_ref));
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 init, scope, expected_return_kind);
-            let type_node: i64 = ast_let_type_handle(stmt);
+            let type_node: i64 = ast_let_ref_type_handle(stmt_ref);
             if ast_optional_is_some(type_node) && ast_optional_is_some(init) {
                 let expected_kind: i64 = typecheck_declared_ref_kind(ast_type_ref_from_handle(type_node));
                 let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(init));
@@ -347,7 +346,7 @@
             }
             type_graph_add_let_ref_to_state(cstate, stmt_ref);
         } else if kind == NODE_RETURN {
-            let return_expr: i64 = ast_return_expr_handle(stmt);
+            let return_expr: i64 = ast_return_ref_expr_handle(stmt_ref);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 return_expr, scope, expected_return_kind);
             if ast_optional_is_none(return_expr) {
@@ -363,42 +362,46 @@
                     "Return a value matching the function return type or change the function signature.");
             }
         } else if kind == NODE_IF {
+            let cond: i64 = ast_if_ref_cond_handle(stmt_ref);
             state = typecheck_check_expression_ref_against(state, names, cstate,
-                ast_expr_ref_from_handle(ast_if_cond_handle(stmt)), scope, "condition_type_mismatch", "if condition",
+                ast_expr_ref_from_handle(cond), scope, "condition_type_mismatch", "if condition",
                 TYPE_BOOL, "Make this if condition produce bool.");
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_if_cond_handle(stmt), scope, expected_return_kind);
+                cond, scope, expected_return_kind);
             state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
-                ast_block_ref_from_node(ast_if_then(stmt)), scope, expected_return_kind);
-            let else_block: i64 = ast_if_else_handle(stmt);
+                ast_if_ref_then_block_ref(stmt_ref), scope, expected_return_kind);
+            let else_block: i64 = ast_if_ref_else_handle(stmt_ref);
             if ast_optional_is_some(else_block) {
                 state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
                     ast_block_ref_from_handle(else_block), scope, expected_return_kind);
             }
         } else if kind == NODE_WHILE {
+            let cond: i64 = ast_while_ref_cond_handle(stmt_ref);
             state = typecheck_check_expression_ref_against(state, names, cstate,
-                ast_expr_ref_from_handle(ast_while_cond_handle(stmt)), scope, "condition_type_mismatch", "while condition",
+                ast_expr_ref_from_handle(cond), scope, "condition_type_mismatch", "while condition",
                 TYPE_BOOL, "Make this while condition produce bool.");
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_while_cond_handle(stmt), scope, expected_return_kind);
+                cond, scope, expected_return_kind);
             state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
-                ast_block_ref_from_node(ast_while_body(stmt)), scope, expected_return_kind);
+                ast_while_ref_body_ref(stmt_ref), scope, expected_return_kind);
         } else if kind == NODE_FOR {
+            let start: i64 = ast_for_ref_start_handle(stmt_ref);
+            let end_expr: i64 = ast_for_ref_end_handle(stmt_ref);
             state = typecheck_check_expression_ref_against(state, names, cstate,
-                ast_expr_ref_from_handle(ast_for_start_handle(stmt)), scope, "for_range_type_mismatch", "for range start",
+                ast_expr_ref_from_handle(start), scope, "for_range_type_mismatch", "for range start",
                 TYPE_I64, "Make the for range start numeric.");
             state = typecheck_check_expression_ref_against(state, names, cstate,
-                ast_expr_ref_from_handle(ast_for_end_handle(stmt)), scope, "for_range_type_mismatch", "for range end",
+                ast_expr_ref_from_handle(end_expr), scope, "for_range_type_mismatch", "for range end",
                 TYPE_I64, "Make the for range end numeric.");
-            cgen_add_local_type_ref(cstate, ast_for_name_idx(stmt), TYPE_I64);
+            cgen_add_local_type_ref(cstate, ast_for_ref_name_idx(stmt_ref), TYPE_I64);
             state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
-                ast_block_ref_from_node(ast_for_body(stmt)), scope, expected_return_kind);
+                ast_for_ref_body_ref(stmt_ref), scope, expected_return_kind);
         } else if kind == NODE_LOOP {
             state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
-                ast_block_ref_from_node(ast_loop_body(stmt)), scope, expected_return_kind);
+                ast_loop_ref_body_ref(stmt_ref), scope, expected_return_kind);
         } else if kind == NODE_ASSIGN {
-            let target: i64 = ast_assign_target_handle(stmt);
-            let value: i64 = ast_assign_value_handle(stmt);
+            let target: i64 = ast_assign_ref_target_handle(stmt_ref);
+            let value: i64 = ast_assign_ref_value_handle(stmt_ref);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 target, scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
@@ -410,7 +413,7 @@
                 "Assign a value that matches the target type.");
         } else if kind == NODE_EXPR_STMT {
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_expr_stmt_expr_handle(stmt), scope, expected_return_kind);
+                ast_expr_stmt_ref_expr_handle(stmt_ref), scope, expected_return_kind);
         }
         return state;
     }
@@ -425,11 +428,10 @@
     fn typecheck_block_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
                                        cstate: CgenStateRef, block_ref: AstBlockRef, scope: str,
                                        expected_return_kind: i64) -> Vec<str> {
-        let block: Vec<i64> = ast_block_node_from_ref(block_ref);
         let i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
             state = typecheck_stmt_ref_diagnostics(state, kernel_ref, names, cstate,
-                ast_stmt_ref_from_node(ast_block_stmt(block, i)), scope, expected_return_kind);
+                ast_block_ref_stmt_ref(block_ref, i), scope, expected_return_kind);
             i = i + 1;
         }
         return state;

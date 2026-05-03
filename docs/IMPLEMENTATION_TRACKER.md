@@ -158,6 +158,7 @@ These are the next concrete PR-sized slices.
 | Q-095 | DONE | Route type-graph statement access through typed refs. | AST exposes typed statement/block semantic accessors, and type-graph local/return report walking consumes them with CI rejecting raw statement/block unpacking in the type-graph pass. |
 | Q-096 | DONE | Route symbol-table statement access through typed refs. | AST exposes the remaining typed statement semantic handle accessors needed by symbol-table report walking, and symbol-table declaration/reference walks consume them with CI rejecting raw statement/block unpacking in the symbol-table pass. |
 | Q-097 | DONE | Route resolver statement access through typed refs. | Resolver duplicate/unresolved diagnostics now consume typed statement/block semantic accessors, with CI rejecting raw statement/block unpacking in the resolver pass. |
+| Q-098 | DONE | Route typecheck statement access through typed refs. | Typecheck expected/found diagnostics now consume typed statement/block semantic accessors, with CI rejecting raw statement/block unpacking in the typecheck pass. |
 
 ## Language Core
 
@@ -520,3 +521,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-03 | Routed type-graph statement access through typed refs. | Type graph local and return report walking now uses typed statement/block semantic accessors instead of raw statement/block node unpacking. |
 | 2026-05-03 | Routed symbol-table statement access through typed refs. | Symbol-table declaration/reference walking now uses typed statement/block semantic accessors instead of raw statement/block node unpacking. |
 | 2026-05-03 | Routed resolver statement access through typed refs. | Resolver duplicate and unresolved diagnostic walking now uses typed statement/block semantic accessors instead of raw statement/block node unpacking. |
+| 2026-05-03 | Routed typecheck statement access through typed refs. | Typecheck expected/found diagnostic walking now uses typed statement/block semantic accessors instead of raw statement/block node unpacking. |
