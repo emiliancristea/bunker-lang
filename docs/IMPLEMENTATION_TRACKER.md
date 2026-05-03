@@ -150,6 +150,7 @@ These are the next concrete PR-sized slices.
 | Q-087 | DONE | Close parser type refs. | Parser type parsing is now owned by `parse_type_ref`, while `parse_type` remains only as the raw compatibility adapter and CI rejects the old raw type-parser roundtrip. |
 | Q-088 | DONE | Route parser node-list appends through typed refs. | Parser arrays, calls, struct literals, match bodies, params, fields, and kernel items now append typed AST refs into node lists, with raw node-list append use rejected in parser CI guards. |
 | Q-089 | DONE | Route C codegen top-level item access through typed refs. | AST exposes typed ref accessors for function params/bodies, const values, struct fields, kernel items/names, and node-list item refs; C codegen top-level item/kernel paths consume those helpers with CI guard coverage. |
+| Q-090 | DONE | Route symbol-table item access through typed refs. | Symbol-table declaration/reference reports now consume typed function, param, const, struct, field, and kernel accessors, with CI rejecting raw top-level item/kernel unpacking in the symbol-table pass. |
 
 ## Language Core
 
@@ -504,3 +505,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-02 | Closed parser type refs. | `parse_type_ref` now owns primitive, array, struct, and bootstrap generic type parsing directly, leaving `parse_type` as a compatibility wrapper only. |
 | 2026-05-02 | Routed parser node-list appends through typed refs. | AST now exposes typed node-list append helpers, and parser child-list construction no longer appends raw AST nodes for arrays, calls, struct literals, match bodies, params, fields, or kernel items. |
 | 2026-05-02 | Routed C codegen top-level item access through typed refs. | Function signatures/bodies, const emission, struct emission, kernel item loops, and program entry emission now use semantic AST ref accessors instead of unpacking item/kernel refs into raw nodes. |
+| 2026-05-03 | Routed symbol-table item access through typed refs. | Declaration and reference report generation now uses semantic AST ref accessors for kernel/item/param/field traversal instead of raw top-level node unpacking. |
