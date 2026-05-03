@@ -311,6 +311,23 @@ jobs:
             cat "$matches"
             exit 1
           fi
+      - name: Require C codegen top-level AST refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          cgen='self-host/modules/c_codegen.bkr'
+          grep -q 'fn ast_fn_ref_params_ref(item_ref: AstItemRef) -> AstNodeListRef' "$ast"
+          grep -q 'fn ast_node_list_ref_get_item_ref(nodes_ref: AstNodeListRef, index: i64) -> AstItemRef' "$ast"
+          grep -q 'fn ast_kernel_ref_items_ref(node_ref: AstNodeRef) -> AstNodeListRef' "$ast"
+          matches="$(mktemp)"
+          grep -n -E 'ast_item_node_from_ref\(|ast_node_from_ref\(kernel_ref\)|ast_node_from_ref\(param_ref\)|ast_node_from_ref\(field_ref\)|ast_fn_params_ref\(|ast_struct_fields_ref\(|ast_kernel_items_ref\(|ast_kernel_names\(|ast_kernel_entry_idx\(' "$cgen" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "C codegen top-level item/kernel paths must use typed AST ref accessors."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require AST constructors through typed refs
         shell: bash
         run: |
