@@ -173,6 +173,7 @@ These are the next concrete PR-sized slices.
 | Q-110 | DONE | Route AST-report node category access through typed refs. | AST exposes `ast_node_ref_category`, and complete-tree node JSON no longer unwraps nodes to compute the category field. |
 | Q-111 | DONE | Route AST-report kernel fields through typed refs. | Complete-tree kernel JSON now reads entry and item-list fields through `AstNodeRef` kernel accessors, with CI rejecting raw kernel field reads in AST report. |
 | Q-112 | DONE | Route AST-report function fields through typed refs. | AST exposes an `AstNodeRef` to `AstItemRef` upcast helper, and complete-tree function JSON now reads name, params, return type, and body through typed item/block refs. |
+| Q-113 | DONE | Route AST-report param fields through typed refs. | Complete-tree param JSON now reads names and type nodes through typed param accessors, with CI rejecting raw param field reads in AST report. |
 
 ## Language Core
 
@@ -550,3 +551,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-07 | Routed AST-report node category access through typed refs. | Complete-tree node JSON now reads category through `ast_node_ref_category` instead of unwrapping the raw node for `ast_node_category`. |
 | 2026-05-07 | Routed AST-report kernel fields through typed refs. | Complete-tree kernel JSON now reads entry and item-list fields through typed kernel ref accessors. |
 | 2026-05-07 | Routed AST-report function fields through typed refs. | Complete-tree function JSON now reads all function fields through `AstItemRef` accessors and serializes the body via `AstBlockRef`. |
+| 2026-05-07 | Routed AST-report param fields through typed refs. | Complete-tree param JSON now reads name and type through typed param `AstNodeRef` accessors. |
