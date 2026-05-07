@@ -551,7 +551,7 @@ jobs:
           set -euo pipefail
           ast_report='self-host/modules/ast_report.bkr'
           matches="$(mktemp)"
-          grep -n -E 'ast_item_node_from_ref\(|ast_node_ref_from_handle\(ast_item_ref_handle\(item_ref\)\)|ast_kernel_names\(kernel\)|ast_kernel_items_ref\(kernel\)|ast_kernel_entry_idx\(kernel\)|ast_name_idx\(kernel\)' "$ast_report" > "$matches" || true
+          grep -n -E 'ast_item_node_from_ref\(|ast_node_ref_from_handle\(ast_item_ref_handle\(item_ref\)\)|ast_kernel_names\(kernel\)|ast_kernel_items_ref\(|ast_kernel_entry_idx\(|ast_name_idx\(kernel\)' "$ast_report" > "$matches" || true
           if [ -s "$matches" ]; then
             echo "AST report summary/root item paths must use typed AST ref accessors."
             cat "$matches"
