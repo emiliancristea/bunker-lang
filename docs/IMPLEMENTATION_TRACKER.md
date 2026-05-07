@@ -172,6 +172,7 @@ These are the next concrete PR-sized slices.
 | Q-109 | DONE | Route AST-report block statements through typed refs. | AST report block statement serialization now uses `AstBlockRef` statement accessors, with CI rejecting raw `ast_block_stmt*` traversal in the report pass. |
 | Q-110 | DONE | Route AST-report node category access through typed refs. | AST exposes `ast_node_ref_category`, and complete-tree node JSON no longer unwraps nodes to compute the category field. |
 | Q-111 | DONE | Route AST-report kernel fields through typed refs. | Complete-tree kernel JSON now reads entry and item-list fields through `AstNodeRef` kernel accessors, with CI rejecting raw kernel field reads in AST report. |
+| Q-112 | DONE | Route AST-report function fields through typed refs. | AST exposes an `AstNodeRef` to `AstItemRef` upcast helper, and complete-tree function JSON now reads name, params, return type, and body through typed item/block refs. |
 
 ## Language Core
 
@@ -548,3 +549,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-07 | Routed AST-report block statements through typed refs. | Complete-tree block statement JSON now walks `AstBlockRef` statement refs instead of raw block statement helpers. |
 | 2026-05-07 | Routed AST-report node category access through typed refs. | Complete-tree node JSON now reads category through `ast_node_ref_category` instead of unwrapping the raw node for `ast_node_category`. |
 | 2026-05-07 | Routed AST-report kernel fields through typed refs. | Complete-tree kernel JSON now reads entry and item-list fields through typed kernel ref accessors. |
+| 2026-05-07 | Routed AST-report function fields through typed refs. | Complete-tree function JSON now reads all function fields through `AstItemRef` accessors and serializes the body via `AstBlockRef`. |
