@@ -319,6 +319,19 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -q 'fn parser_expr_ref_to_compat_node(expr_ref: AstExprRef) -> Vec<i64>' "$parser"
+          grep -n 'ast_expr_node_from_ref(' "$parser" | grep -v 'return ast_expr_node_from_ref(expr_ref);' > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser raw expression-node conversion must stay inside parser_expr_ref_to_compat_node."
+            cat "$matches"
+            exit 1
+          fi
+          grep -n -E 'return ast_expr_node_from_ref\(parse_(match_expr|atom|postfix|mul|add|shift|bit_and|bit_xor|bit_or|comparison|and|or|ternary|expr)_ref\(p\)\);' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser raw expression wrappers must route through parser_expr_ref_to_compat_node."
+            cat "$matches"
+            exit 1
+          fi
       - name: Require C codegen top-level AST refs
         shell: bash
         run: |

@@ -370,8 +370,12 @@
         return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_WILDCARD, 0), start);
     }
 
+    fn parser_expr_ref_to_compat_node(expr_ref: AstExprRef) -> Vec<i64> {
+        return ast_expr_node_from_ref(expr_ref);
+    }
+
     fn parse_match_expr(p: ParserStateRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(parse_match_expr_ref(p));
+        return parser_expr_ref_to_compat_node(parse_match_expr_ref(p));
     }
 
     fn parse_match_expr_ref(p: ParserStateRef) -> AstExprRef {
@@ -408,7 +412,7 @@
     }
 
     fn parse_atom(p: ParserStateRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(parse_atom_ref(p));
+        return parser_expr_ref_to_compat_node(parse_atom_ref(p));
     }
 
     fn parse_atom_ref(p: ParserStateRef) -> AstExprRef {
@@ -542,7 +546,7 @@
     }
 
     fn parse_postfix(p: ParserStateRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(parse_postfix_ref(p));
+        return parser_expr_ref_to_compat_node(parse_postfix_ref(p));
     }
 
     fn parse_postfix_ref(p: ParserStateRef) -> AstExprRef {
@@ -566,7 +570,7 @@
     }
 
     fn parse_mul(p: ParserStateRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(parse_mul_ref(p));
+        return parser_expr_ref_to_compat_node(parse_mul_ref(p));
     }
 
     fn parse_mul_ref(p: ParserStateRef) -> AstExprRef {
@@ -583,7 +587,7 @@
     }
 
     fn parse_add(p: ParserStateRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(parse_add_ref(p));
+        return parser_expr_ref_to_compat_node(parse_add_ref(p));
     }
 
     fn parse_add_ref(p: ParserStateRef) -> AstExprRef {
@@ -600,7 +604,7 @@
     }
 
     fn parse_shift(p: ParserStateRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(parse_shift_ref(p));
+        return parser_expr_ref_to_compat_node(parse_shift_ref(p));
     }
 
     fn parse_shift_ref(p: ParserStateRef) -> AstExprRef {
@@ -617,7 +621,7 @@
     }
 
     fn parse_bit_and(p: ParserStateRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(parse_bit_and_ref(p));
+        return parser_expr_ref_to_compat_node(parse_bit_and_ref(p));
     }
 
     fn parse_bit_and_ref(p: ParserStateRef) -> AstExprRef {
@@ -633,7 +637,7 @@
     }
 
     fn parse_bit_xor(p: ParserStateRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(parse_bit_xor_ref(p));
+        return parser_expr_ref_to_compat_node(parse_bit_xor_ref(p));
     }
 
     fn parse_bit_xor_ref(p: ParserStateRef) -> AstExprRef {
@@ -649,7 +653,7 @@
     }
 
     fn parse_bit_or(p: ParserStateRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(parse_bit_or_ref(p));
+        return parser_expr_ref_to_compat_node(parse_bit_or_ref(p));
     }
 
     fn parse_bit_or_ref(p: ParserStateRef) -> AstExprRef {
@@ -665,7 +669,7 @@
     }
 
     fn parse_comparison(p: ParserStateRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(parse_comparison_ref(p));
+        return parser_expr_ref_to_compat_node(parse_comparison_ref(p));
     }
 
     fn parse_comparison_ref(p: ParserStateRef) -> AstExprRef {
@@ -682,7 +686,7 @@
     }
 
     fn parse_and(p: ParserStateRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(parse_and_ref(p));
+        return parser_expr_ref_to_compat_node(parse_and_ref(p));
     }
 
     fn parse_and_ref(p: ParserStateRef) -> AstExprRef {
@@ -698,7 +702,7 @@
     }
 
     fn parse_or(p: ParserStateRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(parse_or_ref(p));
+        return parser_expr_ref_to_compat_node(parse_or_ref(p));
     }
 
     fn parse_or_ref(p: ParserStateRef) -> AstExprRef {
@@ -714,7 +718,7 @@
     }
 
     fn parse_ternary(p: ParserStateRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(parse_ternary_ref(p));
+        return parser_expr_ref_to_compat_node(parse_ternary_ref(p));
     }
 
     fn parse_ternary_ref(p: ParserStateRef) -> AstExprRef {
@@ -731,7 +735,7 @@
     }
 
     fn parse_expr(p: ParserStateRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(parse_expr_ref(p));
+        return parser_expr_ref_to_compat_node(parse_expr_ref(p));
     }
 
     fn parse_expr_ref(p: ParserStateRef) -> AstExprRef {
