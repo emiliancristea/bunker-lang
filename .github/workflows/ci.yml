@@ -584,6 +584,19 @@ jobs:
             exit 1
           fi
 
+      - name: Require AST report type refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast_report='self-host/modules/ast_report.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'ast_type_handle\(|ast_type_kind_value\(|ast_type_struct_name_idx_value\(|ast_type_array_elem_kind_value\(|ast_type_array_len_value\(' "$ast_report" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "AST report type serialization must use typed AstTypeRef accessors."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require AST report block refs
         shell: bash
         run: |

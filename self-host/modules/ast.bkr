@@ -271,6 +271,10 @@
         return ast_type_ref_from_handle(ast_type_handle(type_node));
     }
 
+    fn ast_type_ref_from_node_ref(node_ref: AstNodeRef) -> AstTypeRef {
+        return ast_type_ref_from_handle(ast_node_ref_handle(node_ref));
+    }
+
     fn ast_type_ref_handle(type_ref: AstTypeRef) -> i64 {
         return type_ref.handle;
     }
@@ -281,6 +285,18 @@
 
     fn ast_type_ref_kind_value(type_ref: AstTypeRef) -> i64 {
         return ast_type_kind_value(ast_type_ref_handle(type_ref));
+    }
+
+    fn ast_type_ref_struct_name_idx_value(type_ref: AstTypeRef) -> i64 {
+        return ast_type_struct_name_idx_value(ast_type_ref_handle(type_ref));
+    }
+
+    fn ast_type_ref_array_elem_kind_value(type_ref: AstTypeRef) -> i64 {
+        return ast_type_array_elem_kind_value(ast_type_ref_handle(type_ref));
+    }
+
+    fn ast_type_ref_array_len_value(type_ref: AstTypeRef) -> i64 {
+        return ast_type_array_len_value(ast_type_ref_handle(type_ref));
     }
 
     fn ast_expr_handle(expr: Vec<i64>) -> i64 {
