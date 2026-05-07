@@ -604,7 +604,7 @@ jobs:
           ast_report='self-host/modules/ast_report.bkr'
           grep -q 'fn ast_report_block_statements_ref_json(names: Vec<str>, block_ref: AstBlockRef) -> str' "$ast_report"
           matches="$(mktemp)"
-          grep -n -E 'ast_block_stmt_count\(|ast_block_stmt\(' "$ast_report" > "$matches" || true
+          grep -n -E 'ast_block_stmt_count\(|ast_block_stmt\(|ast_block_ref_from_node\(node\)' "$ast_report" > "$matches" || true
           if [ -s "$matches" ]; then
             echo "AST report block statement serialization must use typed AstBlockRef accessors."
             cat "$matches"

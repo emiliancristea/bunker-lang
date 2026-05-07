@@ -280,7 +280,7 @@
                     json_field_i64("array_len", ast_type_ref_array_len_value(type_ref));
             }
         } else if kind == NODE_BLOCK {
-            result = result + comma + json_field_raw("statements", ast_report_block_statements_ref_json(names, ast_block_ref_from_node(node)));
+            result = result + comma + json_field_raw("statements", ast_report_block_statements_ref_json(names, ast_block_ref_from_node_ref(node_ref)));
         } else if kind == NODE_LET {
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_let_name_idx(node))) + comma +
