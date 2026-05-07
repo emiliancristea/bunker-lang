@@ -395,6 +395,10 @@
         return ast_block_ref_from_handle(ast_block_handle(block));
     }
 
+    fn ast_block_ref_from_node_ref(node_ref: AstNodeRef) -> AstBlockRef {
+        return ast_block_ref_from_handle(ast_node_ref_handle(node_ref));
+    }
+
     fn ast_block_ref_handle(block_ref: AstBlockRef) -> i64 {
         return block_ref.handle;
     }
