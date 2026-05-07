@@ -164,6 +164,7 @@ These are the next concrete PR-sized slices.
 | Q-101 | DONE | Route resolver expression access through typed refs. | Resolver duplicate/unresolved diagnostics now consume typed expression semantic accessors, with CI rejecting raw expression-node unpacking in the resolver pass. |
 | Q-102 | DONE | Route typecheck expression access through typed refs. | Typecheck call-argument and recursive expression diagnostics now consume typed expression semantic accessors, with CI rejecting raw expression-node unpacking in the typecheck pass. |
 | Q-103 | DONE | Route C codegen expression access through typed refs. | C codegen expression type inference, match emission, payload-call detection, and expression emission now consume typed expression semantic accessors, with CI rejecting raw expression-node unpacking in the codegen pass. |
+| Q-104 | DONE | Route AST-report expression access through typed refs. | Complete-tree AST report expression serialization now consumes typed expression semantic accessors, with CI rejecting raw expression-node field access in the AST-report pass. |
 
 ## Language Core
 
@@ -532,3 +533,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-07 | Routed resolver expression access through typed refs. | Resolver duplicate/unresolved diagnostic walking now uses typed expression semantic accessors instead of raw expression-node unpacking. |
 | 2026-05-07 | Routed typecheck expression access through typed refs. | Typecheck call-argument and recursive expression diagnostic walking now uses typed expression semantic accessors instead of raw expression-node unpacking. |
 | 2026-05-07 | Routed C codegen expression access through typed refs. | C codegen expression type inference and emission now use typed expression semantic accessors instead of raw expression-node unpacking. |
+| 2026-05-07 | Routed AST-report expression access through typed refs. | Complete-tree AST JSON expression serialization now uses typed expression semantic accessors instead of raw expression-node field access. |
