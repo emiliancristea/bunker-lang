@@ -250,10 +250,9 @@
 
     fn resolver_pattern_ref_bindings(state: Vec<str>, names: Vec<str>, pattern_ref: AstPatternRef,
                                      scope: str, bindings: Vec<i64>) -> Vec<str> {
-        let pattern: Vec<i64> = ast_pattern_from_ref(pattern_ref);
         let kind: i64 = ast_pattern_ref_kind(pattern_ref);
         if kind == PAT_BIND || kind == PAT_SOME {
-            let name_idx: i64 = ast_pattern_value(pattern);
+            let name_idx: i64 = ast_pattern_ref_value(pattern_ref);
             if resolver_i64_vec_contains(bindings, name_idx) {
                 state = resolver_append_duplicate_pattern_ref(state, ast_report_name(names, name_idx), scope, pattern_ref);
             } else {

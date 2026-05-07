@@ -165,8 +165,8 @@
 
     fn ast_report_pattern_ref_json(names: Vec<str>, pattern_ref: AstPatternRef) -> str {
         let comma = ",";
-        let pattern: Vec<i64> = ast_pattern_from_ref(pattern_ref);
         let kind: i64 = ast_pattern_ref_kind(pattern_ref);
+        let value: i64 = ast_pattern_ref_value(pattern_ref);
         let result = "{" +
             json_field_str("kind", ast_pattern_kind_name(kind)) + comma +
             json_field_i64("source_start", ast_pattern_ref_span_start(pattern_ref)) + comma +
@@ -174,11 +174,11 @@
             json_field_bool("span_known", ast_pattern_ref_span_start(pattern_ref) != AST_SPAN_UNKNOWN && ast_pattern_ref_span_end(pattern_ref) != AST_SPAN_UNKNOWN);
 
         if kind == PAT_INT {
-            result = result + comma + json_field_i64("value", ast_pattern_value(pattern));
+            result = result + comma + json_field_i64("value", value);
         } else if kind == PAT_BOOL {
-            result = result + comma + json_field_bool("value", ast_pattern_value(pattern) == 1);
+            result = result + comma + json_field_bool("value", value == 1);
         } else if kind == PAT_BIND || kind == PAT_SOME {
-            result = result + comma + json_field_str("binding", ast_report_name(names, ast_pattern_value(pattern)));
+            result = result + comma + json_field_str("binding", ast_report_name(names, value));
         }
 
         return result + "}";
