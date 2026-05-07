@@ -243,6 +243,10 @@
         return ast_kind(ast_node_from_ref(node_ref));
     }
 
+    fn ast_node_ref_category(node_ref: AstNodeRef) -> i64 {
+        return ast_node_category(ast_node_from_ref(node_ref));
+    }
+
     fn ast_node_ref_span_start(node_ref: AstNodeRef) -> i64 {
         return ast_node_span_start(ast_node_from_ref(node_ref));
     }

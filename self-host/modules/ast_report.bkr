@@ -245,7 +245,7 @@
         let kind: i64 = ast_node_ref_kind(node_ref);
         let result = "{" +
             json_field_str("kind", ast_node_kind_name(kind)) + comma +
-            json_field_str("category", ast_category_name(ast_node_category(node))) + comma +
+            json_field_str("category", ast_category_name(ast_node_ref_category(node_ref))) + comma +
             json_field_i64("source_start", ast_node_ref_span_start(node_ref)) + comma +
             json_field_i64("source_end", ast_node_ref_span_end(node_ref)) + comma +
             json_field_bool("span_known", ast_node_ref_span_start(node_ref) != AST_SPAN_UNKNOWN && ast_node_ref_span_end(node_ref) != AST_SPAN_UNKNOWN);

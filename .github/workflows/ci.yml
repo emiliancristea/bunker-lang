@@ -585,6 +585,21 @@ jobs:
             exit 1
           fi
 
+      - name: Require AST report node category refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          ast_report='self-host/modules/ast_report.bkr'
+          grep -q 'fn ast_node_ref_category(node_ref: AstNodeRef) -> i64' "$ast"
+          matches="$(mktemp)"
+          grep -n 'ast_node_category(' "$ast_report" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "AST report node category serialization must use typed AstNodeRef accessors."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require pattern value refs
         shell: bash
         run: |
