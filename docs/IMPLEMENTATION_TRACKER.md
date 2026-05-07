@@ -167,6 +167,7 @@ These are the next concrete PR-sized slices.
 | Q-104 | DONE | Route AST-report expression access through typed refs. | Complete-tree AST report expression serialization now consumes typed expression semantic accessors, with CI rejecting raw expression-node field access in the AST-report pass. |
 | Q-105 | DONE | Route parser expression spans through typed refs. | Parser postfix/operator/ternary/simple-statement internals now read expression spans through `AstExprRef` span helpers, with raw expression-node span roundtrips left only in compatibility adapters. |
 | Q-106 | DONE | Guard parser expression compatibility adapters. | Parser raw expression wrappers now route through `parser_expr_ref_to_compat_node`, with CI rejecting direct parser calls to `ast_expr_node_from_ref` outside that named compatibility boundary. |
+| Q-107 | DONE | Guard parser raw compatibility exits. | Parser type, pattern, statement, block, params, item, kernel, and expression raw exits now route through named `parser_*_to_compat_*` helpers, with CI rejecting scattered raw conversion calls. |
 
 ## Language Core
 
@@ -538,3 +539,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-07 | Routed AST-report expression access through typed refs. | Complete-tree AST JSON expression serialization now uses typed expression semantic accessors instead of raw expression-node field access. |
 | 2026-05-07 | Routed parser expression spans through typed refs. | Parser expression construction internals now use `AstExprRef` span helpers instead of unwrapping expression nodes for source spans. |
 | 2026-05-07 | Guarded parser expression compatibility adapters. | Raw expression wrappers now use `parser_expr_ref_to_compat_node`, and CI rejects direct parser calls to `ast_expr_node_from_ref` outside that bridge. |
+| 2026-05-07 | Guarded parser raw compatibility exits. | Type, pattern, statement, block, params, item, kernel, and expression raw exits now go through named parser compatibility helpers. |
