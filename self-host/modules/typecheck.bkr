@@ -182,7 +182,7 @@
                                               name: str, expected_kind: i64, repair_hint: str) -> Vec<str> {
         let found_kind: i64 = typecheck_expr_ref_kind(cstate, expr_ref);
         return typecheck_maybe_append_mismatch_ref(state, diagnostic_kind, name, scope,
-            ast_node_ref_from_handle(ast_expr_ref_handle(expr_ref)), expected_kind, found_kind, repair_hint);
+            ast_node_ref_from_expr_ref(expr_ref), expected_kind, found_kind, repair_hint);
     }
 
     fn typecheck_check_call_arguments(state: Vec<str>, kernel: Vec<i64>, names: Vec<str>,
@@ -193,8 +193,7 @@
 
     fn typecheck_check_call_arguments_ref(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
                                           cstate: CgenStateRef, expr_ref: AstExprRef, scope: str) -> Vec<str> {
-        let expr: Vec<i64> = ast_expr_node_from_ref(expr_ref);
-        let name_idx: i64 = ast_call_name_idx(expr);
+        let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
         let fn_value: i64 = typecheck_find_function_ref(kernel_ref, name_idx);
         if ast_optional_is_none(fn_value) {
             return state;
@@ -202,7 +201,7 @@
 
         let fn_ref: AstItemRef = ast_item_ref_from_handle(fn_value);
         let fn_name: str = ast_report_name(names, name_idx);
-        let args_ref: AstNodeListRef = ast_call_args_ref(expr);
+        let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
         let params_ref: AstNodeListRef = ast_fn_ref_params_ref(fn_ref);
         let i: i64 = 0;
         while i < ast_node_list_ref_count(args_ref) && i < ast_node_list_ref_count(params_ref) {
@@ -242,11 +241,10 @@
     fn typecheck_expr_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
                                       cstate: CgenStateRef, expr_ref: AstExprRef, scope: str,
                                       expected_return_kind: i64) -> Vec<str> {
-        let expr: Vec<i64> = ast_expr_node_from_ref(expr_ref);
         let kind: i64 = ast_expr_ref_kind(expr_ref);
         if kind == NODE_CALL {
             state = typecheck_check_call_arguments_ref(state, kernel_ref, names, cstate, expr_ref, scope);
-            let args_ref: AstNodeListRef = ast_call_args_ref(expr);
+            let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
                 let arg_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
@@ -255,7 +253,7 @@
                 i = i + 1;
             }
         } else if kind == NODE_STRUCT_LIT {
-            let field_values_ref: AstNodeListRef = ast_struct_lit_field_values_ref(expr);
+            let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(field_values_ref) {
                 let field_value_ref: AstNodeRef = ast_node_list_ref_get_ref(field_values_ref, i);
@@ -265,27 +263,27 @@
             }
         } else if kind == NODE_FIELD_ACCESS {
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_field_base_handle(expr), scope, expected_return_kind);
+                ast_field_access_ref_base_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_BINARY {
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_binary_left_handle(expr), scope, expected_return_kind);
+                ast_binary_ref_left_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_binary_right_handle(expr), scope, expected_return_kind);
+                ast_binary_ref_right_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_UNARY {
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_unary_operand_handle(expr), scope, expected_return_kind);
+                ast_unary_ref_operand_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_TERNARY {
             state = typecheck_check_expression_ref_against(state, names, cstate,
-                ast_expr_ref_from_handle(ast_ternary_cond_handle(expr)), scope, "condition_type_mismatch", "ternary condition",
+                ast_expr_ref_from_handle(ast_ternary_ref_cond_handle(expr_ref)), scope, "condition_type_mismatch", "ternary condition",
                 TYPE_BOOL, "Make this ternary condition produce bool.");
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_ternary_cond_handle(expr), scope, expected_return_kind);
+                ast_ternary_ref_cond_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_ternary_then_handle(expr), scope, expected_return_kind);
+                ast_ternary_ref_then_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_ternary_else_handle(expr), scope, expected_return_kind);
+                ast_ternary_ref_else_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_ARRAY_LIT {
-            let elements_ref: AstNodeListRef = ast_array_elements_ref(expr);
+            let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(elements_ref) {
                 let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
@@ -295,13 +293,13 @@
             }
         } else if kind == NODE_INDEX {
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_index_base_handle(expr), scope, expected_return_kind);
+                ast_index_ref_base_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_index_expr_handle(expr), scope, expected_return_kind);
+                ast_index_ref_expr_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_MATCH {
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_match_scrutinee_handle(expr), scope, expected_return_kind);
-            let bodies_ref: AstNodeListRef = ast_match_bodies_ref(expr);
+                ast_match_ref_scrutinee_handle(expr_ref), scope, expected_return_kind);
+            let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(bodies_ref) {
                 let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
