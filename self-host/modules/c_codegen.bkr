@@ -385,9 +385,8 @@
     }
 
     fn gen_c_match_condition_ref(state: CgenStateRef, value_name: str, pattern_ref: AstPatternRef) -> str {
-        let pattern: Vec<i64> = ast_pattern_from_ref(pattern_ref);
         let kind: i64 = ast_pattern_ref_kind(pattern_ref);
-        let value: i64 = ast_pattern_value(pattern);
+        let value: i64 = ast_pattern_ref_value(pattern_ref);
 
         if kind == PAT_INT {
             return "(" + value_name + " == " + int_to_string(value) + ")";
@@ -415,9 +414,8 @@
     }
 
     fn gen_c_match_bindings_ref(state: CgenStateRef, value_name: str, pattern_ref: AstPatternRef, scrutinee_kind: i64) -> str {
-        let pattern: Vec<i64> = ast_pattern_from_ref(pattern_ref);
         let kind: i64 = ast_pattern_ref_kind(pattern_ref);
-        let value: i64 = ast_pattern_value(pattern);
+        let value: i64 = ast_pattern_ref_value(pattern_ref);
 
         if kind == PAT_BIND {
             return type_to_c(scrutinee_kind) + " " + name_to_c_ref(state, value) + " = " + value_name + "; ";

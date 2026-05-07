@@ -82,7 +82,7 @@
         if kind == PAT_BIND || kind == PAT_SOME {
             result = symbol_table_json_array_append(result,
                 symbol_table_pattern_ref_entry_json("pattern_binding",
-                    ast_report_name(names, ast_pattern_value(ast_pattern_from_ref(pattern_ref))),
+                    ast_report_name(names, ast_pattern_ref_value(pattern_ref)),
                     scope,
                     pattern_ref));
         }

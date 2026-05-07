@@ -427,6 +427,10 @@
         return ast_pattern_kind(ast_pattern_from_ref(pattern_ref));
     }
 
+    fn ast_pattern_ref_value(pattern_ref: AstPatternRef) -> i64 {
+        return ast_pattern_value(ast_pattern_from_ref(pattern_ref));
+    }
+
     fn ast_pattern_ref_span_start(pattern_ref: AstPatternRef) -> i64 {
         return ast_pattern_span_start(ast_pattern_from_ref(pattern_ref));
     }
