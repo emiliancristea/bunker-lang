@@ -303,6 +303,14 @@
         return ast_kind(ast_expr_node_from_ref(expr_ref));
     }
 
+    fn ast_expr_ref_span_start(expr_ref: AstExprRef) -> i64 {
+        return ast_node_ref_span_start(ast_node_ref_from_expr_ref(expr_ref));
+    }
+
+    fn ast_expr_ref_span_end(expr_ref: AstExprRef) -> i64 {
+        return ast_node_ref_span_end(ast_node_ref_from_expr_ref(expr_ref));
+    }
+
     fn ast_stmt_handle(stmt: Vec<i64>) -> i64 {
         return ast_node_handle(stmt);
     }

@@ -311,6 +311,14 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -q 'fn ast_expr_ref_span_start(expr_ref: AstExprRef) -> i64' "$ast"
+          grep -q 'fn ast_expr_ref_span_end(expr_ref: AstExprRef) -> i64' "$ast"
+          grep -n -E 'let [A-Za-z_][A-Za-z0-9_]*: Vec<i64> = ast_expr_node_from_ref|ast_node_span_(start|end)\(ast_expr_node_from_ref\(' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser expression spans must use typed AstExprRef span helpers."
+            cat "$matches"
+            exit 1
+          fi
       - name: Require C codegen top-level AST refs
         shell: bash
         run: |
