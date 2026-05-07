@@ -253,8 +253,8 @@
         if kind == NODE_KERNEL {
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_node_ref_name_idx(node_ref))) + comma +
-                json_field_str("entry", ast_report_name(names, ast_kernel_entry_idx(node))) + comma +
-                json_field_raw("items", ast_report_node_array_json_ref(names, ast_kernel_items_ref(node)));
+                json_field_str("entry", ast_report_name(names, ast_kernel_ref_entry_idx(node_ref))) + comma +
+                json_field_raw("items", ast_report_node_array_json_ref(names, ast_kernel_ref_items_ref(node_ref)));
         } else if kind == NODE_FN {
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_fn_name_idx(node))) + comma +
