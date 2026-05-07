@@ -196,7 +196,7 @@
     }
 
     fn parser_set_node_span_from_start(p: ParserStateRef, node: Vec<i64>, start: i64) -> Vec<i64> {
-        return ast_node_from_ref(parser_set_node_ref_span_from_start(p, ast_node_ref_from_node(node), start));
+        return parser_node_ref_to_compat_node(parser_set_node_ref_span_from_start(p, ast_node_ref_from_node(node), start));
     }
 
     fn parser_set_pattern_ref_span_from_start(p: ParserStateRef, pattern_ref: AstPatternRef, start: i64) -> AstPatternRef {
@@ -204,7 +204,39 @@
     }
 
     fn parser_set_pattern_span_from_start(p: ParserStateRef, pattern: Vec<i64>, start: i64) -> Vec<i64> {
-        return ast_pattern_from_ref(parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_from_pattern(pattern), start));
+        return parser_pattern_ref_to_compat_pattern(parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_from_pattern(pattern), start));
+    }
+
+    fn parser_node_ref_to_compat_node(node_ref: AstNodeRef) -> Vec<i64> {
+        return ast_node_from_ref(node_ref);
+    }
+
+    fn parser_type_ref_to_compat_node(type_ref: AstTypeRef) -> Vec<i64> {
+        return ast_type_node_from_ref(type_ref);
+    }
+
+    fn parser_expr_ref_to_compat_node(expr_ref: AstExprRef) -> Vec<i64> {
+        return ast_expr_node_from_ref(expr_ref);
+    }
+
+    fn parser_stmt_ref_to_compat_node(stmt_ref: AstStmtRef) -> Vec<i64> {
+        return ast_stmt_node_from_ref(stmt_ref);
+    }
+
+    fn parser_item_ref_to_compat_node(item_ref: AstItemRef) -> Vec<i64> {
+        return ast_item_node_from_ref(item_ref);
+    }
+
+    fn parser_block_ref_to_compat_node(block_ref: AstBlockRef) -> Vec<i64> {
+        return ast_block_node_from_ref(block_ref);
+    }
+
+    fn parser_pattern_ref_to_compat_pattern(pattern_ref: AstPatternRef) -> Vec<i64> {
+        return ast_pattern_from_ref(pattern_ref);
+    }
+
+    fn parser_node_list_ref_to_compat_list(nodes_ref: AstNodeListRef) -> Vec<i64> {
+        return ast_node_list_from_ref(nodes_ref);
     }
 
     fn parser_error_span(p: Vec<i64>) -> Vec<i64> {
@@ -271,7 +303,7 @@
 
     // Parse type
     fn parse_type(p: ParserStateRef) -> Vec<i64> {
-        return ast_type_node_from_ref(parse_type_ref(p));
+        return parser_type_ref_to_compat_node(parse_type_ref(p));
     }
 
     fn parse_type_ref(p: ParserStateRef) -> AstTypeRef {
@@ -316,7 +348,7 @@
     }
 
     fn parse_match_pattern(p: ParserStateRef) -> Vec<i64> {
-        return ast_pattern_from_ref(parse_match_pattern_ref(p));
+        return parser_pattern_ref_to_compat_pattern(parse_match_pattern_ref(p));
     }
 
     fn parse_match_pattern_ref(p: ParserStateRef) -> AstPatternRef {
@@ -368,10 +400,6 @@
             parser_advance_ref(p);
         }
         return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_WILDCARD, 0), start);
-    }
-
-    fn parser_expr_ref_to_compat_node(expr_ref: AstExprRef) -> Vec<i64> {
-        return ast_expr_node_from_ref(expr_ref);
     }
 
     fn parse_match_expr(p: ParserStateRef) -> Vec<i64> {
@@ -748,7 +776,7 @@
     }
 
     fn parse_let_stmt(p: ParserStateRef) -> Vec<i64> {
-        return ast_stmt_node_from_ref(parse_let_stmt_ref(p));
+        return parser_stmt_ref_to_compat_node(parse_let_stmt_ref(p));
     }
 
     fn parse_let_stmt_ref(p: ParserStateRef) -> AstStmtRef {
@@ -774,7 +802,7 @@
     }
 
     fn parse_return_stmt(p: ParserStateRef) -> Vec<i64> {
-        return ast_stmt_node_from_ref(parse_return_stmt_ref(p));
+        return parser_stmt_ref_to_compat_node(parse_return_stmt_ref(p));
     }
 
     fn parse_return_stmt_ref(p: ParserStateRef) -> AstStmtRef {
@@ -791,7 +819,7 @@
 
     // Simplified statement that doesn't recurse into blocks
     fn parse_simple_stmt(p: ParserStateRef) -> Vec<i64> {
-        return ast_stmt_node_from_ref(parse_simple_stmt_ref(p));
+        return parser_stmt_ref_to_compat_node(parse_simple_stmt_ref(p));
     }
 
     fn parse_simple_stmt_ref(p: ParserStateRef) -> AstStmtRef {
@@ -846,7 +874,7 @@
     }
 
     fn parse_if_stmt(p: ParserStateRef) -> Vec<i64> {
-        return ast_stmt_node_from_ref(parse_if_stmt_ref(p));
+        return parser_stmt_ref_to_compat_node(parse_if_stmt_ref(p));
     }
 
     fn parse_if_stmt_ref(p: ParserStateRef) -> AstStmtRef {
@@ -869,7 +897,7 @@
     }
 
     fn parse_for_stmt(p: ParserStateRef) -> Vec<i64> {
-        return ast_stmt_node_from_ref(parse_for_stmt_ref(p));
+        return parser_stmt_ref_to_compat_node(parse_for_stmt_ref(p));
     }
 
     fn parse_for_stmt_ref(p: ParserStateRef) -> AstStmtRef {
@@ -896,7 +924,7 @@
 
     // Parse a block (handles if/while inside)
     fn parse_block(p: ParserStateRef) -> Vec<i64> {
-        return ast_block_node_from_ref(parse_block_ref(p));
+        return parser_block_ref_to_compat_node(parse_block_ref(p));
     }
 
     fn parse_block_ref(p: ParserStateRef) -> AstBlockRef {
@@ -933,7 +961,7 @@
     }
 
     fn parse_params(p: ParserStateRef) -> Vec<i64> {
-        return ast_node_list_from_ref(parse_params_ref(p));
+        return parser_node_list_ref_to_compat_list(parse_params_ref(p));
     }
 
     fn parse_params_ref(p: ParserStateRef) -> AstNodeListRef {
@@ -966,7 +994,7 @@
     }
 
     fn parse_fn(p: ParserStateRef) -> Vec<i64> {
-        return ast_item_node_from_ref(parse_fn_ref(p));
+        return parser_item_ref_to_compat_node(parse_fn_ref(p));
     }
 
     fn parse_fn_ref(p: ParserStateRef) -> AstItemRef {
@@ -988,7 +1016,7 @@
     }
 
     fn parse_const(p: ParserStateRef) -> Vec<i64> {
-        return ast_item_node_from_ref(parse_const_ref(p));
+        return parser_item_ref_to_compat_node(parse_const_ref(p));
     }
 
     fn parse_const_ref(p: ParserStateRef) -> AstItemRef {
@@ -1015,7 +1043,7 @@
     }
 
     fn parse_struct(p: ParserStateRef) -> Vec<i64> {
-        return ast_item_node_from_ref(parse_struct_ref(p));
+        return parser_item_ref_to_compat_node(parse_struct_ref(p));
     }
 
     fn parse_struct_ref(p: ParserStateRef) -> AstItemRef {
@@ -1080,5 +1108,5 @@
 
         let names_ref: AstStringListRef = ast_string_list_ref_from_list(parser_names_ref(p));
         let kernel_ref: AstNodeRef = ast_kernel_ref(name_idx, items_ref, main_name_idx, names_ref);
-        return ast_node_from_ref(parser_set_node_ref_span_from_start(p, kernel_ref, start));
+        return parser_node_ref_to_compat_node(parser_set_node_ref_span_from_start(p, kernel_ref, start));
     }
