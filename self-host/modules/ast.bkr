@@ -351,6 +351,10 @@
         return ast_item_ref_from_handle(ast_item_handle(item));
     }
 
+    fn ast_item_ref_from_node_ref(node_ref: AstNodeRef) -> AstItemRef {
+        return ast_item_ref_from_handle(ast_node_ref_handle(node_ref));
+    }
+
     fn ast_item_ref_handle(item_ref: AstItemRef) -> i64 {
         return item_ref.handle;
     }
