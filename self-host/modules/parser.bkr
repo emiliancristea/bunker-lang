@@ -547,23 +547,20 @@
 
     fn parse_postfix_ref(p: ParserStateRef) -> AstExprRef {
         let base_ref: AstExprRef = parse_atom_ref(p);
-        let base_node: Vec<i64> = ast_expr_node_from_ref(base_ref);
         while parser_peek_ref(p) == TOK_LBRACKET {
-            let start = ast_node_span_start(base_node);
+            let start = ast_expr_ref_span_start(base_ref);
             parser_advance_ref(p);
             let idx_ref: AstExprRef = parse_expr_ref(p);
             parser_expect_ref(p, TOK_RBRACKET);
             let index_ref: AstExprRef = ast_index_ref(base_ref, idx_ref);
             base_ref = parser_set_expr_ref_span(index_ref, start, parser_previous_token_end(p));
-            base_node = ast_expr_node_from_ref(base_ref);
         }
         while parser_peek_ref(p) == TOK_DOT {
-            let start = ast_node_span_start(base_node);
+            let start = ast_expr_ref_span_start(base_ref);
             parser_advance_ref(p);
             let field_name = parser_expect_name(p);
             let field_ref: AstExprRef = ast_field_access_ref(base_ref, field_name);
             base_ref = parser_set_expr_ref_span(field_ref, start, parser_previous_token_end(p));
-            base_node = ast_expr_node_from_ref(base_ref);
         }
         return base_ref;
     }
@@ -574,16 +571,13 @@
 
     fn parse_mul_ref(p: ParserStateRef) -> AstExprRef {
         let left_ref: AstExprRef = parse_postfix_ref(p);
-        let left: Vec<i64> = ast_expr_node_from_ref(left_ref);
         while parser_peek_ref(p) == TOK_STAR || parser_peek_ref(p) == TOK_SLASH || parser_peek_ref(p) == TOK_PERCENT {
             let op = parser_peek_ref(p);
-            let start = ast_node_span_start(left);
+            let start = ast_expr_ref_span_start(left_ref);
             parser_advance_ref(p);
             let right_ref: AstExprRef = parse_postfix_ref(p);
-            let right: Vec<i64> = ast_expr_node_from_ref(right_ref);
             let binary_ref: AstExprRef = ast_binary_ref(op, left_ref, right_ref);
-            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right));
-            left = ast_expr_node_from_ref(left_ref);
+            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_expr_ref_span_end(right_ref));
         }
         return left_ref;
     }
@@ -594,16 +588,13 @@
 
     fn parse_add_ref(p: ParserStateRef) -> AstExprRef {
         let left_ref: AstExprRef = parse_mul_ref(p);
-        let left: Vec<i64> = ast_expr_node_from_ref(left_ref);
         while parser_peek_ref(p) == TOK_PLUS || parser_peek_ref(p) == TOK_MINUS {
             let op = parser_peek_ref(p);
-            let start = ast_node_span_start(left);
+            let start = ast_expr_ref_span_start(left_ref);
             parser_advance_ref(p);
             let right_ref: AstExprRef = parse_mul_ref(p);
-            let right: Vec<i64> = ast_expr_node_from_ref(right_ref);
             let binary_ref: AstExprRef = ast_binary_ref(op, left_ref, right_ref);
-            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right));
-            left = ast_expr_node_from_ref(left_ref);
+            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_expr_ref_span_end(right_ref));
         }
         return left_ref;
     }
@@ -614,16 +605,13 @@
 
     fn parse_shift_ref(p: ParserStateRef) -> AstExprRef {
         let left_ref: AstExprRef = parse_add_ref(p);
-        let left: Vec<i64> = ast_expr_node_from_ref(left_ref);
         while parser_peek_ref(p) == TOK_SHL || parser_peek_ref(p) == TOK_SHR {
             let op = parser_peek_ref(p);
-            let start = ast_node_span_start(left);
+            let start = ast_expr_ref_span_start(left_ref);
             parser_advance_ref(p);
             let right_ref: AstExprRef = parse_add_ref(p);
-            let right: Vec<i64> = ast_expr_node_from_ref(right_ref);
             let binary_ref: AstExprRef = ast_binary_ref(op, left_ref, right_ref);
-            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right));
-            left = ast_expr_node_from_ref(left_ref);
+            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_expr_ref_span_end(right_ref));
         }
         return left_ref;
     }
@@ -634,15 +622,12 @@
 
     fn parse_bit_and_ref(p: ParserStateRef) -> AstExprRef {
         let left_ref: AstExprRef = parse_shift_ref(p);
-        let left: Vec<i64> = ast_expr_node_from_ref(left_ref);
         while parser_peek_ref(p) == TOK_BIT_AND {
-            let start = ast_node_span_start(left);
+            let start = ast_expr_ref_span_start(left_ref);
             parser_advance_ref(p);
             let right_ref: AstExprRef = parse_shift_ref(p);
-            let right: Vec<i64> = ast_expr_node_from_ref(right_ref);
             let binary_ref: AstExprRef = ast_binary_ref(TOK_BIT_AND, left_ref, right_ref);
-            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right));
-            left = ast_expr_node_from_ref(left_ref);
+            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_expr_ref_span_end(right_ref));
         }
         return left_ref;
     }
@@ -653,15 +638,12 @@
 
     fn parse_bit_xor_ref(p: ParserStateRef) -> AstExprRef {
         let left_ref: AstExprRef = parse_bit_and_ref(p);
-        let left: Vec<i64> = ast_expr_node_from_ref(left_ref);
         while parser_peek_ref(p) == TOK_BIT_XOR {
-            let start = ast_node_span_start(left);
+            let start = ast_expr_ref_span_start(left_ref);
             parser_advance_ref(p);
             let right_ref: AstExprRef = parse_bit_and_ref(p);
-            let right: Vec<i64> = ast_expr_node_from_ref(right_ref);
             let binary_ref: AstExprRef = ast_binary_ref(TOK_BIT_XOR, left_ref, right_ref);
-            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right));
-            left = ast_expr_node_from_ref(left_ref);
+            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_expr_ref_span_end(right_ref));
         }
         return left_ref;
     }
@@ -672,15 +654,12 @@
 
     fn parse_bit_or_ref(p: ParserStateRef) -> AstExprRef {
         let left_ref: AstExprRef = parse_bit_xor_ref(p);
-        let left: Vec<i64> = ast_expr_node_from_ref(left_ref);
         while parser_peek_ref(p) == TOK_BIT_OR {
-            let start = ast_node_span_start(left);
+            let start = ast_expr_ref_span_start(left_ref);
             parser_advance_ref(p);
             let right_ref: AstExprRef = parse_bit_xor_ref(p);
-            let right: Vec<i64> = ast_expr_node_from_ref(right_ref);
             let binary_ref: AstExprRef = ast_binary_ref(TOK_BIT_OR, left_ref, right_ref);
-            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right));
-            left = ast_expr_node_from_ref(left_ref);
+            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_expr_ref_span_end(right_ref));
         }
         return left_ref;
     }
@@ -691,15 +670,13 @@
 
     fn parse_comparison_ref(p: ParserStateRef) -> AstExprRef {
         let left_ref: AstExprRef = parse_bit_or_ref(p);
-        let left: Vec<i64> = ast_expr_node_from_ref(left_ref);
         let tok = parser_peek_ref(p);
         if tok == TOK_EQ || tok == TOK_NE || tok == TOK_LT || tok == TOK_GT || tok == TOK_LE || tok == TOK_GE {
-            let start = ast_node_span_start(left);
+            let start = ast_expr_ref_span_start(left_ref);
             parser_advance_ref(p);
             let right_ref: AstExprRef = parse_bit_or_ref(p);
-            let right: Vec<i64> = ast_expr_node_from_ref(right_ref);
             let binary_ref: AstExprRef = ast_binary_ref(tok, left_ref, right_ref);
-            return parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right));
+            return parser_set_expr_ref_span(binary_ref, start, ast_expr_ref_span_end(right_ref));
         }
         return left_ref;
     }
@@ -710,15 +687,12 @@
 
     fn parse_and_ref(p: ParserStateRef) -> AstExprRef {
         let left_ref: AstExprRef = parse_comparison_ref(p);
-        let left: Vec<i64> = ast_expr_node_from_ref(left_ref);
         while parser_peek_ref(p) == TOK_AND {
-            let start = ast_node_span_start(left);
+            let start = ast_expr_ref_span_start(left_ref);
             parser_advance_ref(p);
             let right_ref: AstExprRef = parse_comparison_ref(p);
-            let right: Vec<i64> = ast_expr_node_from_ref(right_ref);
             let binary_ref: AstExprRef = ast_binary_ref(TOK_AND, left_ref, right_ref);
-            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right));
-            left = ast_expr_node_from_ref(left_ref);
+            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_expr_ref_span_end(right_ref));
         }
         return left_ref;
     }
@@ -729,15 +703,12 @@
 
     fn parse_or_ref(p: ParserStateRef) -> AstExprRef {
         let left_ref: AstExprRef = parse_and_ref(p);
-        let left: Vec<i64> = ast_expr_node_from_ref(left_ref);
         while parser_peek_ref(p) == TOK_OR {
-            let start = ast_node_span_start(left);
+            let start = ast_expr_ref_span_start(left_ref);
             parser_advance_ref(p);
             let right_ref: AstExprRef = parse_and_ref(p);
-            let right: Vec<i64> = ast_expr_node_from_ref(right_ref);
             let binary_ref: AstExprRef = ast_binary_ref(TOK_OR, left_ref, right_ref);
-            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_node_span_end(right));
-            left = ast_expr_node_from_ref(left_ref);
+            left_ref = parser_set_expr_ref_span(binary_ref, start, ast_expr_ref_span_end(right_ref));
         }
         return left_ref;
     }
@@ -748,14 +719,13 @@
 
     fn parse_ternary_ref(p: ParserStateRef) -> AstExprRef {
         let cond_ref: AstExprRef = parse_or_ref(p);
-        let cond: Vec<i64> = ast_expr_node_from_ref(cond_ref);
         if parser_peek_ref(p) == TOK_QUESTION {
             parser_advance_ref(p);
             let then_expr_ref: AstExprRef = parse_expr_ref(p);
             parser_expect_ref(p, TOK_COLON);
             let else_expr_ref: AstExprRef = parse_expr_ref(p);
             let ternary_ref: AstExprRef = ast_ternary_ref(cond_ref, then_expr_ref, else_expr_ref);
-            return parser_set_expr_ref_span(ternary_ref, ast_node_span_start(cond), ast_node_span_end(ast_expr_node_from_ref(else_expr_ref)));
+            return parser_set_expr_ref_span(ternary_ref, ast_expr_ref_span_start(cond_ref), ast_expr_ref_span_end(else_expr_ref));
         }
         return cond_ref;
     }
@@ -848,9 +818,8 @@
 
         // Expression statement or assignment
         let expr_ref: AstExprRef = parse_expr_ref(p);
-        let expr_node: Vec<i64> = ast_expr_node_from_ref(expr_ref);
         if parser_peek_ref(p) == TOK_ASSIGN {
-            let assign_start = ast_node_span_start(expr_node);
+            let assign_start = ast_expr_ref_span_start(expr_ref);
             parser_advance_ref(p);
             let value_ref: AstExprRef = parse_expr_ref(p);
             parser_expect_ref(p, TOK_SEMICOLON);
@@ -869,7 +838,7 @@
         }
 
         let expr_stmt_ref: AstStmtRef = ast_expr_stmt_ref(expr_ref);
-        return parser_set_stmt_ref_span(expr_stmt_ref, ast_node_span_start(expr_node), parser_previous_token_end(p));
+        return parser_set_stmt_ref_span(expr_stmt_ref, ast_expr_ref_span_start(expr_ref), parser_previous_token_end(p));
     }
 
     fn parse_if_stmt(p: ParserStateRef) -> Vec<i64> {
