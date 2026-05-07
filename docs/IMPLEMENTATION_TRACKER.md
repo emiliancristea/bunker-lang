@@ -160,6 +160,7 @@ These are the next concrete PR-sized slices.
 | Q-097 | DONE | Route resolver statement access through typed refs. | Resolver duplicate/unresolved diagnostics now consume typed statement/block semantic accessors, with CI rejecting raw statement/block unpacking in the resolver pass. |
 | Q-098 | DONE | Route typecheck statement access through typed refs. | Typecheck expected/found diagnostics now consume typed statement/block semantic accessors, with CI rejecting raw statement/block unpacking in the typecheck pass. |
 | Q-099 | DONE | Route C codegen statement access through typed refs. | C codegen inline block, match-arm, statement emission, and block emission paths now consume typed statement/block semantic accessors, with CI rejecting raw statement/block unpacking in the codegen pass. |
+| Q-100 | DONE | Route symbol-table expression access through typed refs. | AST exposes typed expression semantic accessors, and symbol-table declaration/reference expression walkers consume them with CI rejecting raw expression-node unpacking in the symbol-table pass. |
 
 ## Language Core
 
@@ -524,3 +525,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-03 | Routed resolver statement access through typed refs. | Resolver duplicate and unresolved diagnostic walking now uses typed statement/block semantic accessors instead of raw statement/block node unpacking. |
 | 2026-05-03 | Routed typecheck statement access through typed refs. | Typecheck expected/found diagnostic walking now uses typed statement/block semantic accessors instead of raw statement/block node unpacking. |
 | 2026-05-03 | Routed C codegen statement access through typed refs. | C codegen inline block, match-arm, statement emission, and block emission paths now use typed statement/block semantic accessors instead of raw statement/block node unpacking. |
+| 2026-05-07 | Routed symbol-table expression access through typed refs. | Symbol-table declaration/reference expression walking now uses typed expression semantic accessors instead of raw expression-node unpacking. |

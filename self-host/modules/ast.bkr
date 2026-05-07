@@ -675,6 +675,10 @@
         return ast_field(node, 1);
     }
 
+    fn ast_expr_ref_name_idx(expr_ref: AstExprRef) -> i64 {
+        return ast_name_idx(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_node_ref_name_idx(node_ref: AstNodeRef) -> i64 {
         return ast_name_idx(ast_node_from_ref(node_ref));
     }
@@ -703,12 +707,20 @@
         return ast_field(node, 2);
     }
 
+    fn ast_binary_ref_left_handle(expr_ref: AstExprRef) -> i64 {
+        return ast_binary_left_handle(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_binary_right(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 3);
     }
 
     fn ast_binary_right_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 3);
+    }
+
+    fn ast_binary_ref_right_handle(expr_ref: AstExprRef) -> i64 {
+        return ast_binary_right_handle(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_unary_op(node: Vec<i64>) -> i64 {
@@ -723,8 +735,16 @@
         return ast_field(node, 2);
     }
 
+    fn ast_unary_ref_operand_handle(expr_ref: AstExprRef) -> i64 {
+        return ast_unary_operand_handle(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_call_name_idx(node: Vec<i64>) -> i64 {
         return ast_field(node, 1);
+    }
+
+    fn ast_call_ref_name_idx(expr_ref: AstExprRef) -> i64 {
+        return ast_call_name_idx(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_call_args(node: Vec<i64>) -> Vec<i64> {
@@ -735,12 +755,20 @@
         return ast_field_node_list_ref(node, 2);
     }
 
+    fn ast_call_ref_args_ref(expr_ref: AstExprRef) -> AstNodeListRef {
+        return ast_call_args_ref(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_array_elements(node: Vec<i64>) -> Vec<i64> {
         return ast_node_list_from_ref(ast_array_elements_ref(node));
     }
 
     fn ast_array_elements_ref(node: Vec<i64>) -> AstNodeListRef {
         return ast_field_node_list_ref(node, 1);
+    }
+
+    fn ast_array_lit_ref_elements_ref(expr_ref: AstExprRef) -> AstNodeListRef {
+        return ast_array_elements_ref(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_index_base(node: Vec<i64>) -> Vec<i64> {
@@ -751,12 +779,20 @@
         return ast_field(node, 1);
     }
 
+    fn ast_index_ref_base_handle(expr_ref: AstExprRef) -> i64 {
+        return ast_index_base_handle(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_index_expr(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 2);
     }
 
     fn ast_index_expr_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 2);
+    }
+
+    fn ast_index_ref_expr_handle(expr_ref: AstExprRef) -> i64 {
+        return ast_index_expr_handle(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_field_base(node: Vec<i64>) -> Vec<i64> {
@@ -767,12 +803,24 @@
         return ast_field(node, 1);
     }
 
+    fn ast_field_access_ref_base_handle(expr_ref: AstExprRef) -> i64 {
+        return ast_field_base_handle(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_field_name_idx(node: Vec<i64>) -> i64 {
         return ast_field(node, 2);
     }
 
+    fn ast_field_access_ref_name_idx(expr_ref: AstExprRef) -> i64 {
+        return ast_field_name_idx(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_struct_lit_name_idx(node: Vec<i64>) -> i64 {
         return ast_field(node, 1);
+    }
+
+    fn ast_struct_lit_ref_name_idx(expr_ref: AstExprRef) -> i64 {
+        return ast_struct_lit_name_idx(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_struct_lit_field_names(node: Vec<i64>) -> Vec<i64> {
@@ -783,12 +831,20 @@
         return ast_field_i64_list_ref(node, 2);
     }
 
+    fn ast_struct_lit_ref_field_names_ref(expr_ref: AstExprRef) -> AstI64ListRef {
+        return ast_struct_lit_field_names_ref(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_struct_lit_field_values(node: Vec<i64>) -> Vec<i64> {
         return ast_node_list_from_ref(ast_struct_lit_field_values_ref(node));
     }
 
     fn ast_struct_lit_field_values_ref(node: Vec<i64>) -> AstNodeListRef {
         return ast_field_node_list_ref(node, 3);
+    }
+
+    fn ast_struct_lit_ref_field_values_ref(expr_ref: AstExprRef) -> AstNodeListRef {
+        return ast_struct_lit_field_values_ref(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_ternary_cond(node: Vec<i64>) -> Vec<i64> {
@@ -799,12 +855,20 @@
         return ast_field(node, 1);
     }
 
+    fn ast_ternary_ref_cond_handle(expr_ref: AstExprRef) -> i64 {
+        return ast_ternary_cond_handle(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_ternary_then(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 2);
     }
 
     fn ast_ternary_then_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 2);
+    }
+
+    fn ast_ternary_ref_then_handle(expr_ref: AstExprRef) -> i64 {
+        return ast_ternary_then_handle(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_ternary_else(node: Vec<i64>) -> Vec<i64> {
@@ -815,12 +879,20 @@
         return ast_field(node, 3);
     }
 
+    fn ast_ternary_ref_else_handle(expr_ref: AstExprRef) -> i64 {
+        return ast_ternary_else_handle(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_match_scrutinee(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 1);
     }
 
     fn ast_match_scrutinee_handle(node: Vec<i64>) -> i64 {
         return ast_field(node, 1);
+    }
+
+    fn ast_match_ref_scrutinee_handle(expr_ref: AstExprRef) -> i64 {
+        return ast_match_scrutinee_handle(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_match_patterns(node: Vec<i64>) -> Vec<i64> {
@@ -831,12 +903,20 @@
         return ast_field_pattern_list_ref(node, 2);
     }
 
+    fn ast_match_ref_patterns_ref(expr_ref: AstExprRef) -> AstPatternListRef {
+        return ast_match_patterns_ref(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_match_bodies(node: Vec<i64>) -> Vec<i64> {
         return ast_node_list_from_ref(ast_match_bodies_ref(node));
     }
 
     fn ast_match_bodies_ref(node: Vec<i64>) -> AstNodeListRef {
         return ast_field_node_list_ref(node, 3);
+    }
+
+    fn ast_match_ref_bodies_ref(expr_ref: AstExprRef) -> AstNodeListRef {
+        return ast_match_bodies_ref(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_pattern_kind(pattern: Vec<i64>) -> i64 {

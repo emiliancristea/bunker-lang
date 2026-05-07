@@ -406,6 +406,19 @@ jobs:
             exit 1
           fi
 
+      - name: Require symbol-table expression AST refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          sym='self-host/modules/symbol_table.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'ast_expr_node_from_ref\(|ast_name_idx\(|ast_call_name_idx\(|ast_call_args_ref\(|ast_binary_left_handle\(|ast_binary_right_handle\(|ast_unary_operand_handle\(|ast_ternary_cond_handle\(|ast_ternary_then_handle\(|ast_ternary_else_handle\(|ast_array_elements_ref\(|ast_index_base_handle\(|ast_index_expr_handle\(|ast_match_scrutinee_handle\(|ast_match_patterns_ref\(|ast_match_bodies_ref\(|ast_field_base_handle\(|ast_field_name_idx\(|ast_struct_lit_name_idx\(|ast_struct_lit_field_names_ref\(|ast_struct_lit_field_values_ref\(' "$sym" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Symbol-table expression paths must use typed AST ref accessors."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require resolver statement AST refs
         shell: bash
         run: |
