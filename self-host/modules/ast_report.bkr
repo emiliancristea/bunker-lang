@@ -264,8 +264,8 @@
                 json_field_raw("body", ast_report_node_ref_json(names, ast_node_ref_from_block_ref(ast_fn_ref_body_ref(item_ref))));
         } else if kind == NODE_PARAM {
             result = result + comma +
-                json_field_str("name", ast_report_name(names, ast_param_name_idx(node))) + comma +
-                json_field_raw("type", ast_report_node_json(names, ast_param_type_node(node)));
+                json_field_str("name", ast_report_name(names, ast_param_ref_name_idx(node_ref))) + comma +
+                json_field_raw("type", ast_report_node_ref_json(names, ast_node_ref_from_type_ref(ast_param_ref_type_ref(node_ref))));
         } else if kind == NODE_TYPE {
             let type_handle = ast_type_handle(node);
             let type_kind = ast_type_kind_value(type_handle);
