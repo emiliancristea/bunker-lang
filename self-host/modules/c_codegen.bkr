@@ -192,7 +192,6 @@
     }
 
     fn infer_c_expr_ref_type(state: CgenStateRef, expr_ref: AstExprRef) -> i64 {
-        let expr: Vec<i64> = ast_expr_node_from_ref(expr_ref);
         let node_type: i64 = ast_expr_ref_kind(expr_ref);
 
         if node_type == NODE_INT_LIT {
@@ -212,7 +211,7 @@
         }
 
         if node_type == NODE_ARRAY_LIT {
-            let elements_ref: AstNodeListRef = ast_array_elements_ref(expr);
+            let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
             if ast_node_list_ref_count(elements_ref) > 0 {
                 return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(elements_ref, 0)));
             }
@@ -225,7 +224,7 @@
 
         if node_type == NODE_IDENT {
             let names: Vec<str> = cgen_names_ref(state);
-            let name_idx: i64 = ast_name_idx(expr);
+            let name_idx: i64 = ast_expr_ref_name_idx(expr_ref);
             let raw: str = name_from_table(names, name_idx);
             if raw == "None" {
                 return TYPE_I64;
@@ -234,10 +233,9 @@
         }
 
         if node_type == NODE_INDEX {
-            let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_index_base_handle(expr));
-            let base: Vec<i64> = ast_expr_node_from_ref(base_ref);
+            let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_index_ref_base_handle(expr_ref));
             if ast_expr_ref_kind(base_ref) == NODE_IDENT {
-                return cgen_lookup_array_elem_type_ref(state, ast_name_idx(base));
+                return cgen_lookup_array_elem_type_ref(state, ast_expr_ref_name_idx(base_ref));
             }
             return TYPE_UNKNOWN;
         }
@@ -247,9 +245,9 @@
         }
 
         if node_type == NODE_BINARY {
-            let op: i64 = ast_binary_op(expr);
-            let left_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_left_handle(expr));
-            let right_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_right_handle(expr));
+            let op: i64 = ast_binary_ref_op(expr_ref);
+            let left_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref));
+            let right_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_right_handle(expr_ref));
             let left_kind: i64 = infer_c_expr_ref_type(state, left_ref);
             let right_kind: i64 = infer_c_expr_ref_type(state, right_ref);
             if op == TOK_PLUS && (left_kind == TYPE_STR || right_kind == TYPE_STR) {
@@ -263,19 +261,19 @@
         }
 
         if node_type == NODE_TERNARY {
-            return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_ternary_then_handle(expr)));
+            return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_ternary_ref_then_handle(expr_ref)));
         }
 
         if node_type == NODE_UNARY {
-            let op: i64 = ast_unary_op(expr);
+            let op: i64 = ast_unary_ref_op(expr_ref);
             if op == TOK_NOT {
                 return TYPE_BOOL;
             }
-            return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_unary_operand_handle(expr)));
+            return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_unary_ref_operand_handle(expr_ref)));
         }
 
         if node_type == NODE_MATCH {
-            let bodies_ref: AstNodeListRef = ast_match_bodies_ref(expr);
+            let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
             if ast_node_list_ref_count(bodies_ref) > 0 {
                 let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, 0);
                 if ast_node_ref_kind(body_ref) == NODE_BLOCK {
@@ -295,7 +293,7 @@
         }
 
         if node_type == NODE_CALL {
-            let name_idx: i64 = ast_call_name_idx(expr);
+            let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
             let names: Vec<str> = cgen_names_ref(state);
             let raw: str = name_from_table(names, name_idx);
             if raw == "Some" {
@@ -435,8 +433,7 @@
     }
 
     fn gen_c_match_expr_ref(state: CgenStateRef, expr_ref: AstExprRef) -> str {
-        let expr: Vec<i64> = ast_expr_node_from_ref(expr_ref);
-        let scrutinee_ref: AstExprRef = ast_expr_ref_from_handle(ast_match_scrutinee_handle(expr));
+        let scrutinee_ref: AstExprRef = ast_expr_ref_from_handle(ast_match_ref_scrutinee_handle(expr_ref));
         let scrutinee_kind = infer_c_expr_ref_type(state, scrutinee_ref);
         let result_kind = infer_c_expr_ref_type(state, expr_ref);
         if result_kind == TYPE_UNKNOWN || result_kind == TYPE_VOID {
@@ -448,8 +445,8 @@
         let result = "({ " + type_to_c(scrutinee_kind) + " " + value_name + " = " + gen_c_expr_ref(state, scrutinee_ref) + "; " +
             type_to_c(result_kind) + " " + result_name + " = 0; ";
 
-        let patterns_ref: AstPatternListRef = ast_match_patterns_ref(expr);
-        let bodies_ref: AstNodeListRef = ast_match_bodies_ref(expr);
+        let patterns_ref: AstPatternListRef = ast_match_ref_patterns_ref(expr_ref);
+        let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
         let i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
             if i > 0 {
@@ -474,8 +471,7 @@
         if ast_expr_ref_kind(expr_ref) != NODE_CALL {
             return false;
         }
-        let expr: Vec<i64> = ast_expr_node_from_ref(expr_ref);
-        let name_idx: i64 = ast_call_name_idx(expr);
+        let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
         let names: Vec<str> = cgen_names_ref(state);
         let raw: str = name_from_table(names, name_idx);
         return raw == "result_unwrap" || raw == "result_unwrap_err" || raw == "result_value" ||
@@ -512,29 +508,28 @@
     }
 
     fn gen_c_expr_ref(state: CgenStateRef, expr_ref: AstExprRef) -> str {
-        let expr: Vec<i64> = ast_expr_node_from_ref(expr_ref);
         let node_type: i64 = ast_expr_ref_kind(expr_ref);
 
         if node_type == NODE_INT_LIT {
-            return int_to_string(ast_value(expr));
+            return int_to_string(ast_expr_ref_value(expr_ref));
         }
 
         if node_type == NODE_FLOAT_LIT {
-            return ast_value(expr) as str;
+            return ast_expr_ref_value(expr_ref) as str;
         }
 
         if node_type == NODE_BOOL_LIT {
-            if ast_value(expr) == 1 { return "BKR_TRUE"; }
+            if ast_expr_ref_value(expr_ref) == 1 { return "BKR_TRUE"; }
             return "BKR_FALSE";
         }
 
         if node_type == NODE_STR_LIT {
-            let raw = ast_value(expr) as str;
+            let raw = ast_expr_ref_value(expr_ref) as str;
             return c_escape_string(raw);
         }
 
         if node_type == NODE_ARRAY_LIT {
-            let elements_ref: AstNodeListRef = ast_array_elements_ref(expr);
+            let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
             let result = "{";
             let i: i64 = 0;
             while i < ast_node_list_ref_count(elements_ref) {
@@ -546,9 +541,9 @@
         }
 
         if node_type == NODE_STRUCT_LIT {
-            let type_name = name_to_c_ref(state, ast_struct_lit_name_idx(expr));
-            let field_names_ref: AstI64ListRef = ast_struct_lit_field_names_ref(expr);
-            let field_values_ref: AstNodeListRef = ast_struct_lit_field_values_ref(expr);
+            let type_name = name_to_c_ref(state, ast_struct_lit_ref_name_idx(expr_ref));
+            let field_names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
+            let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
             let result = "(" + type_name + "){";
             let i: i64 = 0;
             while i < ast_i64_list_ref_count(field_names_ref) {
@@ -560,7 +555,7 @@
         }
 
         if node_type == NODE_IDENT {
-            let name_idx: i64 = ast_name_idx(expr);
+            let name_idx: i64 = ast_expr_ref_name_idx(expr_ref);
             let names: Vec<str> = cgen_names_ref(state);
             let raw: str = name_from_table(names, name_idx);
             if raw == "None" {
@@ -570,21 +565,21 @@
         }
 
         if node_type == NODE_INDEX {
-            let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_index_base_handle(expr));
-            let idx_ref: AstExprRef = ast_expr_ref_from_handle(ast_index_expr_handle(expr));
+            let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_index_ref_base_handle(expr_ref));
+            let idx_ref: AstExprRef = ast_expr_ref_from_handle(ast_index_ref_expr_handle(expr_ref));
             return gen_c_expr_ref(state, base_ref) + "[" + gen_c_expr_ref(state, idx_ref) + "]";
         }
 
         if node_type == NODE_FIELD_ACCESS {
-            let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_field_base_handle(expr));
-            let field_name: i64 = ast_field_name_idx(expr);
+            let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_field_access_ref_base_handle(expr_ref));
+            let field_name: i64 = ast_field_access_ref_name_idx(expr_ref);
             return gen_c_expr_ref(state, base_ref) + "." + name_to_c_ref(state, field_name);
         }
 
         if node_type == NODE_BINARY {
-            let op: i64 = ast_binary_op(expr);
-            let left_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_left_handle(expr));
-            let right_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_right_handle(expr));
+            let op: i64 = ast_binary_ref_op(expr_ref);
+            let left_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref));
+            let right_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_right_handle(expr_ref));
 
             if op == TOK_EQ || op == TOK_NE {
                 let left_kind: i64 = infer_c_expr_ref_type(state, left_ref);
@@ -610,15 +605,15 @@
         }
 
         if node_type == NODE_TERNARY {
-            let cond_ref: AstExprRef = ast_expr_ref_from_handle(ast_ternary_cond_handle(expr));
-            let then_ref: AstExprRef = ast_expr_ref_from_handle(ast_ternary_then_handle(expr));
-            let else_ref: AstExprRef = ast_expr_ref_from_handle(ast_ternary_else_handle(expr));
+            let cond_ref: AstExprRef = ast_expr_ref_from_handle(ast_ternary_ref_cond_handle(expr_ref));
+            let then_ref: AstExprRef = ast_expr_ref_from_handle(ast_ternary_ref_then_handle(expr_ref));
+            let else_ref: AstExprRef = ast_expr_ref_from_handle(ast_ternary_ref_else_handle(expr_ref));
             return "(" + gen_c_expr_ref(state, cond_ref) + " ? " + gen_c_expr_ref(state, then_ref) + " : " + gen_c_expr_ref(state, else_ref) + ")";
         }
 
         if node_type == NODE_UNARY {
-            let op: i64 = ast_unary_op(expr);
-            let operand_ref: AstExprRef = ast_expr_ref_from_handle(ast_unary_operand_handle(expr));
+            let op: i64 = ast_unary_ref_op(expr_ref);
+            let operand_ref: AstExprRef = ast_expr_ref_from_handle(ast_unary_ref_operand_handle(expr_ref));
             if op == TOK_NOT { return "(!" + gen_c_expr_ref(state, operand_ref) + ")"; }
             if op == TOK_MINUS { return "(-" + gen_c_expr_ref(state, operand_ref) + ")"; }
             return gen_c_expr_ref(state, operand_ref);
@@ -629,10 +624,10 @@
         }
 
         if node_type == NODE_CALL {
-            let name_idx: i64 = ast_call_name_idx(expr);
+            let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
             let names: Vec<str> = cgen_names_ref(state);
             let raw: str = name_from_table(names, name_idx);
-            let args_ref: AstNodeListRef = ast_call_args_ref(expr);
+            let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
             let arg_count: i64 = ast_node_list_ref_count(args_ref);
             if raw == "Some" && arg_count == 1 {
                 return "(((" + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0))) + ") << 1) | 1)";
@@ -686,9 +681,8 @@
             }
             if raw == "len" && arg_count == 1 {
                 let len_arg_ref: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0));
-                let len_arg: Vec<i64> = ast_expr_node_from_ref(len_arg_ref);
                 if ast_expr_ref_kind(len_arg_ref) == NODE_IDENT {
-                    let array_len: i64 = cgen_lookup_array_length_ref(state, ast_name_idx(len_arg));
+                    let array_len: i64 = cgen_lookup_array_length_ref(state, ast_expr_ref_name_idx(len_arg_ref));
                     if array_len >= 0 {
                         return int_to_string(array_len);
                     }

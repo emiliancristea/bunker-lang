@@ -687,6 +687,10 @@
         return ast_field(node, 1);
     }
 
+    fn ast_expr_ref_value(expr_ref: AstExprRef) -> i64 {
+        return ast_value(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_type_node(node: Vec<i64>) -> i64 {
         return ast_field(node, 2);
     }
@@ -697,6 +701,10 @@
 
     fn ast_binary_op(node: Vec<i64>) -> i64 {
         return ast_field(node, 1);
+    }
+
+    fn ast_binary_ref_op(expr_ref: AstExprRef) -> i64 {
+        return ast_binary_op(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_binary_left(node: Vec<i64>) -> Vec<i64> {
@@ -725,6 +733,10 @@
 
     fn ast_unary_op(node: Vec<i64>) -> i64 {
         return ast_field(node, 1);
+    }
+
+    fn ast_unary_ref_op(expr_ref: AstExprRef) -> i64 {
+        return ast_unary_op(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_unary_operand(node: Vec<i64>) -> Vec<i64> {
