@@ -147,13 +147,17 @@
     }
 
     fn ast_report_block_statements_json(names: Vec<str>, block: Vec<i64>) -> str {
+        return ast_report_block_statements_ref_json(names, ast_block_ref_from_node(block));
+    }
+
+    fn ast_report_block_statements_ref_json(names: Vec<str>, block_ref: AstBlockRef) -> str {
         let result = "[";
         let i: i64 = 0;
-        while i < ast_block_stmt_count(block) {
+        while i < ast_block_ref_stmt_count(block_ref) {
             if i > 0 {
                 result = result + ",";
             }
-            result = result + ast_report_node_ref_json(names, ast_node_ref_from_node(ast_block_stmt(block, i)));
+            result = result + ast_report_node_ref_json(names, ast_node_ref_from_stmt_ref(ast_block_ref_stmt_ref(block_ref, i)));
             i = i + 1;
         }
         return result + "]";
@@ -275,7 +279,7 @@
                     json_field_i64("array_len", ast_type_array_len_value(type_handle));
             }
         } else if kind == NODE_BLOCK {
-            result = result + comma + json_field_raw("statements", ast_report_block_statements_json(names, node));
+            result = result + comma + json_field_raw("statements", ast_report_block_statements_ref_json(names, ast_block_ref_from_node(node)));
         } else if kind == NODE_LET {
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_let_name_idx(node))) + comma +
