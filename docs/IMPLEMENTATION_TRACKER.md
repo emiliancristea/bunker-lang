@@ -2,7 +2,7 @@
 
 This is the authoritative implementation tracker for moving Bunker from a bootstrap language into a production language and then into full self-hosting.
 
-Last updated: 2026-05-02
+Last updated: 2026-05-07
 
 ## Operating Rules
 
@@ -166,6 +166,7 @@ These are the next concrete PR-sized slices.
 | Q-103 | DONE | Route C codegen expression access through typed refs. | C codegen expression type inference, match emission, payload-call detection, and expression emission now consume typed expression semantic accessors, with CI rejecting raw expression-node unpacking in the codegen pass. |
 | Q-104 | DONE | Route AST-report expression access through typed refs. | Complete-tree AST report expression serialization now consumes typed expression semantic accessors, with CI rejecting raw expression-node field access in the AST-report pass. |
 | Q-105 | DONE | Route parser expression spans through typed refs. | Parser postfix/operator/ternary/simple-statement internals now read expression spans through `AstExprRef` span helpers, with raw expression-node span roundtrips left only in compatibility adapters. |
+| Q-106 | DONE | Guard parser expression compatibility adapters. | Parser raw expression wrappers now route through `parser_expr_ref_to_compat_node`, with CI rejecting direct parser calls to `ast_expr_node_from_ref` outside that named compatibility boundary. |
 
 ## Language Core
 
@@ -536,3 +537,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-07 | Routed C codegen expression access through typed refs. | C codegen expression type inference and emission now use typed expression semantic accessors instead of raw expression-node unpacking. |
 | 2026-05-07 | Routed AST-report expression access through typed refs. | Complete-tree AST JSON expression serialization now uses typed expression semantic accessors instead of raw expression-node field access. |
 | 2026-05-07 | Routed parser expression spans through typed refs. | Parser expression construction internals now use `AstExprRef` span helpers instead of unwrapping expression nodes for source spans. |
+| 2026-05-07 | Guarded parser expression compatibility adapters. | Raw expression wrappers now use `parser_expr_ref_to_compat_node`, and CI rejects direct parser calls to `ast_expr_node_from_ref` outside that bridge. |
