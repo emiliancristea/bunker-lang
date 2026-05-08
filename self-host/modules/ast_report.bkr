@@ -302,7 +302,8 @@
                 json_field_raw("condition", ast_report_expr_handle_json(names, ast_while_ref_cond_handle(stmt_ref))) + comma +
                 json_field_raw("body", ast_report_node_ref_json(names, ast_node_ref_from_block_ref(ast_while_ref_body_ref(stmt_ref))));
         } else if kind == NODE_EXPR_STMT {
-            result = result + comma + json_field_raw("expr", ast_report_node_json(names, ast_expr_stmt_expr(node)));
+            let stmt_ref: AstStmtRef = ast_stmt_ref_from_node_ref(node_ref);
+            result = result + comma + json_field_raw("expr", ast_report_expr_handle_json(names, ast_expr_stmt_ref_expr_handle(stmt_ref)));
         } else if kind == NODE_ASSIGN {
             result = result + comma +
                 json_field_raw("target", ast_report_node_json(names, ast_assign_target(node))) + comma +
