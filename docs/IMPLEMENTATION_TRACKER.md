@@ -179,6 +179,7 @@ These are the next concrete PR-sized slices.
 | Q-116 | DONE | Route AST-report let fields through typed refs. | AST exposes an `AstNodeRef` to `AstStmtRef` upcast helper, and complete-tree let JSON now reads name, declared type, and initializer through typed statement accessors. |
 | Q-117 | DONE | Route AST-report return fields through typed refs. | Complete-tree return JSON now reads the optional return expression through typed statement accessors. |
 | Q-118 | DONE | Route AST-report if fields through typed refs. | Complete-tree if JSON now reads condition, then block, and optional else handle through typed statement/block accessors. |
+| Q-119 | DONE | Route AST-report while fields through typed refs. | Complete-tree while JSON now reads condition and body through typed statement/block accessors. |
 
 ## Language Core
 
@@ -562,3 +563,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-08 | Routed AST-report let fields through typed refs. | Complete-tree let JSON now reads declaration fields through `AstStmtRef` accessors. |
 | 2026-05-08 | Routed AST-report return fields through typed refs. | Complete-tree return JSON now reads the optional expression handle through `AstStmtRef` accessors. |
 | 2026-05-08 | Routed AST-report if fields through typed refs. | Complete-tree if JSON now reads control-flow child handles through `AstStmtRef` and `AstBlockRef` accessors. |
+| 2026-05-08 | Routed AST-report while fields through typed refs. | Complete-tree while JSON now reads loop condition and body through `AstStmtRef` and `AstBlockRef` accessors. |
