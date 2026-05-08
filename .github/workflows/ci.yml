@@ -649,6 +649,19 @@ jobs:
             exit 1
           fi
 
+      - name: Require AST report expression statement refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast_report='self-host/modules/ast_report.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'ast_expr_stmt_expr\(' "$ast_report" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "AST report expression-statement serialization must use typed AstStmtRef accessors."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require AST report block refs
         shell: bash
         run: |
