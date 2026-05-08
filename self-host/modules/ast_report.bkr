@@ -288,7 +288,8 @@
                 json_field_raw("declared_type", ast_report_optional_node_json(names, ast_let_ref_type_handle(stmt_ref))) + comma +
                 json_field_raw("init", ast_report_optional_node_json(names, ast_let_ref_init_handle(stmt_ref)));
         } else if kind == NODE_RETURN {
-            result = result + comma + json_field_raw("expr", ast_report_optional_node_json(names, ast_return_expr_handle(node)));
+            let stmt_ref: AstStmtRef = ast_stmt_ref_from_node_ref(node_ref);
+            result = result + comma + json_field_raw("expr", ast_report_optional_node_json(names, ast_return_ref_expr_handle(stmt_ref)));
         } else if kind == NODE_IF {
             result = result + comma +
                 json_field_raw("condition", ast_report_node_json(names, ast_if_cond(node))) + comma +
