@@ -623,6 +623,19 @@ jobs:
             exit 1
           fi
 
+      - name: Require AST report if refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast_report='self-host/modules/ast_report.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'ast_if_cond\(|ast_if_then\(|ast_if_else_handle\(' "$ast_report" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "AST report if serialization must use typed AstStmtRef accessors."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require AST report block refs
         shell: bash
         run: |
