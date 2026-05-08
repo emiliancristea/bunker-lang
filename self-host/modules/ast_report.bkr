@@ -305,9 +305,10 @@
             let stmt_ref: AstStmtRef = ast_stmt_ref_from_node_ref(node_ref);
             result = result + comma + json_field_raw("expr", ast_report_expr_handle_json(names, ast_expr_stmt_ref_expr_handle(stmt_ref)));
         } else if kind == NODE_ASSIGN {
+            let stmt_ref: AstStmtRef = ast_stmt_ref_from_node_ref(node_ref);
             result = result + comma +
-                json_field_raw("target", ast_report_node_json(names, ast_assign_target(node))) + comma +
-                json_field_raw("value", ast_report_node_json(names, ast_assign_value(node)));
+                json_field_raw("target", ast_report_expr_handle_json(names, ast_assign_ref_target_handle(stmt_ref))) + comma +
+                json_field_raw("value", ast_report_expr_handle_json(names, ast_assign_ref_value_handle(stmt_ref)));
         } else if kind == NODE_FOR {
             result = result + comma +
                 json_field_str("binding", ast_report_name(names, ast_for_name_idx(node))) + comma +
