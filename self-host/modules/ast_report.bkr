@@ -282,10 +282,11 @@
         } else if kind == NODE_BLOCK {
             result = result + comma + json_field_raw("statements", ast_report_block_statements_ref_json(names, ast_block_ref_from_node_ref(node_ref)));
         } else if kind == NODE_LET {
+            let stmt_ref: AstStmtRef = ast_stmt_ref_from_node_ref(node_ref);
             result = result + comma +
-                json_field_str("name", ast_report_name(names, ast_let_name_idx(node))) + comma +
-                json_field_raw("declared_type", ast_report_optional_node_json(names, ast_let_type_handle(node))) + comma +
-                json_field_raw("init", ast_report_optional_node_json(names, ast_let_init_handle(node)));
+                json_field_str("name", ast_report_name(names, ast_let_ref_name_idx(stmt_ref))) + comma +
+                json_field_raw("declared_type", ast_report_optional_node_json(names, ast_let_ref_type_handle(stmt_ref))) + comma +
+                json_field_raw("init", ast_report_optional_node_json(names, ast_let_ref_init_handle(stmt_ref)));
         } else if kind == NODE_RETURN {
             result = result + comma + json_field_raw("expr", ast_report_optional_node_json(names, ast_return_expr_handle(node)));
         } else if kind == NODE_IF {

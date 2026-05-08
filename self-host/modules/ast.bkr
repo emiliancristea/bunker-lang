@@ -343,6 +343,10 @@
         return ast_stmt_ref_from_handle(ast_stmt_handle(stmt));
     }
 
+    fn ast_stmt_ref_from_node_ref(node_ref: AstNodeRef) -> AstStmtRef {
+        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
+    }
+
     fn ast_stmt_ref_handle(stmt_ref: AstStmtRef) -> i64 {
         return stmt_ref.handle;
     }

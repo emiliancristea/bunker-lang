@@ -176,6 +176,7 @@ These are the next concrete PR-sized slices.
 | Q-113 | DONE | Route AST-report param fields through typed refs. | Complete-tree param JSON now reads names and type nodes through typed param accessors, with CI rejecting raw param field reads in AST report. |
 | Q-114 | DONE | Route AST-report type fields through typed refs. | AST exposes `AstNodeRef` to `AstTypeRef` upcasts and typed type detail accessors, with complete-tree type JSON no longer deriving raw type handles. |
 | Q-115 | DONE | Route AST-report block node upcast through typed refs. | AST exposes an `AstNodeRef` to `AstBlockRef` upcast helper, and complete-tree block JSON no longer converts the raw node into a block ref. |
+| Q-116 | DONE | Route AST-report let fields through typed refs. | AST exposes an `AstNodeRef` to `AstStmtRef` upcast helper, and complete-tree let JSON now reads name, declared type, and initializer through typed statement accessors. |
 
 ## Language Core
 
@@ -556,3 +557,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-07 | Routed AST-report param fields through typed refs. | Complete-tree param JSON now reads name and type through typed param `AstNodeRef` accessors. |
 | 2026-05-07 | Routed AST-report type fields through typed refs. | Complete-tree type JSON now reads kind, struct name, and array metadata through `AstTypeRef` accessors. |
 | 2026-05-07 | Routed AST-report block node upcasts through typed refs. | Complete-tree block JSON now obtains `AstBlockRef` directly from `AstNodeRef`. |
+| 2026-05-08 | Routed AST-report let fields through typed refs. | Complete-tree let JSON now reads declaration fields through `AstStmtRef` accessors. |
