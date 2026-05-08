@@ -291,10 +291,11 @@
             let stmt_ref: AstStmtRef = ast_stmt_ref_from_node_ref(node_ref);
             result = result + comma + json_field_raw("expr", ast_report_optional_node_json(names, ast_return_ref_expr_handle(stmt_ref)));
         } else if kind == NODE_IF {
+            let stmt_ref: AstStmtRef = ast_stmt_ref_from_node_ref(node_ref);
             result = result + comma +
-                json_field_raw("condition", ast_report_node_json(names, ast_if_cond(node))) + comma +
-                json_field_raw("then", ast_report_node_json(names, ast_if_then(node))) + comma +
-                json_field_raw("else", ast_report_optional_node_json(names, ast_if_else_handle(node)));
+                json_field_raw("condition", ast_report_expr_handle_json(names, ast_if_ref_cond_handle(stmt_ref))) + comma +
+                json_field_raw("then", ast_report_node_ref_json(names, ast_node_ref_from_block_ref(ast_if_ref_then_block_ref(stmt_ref)))) + comma +
+                json_field_raw("else", ast_report_optional_node_json(names, ast_if_ref_else_handle(stmt_ref)));
         } else if kind == NODE_WHILE {
             result = result + comma +
                 json_field_raw("condition", ast_report_node_json(names, ast_while_cond(node))) + comma +
