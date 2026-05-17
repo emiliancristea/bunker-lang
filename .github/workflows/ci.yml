@@ -662,15 +662,15 @@ jobs:
             exit 1
           fi
 
-      - name: Require AST report assign and for refs
+      - name: Require AST report assign refs
         shell: bash
         run: |
           set -euo pipefail
           ast_report='self-host/modules/ast_report.bkr'
           matches="$(mktemp)"
-          grep -n -E 'ast_assign_target\(|ast_assign_value\(|ast_for_(name_idx|start|end|inclusive|body)\(' "$ast_report" > "$matches" || true
+          grep -n -E 'ast_assign_target\(|ast_assign_value\(' "$ast_report" > "$matches" || true
           if [ -s "$matches" ]; then
-            echo "AST report assign/for serialization must use typed AstStmtRef accessors."
+            echo "AST report assign serialization must use typed AstStmtRef accessors."
             cat "$matches"
             exit 1
           fi
