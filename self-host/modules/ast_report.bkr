@@ -310,12 +310,13 @@
                 json_field_raw("target", ast_report_expr_handle_json(names, ast_assign_ref_target_handle(stmt_ref))) + comma +
                 json_field_raw("value", ast_report_expr_handle_json(names, ast_assign_ref_value_handle(stmt_ref)));
         } else if kind == NODE_FOR {
+            let stmt_ref: AstStmtRef = ast_stmt_ref_from_node_ref(node_ref);
             result = result + comma +
-                json_field_str("binding", ast_report_name(names, ast_for_name_idx(node))) + comma +
-                json_field_raw("start", ast_report_node_json(names, ast_for_start(node))) + comma +
-                json_field_raw("end", ast_report_node_json(names, ast_for_end(node))) + comma +
-                json_field_bool("inclusive", ast_for_inclusive(node) == 1) + comma +
-                json_field_raw("body", ast_report_node_json(names, ast_for_body(node)));
+                json_field_str("binding", ast_report_name(names, ast_for_ref_name_idx(stmt_ref))) + comma +
+                json_field_raw("start", ast_report_expr_handle_json(names, ast_for_ref_start_handle(stmt_ref))) + comma +
+                json_field_raw("end", ast_report_expr_handle_json(names, ast_for_ref_end_handle(stmt_ref))) + comma +
+                json_field_bool("inclusive", ast_for_ref_inclusive(stmt_ref) == 1) + comma +
+                json_field_raw("body", ast_report_node_ref_json(names, ast_node_ref_from_block_ref(ast_for_ref_body_ref(stmt_ref))));
         } else if kind == NODE_LOOP {
             result = result + comma + json_field_raw("body", ast_report_node_json(names, ast_loop_body(node)));
         } else if kind == NODE_BINARY {
