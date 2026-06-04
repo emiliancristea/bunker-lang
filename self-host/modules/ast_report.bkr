@@ -318,7 +318,8 @@
                 json_field_bool("inclusive", ast_for_ref_inclusive(stmt_ref) == 1) + comma +
                 json_field_raw("body", ast_report_node_ref_json(names, ast_node_ref_from_block_ref(ast_for_ref_body_ref(stmt_ref))));
         } else if kind == NODE_LOOP {
-            result = result + comma + json_field_raw("body", ast_report_node_json(names, ast_loop_body(node)));
+            let stmt_ref: AstStmtRef = ast_stmt_ref_from_node_ref(node_ref);
+            result = result + comma + json_field_raw("body", ast_report_node_ref_json(names, ast_node_ref_from_block_ref(ast_loop_ref_body_ref(stmt_ref))));
         } else if kind == NODE_BINARY {
             let expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
             result = result + comma +

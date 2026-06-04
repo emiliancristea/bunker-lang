@@ -183,6 +183,7 @@ These are the next concrete PR-sized slices.
 | Q-120 | DONE | Route AST-report expression-statement fields through typed refs. | Complete-tree expression-statement JSON now reads its expression handle through typed statement accessors. |
 | Q-121 | DONE | Route AST-report assign fields through typed refs. | Complete-tree assignment JSON now reads target and value expression handles through typed statement accessors. |
 | Q-122 | DONE | Route AST-report for fields through typed refs. | Complete-tree for-loop JSON now reads binding, range expressions, inclusive flag, and body through typed statement/block accessors. |
+| Q-123 | DONE | Route AST-report loop fields through typed refs. | Complete-tree loop JSON now reads its body through typed statement/block accessors. |
 
 ## Language Core
 
@@ -570,3 +571,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-08 | Routed AST-report expression-statement fields through typed refs. | Complete-tree expression-statement JSON now reads its expression handle through `AstStmtRef` accessors. |
 | 2026-05-08 | Routed AST-report assign fields through typed refs. | Complete-tree assignment JSON now reads target and value expression handles through `AstStmtRef` accessors. |
 | 2026-05-17 | Routed AST-report for fields through typed refs. | Complete-tree for-loop JSON now reads binding, range expressions, inclusive flag, and body through `AstStmtRef` and `AstBlockRef` accessors. |
+| 2026-06-04 | Routed AST-report loop fields through typed refs. | Complete-tree loop JSON now reads its body through `AstStmtRef` and `AstBlockRef` accessors. |
