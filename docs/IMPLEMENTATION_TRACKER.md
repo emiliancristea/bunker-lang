@@ -228,6 +228,7 @@ These are the next concrete PR-sized slices.
 | Q-165 | DONE | Add missing struct literal field diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `missing_struct_literal_field` with stable `BKR_SELF_STRUCT_LITERAL` diagnostics for omitted declared fields. |
 | Q-166 | DONE | Add const assignment diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `const_assignment` with stable `BKR_SELF_CONST_ASSIGNMENT` diagnostics when assignment targets a top-level constant. |
 | Q-167 | DONE | Add empty array ambiguity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `ambiguous_empty_array` with stable `BKR_SELF_AMBIGUOUS_TYPE` diagnostics for unannotated empty array initializers. |
+| Q-168 | DONE | Add `None` ambiguity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `ambiguous_none` with stable `BKR_SELF_AMBIGUOUS_TYPE` diagnostics for unannotated `None` initializers. |
 
 ## Language Core
 
@@ -257,7 +258,7 @@ These are the next concrete PR-sized slices.
 | T-005 | TODO | P1 | Type aliases. | Aliases preserve diagnostics and compile to the same representation. |
 | T-006 | PARTIAL | P0 | Local type inference. | Let bindings infer robustly for all supported expressions. |
 | T-007 | PARTIAL | P0 | Call-result inference. | Builtins and user functions propagate exact result types. |
-| T-008 | PARTIAL | P0 | Inference for `None`, empty arrays, Vec, HashMap, Ok, Err. | Unannotated empty array initializers now produce precise self-host diagnostics; final gate requires contextual inference for `None`, Vec, HashMap, Ok, and Err. |
+| T-008 | PARTIAL | P0 | Inference for `None`, empty arrays, Vec, HashMap, Ok, Err. | Unannotated empty array and `None` initializers now produce precise self-host diagnostics; final gate requires contextual inference for Vec, HashMap, Ok, and Err. |
 | T-009 | TODO | P0 | User-defined enums/sum types. | Users can define enum variants with payloads. |
 | T-010 | PARTIAL | P0 | Exhaustive match checking. | Self-host typecheck reports non-exhaustive boolean matches with missing cases; final gate requires ADT and integer-range exhaustiveness. |
 | T-011 | PARTIAL | P0 | Pattern type checking. | Match patterns are checked against scrutinee type in Rust and self-host paths, and duplicate/unreachable literal/catch-all patterns are diagnosed in self-host reports. |
@@ -660,3 +661,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added missing struct literal field diagnostics. | Typecheck now reports omitted declared fields as `missing_struct_literal_field` with `BKR_SELF_STRUCT_LITERAL`. |
 | 2026-06-10 | Added const assignment diagnostics. | Typecheck now reports assignments to top-level constants as `const_assignment` with `BKR_SELF_CONST_ASSIGNMENT`. |
 | 2026-06-10 | Added empty array ambiguity diagnostics. | Typecheck now reports unannotated empty array initializers as `ambiguous_empty_array` with `BKR_SELF_AMBIGUOUS_TYPE`. |
+| 2026-06-10 | Added `None` ambiguity diagnostics. | Typecheck now reports unannotated `None` initializers as `ambiguous_none` with `BKR_SELF_AMBIGUOUS_TYPE`. |
