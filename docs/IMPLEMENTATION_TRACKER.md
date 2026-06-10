@@ -210,6 +210,7 @@ These are the next concrete PR-sized slices.
 | Q-147 | DONE | Add struct literal field value diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `struct_field_type_mismatch` when a struct literal field value does not match the declared field type. |
 | Q-148 | DONE | Add invalid assignment target diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `invalid_assignment_target` with stable `BKR_SELF_ASSIGNMENT_TARGET` diagnostics for non-assignable targets. |
 | Q-149 | DONE | Add diagnostic code registry to capabilities. | `BUNKER_CAPABILITY_JSON` now advertises supported diagnostic codes with phase, category, and description metadata for agent discovery. |
+| Q-150 | DONE | Add uniform diagnostic phase fields. | Parse/import, resolver, and typecheck diagnostics now expose a `phase` field plus capability/report flags for phase-aware agent routing. |
 
 ## Language Core
 
@@ -403,7 +404,7 @@ These are the next concrete PR-sized slices.
 
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
-| A-001 | PARTIAL | P0 | JSON diagnostics. | Parse/import errors, import path-policy errors, import graph reports with path lists/edges/counts, capability diagnostic-code registry, and self-host resolver/typecheck reports emit structured JSON diagnostics; final gate requires every compiler phase to share one documented diagnostic envelope. |
+| A-001 | PARTIAL | P0 | JSON diagnostics. | Parse/import errors, import path-policy errors, import graph reports with path lists/edges/counts, capability diagnostic-code registry, and self-host resolver/typecheck reports emit structured JSON diagnostics with phase fields; final gate requires every compiler phase to share one documented diagnostic envelope. |
 | A-002 | PARTIAL | P0 | Stable diagnostic codes. | `BUNKER_CAPABILITY_JSON` now advertises parse/import/resolver/typecheck diagnostic codes with phase/category descriptions; final gate requires a shared documented registry across Rust and self-host modes. |
 | A-003 | PARTIAL | P0 | Exact spans. | Parse diagnostics and self-host AST nodes carry byte offsets, line/column, and parse source excerpts; final gate requires file identity and source excerpts across all compiler phases. |
 | A-004 | PARTIAL | P0 | Expected/found details. | Parse diagnostics include expected/actual tokens, resolver diagnostics include expected/actual symbol context plus related declaration spans, and typecheck diagnostics include typed expected/found objects. |
@@ -624,3 +625,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added struct literal field-value diagnostics. | Typecheck now compares struct literal field values against declared field types and reports `struct_field_type_mismatch`. |
 | 2026-06-10 | Added invalid assignment target diagnostics. | Typecheck now reports non-assignable assignment targets with `BKR_SELF_ASSIGNMENT_TARGET` diagnostics. |
 | 2026-06-10 | Added diagnostic code registry. | Capability reports now advertise supported diagnostic codes with phase, category, and description metadata for agents. |
+| 2026-06-10 | Added uniform diagnostic phase fields. | Parse/import, resolver, and typecheck diagnostics now carry explicit phase fields for agent routing. |

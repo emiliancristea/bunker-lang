@@ -93,6 +93,7 @@
                                                        repair_hint: str) -> str {
         let comma: str = ",";
         return "{" +
+            json_field_str("phase", "typecheck") + comma +
             json_field_str("kind", kind) + comma +
             json_field_str("error_code", code) + comma +
             json_field_str("name", name) + comma +
@@ -607,6 +608,7 @@
             json_field_bool("struct_field_value_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
+            json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
             json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments and assignment targets, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +

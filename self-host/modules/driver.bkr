@@ -536,6 +536,7 @@
         let comma = ",";
         return "{" +
             json_field_str("schema_version", "bunker.self_host.diagnostic.v1") + comma +
+            json_field_str("phase", category) + comma +
             json_field_str("category", category) + comma +
             json_field_str("error_code", code) + comma +
             json_field_str("message", message) + comma +
@@ -594,6 +595,7 @@
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("structured_parse_diagnostics", true) + comma +
             json_field_bool("diagnostic_code_registry", true) + comma +
+            json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("import_expansion", true) + comma +
             json_field_bool("import_graph_report", true) + comma +
             json_field_bool("stage1_stage2_ci_gate", true) + comma +

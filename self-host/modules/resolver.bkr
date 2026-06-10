@@ -19,6 +19,7 @@
                                              repair_hint: str) -> str {
         let comma = ",";
         return "{" +
+            json_field_str("phase", "resolver") + comma +
             json_field_str("kind", kind) + comma +
             json_field_str("error_code", code) + comma +
             json_field_str("name", name) + comma +
@@ -718,6 +719,7 @@
             json_field_bool("unresolved_detection", true) + comma +
             json_field_bool("related_declarations", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
+            json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
             json_field_str("scope_model", "kernel globals plus function/block/pattern binding scopes using interned names") + comma +
