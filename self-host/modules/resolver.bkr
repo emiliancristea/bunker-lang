@@ -127,6 +127,19 @@
         return result + item;
     }
 
+    fn resolver_related_declaration_json(kind: str, name: str, node_ref: AstNodeRef) -> str {
+        let comma = ",";
+        let source_start = ast_node_ref_span_start(node_ref);
+        let source_end = ast_node_ref_span_end(node_ref);
+        return "{" +
+            json_field_str("kind", kind) + comma +
+            json_field_str("name", name) + comma +
+            json_field_i64("source_start", source_start) + comma +
+            json_field_i64("source_end", source_end) + comma +
+            json_field_bool("span_known", source_start != AST_SPAN_UNKNOWN && source_end != AST_SPAN_UNKNOWN) +
+            "}";
+    }
+
     fn resolver_known_functions_json_ref(kernel_ref: AstNodeRef, names: Vec<str>) -> str {
         let result = "[";
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
@@ -134,7 +147,10 @@
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_FN {
-                result = resolver_json_array_append(result, json_escape_string(ast_report_name(names, ast_fn_ref_name_idx(item_ref))));
+                result = resolver_json_array_append(result,
+                    resolver_related_declaration_json("function",
+                        ast_report_name(names, ast_fn_ref_name_idx(item_ref)),
+                        ast_node_ref_from_item_ref(item_ref)));
             }
             i = i + 1;
         }
@@ -148,7 +164,10 @@
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_CONST {
-                result = resolver_json_array_append(result, json_escape_string(ast_report_name(names, ast_const_ref_name_idx(item_ref))));
+                result = resolver_json_array_append(result,
+                    resolver_related_declaration_json("const",
+                        ast_report_name(names, ast_const_ref_name_idx(item_ref)),
+                        ast_node_ref_from_item_ref(item_ref)));
             }
             i = i + 1;
         }
@@ -162,7 +181,10 @@
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_STRUCT {
-                result = resolver_json_array_append(result, json_escape_string(ast_report_name(names, ast_struct_ref_name_idx(item_ref))));
+                result = resolver_json_array_append(result,
+                    resolver_related_declaration_json("struct",
+                        ast_report_name(names, ast_struct_ref_name_idx(item_ref)),
+                        ast_node_ref_from_item_ref(item_ref)));
             }
             i = i + 1;
         }
@@ -180,7 +202,10 @@
                 let j: i64 = 0;
                 while j < ast_node_list_ref_count(fields_ref) {
                     let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, j);
-                    result = resolver_json_array_append(result, json_escape_string(ast_report_name(names, ast_field_decl_ref_name_idx(field_ref))));
+                    result = resolver_json_array_append(result,
+                        resolver_related_declaration_json("field",
+                            ast_report_name(names, ast_field_decl_ref_name_idx(field_ref)),
+                            field_ref));
                     j = j + 1;
                 }
             }
@@ -692,7 +717,7 @@
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
             json_field_str("scope_model", "kernel globals plus function/block/pattern binding scopes using interned names") + comma +
-            json_field_str("known_limits", "Bootstrap resolver validates duplicate declarations and unresolved identifiers, calls, struct types, struct literals, and struct literal fields with related declaration name lists; it does not yet resolve import visibility, overloads, method receiver fields, or definition-use source spans.") + comma +
+            json_field_str("known_limits", "Bootstrap resolver validates duplicate declarations and unresolved identifiers, calls, struct types, struct literals, and struct literal fields with related declaration span objects; it does not yet resolve import visibility, overloads, method receiver fields, or cross-file definition origins.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
