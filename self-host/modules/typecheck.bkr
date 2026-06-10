@@ -380,6 +380,11 @@
                 i = i + 1;
             }
         } else if kind == NODE_INDEX {
+            let index_expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_index_ref_expr_handle(expr_ref));
+            let index_kind: i64 = typecheck_expr_ref_kind(cstate, index_expr_ref);
+            state = typecheck_maybe_append_mismatch_ref(state, "index_type_mismatch", "index expression",
+                scope, ast_node_ref_from_expr_ref(index_expr_ref), TYPE_I64, index_kind,
+                "Use an integer-compatible index expression.");
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_index_ref_base_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
@@ -608,13 +613,14 @@
             json_field_bool("call_arity_checks", true) + comma +
             json_field_bool("assignment_target_checks", true) + comma +
             json_field_bool("struct_field_value_checks", true) + comma +
+            json_field_bool("index_type_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments and assignment targets, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments and assignment targets, indexes, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }

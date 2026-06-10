@@ -212,6 +212,7 @@ These are the next concrete PR-sized slices.
 | Q-149 | DONE | Add diagnostic code registry to capabilities. | `BUNKER_CAPABILITY_JSON` now advertises supported diagnostic codes with phase, category, and description metadata for agent discovery. |
 | Q-150 | DONE | Add uniform diagnostic phase fields. | Parse/import, resolver, and typecheck diagnostics now expose a `phase` field plus capability/report flags for phase-aware agent routing. |
 | Q-151 | DONE | Add suggested-edit diagnostic envelopes. | Parse/import, resolver, and typecheck diagnostics now expose `suggested_edits`; parse diagnostics emit concrete insert-token edit candidates for common missing punctuation. |
+| Q-152 | DONE | Add index expression type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `index_type_mismatch` when an index expression is not integer-compatible. |
 
 ## Language Core
 
@@ -257,7 +258,7 @@ These are the next concrete PR-sized slices.
 | T-021 | TODO | P2 | Operator overloading policy. | Either explicitly supported via traits or rejected with diagnostics. |
 | T-022 | PARTIAL | P1 | Numeric promotion rules. | All numeric conversions are specified and tested. |
 | T-023 | PARTIAL | P1 | Cast safety rules. | Safe/unsafe casts are documented, checked, and diagnosed. |
-| T-024 | PARTIAL | P0 | Type diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` expected/found type diagnostics with spans and repair hints for bootstrap annotation, return, condition, assignment value/target, range, direct call-argument, direct call-arity, and struct literal field-value checks; final gate requires origin tracking and a real typechecker across Rust and self-host modes. |
+| T-024 | PARTIAL | P0 | Type diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` expected/found type diagnostics with spans and repair hints for bootstrap annotation, return, condition, assignment value/target, index, range, direct call-argument, direct call-arity, and struct literal field-value checks; final gate requires origin tracking and a real typechecker across Rust and self-host modes. |
 
 ## Data Model And Standard Types
 
@@ -347,7 +348,7 @@ These are the next concrete PR-sized slices.
 | CF-004 | PARTIAL | P0 | Source spans on AST nodes. | Self-host AST nodes and patterns carry byte start/end offsets; final gate requires file, line, column, byte offsets, and source excerpts across compiler phases. |
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
-| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return, condition, assignment value/target, range, direct call-argument type mismatches, direct call arity mismatches, and struct literal field-value mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
+| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return, condition, assignment value/target, index, range, direct call-argument type mismatches, direct call arity mismatches, and struct literal field-value mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
 | CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass lives in `modules/resolver.bkr` and reports duplicate declarations plus unresolved identifiers/calls/types/struct literal fields with related declaration span objects; final gate requires import graph, visibility, overloads, and cross-file definition origins. |
 | CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
 | CF-010 | TODO | P0 | Semantic validation passes. | Non-type semantic errors are separate and tested. |
@@ -628,3 +629,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added diagnostic code registry. | Capability reports now advertise supported diagnostic codes with phase, category, and description metadata for agents. |
 | 2026-06-10 | Added uniform diagnostic phase fields. | Parse/import, resolver, and typecheck diagnostics now carry explicit phase fields for agent routing. |
 | 2026-06-10 | Added suggested-edit diagnostic envelopes. | Diagnostics now expose `suggested_edits`, with parse diagnostics providing concrete insert-token candidates for common missing punctuation. |
+| 2026-06-10 | Added index expression type diagnostics. | Typecheck now reports non-integer-compatible index expressions as `index_type_mismatch`. |
