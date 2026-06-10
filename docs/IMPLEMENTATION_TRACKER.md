@@ -216,6 +216,7 @@ These are the next concrete PR-sized slices.
 | Q-153 | DONE | Add binary operand type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `binary_operand_type_mismatch` for invalid logical, numeric, bitwise, shift, and equality operands. |
 | Q-154 | DONE | Add unary operand type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `unary_operand_type_mismatch` for invalid `!` and unary `-` operands. |
 | Q-155 | DONE | Add ternary branch type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `ternary_branch_type_mismatch` when ternary branches produce incompatible value types. |
+| Q-156 | DONE | Add match arm value type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `match_arm_type_mismatch` when match arms produce incompatible value types. |
 
 ## Language Core
 
@@ -261,7 +262,7 @@ These are the next concrete PR-sized slices.
 | T-021 | TODO | P2 | Operator overloading policy. | Either explicitly supported via traits or rejected with diagnostics. |
 | T-022 | PARTIAL | P1 | Numeric promotion rules. | All numeric conversions are specified and tested. |
 | T-023 | PARTIAL | P1 | Cast safety rules. | Safe/unsafe casts are documented, checked, and diagnosed. |
-| T-024 | PARTIAL | P0 | Type diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` expected/found type diagnostics with spans and repair hints for bootstrap annotation, return, condition, ternary branches, assignment value/target, index, unary/binary operands, range, direct call-argument, direct call-arity, and struct literal field-value checks; final gate requires origin tracking and a real typechecker across Rust and self-host modes. |
+| T-024 | PARTIAL | P0 | Type diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` expected/found type diagnostics with spans and repair hints for bootstrap annotation, return, condition, ternary/match branch values, assignment value/target, index, unary/binary operands, range, direct call-argument, direct call-arity, and struct literal field-value checks; final gate requires origin tracking and a real typechecker across Rust and self-host modes. |
 
 ## Data Model And Standard Types
 
@@ -351,7 +352,7 @@ These are the next concrete PR-sized slices.
 | CF-004 | PARTIAL | P0 | Source spans on AST nodes. | Self-host AST nodes and patterns carry byte start/end offsets; final gate requires file, line, column, byte offsets, and source excerpts across compiler phases. |
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
-| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return, condition, ternary branches, assignment value/target, index, unary/binary operand, range, direct call-argument type mismatches, direct call arity mismatches, and struct literal field-value mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
+| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return, condition, ternary/match branch values, assignment value/target, index, unary/binary operand, range, direct call-argument type mismatches, direct call arity mismatches, and struct literal field-value mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
 | CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass lives in `modules/resolver.bkr` and reports duplicate declarations plus unresolved identifiers/calls/types/struct literal fields with related declaration span objects; final gate requires import graph, visibility, overloads, and cross-file definition origins. |
 | CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
 | CF-010 | TODO | P0 | Semantic validation passes. | Non-type semantic errors are separate and tested. |
@@ -636,3 +637,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added binary operand type diagnostics. | Typecheck now reports invalid logical, numeric, bitwise, shift, and equality operands as `binary_operand_type_mismatch`. |
 | 2026-06-10 | Added unary operand type diagnostics. | Typecheck now reports invalid `!` and unary `-` operands as `unary_operand_type_mismatch`. |
 | 2026-06-10 | Added ternary branch type diagnostics. | Typecheck now reports incompatible ternary branch value types as `ternary_branch_type_mismatch`. |
+| 2026-06-10 | Added match arm value type diagnostics. | Typecheck now reports incompatible match arm value types as `match_arm_type_mismatch`. |

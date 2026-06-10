@@ -333,6 +333,40 @@
         return state;
     }
 
+    fn typecheck_match_body_ref_kind(cstate: CgenStateRef, body_ref: AstNodeRef) -> i64 {
+        if ast_node_ref_kind(body_ref) == NODE_BLOCK {
+            let block_ref: AstBlockRef = ast_block_ref_from_node_ref(body_ref);
+            if ast_block_ref_stmt_count(block_ref) <= 0 {
+                return TYPE_UNKNOWN;
+            }
+            let last_stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, ast_block_ref_stmt_count(block_ref) - 1);
+            if ast_stmt_ref_kind(last_stmt_ref) == NODE_EXPR_STMT {
+                return typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(last_stmt_ref)));
+            }
+            return TYPE_UNKNOWN;
+        }
+        return typecheck_expr_ref_kind(cstate, ast_expr_ref_from_node_ref(body_ref));
+    }
+
+    fn typecheck_check_match_arm_types_ref(state: Vec<str>, cstate: CgenStateRef,
+                                           bodies_ref: AstNodeListRef, scope: str) -> Vec<str> {
+        if ast_node_list_ref_count(bodies_ref) <= 1 {
+            return state;
+        }
+        let first_body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, 0);
+        let expected_kind: i64 = typecheck_match_body_ref_kind(cstate, first_body_ref);
+        let i: i64 = 1;
+        while i < ast_node_list_ref_count(bodies_ref) {
+            let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
+            let found_kind: i64 = typecheck_match_body_ref_kind(cstate, body_ref);
+            state = typecheck_maybe_append_value_mismatch_ref(state, "match_arm_type_mismatch",
+                "match arm " + int_to_string(i + 1), scope, body_ref, expected_kind, found_kind,
+                "Make every match arm produce a compatible value type.");
+            i = i + 1;
+        }
+        return state;
+    }
+
     fn typecheck_check_expression_against(state: Vec<str>, names: Vec<str>, cstate: CgenStateRef,
                                           expr_value: i64, scope: str, diagnostic_kind: str,
                                           name: str, expected_kind: i64, repair_hint: str) -> Vec<str> {
@@ -504,6 +538,7 @@
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_match_ref_scrutinee_handle(expr_ref), scope, expected_return_kind);
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
+            state = typecheck_check_match_arm_types_ref(state, cstate, bodies_ref, scope);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(bodies_ref) {
                 let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
@@ -728,13 +763,14 @@
             json_field_bool("binary_operand_checks", true) + comma +
             json_field_bool("unary_operand_checks", true) + comma +
             json_field_bool("ternary_branch_checks", true) + comma +
+            json_field_bool("match_arm_type_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, ternary branches, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, ternary branches, match arm values, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
