@@ -198,6 +198,16 @@
                 "Add a return statement on every path or change the function return type to void."));
     }
 
+    fn typecheck_append_unreachable_statement_ref(state: Vec<str>, scope: str,
+                                                  stmt_ref: AstStmtRef) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("unreachable_statement", "BKR_SELF_UNREACHABLE_CODE",
+                "statement", scope, ast_node_ref_from_stmt_ref(stmt_ref),
+                "reachable statement",
+                ast_node_kind_name(ast_stmt_ref_kind(stmt_ref)),
+                "Remove this statement or move it before the terminating control-flow statement."));
+    }
+
     fn typecheck_assignment_target_valid_ref(target_ref: AstExprRef) -> bool {
         let target_kind: i64 = ast_expr_ref_kind(target_ref);
         if target_kind == NODE_IDENT { return true; }
@@ -596,6 +606,71 @@
         return false;
     }
 
+    fn typecheck_stmt_terminates_control_ref(stmt_ref: AstStmtRef) -> bool {
+        let kind: i64 = ast_stmt_ref_kind(stmt_ref);
+        if kind == NODE_RETURN || kind == NODE_BREAK || kind == NODE_CONTINUE {
+            return true;
+        }
+        if kind == NODE_IF {
+            let else_block: i64 = ast_if_ref_else_handle(stmt_ref);
+            if ast_optional_is_none(else_block) {
+                return false;
+            }
+            return typecheck_block_terminates_control_ref(ast_if_ref_then_block_ref(stmt_ref)) &&
+                typecheck_block_terminates_control_ref(ast_block_ref_from_handle(else_block));
+        }
+        return false;
+    }
+
+    fn typecheck_block_terminates_control_ref(block_ref: AstBlockRef) -> bool {
+        let i: i64 = 0;
+        while i < ast_block_ref_stmt_count(block_ref) {
+            if typecheck_stmt_terminates_control_ref(ast_block_ref_stmt_ref(block_ref, i)) {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_scan_unreachable_stmt_ref(state: Vec<str>, stmt_ref: AstStmtRef,
+                                           scope: str) -> Vec<str> {
+        let kind: i64 = ast_stmt_ref_kind(stmt_ref);
+        if kind == NODE_IF {
+            state = typecheck_scan_unreachable_block_ref(state, ast_if_ref_then_block_ref(stmt_ref), scope);
+            let else_block: i64 = ast_if_ref_else_handle(stmt_ref);
+            if ast_optional_is_some(else_block) {
+                state = typecheck_scan_unreachable_block_ref(state, ast_block_ref_from_handle(else_block), scope);
+            }
+        } else if kind == NODE_WHILE {
+            state = typecheck_scan_unreachable_block_ref(state, ast_while_ref_body_ref(stmt_ref), scope);
+        } else if kind == NODE_FOR {
+            state = typecheck_scan_unreachable_block_ref(state, ast_for_ref_body_ref(stmt_ref), scope);
+        } else if kind == NODE_LOOP {
+            state = typecheck_scan_unreachable_block_ref(state, ast_loop_ref_body_ref(stmt_ref), scope);
+        }
+        return state;
+    }
+
+    fn typecheck_scan_unreachable_block_ref(state: Vec<str>, block_ref: AstBlockRef,
+                                            scope: str) -> Vec<str> {
+        let terminated: bool = false;
+        let i: i64 = 0;
+        while i < ast_block_ref_stmt_count(block_ref) {
+            let stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, i);
+            if terminated {
+                state = typecheck_append_unreachable_statement_ref(state, scope, stmt_ref);
+            } else {
+                state = typecheck_scan_unreachable_stmt_ref(state, stmt_ref, scope);
+                if typecheck_stmt_terminates_control_ref(stmt_ref) {
+                    terminated = true;
+                }
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
     fn typecheck_check_expression_against(state: Vec<str>, names: Vec<str>, cstate: CgenStateRef,
                                           expr_value: i64, scope: str, diagnostic_kind: str,
                                           name: str, expected_kind: i64, repair_hint: str) -> Vec<str> {
@@ -950,6 +1025,7 @@
         let cstate: CgenStateRef = type_graph_function_state_ref(kernel_ref, item_ref);
         let expected_return_kind: i64 = typecheck_return_ref_kind(item_ref);
         state = typecheck_scan_loop_control_block_ref(state, ast_fn_ref_body_ref(item_ref), scope, 0);
+        state = typecheck_scan_unreachable_block_ref(state, ast_fn_ref_body_ref(item_ref), scope);
         if expected_return_kind != TYPE_VOID && expected_return_kind != TYPE_UNKNOWN &&
                 !typecheck_block_definitely_returns_ref(ast_fn_ref_body_ref(item_ref)) {
             state = typecheck_append_missing_return_ref(state, names, scope, item_ref);
@@ -1007,13 +1083,14 @@
             json_field_bool("array_element_type_checks", true) + comma +
             json_field_bool("loop_control_checks", true) + comma +
             json_field_bool("return_path_checks", true) + comma +
+            json_field_bool("unreachable_code_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }

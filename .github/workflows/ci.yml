@@ -156,6 +156,7 @@ jobs:
           grep -q 'BKR_SELF_ASSIGNMENT_TARGET' "$driver"
           grep -q 'BKR_SELF_CONTROL_FLOW' "$driver"
           grep -q 'BKR_SELF_RETURN_PATH' "$driver"
+          grep -q 'BKR_SELF_UNREACHABLE_CODE' "$driver"
           grep -q 'let source_excerpt = source_line_excerpt_at(source, source_start);' "$driver"
 
       - name: Require self-host import path policy
@@ -680,6 +681,10 @@ jobs:
           grep -q 'missing_return' "$typecheck"
           grep -q 'BKR_SELF_RETURN_PATH' "$typecheck"
           grep -q 'json_field_bool("return_path_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_scan_unreachable_block_ref' "$typecheck"
+          grep -q 'unreachable_statement' "$typecheck"
+          grep -q 'BKR_SELF_UNREACHABLE_CODE' "$typecheck"
+          grep -q 'json_field_bool("unreachable_code_checks", true)' "$typecheck"
           grep -q 'fn typecheck_struct_field_kind_ref' "$typecheck"
           grep -q 'struct_field_type_mismatch' "$typecheck"
           grep -q 'json_field_bool("struct_field_value_checks", true)' "$typecheck"
