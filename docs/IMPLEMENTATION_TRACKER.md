@@ -233,6 +233,7 @@ These are the next concrete PR-sized slices.
 | Q-170 | DONE | Add builtin call arity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `builtin_argument_count_mismatch` with stable `BKR_SELF_ARITY_MISMATCH` diagnostics for supported bootstrap builtins. |
 | Q-171 | DONE | Add Option match exhaustiveness diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `non_exhaustive_match` when Option-pattern matches omit `Some` or `None` without a catch-all. |
 | Q-172 | DONE | Add duplicate `Some` pattern diagnostics. | `BUNKER_TYPECHECK_JSON` now treats repeated `Some(...)` match arms as duplicate patterns regardless of the binding name. |
+| Q-173 | DONE | Add field-access base type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `field_access_base_type_mismatch` when a field access base is known not to be a struct. |
 
 ## Language Core
 
@@ -274,7 +275,7 @@ These are the next concrete PR-sized slices.
 | T-017 | TODO | P1 | Never/bottom type. | Diverging expressions typecheck in all contexts. |
 | T-018 | TODO | P2 | Function types. | Functions can be values when needed for higher-order support. |
 | T-019 | TODO | P0 | Trait/interface system. | Shared behavior is expressed without inheritance. |
-| T-020 | TODO | P1 | Method resolution. | `value.method(args)` resolves with clear rules. |
+| T-020 | PARTIAL | P1 | Method resolution. | Field access now reports non-struct base types in self-host typecheck; final gate requires full method/member lookup rules. |
 | T-021 | TODO | P2 | Operator overloading policy. | Either explicitly supported via traits or rejected with diagnostics. |
 | T-022 | PARTIAL | P1 | Numeric promotion rules. | All numeric conversions are specified and tested. |
 | T-023 | PARTIAL | P1 | Cast safety rules. | Safe/unsafe casts are documented, checked, and diagnosed. |
@@ -670,3 +671,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added builtin call arity diagnostics. | Typecheck now reports wrong argument counts for supported bootstrap builtins as `builtin_argument_count_mismatch`. |
 | 2026-06-10 | Added Option match exhaustiveness diagnostics. | Typecheck now reports Option-pattern matches missing `Some` or `None` as `non_exhaustive_match`. |
 | 2026-06-10 | Added duplicate `Some` pattern diagnostics. | Typecheck now treats repeated `Some(...)` match arms as duplicate patterns regardless of binding name. |
+| 2026-06-10 | Added field-access base type diagnostics. | Typecheck now reports non-struct field access bases as `field_access_base_type_mismatch`. |

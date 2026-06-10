@@ -616,6 +616,21 @@
         return state;
     }
 
+    fn typecheck_check_field_access_base_ref(state: Vec<str>, cstate: CgenStateRef,
+                                             expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_field_access_ref_base_handle(expr_ref));
+        let base_kind: i64 = typecheck_expr_ref_kind(cstate, base_ref);
+        if base_kind == TYPE_UNKNOWN {
+            return state;
+        }
+        if base_kind != TYPE_STRUCT {
+            state = typecheck_append_mismatch_ref(state, "field_access_base_type_mismatch",
+                "field access base", scope, ast_node_ref_from_expr_ref(base_ref),
+                TYPE_STRUCT, base_kind, "Access fields only on struct values.");
+        }
+        return state;
+    }
+
     fn typecheck_match_body_ref_kind(cstate: CgenStateRef, body_ref: AstNodeRef) -> i64 {
         if ast_node_ref_kind(body_ref) == NODE_BLOCK {
             let block_ref: AstBlockRef = ast_block_ref_from_node_ref(body_ref);
@@ -1212,6 +1227,7 @@
                 i = i + 1;
             }
         } else if kind == NODE_FIELD_ACCESS {
+            state = typecheck_check_field_access_base_ref(state, cstate, expr_ref, scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_field_access_ref_base_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_BINARY {
@@ -1533,6 +1549,7 @@
             json_field_bool("index_type_checks", true) + comma +
             json_field_bool("binary_operand_checks", true) + comma +
             json_field_bool("unary_operand_checks", true) + comma +
+            json_field_bool("field_access_base_checks", true) + comma +
             json_field_bool("ternary_branch_checks", true) + comma +
             json_field_bool("match_arm_type_checks", true) + comma +
             json_field_bool("match_pattern_type_checks", true) + comma +
@@ -1549,7 +1566,7 @@
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, indexes, unary/binary operands, for ranges, direct user-function call arguments, user/builtin call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, indexes, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, user/builtin call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
