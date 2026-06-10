@@ -298,6 +298,35 @@
         return TYPE_UNKNOWN;
     }
 
+    fn typecheck_check_struct_literal_duplicate_fields_ref(state: Vec<str>, names: Vec<str>,
+                                                           expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let struct_name: str = ast_report_name(names, ast_struct_lit_ref_name_idx(expr_ref));
+        let field_names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
+        let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
+        let i: i64 = 0;
+        while i < ast_i64_list_ref_count(field_names_ref) {
+            let field_name_idx: i64 = ast_i64_list_ref_get(field_names_ref, i);
+            let j: i64 = 0;
+            while j < i {
+                if ast_i64_list_ref_get(field_names_ref, j) == field_name_idx {
+                    let field_name: str = ast_report_name(names, field_name_idx);
+                    state = resolver_state_append(state,
+                        typecheck_diagnostic_ref_json("duplicate_struct_literal_field",
+                            "BKR_SELF_STRUCT_LITERAL",
+                            struct_name + "." + field_name,
+                            scope,
+                            ast_node_list_ref_get_ref(field_values_ref, i),
+                            "field initialized once",
+                            "duplicate field initializer",
+                            "Remove the duplicate field or merge the intended value into the first initializer."));
+                }
+                j = j + 1;
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
     fn typecheck_check_binary_operand_ref(state: Vec<str>, scope: str, operand_name: str,
                                           operand_ref: AstExprRef, expected_kind: i64,
                                           found_kind: i64, repair_hint: str) -> Vec<str> {
@@ -896,6 +925,7 @@
             let struct_name: str = ast_report_name(names, struct_name_idx);
             let field_names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
             let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
+            state = typecheck_check_struct_literal_duplicate_fields_ref(state, names, expr_ref, scope);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(field_values_ref) {
                 let field_name_idx: i64 = ast_i64_list_ref_get(field_names_ref, i);
@@ -1200,6 +1230,7 @@
             json_field_bool("call_arity_checks", true) + comma +
             json_field_bool("assignment_target_checks", true) + comma +
             json_field_bool("struct_field_value_checks", true) + comma +
+            json_field_bool("struct_field_shape_checks", true) + comma +
             json_field_bool("index_type_checks", true) + comma +
             json_field_bool("binary_operand_checks", true) + comma +
             json_field_bool("unary_operand_checks", true) + comma +
@@ -1218,7 +1249,7 @@
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable match patterns and non-exhaustive bool matches. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, ADT exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable match patterns and non-exhaustive bool matches. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, ADT exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }

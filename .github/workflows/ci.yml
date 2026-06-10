@@ -159,6 +159,7 @@ jobs:
           grep -q 'BKR_SELF_UNREACHABLE_CODE' "$driver"
           grep -q 'BKR_SELF_MATCH_PATTERN' "$driver"
           grep -q 'BKR_SELF_EXHAUSTIVENESS' "$driver"
+          grep -q 'BKR_SELF_STRUCT_LITERAL' "$driver"
           grep -q 'let source_excerpt = source_line_excerpt_at(source, source_start);' "$driver"
 
       - name: Require self-host import path policy
@@ -699,6 +700,10 @@ jobs:
           grep -q 'fn typecheck_struct_field_kind_ref' "$typecheck"
           grep -q 'struct_field_type_mismatch' "$typecheck"
           grep -q 'json_field_bool("struct_field_value_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_struct_literal_duplicate_fields_ref' "$typecheck"
+          grep -q 'duplicate_struct_literal_field' "$typecheck"
+          grep -q 'BKR_SELF_STRUCT_LITERAL' "$typecheck"
+          grep -q 'json_field_bool("struct_field_shape_checks", true)' "$typecheck"
           grep -q 'type_graph_kind_json(expected_kind, "expected")' "$typecheck"
           grep -q 'type_graph_kind_json(found_kind, "found")' "$typecheck"
           grep -q 'json_field_bool("typed_diagnostic_context", true)' "$typecheck"

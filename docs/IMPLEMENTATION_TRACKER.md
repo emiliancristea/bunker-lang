@@ -224,6 +224,7 @@ These are the next concrete PR-sized slices.
 | Q-161 | DONE | Add unreachable statement diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `unreachable_statement` with stable `BKR_SELF_UNREACHABLE_CODE` diagnostics after terminating control-flow statements. |
 | Q-162 | DONE | Add match pattern semantic diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `duplicate_match_pattern` and `unreachable_match_pattern` for repeated literal patterns and arms after catch-all patterns. |
 | Q-163 | DONE | Add bool match exhaustiveness diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `non_exhaustive_match` with stable `BKR_SELF_EXHAUSTIVENESS` diagnostics for boolean matches missing `true` or `false`. |
+| Q-164 | DONE | Add duplicate struct literal field diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `duplicate_struct_literal_field` with stable `BKR_SELF_STRUCT_LITERAL` diagnostics for repeated field initializers. |
 
 ## Language Core
 
@@ -281,7 +282,7 @@ These are the next concrete PR-sized slices.
 | D-004 | TODO | P1 | Struct methods. | Methods are declared and called with receiver semantics. |
 | D-005 | TODO | P2 | Struct update syntax. | Copy/update syntax works or is intentionally rejected. |
 | D-006 | TODO | P2 | Tuple structs. | Tuple-like structs parse and typecheck. |
-| D-007 | PARTIAL | P1 | Nested structs/arrays. | Deeply nested values codegen and typecheck robustly. |
+| D-007 | PARTIAL | P1 | Nested structs/arrays. | Deeply nested values codegen and typecheck robustly, with array element and struct literal field-shape diagnostics in self-host reports. |
 | D-008 | TODO | P0 | Slices. | Borrowed views into arrays/Vec have bounds-safe operations. |
 | D-009 | PARTIAL | P0 | Typed Vec. | `Vec<T>` preserves element type through all operations. |
 | D-010 | PARTIAL | P0 | Typed HashMap. | `HashMap<K,V>` preserves key/value types beyond integer-key bootstrap. |
@@ -359,7 +360,7 @@ These are the next concrete PR-sized slices.
 | CF-004 | PARTIAL | P0 | Source spans on AST nodes. | Self-host AST nodes and patterns carry byte start/end offsets; final gate requires file, line, column, byte offsets, and source excerpts across compiler phases. |
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
-| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return values/paths, condition, ternary/match branch values and patterns, duplicate/unreachable/non-exhaustive boolean match patterns, array elements, loop-control context, unreachable statements, assignment value/target, index, unary/binary operand, range, direct call-argument type mismatches, direct call arity mismatches, and struct literal field-value mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
+| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return values/paths, condition, ternary/match branch values and patterns, duplicate/unreachable/non-exhaustive boolean match patterns, array elements, loop-control context, unreachable statements, assignment value/target, index, unary/binary operand, range, direct call-argument type mismatches, direct call arity mismatches, and struct literal field-value/shape mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
 | CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass lives in `modules/resolver.bkr` and reports duplicate declarations plus unresolved identifiers/calls/types/struct literal fields with related declaration span objects; final gate requires import graph, visibility, overloads, and cross-file definition origins. |
 | CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
 | CF-010 | PARTIAL | P0 | Semantic validation passes. | Self-host diagnostics now include loop-control context validation for `break`/`continue` outside loops plus unreachable-statement detection after terminating statements; final gate requires a separate semantic pass with fixtures. |
@@ -652,3 +653,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added unreachable statement diagnostics. | Typecheck now reports statements after terminating control flow as `unreachable_statement` with `BKR_SELF_UNREACHABLE_CODE`. |
 | 2026-06-10 | Added match pattern semantic diagnostics. | Typecheck now reports duplicate literal patterns and unreachable patterns after catch-all arms with `BKR_SELF_MATCH_PATTERN`. |
 | 2026-06-10 | Added bool match exhaustiveness diagnostics. | Typecheck now reports boolean matches missing `true` or `false` as `non_exhaustive_match` with `BKR_SELF_EXHAUSTIVENESS`. |
+| 2026-06-10 | Added duplicate struct literal field diagnostics. | Typecheck now reports repeated struct literal fields as `duplicate_struct_literal_field` with `BKR_SELF_STRUCT_LITERAL`. |

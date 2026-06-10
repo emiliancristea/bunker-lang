@@ -616,6 +616,8 @@
             self_host_diagnostic_code_json("BKR_SELF_MATCH_PATTERN", "typecheck", "pattern_matching", "Duplicate or unreachable match pattern."));
         result = import_graph_json_array_append(result,
             self_host_diagnostic_code_json("BKR_SELF_EXHAUSTIVENESS", "typecheck", "pattern_matching", "Non-exhaustive match for a known finite scrutinee."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_STRUCT_LITERAL", "typecheck", "data_model", "Invalid struct literal shape such as duplicate or missing fields."));
         return result + "]";
     }
 
