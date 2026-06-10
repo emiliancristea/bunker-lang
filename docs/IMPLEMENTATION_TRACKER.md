@@ -206,6 +206,7 @@ These are the next concrete PR-sized slices.
 | Q-143 | DONE | Add structured repair metadata to driver diagnostics. | `BUNKER_DIAGNOSTIC_JSON` now carries `suggested_action`, `fix_applicability`, and `fix_confidence` fields alongside `repair_hint`. |
 | Q-144 | DONE | Add structured repair metadata to resolver/typecheck diagnostics. | `BUNKER_RESOLVER_JSON` and `BUNKER_TYPECHECK_JSON` diagnostics now expose the same suggested-action, applicability, and confidence fields. |
 | Q-145 | DONE | Add import graph edge status counters. | `BUNKER_IMPORT_GRAPH_JSON` now includes total, ok, missing, invalid, and duplicate edge counts next to the full edge list. |
+| Q-146 | DONE | Add typecheck call arity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `call_argument_count_mismatch` with stable `BKR_SELF_ARITY_MISMATCH` diagnostics for too few or too many direct user-function arguments. |
 
 ## Language Core
 
@@ -251,7 +252,7 @@ These are the next concrete PR-sized slices.
 | T-021 | TODO | P2 | Operator overloading policy. | Either explicitly supported via traits or rejected with diagnostics. |
 | T-022 | PARTIAL | P1 | Numeric promotion rules. | All numeric conversions are specified and tested. |
 | T-023 | PARTIAL | P1 | Cast safety rules. | Safe/unsafe casts are documented, checked, and diagnosed. |
-| T-024 | PARTIAL | P0 | Type diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` expected/found type diagnostics with spans and repair hints for bootstrap annotation, return, condition, assignment, range, and direct call-argument checks; final gate requires origin tracking and a real typechecker across Rust and self-host modes. |
+| T-024 | PARTIAL | P0 | Type diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` expected/found type diagnostics with spans and repair hints for bootstrap annotation, return, condition, assignment, range, direct call-argument, and direct call-arity checks; final gate requires origin tracking and a real typechecker across Rust and self-host modes. |
 
 ## Data Model And Standard Types
 
@@ -341,7 +342,7 @@ These are the next concrete PR-sized slices.
 | CF-004 | PARTIAL | P0 | Source spans on AST nodes. | Self-host AST nodes and patterns carry byte start/end offsets; final gate requires file, line, column, byte offsets, and source excerpts across compiler phases. |
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
-| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return, condition, assignment, range, and direct call-argument mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
+| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return, condition, assignment, range, direct call-argument type mismatches, and direct call arity mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
 | CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass lives in `modules/resolver.bkr` and reports duplicate declarations plus unresolved identifiers/calls/types/struct literal fields with related declaration span objects; final gate requires import graph, visibility, overloads, and cross-file definition origins. |
 | CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
 | CF-010 | TODO | P0 | Semantic validation passes. | Non-type semantic errors are separate and tested. |
@@ -616,3 +617,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added structured repair metadata to diagnostics. | Parse/import diagnostics now include suggested action, fix applicability, and confidence fields for safer agent prompting. |
 | 2026-06-10 | Normalized resolver/typecheck repair metadata. | Resolver and typecheck diagnostics now expose the same suggested action, applicability, and confidence fields as parse/import diagnostics. |
 | 2026-06-10 | Added import graph edge status counters. | Import graph reports now expose total, ok, missing, invalid, and duplicate edge counts for quick agent assessment. |
+| 2026-06-10 | Added typecheck call arity diagnostics. | Typecheck now reports too-few/too-many direct user-function arguments with `BKR_SELF_ARITY_MISMATCH` diagnostics. |

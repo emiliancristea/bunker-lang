@@ -129,6 +129,17 @@
                 repair_hint));
     }
 
+    fn typecheck_append_count_mismatch_ref(state: Vec<str>, kind: str, name: str, scope: str,
+                                           node_ref: AstNodeRef, expected_count: i64, found_count: i64,
+                                           repair_hint: str) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json(kind, "BKR_SELF_ARITY_MISMATCH", name, scope,
+                node_ref,
+                int_to_string(expected_count) + " argument(s)",
+                int_to_string(found_count) + " argument(s)",
+                repair_hint));
+    }
+
     fn typecheck_maybe_append_mismatch(state: Vec<str>, kind: str, name: str, scope: str,
                                        node: Vec<i64>, expected_kind: i64, found_kind: i64,
                                        repair_hint: str) -> Vec<str> {
@@ -217,8 +228,16 @@
         let fn_name: str = ast_report_name(names, name_idx);
         let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
         let params_ref: AstNodeListRef = ast_fn_ref_params_ref(fn_ref);
+        let arg_count: i64 = ast_node_list_ref_count(args_ref);
+        let param_count: i64 = ast_node_list_ref_count(params_ref);
+        if arg_count != param_count {
+            let arity_hint = "Call " + fn_name + " with exactly " + int_to_string(param_count) +
+                " argument(s), or update the function signature.";
+            state = typecheck_append_count_mismatch_ref(state, "call_argument_count_mismatch", fn_name,
+                scope, ast_node_ref_from_expr_ref(expr_ref), param_count, arg_count, arity_hint);
+        }
         let i: i64 = 0;
-        while i < ast_node_list_ref_count(args_ref) && i < ast_node_list_ref_count(params_ref) {
+        while i < arg_count && i < param_count {
             let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
             let param_type: i64 = ast_param_ref_type_handle(param_ref);
             let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
@@ -527,11 +546,12 @@
             json_field_bool("return_checks", true) + comma +
             json_field_bool("condition_checks", true) + comma +
             json_field_bool("call_argument_checks", true) + comma +
+            json_field_bool("call_arity_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments, for ranges, and direct user-function call arguments using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, struct field value types, numeric ranges, trait bounds, exhaustiveness, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments, for ranges, direct user-function call arguments, and call arity using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, struct field value types, numeric ranges, trait bounds, exhaustiveness, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
