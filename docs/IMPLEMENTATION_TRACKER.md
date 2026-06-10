@@ -245,6 +245,7 @@ These are the next concrete PR-sized slices.
 | Q-182 | DONE | Add finite match redundancy diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `unreachable_match_pattern` when bool or Option arms appear after all finite cases are already covered. |
 | Q-183 | DONE | Add import duplicate/cycle summary fields. | `BUNKER_IMPORT_GRAPH_JSON` now exposes cycle-safe expansion plus duplicate-or-cycle edge counts and booleans for agent planning. |
 | Q-184 | DONE | Add entry signature diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `invalid_entry_signature` when the kernel entry function takes parameters or cannot return an integer-compatible process code. |
+| Q-185 | DONE | Add diagnostic rule IDs. | `BUNKER_RESOLVER_JSON` and `BUNKER_TYPECHECK_JSON` diagnostics now include `rule_id` alongside `kind` and stable error codes for agent routing. |
 
 ## Language Core
 
@@ -438,14 +439,14 @@ These are the next concrete PR-sized slices.
 
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
-| A-001 | PARTIAL | P0 | JSON diagnostics. | Parse/import errors, import path-policy errors, import graph reports with path lists/edges/counts, capability diagnostic-code registry, and self-host resolver/typecheck reports emit structured JSON diagnostics with phase fields; final gate requires every compiler phase to share one documented diagnostic envelope. |
+| A-001 | PARTIAL | P0 | JSON diagnostics. | Parse/import errors, import path-policy errors, import graph reports with path lists/edges/counts, capability diagnostic-code registry, and self-host resolver/typecheck reports emit structured JSON diagnostics with phase and rule-id fields; final gate requires every compiler phase to share one documented diagnostic envelope. |
 | A-002 | PARTIAL | P0 | Stable diagnostic codes. | `BUNKER_CAPABILITY_JSON` now advertises parse/import/resolver/typecheck diagnostic codes with phase/category descriptions; final gate requires a shared documented registry across Rust and self-host modes. |
 | A-003 | PARTIAL | P0 | Exact spans. | Parse diagnostics and self-host AST nodes carry byte offsets, line/column, and parse source excerpts; final gate requires file identity and source excerpts across all compiler phases. |
 | A-004 | PARTIAL | P0 | Expected/found details. | Parse diagnostics include expected/actual tokens, resolver diagnostics include expected/actual symbol context plus related declaration spans, and typecheck diagnostics include typed expected/found objects. |
 | A-005 | PARTIAL | P0 | Suggested fix edits. | Diagnostics expose a shared `suggested_edits` envelope, and parse diagnostics emit concrete insert-token edit candidates for common missing punctuation; final gate requires safe edits across semantic phases. |
 | A-006 | PARTIAL | P1 | Confidence levels. | Parse/import/resolver/typecheck diagnostics carry structured action/applicability/confidence metadata; final gate requires calibrated confidence across every compiler phase. |
 | A-007 | PARTIAL | P1 | Related spans. | Resolver diagnostics include related declaration kind/name/source spans for in-file declarations; final gate requires cross-file definition/use/origin spans. |
-| A-008 | PARTIAL | P0 | Prompt-ready explanations. | Parse/import/resolver/typecheck errors include short repair context plus structured suggested action/applicability/confidence fields; final gate requires phase-wide prompt-ready explanations. |
+| A-008 | PARTIAL | P0 | Prompt-ready explanations. | Parse/import/resolver/typecheck errors include short repair context plus structured suggested action/applicability/confidence fields and resolver/typecheck rule IDs; final gate requires phase-wide prompt-ready explanations. |
 | A-009 | TODO | P0 | Multi-error recovery. | Parser/typechecker return multiple useful diagnostics. |
 | A-010 | PARTIAL | P0 | Machine-readable AST dump. | Self-host generated outputs include `BUNKER_AST_JSON` root/top-level summaries plus a complete nested `tree`; final gate requires Rust and self-host compiler modes to expose the same stable AST dump contract. |
 | A-011 | PARTIAL | P0 | Machine-readable type graph. | Self-host generated outputs include `BUNKER_TYPE_GRAPH_JSON` from `modules/type_graph.bkr` for declared types plus bootstrap-inferred locals/returns; final gate requires a real typechecker-backed graph across Rust and self-host compiler modes. |
@@ -694,3 +695,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added finite match redundancy diagnostics. | Typecheck now reports bool/Option arms after all finite cases are already covered as `unreachable_match_pattern`. |
 | 2026-06-10 | Added import duplicate/cycle summary fields. | Import graph JSON now exposes cycle-safe expansion and duplicate-or-cycle edge counts/flags for agents. |
 | 2026-06-10 | Added entry signature diagnostics. | Typecheck now reports entry functions with parameters or non-integer return types as `invalid_entry_signature`. |
+| 2026-06-10 | Added diagnostic rule IDs. | Resolver and typecheck diagnostics now emit `rule_id` fields matching their machine-rule kind. |

@@ -151,6 +151,7 @@ jobs:
           grep -q 'fn self_host_diagnostic_codes_json() -> str' "$driver"
           grep -q 'json_field_bool("diagnostic_code_registry", true)' "$driver"
           grep -q 'json_field_bool("diagnostic_phase_field", true)' "$driver"
+          grep -q 'json_field_bool("diagnostic_rule_ids", true)' "$driver"
           grep -q 'json_field_str("phase", category)' "$driver"
           grep -q 'json_field_bool("suggested_edit_envelope", true)' "$driver"
           grep -q 'fn diagnostic_text_edit_json(kind: str, source_start: i64, source_end: i64,' 'self-host/modules/report_support.bkr'
@@ -557,6 +558,8 @@ jobs:
           grep -q 'json_field_str("fix_confidence", "medium")' "$resolver"
           grep -q 'json_field_bool("diagnostic_phase_field", true)' "$resolver"
           grep -q 'json_field_str("phase", "resolver")' "$resolver"
+          grep -q 'json_field_str("rule_id", kind)' "$resolver"
+          grep -q 'json_field_bool("diagnostic_rule_ids", true)' "$resolver"
           grep -q 'json_field_bool("suggested_edit_envelope", true)' "$resolver"
           grep -q 'json_field_raw("suggested_edits", diagnostic_no_edits_json())' "$resolver"
 
@@ -786,6 +789,8 @@ jobs:
           grep -q 'json_field_str("fix_confidence", "medium")' "$typecheck"
           grep -q 'json_field_bool("diagnostic_phase_field", true)' "$typecheck"
           grep -q 'json_field_str("phase", "typecheck")' "$typecheck"
+          grep -q 'json_field_str("rule_id", kind)' "$typecheck"
+          grep -q 'json_field_bool("diagnostic_rule_ids", true)' "$typecheck"
           grep -q 'json_field_bool("suggested_edit_envelope", true)' "$typecheck"
           grep -q 'json_field_raw("suggested_edits", diagnostic_no_edits_json())' "$typecheck"
 

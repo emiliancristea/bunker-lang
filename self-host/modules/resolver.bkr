@@ -21,6 +21,7 @@
         return "{" +
             json_field_str("phase", "resolver") + comma +
             json_field_str("kind", kind) + comma +
+            json_field_str("rule_id", kind) + comma +
             json_field_str("error_code", code) + comma +
             json_field_str("name", name) + comma +
             json_field_str("scope", scope) + comma +
@@ -722,6 +723,7 @@
             json_field_bool("related_declarations", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("diagnostic_phase_field", true) + comma +
+            json_field_bool("diagnostic_rule_ids", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
