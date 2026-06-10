@@ -199,6 +199,7 @@ These are the next concrete PR-sized slices.
 | Q-136 | DONE | Resolve self-host imports relative to importer directories. | Recursive import expansion, missing/invalid scans, counts, and import graph path lists now resolve nested imports against the importing file's directory. |
 | Q-137 | DONE | Add base-directory-aware self-host compile entrypoint. | `compile_to_c_with_base_dir` lets wrappers compile a root source with an explicit import base directory while preserving the legacy `compile_to_c(source)` API. |
 | Q-138 | DONE | Add self-host import graph edges. | `BUNKER_IMPORT_GRAPH_JSON` now includes import edges with importer base, requested path, resolved path, and status for ok/missing/invalid/duplicate imports. |
+| Q-139 | DONE | Add source excerpts to self-host diagnostics. | `BUNKER_DIAGNOSTIC_JSON` now includes `source_excerpt`, and parse diagnostics populate it from the offending source line for agent repair context. |
 
 ## Language Core
 
@@ -392,9 +393,9 @@ These are the next concrete PR-sized slices.
 
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
-| A-001 | PARTIAL | P0 | JSON diagnostics. | Parse/import errors, import path-policy errors, import graph reports with path lists, and self-host resolver/typecheck reports emit structured JSON diagnostics; final gate requires every compiler phase to share one documented diagnostic envelope. |
+| A-001 | PARTIAL | P0 | JSON diagnostics. | Parse/import errors, import path-policy errors, import graph reports with path lists/edges, and self-host resolver/typecheck reports emit structured JSON diagnostics; final gate requires every compiler phase to share one documented diagnostic envelope. |
 | A-002 | PARTIAL | P0 | Stable diagnostic codes. | Codes are documented, unique, and testable. |
-| A-003 | PARTIAL | P0 | Exact spans. | Parse diagnostics and self-host AST nodes carry byte offsets; final gate requires file, line, column, byte offset, and source excerpt across compiler phases. |
+| A-003 | PARTIAL | P0 | Exact spans. | Parse diagnostics and self-host AST nodes carry byte offsets, line/column, and parse source excerpts; final gate requires file identity and source excerpts across all compiler phases. |
 | A-004 | PARTIAL | P0 | Expected/found details. | Parse diagnostics include expected/actual tokens, resolver diagnostics include expected/actual symbol context, and typecheck diagnostics include expected/found types. |
 | A-005 | TODO | P0 | Suggested fix edits. | Diagnostics include concrete text edits when safe. |
 | A-006 | TODO | P1 | Confidence levels. | Suggestions carry confidence/applicability. |
@@ -602,3 +603,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Resolved self-host imports relative to importer directories. | Recursive import expansion and import graph reporting now carry importer base directories, so nested relative imports resolve deterministically from their declaring module. |
 | 2026-06-10 | Added base-directory-aware self-host compile entrypoint. | `compile_to_c_with_base_dir` now allows wrappers to provide the root import base directory, and import graph JSON reports that root base. |
 | 2026-06-10 | Added self-host import graph edges. | `BUNKER_IMPORT_GRAPH_JSON` now reports import edges with importer base, requested path, resolved path, and ok/missing/invalid/duplicate status. |
+| 2026-06-10 | Added source excerpts to self-host diagnostics. | `BUNKER_DIAGNOSTIC_JSON` now includes a `source_excerpt` field, with parse diagnostics carrying the exact offending source line for agent repair. |

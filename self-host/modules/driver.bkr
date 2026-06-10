@@ -474,9 +474,37 @@
         return column;
     }
 
+    fn source_line_excerpt_at(source: str, offset: i64) -> str {
+        let source_len = len(source);
+        if source_len <= 0 {
+            return "";
+        }
+
+        let safe_offset = offset;
+        if safe_offset < 0 {
+            safe_offset = 0;
+        }
+        if safe_offset >= source_len {
+            safe_offset = source_len - 1;
+        }
+
+        let start = safe_offset;
+        while start > 0 && char_code_at(source, start - 1) != 10 {
+            start = start - 1;
+        }
+
+        let end = safe_offset;
+        while end < source_len && char_code_at(source, end) != 10 {
+            end = end + 1;
+        }
+
+        return substring(source, start, end);
+    }
+
     fn self_host_diagnostic_json(category: str, code: str, message: str,
                                  source_start: i64, source_end: i64,
                                  source_line: i64, source_column: i64,
+                                 source_excerpt: str,
                                  expected: str, actual: str, repair_hint: str) -> str {
         let comma = ",";
         return "{" +
@@ -488,6 +516,7 @@
             json_field_i64("source_end", source_end) + comma +
             json_field_i64("source_line", source_line) + comma +
             json_field_i64("source_column", source_column) + comma +
+            json_field_str("source_excerpt", source_excerpt) + comma +
             json_field_str("expected", expected) + comma +
             json_field_str("actual", actual) + comma +
             json_field_str("repair_hint", repair_hint) +
@@ -500,6 +529,7 @@
             json_field_str("schema_version", "bunker.self_host.capability.v1") + comma +
             json_field_str("compiler", "bkrc-self-host-bootstrap") + comma +
             json_field_bool("source_byte_spans", true) + comma +
+            json_field_bool("source_excerpts", true) + comma +
             json_field_bool("structured_parse_diagnostics", true) + comma +
             json_field_bool("import_expansion", true) + comma +
             json_field_bool("import_graph_report", true) + comma +
@@ -562,7 +592,7 @@
         let repair_hint = "Use a normalized relative import path such as modules/example.bkr. Do not use empty paths, absolute paths, drive prefixes, backslashes, parent traversal, leading ./, trailing /, or // segments.";
         let message = "Import error: invalid import path " + invalid_import;
         let json = self_host_diagnostic_json("import", "BKR_SELF_IMPORT_PATH", message,
-            0, 0, 1, 1, "normalized relative forward-slash import path", invalid_import, repair_hint);
+            0, 0, 1, 1, "", "normalized relative forward-slash import path", invalid_import, repair_hint);
         return "/* " + message + ". AI repair hint: " + repair_hint + from_char_code(10) +
             "BUNKER_DIAGNOSTIC_JSON: " + json + from_char_code(10) +
             "*/";
@@ -572,7 +602,7 @@
         let repair_hint = "Copy the imported Bunker module next to self_host_input.bkr or pre-expand imports before running bkrc.";
         let message = "Import error: missing module " + missing_import;
         let json = self_host_diagnostic_json("import", "BKR_SELF_IMPORT", message,
-            0, 0, 1, 1, "existing imported module", missing_import, repair_hint);
+            0, 0, 1, 1, "", "existing imported module", missing_import, repair_hint);
         return "/* " + message + ". AI repair hint: " + repair_hint + from_char_code(10) +
             "BUNKER_DIAGNOSTIC_JSON: " + json + from_char_code(10) +
             "*/";
@@ -586,11 +616,12 @@
         let source_end = ast_span_end(error_span);
         let source_line = source_line_at(source, source_start);
         let source_column = source_column_at(source, source_start);
+        let source_excerpt = source_line_excerpt_at(source, source_start);
         let repair_hint = "Inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, match expressions, Option<T> via Some/None, Result<T,E> via result_* builtins, Vec<T> and HashMap<i32,V> runtime handles, for-in ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary expressions, bitwise operators, and basic expressions.";
         let message = "Parse error at token " + int_to_string(parser_error_position_ref(p)) +
             ": expected " + expected + ", got " + actual;
         let json = self_host_diagnostic_json("parse", "BKR_SELF_PARSE", message,
-            source_start, source_end, source_line, source_column, expected, actual, repair_hint);
+            source_start, source_end, source_line, source_column, source_excerpt, expected, actual, repair_hint);
         return "/* " + message + ". AI repair hint: " + repair_hint + from_char_code(10) +
             "BUNKER_DIAGNOSTIC_JSON: " + json + from_char_code(10) +
             "*/";
