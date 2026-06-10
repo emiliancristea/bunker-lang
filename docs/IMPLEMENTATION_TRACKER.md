@@ -227,6 +227,7 @@ These are the next concrete PR-sized slices.
 | Q-164 | DONE | Add duplicate struct literal field diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `duplicate_struct_literal_field` with stable `BKR_SELF_STRUCT_LITERAL` diagnostics for repeated field initializers. |
 | Q-165 | DONE | Add missing struct literal field diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `missing_struct_literal_field` with stable `BKR_SELF_STRUCT_LITERAL` diagnostics for omitted declared fields. |
 | Q-166 | DONE | Add const assignment diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `const_assignment` with stable `BKR_SELF_CONST_ASSIGNMENT` diagnostics when assignment targets a top-level constant. |
+| Q-167 | DONE | Add empty array ambiguity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `ambiguous_empty_array` with stable `BKR_SELF_AMBIGUOUS_TYPE` diagnostics for unannotated empty array initializers. |
 
 ## Language Core
 
@@ -256,7 +257,7 @@ These are the next concrete PR-sized slices.
 | T-005 | TODO | P1 | Type aliases. | Aliases preserve diagnostics and compile to the same representation. |
 | T-006 | PARTIAL | P0 | Local type inference. | Let bindings infer robustly for all supported expressions. |
 | T-007 | PARTIAL | P0 | Call-result inference. | Builtins and user functions propagate exact result types. |
-| T-008 | TODO | P0 | Inference for `None`, empty arrays, Vec, HashMap, Ok, Err. | Ambiguous values infer from annotation/context or produce precise errors. |
+| T-008 | PARTIAL | P0 | Inference for `None`, empty arrays, Vec, HashMap, Ok, Err. | Unannotated empty array initializers now produce precise self-host diagnostics; final gate requires contextual inference for `None`, Vec, HashMap, Ok, and Err. |
 | T-009 | TODO | P0 | User-defined enums/sum types. | Users can define enum variants with payloads. |
 | T-010 | PARTIAL | P0 | Exhaustive match checking. | Self-host typecheck reports non-exhaustive boolean matches with missing cases; final gate requires ADT and integer-range exhaustiveness. |
 | T-011 | PARTIAL | P0 | Pattern type checking. | Match patterns are checked against scrutinee type in Rust and self-host paths, and duplicate/unreachable literal/catch-all patterns are diagnosed in self-host reports. |
@@ -362,7 +363,7 @@ These are the next concrete PR-sized slices.
 | CF-004 | PARTIAL | P0 | Source spans on AST nodes. | Self-host AST nodes and patterns carry byte start/end offsets; final gate requires file, line, column, byte offsets, and source excerpts across compiler phases. |
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
-| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return values/paths, condition, ternary/match branch values and patterns, duplicate/unreachable/non-exhaustive boolean match patterns, array elements, loop-control context, unreachable statements, assignment value/target/const writes, index, unary/binary operand, range, direct call-argument type mismatches, direct call arity mismatches, and struct literal field-value/shape mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
+| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation/ambiguity, return values/paths, condition, ternary/match branch values and patterns, duplicate/unreachable/non-exhaustive boolean match patterns, array elements, loop-control context, unreachable statements, assignment value/target/const writes, index, unary/binary operand, range, direct call-argument type mismatches, direct call arity mismatches, and struct literal field-value/shape mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
 | CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass lives in `modules/resolver.bkr` and reports duplicate declarations plus unresolved identifiers/calls/types/struct literal fields with related declaration span objects; final gate requires import graph, visibility, overloads, and cross-file definition origins. |
 | CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
 | CF-010 | PARTIAL | P0 | Semantic validation passes. | Self-host diagnostics now include loop-control context validation for `break`/`continue` outside loops plus unreachable-statement detection after terminating statements; final gate requires a separate semantic pass with fixtures. |
@@ -658,3 +659,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added duplicate struct literal field diagnostics. | Typecheck now reports repeated struct literal fields as `duplicate_struct_literal_field` with `BKR_SELF_STRUCT_LITERAL`. |
 | 2026-06-10 | Added missing struct literal field diagnostics. | Typecheck now reports omitted declared fields as `missing_struct_literal_field` with `BKR_SELF_STRUCT_LITERAL`. |
 | 2026-06-10 | Added const assignment diagnostics. | Typecheck now reports assignments to top-level constants as `const_assignment` with `BKR_SELF_CONST_ASSIGNMENT`. |
+| 2026-06-10 | Added empty array ambiguity diagnostics. | Typecheck now reports unannotated empty array initializers as `ambiguous_empty_array` with `BKR_SELF_AMBIGUOUS_TYPE`. |

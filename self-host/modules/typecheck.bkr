@@ -198,6 +198,16 @@
                 "Do not assign to a const; introduce a local binding for mutable state."));
     }
 
+    fn typecheck_append_ambiguous_empty_array_ref(state: Vec<str>, name: str, scope: str,
+                                                  expr_ref: AstExprRef) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("ambiguous_empty_array", "BKR_SELF_AMBIGUOUS_TYPE",
+                name, scope, ast_node_ref_from_expr_ref(expr_ref),
+                "array element type context",
+                "empty array literal",
+                "Add a type annotation so the empty array element type is known."));
+    }
+
     fn typecheck_append_missing_return_ref(state: Vec<str>, names: Vec<str>, scope: str,
                                            fn_ref: AstItemRef) -> Vec<str> {
         return resolver_state_append(state,
@@ -225,6 +235,20 @@
         if target_kind == NODE_INDEX { return true; }
         if target_kind == NODE_FIELD_ACCESS { return true; }
         return false;
+    }
+
+    fn typecheck_expr_ref_is_empty_array(expr_ref: AstExprRef) -> bool {
+        if ast_expr_ref_kind(expr_ref) != NODE_ARRAY_LIT {
+            return false;
+        }
+        return ast_node_list_ref_count(ast_array_lit_ref_elements_ref(expr_ref)) == 0;
+    }
+
+    fn typecheck_expr_handle_is_empty_array(expr_value: i64) -> bool {
+        if ast_optional_is_none(expr_value) {
+            return false;
+        }
+        return typecheck_expr_ref_is_empty_array(ast_expr_ref_from_handle(expr_value));
     }
 
     fn typecheck_binary_op_requires_bool(op: i64) -> bool {
@@ -1126,6 +1150,9 @@
                     " or update the declared local type.";
                 state = typecheck_maybe_append_value_mismatch_ref(state, "annotation_type_mismatch",
                     name, scope, stmt_node_ref, expected_kind, found_kind, hint);
+            } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_empty_array(init) {
+                state = typecheck_append_ambiguous_empty_array_ref(state, name, scope,
+                    ast_expr_ref_from_handle(init));
             }
             type_graph_add_let_ref_to_state(cstate, stmt_ref);
         } else if kind == NODE_RETURN {
@@ -1249,6 +1276,9 @@
                 " or update the declared constant type.";
             state = typecheck_maybe_append_value_mismatch_ref(state, "annotation_type_mismatch",
                 const_name, kernel_scope, item_node_ref, expected_kind, found_kind, hint);
+        } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_empty_array(value) {
+            state = typecheck_append_ambiguous_empty_array_ref(state, const_name, kernel_scope,
+                ast_expr_ref_from_handle(value));
         }
         return state;
     }
@@ -1317,6 +1347,7 @@
             json_field_bool("const_assignment_checks", true) + comma +
             json_field_bool("struct_field_value_checks", true) + comma +
             json_field_bool("struct_field_shape_checks", true) + comma +
+            json_field_bool("ambiguous_empty_array_checks", true) + comma +
             json_field_bool("index_type_checks", true) + comma +
             json_field_bool("binary_operand_checks", true) + comma +
             json_field_bool("unary_operand_checks", true) + comma +
@@ -1335,7 +1366,7 @@
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable match patterns and non-exhaustive bool matches. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, ADT exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable match patterns, non-exhaustive bool matches, and unannotated empty arrays. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, ADT exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
