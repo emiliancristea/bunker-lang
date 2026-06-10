@@ -259,6 +259,18 @@
                 "Add fn " + entry_name + "(...) or update the kernel entry name."));
     }
 
+    fn typecheck_append_entry_signature_ref(state: Vec<str>, names: Vec<str>, kernel_scope: str,
+                                            entry_ref: AstItemRef, expected: str, found: str,
+                                            repair_hint: str) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("invalid_entry_signature", "BKR_SELF_ENTRY_POINT",
+                ast_report_name(names, ast_fn_ref_name_idx(entry_ref)),
+                kernel_scope, ast_node_ref_from_item_ref(entry_ref),
+                expected,
+                found,
+                repair_hint));
+    }
+
     fn typecheck_append_invalid_call_target_ref(state: Vec<str>, names: Vec<str>, scope: str,
                                                 expr_ref: AstExprRef, actual: str) -> Vec<str> {
         let call_name: str = ast_report_name(names, ast_call_ref_name_idx(expr_ref));
@@ -569,6 +581,22 @@
         let entry_ref: AstItemRef = typecheck_find_function_ref(kernel_ref, ast_kernel_ref_entry_idx(kernel_ref));
         if ast_item_ref_is_none(entry_ref) {
             state = typecheck_append_missing_entry_ref(state, names, kernel_ref, kernel_scope);
+            return state;
+        }
+        let params_ref: AstNodeListRef = ast_fn_ref_params_ref(entry_ref);
+        let param_count: i64 = ast_node_list_ref_count(params_ref);
+        if param_count != 0 {
+            state = typecheck_append_entry_signature_ref(state, names, kernel_scope, entry_ref,
+                "entry function with zero parameters",
+                int_to_string(param_count) + " parameter(s)",
+                "Remove entry function parameters or make a zero-argument wrapper entry.");
+        }
+        let return_kind: i64 = typecheck_return_ref_kind(entry_ref);
+        if return_kind != TYPE_UNKNOWN && !typecheck_is_integer_kind(return_kind) {
+            state = typecheck_append_entry_signature_ref(state, names, kernel_scope, entry_ref,
+                "integer-compatible entry return type",
+                ast_type_kind_name(return_kind),
+                "Return i32 or i64 from the entry function so the generated C main can return an int.");
         }
         return state;
     }
@@ -1867,6 +1895,7 @@
             json_field_bool("builtin_arity_checks", true) + comma +
             json_field_bool("builtin_argument_type_checks", true) + comma +
             json_field_bool("entry_point_checks", true) + comma +
+            json_field_bool("entry_signature_checks", true) + comma +
             json_field_bool("assignment_target_checks", true) + comma +
             json_field_bool("const_assignment_checks", true) + comma +
             json_field_bool("struct_field_value_checks", true) + comma +
@@ -1900,7 +1929,7 @@
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use across initializers and value expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, call targets, builtin argument types, user/builtin call arity, entry-point presence, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal, finite bool/Option redundancy, and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use across initializers and value expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, call targets, builtin argument types, user/builtin call arity, entry-point presence/signature, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal, finite bool/Option redundancy, and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
