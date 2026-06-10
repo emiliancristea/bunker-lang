@@ -187,6 +187,17 @@
                 "Move this statement inside a for, while, or loop body."));
     }
 
+    fn typecheck_append_const_assignment_ref(state: Vec<str>, names: Vec<str>, scope: str,
+                                             target_ref: AstExprRef) -> Vec<str> {
+        let const_name: str = ast_report_name(names, ast_expr_ref_name_idx(target_ref));
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("const_assignment", "BKR_SELF_CONST_ASSIGNMENT",
+                const_name, scope, ast_node_ref_from_expr_ref(target_ref),
+                "mutable assignment target",
+                "constant declaration",
+                "Do not assign to a const; introduce a local binding for mutable state."));
+    }
+
     fn typecheck_append_missing_return_ref(state: Vec<str>, names: Vec<str>, scope: str,
                                            fn_ref: AstItemRef) -> Vec<str> {
         return resolver_state_append(state,
@@ -283,6 +294,19 @@
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_ref_name_idx(item_ref) == name_idx {
+                return item_ref;
+            }
+            i = i + 1;
+        }
+        return ast_optional_item_ref_none();
+    }
+
+    fn typecheck_find_const_ref(kernel_ref: AstNodeRef, name_idx: i64) -> AstItemRef {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_CONST && ast_const_ref_name_idx(item_ref) == name_idx {
                 return item_ref;
             }
             i = i + 1;
@@ -1165,6 +1189,10 @@
             if !typecheck_assignment_target_valid_ref(target_ref) {
                 state = typecheck_append_invalid_assignment_target_ref(state, scope, target_ref);
             }
+            if ast_expr_ref_kind(target_ref) == NODE_IDENT &&
+                    ast_item_ref_is_some(typecheck_find_const_ref(kernel_ref, ast_expr_ref_name_idx(target_ref))) {
+                state = typecheck_append_const_assignment_ref(state, names, scope, target_ref);
+            }
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 target, scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
@@ -1286,6 +1314,7 @@
             json_field_bool("call_argument_checks", true) + comma +
             json_field_bool("call_arity_checks", true) + comma +
             json_field_bool("assignment_target_checks", true) + comma +
+            json_field_bool("const_assignment_checks", true) + comma +
             json_field_bool("struct_field_value_checks", true) + comma +
             json_field_bool("struct_field_shape_checks", true) + comma +
             json_field_bool("index_type_checks", true) + comma +
@@ -1306,7 +1335,7 @@
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable match patterns and non-exhaustive bool matches. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, ADT exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable match patterns and non-exhaustive bool matches. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, ADT exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }

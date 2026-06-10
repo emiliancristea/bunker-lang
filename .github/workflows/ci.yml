@@ -160,6 +160,7 @@ jobs:
           grep -q 'BKR_SELF_MATCH_PATTERN' "$driver"
           grep -q 'BKR_SELF_EXHAUSTIVENESS' "$driver"
           grep -q 'BKR_SELF_STRUCT_LITERAL' "$driver"
+          grep -q 'BKR_SELF_CONST_ASSIGNMENT' "$driver"
           grep -q 'let source_excerpt = source_line_excerpt_at(source, source_start);' "$driver"
 
       - name: Require self-host import path policy
@@ -656,6 +657,10 @@ jobs:
           grep -q 'BKR_SELF_ASSIGNMENT_TARGET' "$typecheck"
           grep -q 'invalid_assignment_target' "$typecheck"
           grep -q 'json_field_bool("assignment_target_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_find_const_ref' "$typecheck"
+          grep -q 'const_assignment' "$typecheck"
+          grep -q 'BKR_SELF_CONST_ASSIGNMENT' "$typecheck"
+          grep -q 'json_field_bool("const_assignment_checks", true)' "$typecheck"
           grep -q 'index_type_mismatch' "$typecheck"
           grep -q 'json_field_bool("index_type_checks", true)' "$typecheck"
           grep -q 'fn typecheck_check_binary_operands_ref' "$typecheck"
