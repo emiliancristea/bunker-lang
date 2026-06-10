@@ -239,6 +239,7 @@ These are the next concrete PR-sized slices.
 | Q-176 | DONE | Add index base type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `index_base_type_mismatch` when an indexed base is known not to be an array. |
 | Q-177 | DONE | Add void value diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `void_value_used` with stable `BKR_SELF_VOID_VALUE` diagnostics when unannotated let/const initializers produce void. |
 | Q-178 | DONE | Add entry-point diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `missing_entry_function` with stable `BKR_SELF_ENTRY_POINT` diagnostics when the kernel entry name has no function declaration. |
+| Q-179 | DONE | Add compound void value diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `void_value_used` when void expressions appear in call arguments or array elements. |
 
 ## Language Core
 
@@ -276,7 +277,7 @@ These are the next concrete PR-sized slices.
 | T-013 | TODO | P1 | Nested patterns. | Nested enum/struct patterns typecheck and bind correctly. |
 | T-014 | TODO | P1 | Match guards. | `pattern if condition` works with scoped bindings. |
 | T-015 | TODO | P1 | Tuple types. | Tuples parse, typecheck, codegen, and destructure. |
-| T-016 | PARTIAL | P1 | Unit type. | Void-returning expressions are now rejected in value initializers; final gate requires a real `()` syntax and consistent unit value semantics. |
+| T-016 | PARTIAL | P1 | Unit type. | Void-returning expressions are now rejected in value initializers, call arguments, and array elements; final gate requires a real `()` syntax and consistent unit value semantics. |
 | T-017 | TODO | P1 | Never/bottom type. | Diverging expressions typecheck in all contexts. |
 | T-018 | TODO | P2 | Function types. | Functions can be values when needed for higher-order support. |
 | T-019 | TODO | P0 | Trait/interface system. | Shared behavior is expressed without inheritance. |
@@ -284,7 +285,7 @@ These are the next concrete PR-sized slices.
 | T-021 | TODO | P2 | Operator overloading policy. | Either explicitly supported via traits or rejected with diagnostics. |
 | T-022 | PARTIAL | P1 | Numeric promotion rules. | All numeric conversions are specified and tested. |
 | T-023 | PARTIAL | P1 | Cast safety rules. | Safe/unsafe casts are documented, checked, and diagnosed. |
-| T-024 | PARTIAL | P0 | Type diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` expected/found type diagnostics with spans and repair hints for bootstrap annotation, return, condition, ternary/match branch values and patterns, array elements, assignment value/target, index, unary/binary operands, range, entry-point presence, direct call-argument, direct call-arity, and struct literal field-value checks; final gate requires origin tracking and a real typechecker across Rust and self-host modes. |
+| T-024 | PARTIAL | P0 | Type diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` expected/found type diagnostics with spans and repair hints for bootstrap annotation, return, condition, ternary/match branch values and patterns, array elements including void element use, assignment value/target, index, unary/binary operands, range, entry-point presence, direct call-argument including void argument use, direct call-arity, and struct literal field-value checks; final gate requires origin tracking and a real typechecker across Rust and self-host modes. |
 
 ## Data Model And Standard Types
 
@@ -374,7 +375,7 @@ These are the next concrete PR-sized slices.
 | CF-004 | PARTIAL | P0 | Source spans on AST nodes. | Self-host AST nodes and patterns carry byte start/end offsets; final gate requires file, line, column, byte offsets, and source excerpts across compiler phases. |
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
-| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation/ambiguity, return values/paths, condition, ternary/match branch values and patterns, duplicate/unreachable/non-exhaustive boolean match patterns, array elements, loop-control context, unreachable statements, assignment value/target/const writes, index, unary/binary operand, range, direct call-argument type mismatches, direct user/builtin call arity mismatches, and struct literal field-value/shape mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
+| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation/ambiguity, return values/paths, void value use, condition, ternary/match branch values and patterns, duplicate/unreachable/non-exhaustive bool/Option match patterns, array elements, loop-control context, unreachable statements, assignment value/target/const writes, index, field access, unary/binary operand, range, entry-point presence, direct call-argument and builtin-argument type mismatches, direct user/builtin call arity mismatches, and struct literal field-value/shape mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
 | CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass lives in `modules/resolver.bkr` and reports duplicate declarations plus unresolved identifiers/calls/types/struct literal fields with related declaration span objects; final gate requires import graph, visibility, overloads, and cross-file definition origins. |
 | CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
 | CF-010 | PARTIAL | P0 | Semantic validation passes. | Self-host diagnostics now include loop-control context validation for `break`/`continue` outside loops plus unreachable-statement detection after terminating statements; final gate requires a separate semantic pass with fixtures. |
@@ -682,3 +683,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added index base type diagnostics. | Typecheck now reports indexing non-array bases as `index_base_type_mismatch`. |
 | 2026-06-10 | Added void value diagnostics. | Typecheck now reports void-returning initializers used as values as `void_value_used`. |
 | 2026-06-10 | Added entry-point diagnostics. | Typecheck now reports missing kernel entry functions as `missing_entry_function` with `BKR_SELF_ENTRY_POINT`. |
+| 2026-06-10 | Added compound void value diagnostics. | Typecheck now reports void-returning expressions used as call arguments or array elements as `void_value_used`. |

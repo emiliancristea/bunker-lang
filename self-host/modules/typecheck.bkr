@@ -270,6 +270,14 @@
                 "Add a return statement on every path or change the function return type to void."));
     }
 
+    fn typecheck_check_void_value_ref(state: Vec<str>, cstate: CgenStateRef, expr_ref: AstExprRef,
+                                      name: str, scope: str) -> Vec<str> {
+        if typecheck_expr_ref_kind(cstate, expr_ref) == TYPE_VOID {
+            state = typecheck_append_void_value_ref(state, name, scope, expr_ref);
+        }
+        return state;
+    }
+
     fn typecheck_append_unreachable_statement_ref(state: Vec<str>, scope: str,
                                                   stmt_ref: AstStmtRef) -> Vec<str> {
         return resolver_state_append(state,
@@ -1037,7 +1045,10 @@
         let i: i64 = 0;
         while i < ast_node_list_ref_count(elements_ref) {
             let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
-            let element_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_node_ref(element_ref));
+            let element_expr_ref: AstExprRef = ast_expr_ref_from_node_ref(element_ref);
+            let element_kind: i64 = typecheck_expr_ref_kind(cstate, element_expr_ref);
+            state = typecheck_check_void_value_ref(state, cstate, element_expr_ref,
+                "array element " + int_to_string(i + 1), scope);
             if expected_kind == TYPE_UNKNOWN {
                 if element_kind != TYPE_UNKNOWN {
                     expected_kind = element_kind;
@@ -1351,9 +1362,12 @@
             let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
-                let arg_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+                let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+                let arg_expr_ref: AstExprRef = ast_expr_ref_from_node_ref(arg_node_ref);
+                state = typecheck_check_void_value_ref(state, cstate, arg_expr_ref,
+                    "call argument " + int_to_string(i + 1), scope);
                 state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
-                    ast_expr_ref_from_node_ref(arg_ref), scope, expected_return_kind);
+                    arg_expr_ref, scope, expected_return_kind);
                 i = i + 1;
             }
         } else if kind == NODE_STRUCT_LIT {
@@ -1731,13 +1745,14 @@
             json_field_bool("return_path_checks", true) + comma +
             json_field_bool("unreachable_code_checks", true) + comma +
             json_field_bool("void_value_checks", true) + comma +
+            json_field_bool("compound_void_value_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, builtin argument types, user/builtin call arity, entry-point presence, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use in initializers and compound expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, builtin argument types, user/builtin call arity, entry-point presence, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
