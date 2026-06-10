@@ -787,13 +787,13 @@
         let type_node: i64 = ast_optional_none();
         if parser_peek_ref(p) == TOK_COLON {
             parser_advance_ref(p);
-            type_node = ast_type_ref_handle(parse_type_ref(p));
+            type_node = ast_type_ref_to_optional_handle(parse_type_ref(p));
         }
 
         let init: i64 = ast_optional_none();
         if parser_peek_ref(p) == TOK_ASSIGN {
             parser_advance_ref(p);
-            init = ast_expr_ref_handle(parse_expr_ref(p));
+            init = ast_expr_ref_to_optional_handle(parse_expr_ref(p));
         }
         parser_expect_ref(p, TOK_SEMICOLON);
 
@@ -810,7 +810,7 @@
         parser_advance_ref(p);
         let expr: i64 = ast_optional_none();
         if parser_peek_ref(p) != TOK_SEMICOLON {
-            expr = ast_expr_ref_handle(parse_expr_ref(p));
+            expr = ast_expr_ref_to_optional_handle(parse_expr_ref(p));
         }
         parser_expect_ref(p, TOK_SEMICOLON);
         let return_ref: AstStmtRef = ast_return_ref(expr);
@@ -887,9 +887,9 @@
             parser_advance_ref(p);
             if parser_peek_ref(p) == TOK_IF {
                 let nested_if_ref: AstStmtRef = parse_if_stmt_ref(p);
-                else_block = ast_block_ref_handle(ast_block_with_ref(nested_if_ref));
+                else_block = ast_block_ref_to_optional_handle(ast_block_with_ref(nested_if_ref));
             } else {
-                else_block = ast_block_ref_handle(parse_block_ref(p));
+                else_block = ast_block_ref_to_optional_handle(parse_block_ref(p));
             }
         }
         let if_ref: AstStmtRef = ast_if_ref(cond_ref, then_block_ref, else_block);
@@ -1006,7 +1006,7 @@
         let ret_type: i64 = ast_optional_none();
         if parser_peek_ref(p) == TOK_ARROW {
             parser_advance_ref(p);
-            ret_type = ast_type_ref_handle(parse_type_ref(p));
+            ret_type = ast_type_ref_to_optional_handle(parse_type_ref(p));
         }
 
         let body_ref: AstBlockRef = parse_block_ref(p);
@@ -1027,13 +1027,13 @@
         let type_node: i64 = ast_optional_none();
         if parser_peek_ref(p) == TOK_COLON {
             parser_advance_ref(p);
-            type_node = ast_type_ref_handle(parse_type_ref(p));
+            type_node = ast_type_ref_to_optional_handle(parse_type_ref(p));
         }
 
         let value: i64 = ast_optional_none();
         if parser_peek_ref(p) == TOK_ASSIGN {
             parser_advance_ref(p);
-            value = ast_expr_ref_handle(parse_expr_ref(p));
+            value = ast_expr_ref_to_optional_handle(parse_expr_ref(p));
         }
 
         parser_expect_ref(p, TOK_SEMICOLON);

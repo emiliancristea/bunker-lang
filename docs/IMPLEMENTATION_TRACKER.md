@@ -191,6 +191,7 @@ These are the next concrete PR-sized slices.
 | Q-128 | DONE | Route consumer node-ref upcasts through typed refs. | C codegen, resolver, symbol-table, and typecheck now convert `AstNodeRef` values to expression/block refs through named AST upcast helpers. |
 | Q-129 | DONE | Route typecheck function lookup through typed item refs. | Typecheck call-argument diagnostics now keep resolved function declarations as `AstItemRef` values, with optional item refs handled inside the AST boundary. |
 | Q-130 | DONE | Route AST-report optional node handles through typed refs. | AST report optional-node serialization now converts raw optional handles through an AST-owned helper instead of constructing node refs directly. |
+| Q-131 | DONE | Route parser optional field handles through typed refs. | Parser construction now converts optional type/expression/block refs through named AST helpers instead of direct ref-handle access. |
 
 ## Language Core
 
@@ -586,3 +587,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Routed consumer node-ref upcasts through typed refs. | C codegen, resolver, symbol-table, and typecheck now use named AST upcast helpers instead of direct node-ref handle conversions. |
 | 2026-06-10 | Routed typecheck function lookup through typed item refs. | Typecheck call-argument diagnostics now keep found functions as `AstItemRef` values and use AST-owned optional item-ref helpers. |
 | 2026-06-10 | Routed AST-report optional node handles through typed refs. | AST report optional-node serialization now uses an AST-owned optional-handle-to-node-ref helper, with CI guarding direct raw node-ref construction. |
+| 2026-06-10 | Routed parser optional field handles through typed refs. | Parser construction now uses AST-owned optional-handle helpers for optional type, expression, and block fields, with CI guarding direct ref-handle conversions. |

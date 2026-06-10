@@ -213,6 +213,15 @@ jobs:
             cat "$matches"
             exit 1
           fi
+          grep -q 'fn ast_type_ref_to_optional_handle(type_ref: AstTypeRef) -> i64' "$ast"
+          grep -q 'fn ast_expr_ref_to_optional_handle(expr_ref: AstExprRef) -> i64' "$ast"
+          grep -q 'fn ast_block_ref_to_optional_handle(block_ref: AstBlockRef) -> i64' "$ast"
+          grep -n -E 'ast_type_ref_handle\(parse_type_ref\(p\)\)|ast_expr_ref_handle\(parse_expr_ref\(p\)\)|ast_block_ref_handle\(ast_block_with_ref\(|ast_block_ref_handle\(parse_block_ref\(p\)\)' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser optional AST fields must use typed optional-handle helpers."
+            cat "$matches"
+            exit 1
+          fi
           grep -q 'fn parse_match_pattern_ref(p: ParserStateRef) -> AstPatternRef' "$parser"
           grep -n 'parse_match_pattern(p);' "$parser" > "$matches" || true
           if [ -s "$matches" ]; then
