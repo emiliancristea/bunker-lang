@@ -198,12 +198,13 @@ These are the next concrete PR-sized slices.
 | Q-135 | DONE | Add import path list to self-host import graph. | `BUNKER_IMPORT_GRAPH_JSON` now includes the recursive unique import path list so agents can inspect the exact module set used for expansion. |
 | Q-136 | DONE | Resolve self-host imports relative to importer directories. | Recursive import expansion, missing/invalid scans, counts, and import graph path lists now resolve nested imports against the importing file's directory. |
 | Q-137 | DONE | Add base-directory-aware self-host compile entrypoint. | `compile_to_c_with_base_dir` lets wrappers compile a root source with an explicit import base directory while preserving the legacy `compile_to_c(source)` API. |
+| Q-138 | DONE | Add self-host import graph edges. | `BUNKER_IMPORT_GRAPH_JSON` now includes import edges with importer base, requested path, resolved path, and status for ok/missing/invalid/duplicate imports. |
 
 ## Language Core
 
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
-| L-001 | PARTIAL | P0 | Real module/import system. | Self-host import expansion walks nested normalized relative string-path imports, resolves them against importer directories, suppresses duplicate/cyclic imports, rejects invalid paths with diagnostics, and emits `BUNKER_IMPORT_GRAPH_JSON` with resolved import path lists; final gate requires stable module paths, import graph diagnostics, visibility, and CI fixtures. |
+| L-001 | PARTIAL | P0 | Real module/import system. | Self-host import expansion walks nested normalized relative string-path imports, resolves them against importer directories, suppresses duplicate/cyclic imports, rejects invalid paths with diagnostics, and emits `BUNKER_IMPORT_GRAPH_JSON` with resolved import path lists plus edge status details; final gate requires stable module paths, import graph diagnostics, visibility, and CI fixtures. |
 | L-002 | PARTIAL | P0 | Multi-file compilation. | Self-host compilation expands dependency files recursively from a root source with an import path policy, importer-directory resolution, and a base-directory-aware compile entrypoint; final gate requires deterministic artifact layout, filesystem canonicalization, and import graph diagnostics. |
 | L-003 | TODO | P1 | Public/private visibility. | Symbols can be exported or hidden; invalid access produces diagnostics. |
 | L-004 | TODO | P1 | Namespaces/packages. | Package/module names avoid global collisions. |
@@ -600,3 +601,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added import path list to self-host import graph. | `BUNKER_IMPORT_GRAPH_JSON` now carries a recursive unique `imports` array for agent inspection and future import graph validation. |
 | 2026-06-10 | Resolved self-host imports relative to importer directories. | Recursive import expansion and import graph reporting now carry importer base directories, so nested relative imports resolve deterministically from their declaring module. |
 | 2026-06-10 | Added base-directory-aware self-host compile entrypoint. | `compile_to_c_with_base_dir` now allows wrappers to provide the root import base directory, and import graph JSON reports that root base. |
+| 2026-06-10 | Added self-host import graph edges. | `BUNKER_IMPORT_GRAPH_JSON` now reports import edges with importer base, requested path, resolved path, and ok/missing/invalid/duplicate status. |

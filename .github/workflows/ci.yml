@@ -120,6 +120,8 @@ jobs:
           grep -q 'json_field_str("root_base_dir", base_dir)' "$driver"
           grep -q 'json_field_i64("unique_import_count", unique_import_count_from_base(source, base_dir))' "$driver"
           grep -q 'json_field_raw("imports", unique_import_paths_json_from_base(source, base_dir))' "$driver"
+          grep -q 'json_field_raw("edges", import_edges_json_from_base(source, base_dir))' "$driver"
+          grep -q 'fn import_edge_json(from_base: str, requested: str, resolved: str, status: str) -> str' "$driver"
           grep -q 'json_field_bool("import_graph_report", true)' "$driver"
           grep -q 'capability_report + import_graph_report + ast_report' "$driver"
 

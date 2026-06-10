@@ -380,6 +380,72 @@
         return import_paths_json_with_seen(source, seen, base_dir);
     }
 
+    fn import_edge_json(from_base: str, requested: str, resolved: str, status: str) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("from_base", from_base) + comma +
+            json_field_str("requested", requested) + comma +
+            json_field_str("resolved", resolved) + comma +
+            json_field_str("status", status) +
+            "}";
+    }
+
+    fn import_edges_json_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> str {
+        let result = "[";
+        if is_import_line(line) {
+            let import_path = import_path_from_line(line);
+            if !import_path_is_valid(import_path) {
+                return import_graph_json_array_append(result,
+                    import_edge_json(base_dir, import_path, "", "invalid")) + "]";
+            }
+            let resolved_path = resolve_import_path(base_dir, import_path);
+            if !file_exists(resolved_path) {
+                return import_graph_json_array_append(result,
+                    import_edge_json(base_dir, import_path, resolved_path, "missing")) + "]";
+            }
+            if import_seen_contains(seen, resolved_path) {
+                return import_graph_json_array_append(result,
+                    import_edge_json(base_dir, import_path, resolved_path, "duplicate")) + "]";
+            }
+            vec_push(seen, resolved_path);
+            result = import_graph_json_array_append(result,
+                import_edge_json(base_dir, import_path, resolved_path, "ok"));
+            result = import_graph_json_array_append_items(result,
+                import_edges_json_with_seen(read_file(resolved_path), seen, import_path_dir(resolved_path)));
+        }
+        return result + "]";
+    }
+
+    fn import_edges_json_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
+        let result = "[";
+        let start: i64 = 0;
+        let pos: i64 = 0;
+        let source_len = len(source);
+
+        while pos < source_len {
+            if char_code_at(source, pos) == 10 {
+                result = import_graph_json_array_append_items(result,
+                    import_edges_json_in_line_with_seen(substring(source, start, pos), seen, base_dir));
+                pos = pos + 1;
+                start = pos;
+            } else {
+                pos = pos + 1;
+            }
+        }
+
+        if start < source_len {
+            result = import_graph_json_array_append_items(result,
+                import_edges_json_in_line_with_seen(substring(source, start, source_len), seen, base_dir));
+        }
+
+        return result + "]";
+    }
+
+    fn import_edges_json_from_base(source: str, base_dir: str) -> str {
+        let seen: Vec<str> = vec_new();
+        return import_edges_json_with_seen(source, seen, base_dir);
+    }
+
     fn source_line_at(source: str, offset: i64) -> i64 {
         let line: i64 = 1;
         let i: i64 = 0;
@@ -475,6 +541,7 @@
             json_field_bool("duplicate_suppression", true) + comma +
             json_field_i64("unique_import_count", unique_import_count_from_base(source, base_dir)) + comma +
             json_field_raw("imports", unique_import_paths_json_from_base(source, base_dir)) + comma +
+            json_field_raw("edges", import_edges_json_from_base(source, base_dir)) + comma +
             json_field_bool("has_invalid_import", len(invalid_import) > 0) + comma +
             json_field_str("invalid_import", invalid_import) + comma +
             json_field_bool("has_missing_import", len(missing_import) > 0) + comma +
