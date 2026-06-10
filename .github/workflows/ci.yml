@@ -675,6 +675,19 @@ jobs:
             exit 1
           fi
 
+      - name: Require AST report const, struct, and field refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast_report='self-host/modules/ast_report.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'ast_const_(name_idx|type_handle|value_handle)\(|ast_struct_(name_idx|fields_ref)\(|ast_field_decl_(name_idx|type_handle)\(' "$ast_report" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "AST report const/struct/field serialization must use typed AstItemRef/AstNodeRef accessors."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require AST report block refs
         shell: bash
         run: |

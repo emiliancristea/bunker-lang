@@ -349,10 +349,11 @@
             let expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
             result = result + comma + json_field_str("value", ast_expr_ref_value(expr_ref) as str);
         } else if kind == NODE_CONST {
+            let item_ref: AstItemRef = ast_item_ref_from_node_ref(node_ref);
             result = result + comma +
-                json_field_str("name", ast_report_name(names, ast_const_name_idx(node))) + comma +
-                json_field_raw("type", ast_report_optional_node_json(names, ast_const_type_handle(node))) + comma +
-                json_field_raw("value", ast_report_optional_node_json(names, ast_const_value_handle(node)));
+                json_field_str("name", ast_report_name(names, ast_const_ref_name_idx(item_ref))) + comma +
+                json_field_raw("type", ast_report_optional_node_json(names, ast_const_ref_type_handle(item_ref))) + comma +
+                json_field_raw("value", ast_report_optional_node_json(names, ast_const_ref_value_handle(item_ref)));
         } else if kind == NODE_TERNARY {
             let expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
             result = result + comma +
@@ -371,13 +372,14 @@
                 json_field_raw("base", ast_report_expr_handle_json(names, ast_index_ref_base_handle(expr_ref))) + comma +
                 json_field_raw("index", ast_report_expr_handle_json(names, ast_index_ref_expr_handle(expr_ref)));
         } else if kind == NODE_STRUCT {
+            let item_ref: AstItemRef = ast_item_ref_from_node_ref(node_ref);
             result = result + comma +
-                json_field_str("name", ast_report_name(names, ast_struct_name_idx(node))) + comma +
-                json_field_raw("fields", ast_report_node_array_json_ref(names, ast_struct_fields_ref(node)));
+                json_field_str("name", ast_report_name(names, ast_struct_ref_name_idx(item_ref))) + comma +
+                json_field_raw("fields", ast_report_node_array_json_ref(names, ast_struct_ref_fields_ref(item_ref)));
         } else if kind == NODE_FIELD {
             result = result + comma +
-                json_field_str("name", ast_report_name(names, ast_field_decl_name_idx(node))) + comma +
-                json_field_raw("type", ast_report_optional_node_json(names, ast_field_decl_type_handle(node)));
+                json_field_str("name", ast_report_name(names, ast_field_decl_ref_name_idx(node_ref))) + comma +
+                json_field_raw("type", ast_report_optional_node_json(names, ast_field_decl_ref_type_handle(node_ref)));
         } else if kind == NODE_FIELD_ACCESS {
             let expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
             result = result + comma +
