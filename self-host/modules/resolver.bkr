@@ -296,7 +296,7 @@
             let i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
                 let arg_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
-                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_node_ref_handle(arg_ref)), scope, bindings);
+                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_node_ref(arg_ref), scope, bindings);
                 i = i + 1;
             }
         } else if kind == NODE_STRUCT_LIT {
@@ -322,7 +322,7 @@
                     }
                 }
                 let field_value_ref: AstNodeRef = ast_node_list_ref_get_ref(field_values_ref, i);
-                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_node_ref_handle(field_value_ref)), scope, bindings);
+                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_node_ref(field_value_ref), scope, bindings);
                 i = i + 1;
             }
         } else if kind == NODE_FIELD_ACCESS {
@@ -341,7 +341,7 @@
             let i: i64 = 0;
             while i < ast_node_list_ref_count(elements_ref) {
                 let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
-                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_node_ref_handle(element_ref)), scope, bindings);
+                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_node_ref(element_ref), scope, bindings);
                 i = i + 1;
             }
         } else if kind == NODE_INDEX {
@@ -365,9 +365,9 @@
 
                 let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
                 if ast_node_ref_kind(body_ref) == NODE_BLOCK {
-                    state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_block_ref_from_handle(ast_node_ref_handle(body_ref)), scope, arm_bindings, resolver_empty_i64_vec());
+                    state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_block_ref_from_node_ref(body_ref), scope, arm_bindings, resolver_empty_i64_vec());
                 } else {
-                    state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_node_ref_handle(body_ref)), scope, arm_bindings);
+                    state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_node_ref(body_ref), scope, arm_bindings);
                 }
                 i = i + 1;
             }

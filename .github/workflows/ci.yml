@@ -485,6 +485,25 @@ jobs:
             exit 1
           fi
 
+      - name: Require consumer node-ref upcasts
+        shell: bash
+        run: |
+          set -euo pipefail
+          matches="$(mktemp)"
+          for module in \
+            self-host/modules/c_codegen.bkr \
+            self-host/modules/resolver.bkr \
+            self-host/modules/symbol_table.bkr \
+            self-host/modules/typecheck.bkr
+          do
+            grep -n -E 'ast_expr_ref_from_handle\(ast_node_ref_handle\(|ast_block_ref_from_handle\(ast_node_ref_handle\(' "$module" >> "$matches" || true
+          done
+          if [ -s "$matches" ]; then
+            echo "Consumer modules must use typed node-ref upcast helpers."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require symbol-table statement AST refs
         shell: bash
         run: |

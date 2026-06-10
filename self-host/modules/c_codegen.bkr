@@ -276,7 +276,7 @@
             if ast_node_list_ref_count(bodies_ref) > 0 {
                 let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, 0);
                 if ast_node_ref_kind(body_ref) == NODE_BLOCK {
-                    let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_node_ref_handle(body_ref));
+                    let block_ref: AstBlockRef = ast_block_ref_from_node_ref(body_ref);
                     if ast_block_ref_stmt_count(block_ref) <= 0 {
                         return TYPE_UNKNOWN;
                     }
@@ -286,7 +286,7 @@
                     }
                     return TYPE_UNKNOWN;
                 }
-                return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_node_ref_handle(body_ref)));
+                return infer_c_expr_ref_type(state, ast_expr_ref_from_node_ref(body_ref));
             }
             return TYPE_UNKNOWN;
         }
@@ -345,10 +345,10 @@
 
     fn gen_c_inline_node_result(state: CgenStateRef, result_name: str, body_ref: AstNodeRef) -> str {
         if ast_node_ref_kind(body_ref) != NODE_BLOCK {
-            return result_name + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_ref_handle(body_ref))) + "; ";
+            return result_name + " = " + gen_c_expr_ref(state, ast_expr_ref_from_node_ref(body_ref)) + "; ";
         }
 
-        let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_node_ref_handle(body_ref));
+        let block_ref: AstBlockRef = ast_block_ref_from_node_ref(body_ref);
         let result = "{ ";
         let i: i64 = 0;
         let count = ast_block_ref_stmt_count(block_ref);
