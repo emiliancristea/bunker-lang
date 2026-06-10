@@ -383,6 +383,18 @@
         return item_ref.handle;
     }
 
+    fn ast_optional_item_ref_none() -> AstItemRef {
+        return ast_item_ref_from_handle(ast_optional_none());
+    }
+
+    fn ast_item_ref_is_none(item_ref: AstItemRef) -> bool {
+        return ast_optional_is_none(ast_item_ref_handle(item_ref));
+    }
+
+    fn ast_item_ref_is_some(item_ref: AstItemRef) -> bool {
+        return ast_optional_is_some(ast_item_ref_handle(item_ref));
+    }
+
     fn ast_item_node_from_ref(item_ref: AstItemRef) -> Vec<i64> {
         return ast_node_from_handle(ast_item_ref_handle(item_ref));
     }

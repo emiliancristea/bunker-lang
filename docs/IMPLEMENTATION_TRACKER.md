@@ -189,6 +189,7 @@ These are the next concrete PR-sized slices.
 | Q-126 | DONE | Route type-graph type detail reads through typed refs. | Type-graph report and bootstrap type-state helpers now read type kind, struct metadata, and array metadata through `AstTypeRef` accessors. |
 | Q-127 | DONE | Route consumer type detail reads through typed refs. | C codegen, resolver, and symbol-table type consumers now read type metadata and type-node spans through `AstTypeRef` helpers instead of raw handles/details. |
 | Q-128 | DONE | Route consumer node-ref upcasts through typed refs. | C codegen, resolver, symbol-table, and typecheck now convert `AstNodeRef` values to expression/block refs through named AST upcast helpers. |
+| Q-129 | DONE | Route typecheck function lookup through typed item refs. | Typecheck call-argument diagnostics now keep resolved function declarations as `AstItemRef` values, with optional item refs handled inside the AST boundary. |
 
 ## Language Core
 
@@ -582,3 +583,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Routed type-graph type detail reads through typed refs. | `modules/type_graph.bkr` now uses `AstTypeRef` accessors for type kind, struct names, and array metadata, with CI guarding against raw type detail reads. |
 | 2026-06-10 | Routed consumer type detail reads through typed refs. | C codegen, resolver, and symbol-table now consume type metadata via `AstTypeRef` helpers, with CI guarding those modules against raw type handles/details. |
 | 2026-06-10 | Routed consumer node-ref upcasts through typed refs. | C codegen, resolver, symbol-table, and typecheck now use named AST upcast helpers instead of direct node-ref handle conversions. |
+| 2026-06-10 | Routed typecheck function lookup through typed item refs. | Typecheck call-argument diagnostics now keep found functions as `AstItemRef` values and use AST-owned optional item-ref helpers. |

@@ -144,21 +144,17 @@
         return state;
     }
 
-    fn typecheck_find_function(kernel: Vec<i64>, name_idx: i64) -> i64 {
-        return typecheck_find_function_ref(ast_node_ref_from_node(kernel), name_idx);
-    }
-
-    fn typecheck_find_function_ref(kernel_ref: AstNodeRef, name_idx: i64) -> i64 {
+    fn typecheck_find_function_ref(kernel_ref: AstNodeRef, name_idx: i64) -> AstItemRef {
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         let i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_FN && ast_fn_ref_name_idx(item_ref) == name_idx {
-                return ast_item_ref_handle(item_ref);
+                return item_ref;
             }
             i = i + 1;
         }
-        return ast_optional_none();
+        return ast_optional_item_ref_none();
     }
 
     fn typecheck_check_expression_against(state: Vec<str>, names: Vec<str>, cstate: CgenStateRef,
@@ -194,12 +190,11 @@
     fn typecheck_check_call_arguments_ref(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
                                           cstate: CgenStateRef, expr_ref: AstExprRef, scope: str) -> Vec<str> {
         let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
-        let fn_value: i64 = typecheck_find_function_ref(kernel_ref, name_idx);
-        if ast_optional_is_none(fn_value) {
+        let fn_ref: AstItemRef = typecheck_find_function_ref(kernel_ref, name_idx);
+        if ast_item_ref_is_none(fn_ref) {
             return state;
         }
 
-        let fn_ref: AstItemRef = ast_item_ref_from_handle(fn_value);
         let fn_name: str = ast_report_name(names, name_idx);
         let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
         let params_ref: AstNodeListRef = ast_fn_ref_params_ref(fn_ref);

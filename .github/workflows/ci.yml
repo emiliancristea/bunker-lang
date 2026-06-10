@@ -504,6 +504,19 @@ jobs:
             exit 1
           fi
 
+      - name: Require typecheck function lookup refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          typecheck='self-host/modules/typecheck.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'fn typecheck_find_function\(|typecheck_find_function_ref\(.*-> i64|ast_item_ref_from_handle\(fn_value\)|ast_item_ref_handle\(' "$typecheck" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Typecheck function lookup must return and consume typed item refs."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require symbol-table statement AST refs
         shell: bash
         run: |
