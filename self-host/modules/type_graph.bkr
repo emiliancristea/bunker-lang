@@ -25,7 +25,6 @@
 
     fn type_graph_type_ref_json(names: Vec<str>, type_ref: AstTypeRef, source: str) -> str {
         let comma = ",";
-        let type_node: i64 = ast_type_ref_handle(type_ref);
         let kind: i64 = ast_type_ref_kind_value(type_ref);
         let result = "{" +
             json_field_str("type_kind", ast_type_kind_name(kind)) + comma +
@@ -36,11 +35,11 @@
 
         if kind == TYPE_STRUCT {
             result = result + comma +
-                json_field_str("struct_name", ast_report_name(names, ast_type_struct_name_idx_value(type_node)));
+                json_field_str("struct_name", ast_report_name(names, ast_type_ref_struct_name_idx_value(type_ref)));
         } else if kind == TYPE_ARRAY {
             result = result + comma +
-                json_field_str("element_type_kind", ast_type_kind_name(ast_type_array_elem_kind_value(type_node))) + comma +
-                json_field_i64("array_len", ast_type_array_len_value(type_node));
+                json_field_str("element_type_kind", ast_type_kind_name(ast_type_ref_array_elem_kind_value(type_ref))) + comma +
+                json_field_i64("array_len", ast_type_ref_array_len_value(type_ref));
         }
 
         return result + "}";
@@ -67,7 +66,7 @@
 
     fn type_graph_effective_kind_ref(state: CgenStateRef, type_node: i64, expr_value: i64) -> i64 {
         if ast_optional_is_some(type_node) {
-            return ast_type_kind_value(type_node);
+            return ast_type_ref_kind_value(ast_type_ref_from_handle(type_node));
         }
         if ast_optional_is_some(expr_value) {
             return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(expr_value));
@@ -83,11 +82,10 @@
     }
 
     fn type_graph_maybe_add_array_type_ref(state: CgenStateRef, name_idx: i64, type_ref: AstTypeRef) -> CgenStateRef {
-        let type_node: i64 = ast_type_ref_handle(type_ref);
         if ast_type_ref_kind_value(type_ref) == TYPE_ARRAY {
             cgen_add_array_type_ref(state, name_idx,
-                ast_type_array_elem_kind_value(type_node),
-                ast_type_array_len_value(type_node));
+                ast_type_ref_array_elem_kind_value(type_ref),
+                ast_type_ref_array_len_value(type_ref));
         }
         return state;
     }
@@ -108,7 +106,7 @@
                 let ret_type: i64 = ast_fn_ref_return_type_handle(item_ref);
                 let ret_kind: i64 = TYPE_VOID;
                 if ast_optional_is_some(ret_type) {
-                    ret_kind = ast_type_kind_value(ret_type);
+                    ret_kind = ast_type_ref_kind_value(ast_type_ref_from_handle(ret_type));
                 }
                 cgen_add_fn_type_ref(state, ast_fn_ref_name_idx(item_ref), ret_kind);
             } else if kind == NODE_CONST {
@@ -393,7 +391,7 @@
             let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
             let param_type: i64 = ast_param_ref_type_handle(param_ref);
             let param_name_idx: i64 = ast_param_ref_name_idx(param_ref);
-            cgen_add_local_type_ref(state, param_name_idx, ast_type_kind_value(param_type));
+            cgen_add_local_type_ref(state, param_name_idx, ast_type_ref_kind_value(ast_type_ref_from_handle(param_type)));
             if ast_optional_is_some(param_type) {
                 type_graph_maybe_add_array_type_ref(state, param_name_idx, ast_type_ref_from_handle(param_type));
             }

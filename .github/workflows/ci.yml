@@ -454,6 +454,19 @@ jobs:
             exit 1
           fi
 
+      - name: Require type-graph type detail refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          type_graph='self-host/modules/type_graph.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'ast_type_kind_value\(|ast_type_struct_name_idx_value\(|ast_type_array_elem_kind_value\(|ast_type_array_len_value\(' "$type_graph" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Type-graph type details must use typed AST type ref accessors."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require symbol-table statement AST refs
         shell: bash
         run: |
