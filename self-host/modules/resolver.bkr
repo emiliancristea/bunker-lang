@@ -230,13 +230,13 @@
     fn resolver_type_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
                                      type_ref: AstTypeRef, scope: str) -> Vec<str> {
         if ast_type_ref_kind_value(type_ref) == TYPE_STRUCT {
-            let name_idx: i64 = ast_type_struct_name_idx_value(ast_type_ref_handle(type_ref));
+            let name_idx: i64 = ast_type_ref_struct_name_idx_value(type_ref);
             if !resolver_has_struct_name_ref(kernel_ref, name_idx) {
                 state = resolver_append_unresolved_node_ref(state,
                     ast_report_name(names, name_idx),
                     scope,
                     "type_reference",
-                    ast_node_ref_from_handle(ast_type_ref_handle(type_ref)),
+                    ast_node_ref_from_type_ref(type_ref),
                     "declared struct type");
             }
         }

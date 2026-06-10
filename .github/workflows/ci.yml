@@ -467,6 +467,24 @@ jobs:
             exit 1
           fi
 
+      - name: Require consumer type detail refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          matches="$(mktemp)"
+          for module in \
+            self-host/modules/c_codegen.bkr \
+            self-host/modules/resolver.bkr \
+            self-host/modules/symbol_table.bkr
+          do
+            grep -n -E 'ast_type_ref_handle\(|ast_type_kind_value\(|ast_type_struct_name_idx_value\(|ast_type_array_elem_kind_value\(|ast_type_array_len_value\(' "$module" >> "$matches" || true
+          done
+          if [ -s "$matches" ]; then
+            echo "Consumer modules must use typed AST type ref accessors instead of raw type handles/details."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require symbol-table statement AST refs
         shell: bash
         run: |

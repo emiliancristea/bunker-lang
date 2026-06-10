@@ -187,6 +187,7 @@ These are the next concrete PR-sized slices.
 | Q-124 | DONE | Route AST-report const, struct, and field fields through typed refs. | Complete-tree const/struct/field JSON now reads declaration fields through typed item/node accessors. |
 | Q-125 | DONE | Route AST-report expression upcasts through typed refs. | AST exposes an `AstNodeRef` to `AstExprRef` upcast helper, and complete-tree expression JSON no longer converts node refs through raw handles in the report. |
 | Q-126 | DONE | Route type-graph type detail reads through typed refs. | Type-graph report and bootstrap type-state helpers now read type kind, struct metadata, and array metadata through `AstTypeRef` accessors. |
+| Q-127 | DONE | Route consumer type detail reads through typed refs. | C codegen, resolver, and symbol-table type consumers now read type metadata and type-node spans through `AstTypeRef` helpers instead of raw handles/details. |
 
 ## Language Core
 
@@ -578,3 +579,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Routed AST-report const, struct, and field fields through typed refs. | Complete-tree declaration JSON now reads const, struct, and field data through typed `AstItemRef` and `AstNodeRef` accessors. |
 | 2026-06-10 | Routed AST-report expression upcasts through typed refs. | Complete-tree expression JSON now obtains `AstExprRef` directly from `AstNodeRef`. |
 | 2026-06-10 | Routed type-graph type detail reads through typed refs. | `modules/type_graph.bkr` now uses `AstTypeRef` accessors for type kind, struct names, and array metadata, with CI guarding against raw type detail reads. |
+| 2026-06-10 | Routed consumer type detail reads through typed refs. | C codegen, resolver, and symbol-table now consume type metadata via `AstTypeRef` helpers, with CI guarding those modules against raw type handles/details. |
