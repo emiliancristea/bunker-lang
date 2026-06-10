@@ -9,6 +9,14 @@
         return kind == TYPE_I32 || kind == TYPE_I64;
     }
 
+    fn typecheck_is_numeric_kind(kind: i64) -> bool {
+        return kind == TYPE_I32 || kind == TYPE_I64 || kind == TYPE_F64;
+    }
+
+    fn typecheck_is_unknown_kind(kind: i64) -> bool {
+        return kind == TYPE_UNKNOWN;
+    }
+
     fn typecheck_kinds_compatible(expected_kind: i64, found_kind: i64) -> bool {
         if expected_kind == TYPE_UNKNOWN || found_kind == TYPE_UNKNOWN {
             return true;
@@ -163,6 +171,20 @@
         return false;
     }
 
+    fn typecheck_binary_op_requires_bool(op: i64) -> bool {
+        return op == TOK_AND || op == TOK_OR;
+    }
+
+    fn typecheck_binary_op_requires_integer(op: i64) -> bool {
+        return op == TOK_PERCENT || op == TOK_BIT_AND || op == TOK_BIT_OR ||
+            op == TOK_BIT_XOR || op == TOK_SHL || op == TOK_SHR;
+    }
+
+    fn typecheck_binary_op_requires_numeric(op: i64) -> bool {
+        return op == TOK_PLUS || op == TOK_MINUS || op == TOK_STAR || op == TOK_SLASH ||
+            op == TOK_LT || op == TOK_GT || op == TOK_LE || op == TOK_GE;
+    }
+
     fn typecheck_maybe_append_mismatch(state: Vec<str>, kind: str, name: str, scope: str,
                                        node: Vec<i64>, expected_kind: i64, found_kind: i64,
                                        repair_hint: str) -> Vec<str> {
@@ -229,6 +251,65 @@
             i = i + 1;
         }
         return TYPE_UNKNOWN;
+    }
+
+    fn typecheck_check_binary_operand_ref(state: Vec<str>, scope: str, operand_name: str,
+                                          operand_ref: AstExprRef, expected_kind: i64,
+                                          found_kind: i64, repair_hint: str) -> Vec<str> {
+        if typecheck_is_unknown_kind(found_kind) {
+            return state;
+        }
+        return typecheck_append_mismatch_ref(state, "binary_operand_type_mismatch", operand_name,
+            scope, ast_node_ref_from_expr_ref(operand_ref), expected_kind, found_kind, repair_hint);
+    }
+
+    fn typecheck_check_binary_operands_ref(state: Vec<str>, cstate: CgenStateRef,
+                                           expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let op: i64 = ast_binary_ref_op(expr_ref);
+        let left_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref));
+        let right_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_right_handle(expr_ref));
+        let left_kind: i64 = typecheck_expr_ref_kind(cstate, left_ref);
+        let right_kind: i64 = typecheck_expr_ref_kind(cstate, right_ref);
+        let op_name = token_name(op);
+
+        if typecheck_binary_op_requires_bool(op) {
+            if left_kind != TYPE_BOOL {
+                state = typecheck_check_binary_operand_ref(state, scope, "left operand for " + op_name,
+                    left_ref, TYPE_BOOL, left_kind, "Use bool operands with " + op_name + ".");
+            }
+            if right_kind != TYPE_BOOL {
+                state = typecheck_check_binary_operand_ref(state, scope, "right operand for " + op_name,
+                    right_ref, TYPE_BOOL, right_kind, "Use bool operands with " + op_name + ".");
+            }
+        } else if typecheck_binary_op_requires_integer(op) {
+            if !typecheck_is_integer_kind(left_kind) {
+                state = typecheck_check_binary_operand_ref(state, scope, "left operand for " + op_name,
+                    left_ref, TYPE_I64, left_kind, "Use integer operands with " + op_name + ".");
+            }
+            if !typecheck_is_integer_kind(right_kind) {
+                state = typecheck_check_binary_operand_ref(state, scope, "right operand for " + op_name,
+                    right_ref, TYPE_I64, right_kind, "Use integer operands with " + op_name + ".");
+            }
+        } else if typecheck_binary_op_requires_numeric(op) {
+            if op == TOK_PLUS && (left_kind == TYPE_STR || right_kind == TYPE_STR) {
+                return state;
+            }
+            if !typecheck_is_numeric_kind(left_kind) {
+                state = typecheck_check_binary_operand_ref(state, scope, "left operand for " + op_name,
+                    left_ref, TYPE_I64, left_kind, "Use numeric operands with " + op_name + ".");
+            }
+            if !typecheck_is_numeric_kind(right_kind) {
+                state = typecheck_check_binary_operand_ref(state, scope, "right operand for " + op_name,
+                    right_ref, TYPE_I64, right_kind, "Use numeric operands with " + op_name + ".");
+            }
+        } else if op == TOK_EQ || op == TOK_NE {
+            if !typecheck_kinds_compatible(left_kind, right_kind) {
+                state = typecheck_append_mismatch_ref(state, "binary_operand_type_mismatch",
+                    "right operand for " + op_name, scope, ast_node_ref_from_expr_ref(right_ref),
+                    left_kind, right_kind, "Compare values with compatible operand types.");
+            }
+        }
+        return state;
     }
 
     fn typecheck_check_expression_against(state: Vec<str>, names: Vec<str>, cstate: CgenStateRef,
@@ -353,6 +434,7 @@
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_field_access_ref_base_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_BINARY {
+            state = typecheck_check_binary_operands_ref(state, cstate, expr_ref, scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_binary_ref_left_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
@@ -614,13 +696,14 @@
             json_field_bool("assignment_target_checks", true) + comma +
             json_field_bool("struct_field_value_checks", true) + comma +
             json_field_bool("index_type_checks", true) + comma +
+            json_field_bool("binary_operand_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments and assignment targets, indexes, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments and assignment targets, indexes, binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
