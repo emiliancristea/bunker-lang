@@ -243,12 +243,13 @@ These are the next concrete PR-sized slices.
 | Q-180 | DONE | Add full value-context void diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `void_value_used` for void expressions in returns, assignments, conditions, ranges, operands, ternary branches, match arms, struct fields, field bases, and index expressions. |
 | Q-181 | DONE | Add call-target diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `invalid_call_target` with stable `BKR_SELF_CALL_TARGET` diagnostics when a known constant or struct name is used as a call target. |
 | Q-182 | DONE | Add finite match redundancy diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `unreachable_match_pattern` when bool or Option arms appear after all finite cases are already covered. |
+| Q-183 | DONE | Add import duplicate/cycle summary fields. | `BUNKER_IMPORT_GRAPH_JSON` now exposes cycle-safe expansion plus duplicate-or-cycle edge counts and booleans for agent planning. |
 
 ## Language Core
 
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
-| L-001 | PARTIAL | P0 | Real module/import system. | Self-host import expansion walks nested normalized relative string-path imports, resolves them against importer directories, suppresses duplicate/cyclic imports, rejects invalid paths with diagnostics, and emits `BUNKER_IMPORT_GRAPH_JSON` with resolved import path lists, edge status details, and edge status counters; final gate requires stable module paths, import graph diagnostics, visibility, and CI fixtures. |
+| L-001 | PARTIAL | P0 | Real module/import system. | Self-host import expansion walks nested normalized relative string-path imports, resolves them against importer directories, suppresses duplicate/cyclic imports, rejects invalid paths with diagnostics, and emits `BUNKER_IMPORT_GRAPH_JSON` with resolved import path lists, edge status details, edge status counters, and duplicate-or-cycle summaries; final gate requires stable module paths, import graph diagnostics, visibility, and CI fixtures. |
 | L-002 | PARTIAL | P0 | Multi-file compilation. | Self-host compilation expands dependency files recursively from a root source with an import path policy, importer-directory resolution, and a base-directory-aware compile entrypoint; final gate requires deterministic artifact layout, filesystem canonicalization, and import graph diagnostics. |
 | L-003 | TODO | P1 | Public/private visibility. | Symbols can be exported or hidden; invalid access produces diagnostics. |
 | L-004 | TODO | P1 | Namespaces/packages. | Package/module names avoid global collisions. |
@@ -380,7 +381,7 @@ These are the next concrete PR-sized slices.
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
 | CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation/ambiguity, return values/paths, void value use, condition, ternary/match branch values and patterns, duplicate/unreachable/non-exhaustive bool/Option match patterns including finite redundancy, array elements, loop-control context, unreachable statements, assignment value/target/const writes, index, field access, unary/binary operand, range, entry-point presence, direct call-target validation, direct call-argument and builtin-argument type mismatches, direct user/builtin call arity mismatches, and struct literal field-value/shape mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
 | CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass lives in `modules/resolver.bkr` and reports duplicate declarations plus unresolved identifiers/calls/types/struct literal fields with related declaration span objects; final gate requires import graph, visibility, overloads, and cross-file definition origins. |
-| CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
+| CF-009 | PARTIAL | P0 | Module resolver. | Import graph expansion is cycle-safe and reports duplicate-or-cycle summary state; final gate requires exact cycle paths and visibility checks. |
 | CF-010 | PARTIAL | P0 | Semantic validation passes. | Self-host diagnostics now include loop-control context validation for `break`/`continue` outside loops plus unreachable-statement detection after terminating statements; final gate requires a separate semantic pass with fixtures. |
 | CF-011 | TODO | P0 | Exhaustiveness checker. | Match exhaustiveness works for ADTs. |
 | CF-012 | BLOCKED | P0 | Borrow/resource checker. | Depends on selected memory/resource model. |
@@ -690,3 +691,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added full value-context void diagnostics. | Typecheck now reports void-returning expressions used across return, assignment, operand, branch, condition, range, field, match-arm, and index value contexts as `void_value_used`. |
 | 2026-06-10 | Added call-target diagnostics. | Typecheck now reports known non-function symbols used as calls as `invalid_call_target` with `BKR_SELF_CALL_TARGET`. |
 | 2026-06-10 | Added finite match redundancy diagnostics. | Typecheck now reports bool/Option arms after all finite cases are already covered as `unreachable_match_pattern`. |
+| 2026-06-10 | Added import duplicate/cycle summary fields. | Import graph JSON now exposes cycle-safe expansion and duplicate-or-cycle edge counts/flags for agents. |

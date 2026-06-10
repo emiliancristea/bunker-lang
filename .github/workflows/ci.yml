@@ -130,6 +130,10 @@ jobs:
           grep -q 'json_field_raw("edges", import_edges_json_from_base(source, base_dir))' "$driver"
           grep -q 'fn import_edge_json(from_base: str, requested: str, resolved: str, status: str) -> str' "$driver"
           grep -q 'json_field_bool("import_graph_report", true)' "$driver"
+          grep -q 'json_field_bool("import_duplicate_or_cycle_summary", true)' "$driver"
+          grep -q 'json_field_bool("cycle_safe_expansion", true)' "$driver"
+          grep -q 'json_field_i64("duplicate_or_cycle_edge_count", import_edge_status_count_from_base(source, base_dir, "duplicate"))' "$driver"
+          grep -q 'json_field_bool("has_duplicate_or_cycle_import", import_edge_status_count_from_base(source, base_dir, "duplicate") > 0)' "$driver"
           grep -q 'capability_report + import_graph_report + ast_report' "$driver"
 
       - name: Require diagnostic source excerpts

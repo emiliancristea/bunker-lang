@@ -645,6 +645,7 @@
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("import_expansion", true) + comma +
             json_field_bool("import_graph_report", true) + comma +
+            json_field_bool("import_duplicate_or_cycle_summary", true) + comma +
             json_field_bool("stage1_stage2_ci_gate", true) + comma +
             json_field_bool("type_graph_report", true) + comma +
             json_field_bool("symbol_table_report", true) + comma +
@@ -682,14 +683,17 @@
             json_field_bool("base_directory_resolution", true) + comma +
             json_field_bool("recursive_expansion", true) + comma +
             json_field_bool("duplicate_suppression", true) + comma +
+            json_field_bool("cycle_safe_expansion", true) + comma +
             json_field_i64("unique_import_count", unique_import_count_from_base(source, base_dir)) + comma +
             json_field_i64("edge_count", import_edge_count_from_base(source, base_dir)) + comma +
             json_field_i64("ok_edge_count", import_edge_status_count_from_base(source, base_dir, "ok")) + comma +
             json_field_i64("missing_edge_count", import_edge_status_count_from_base(source, base_dir, "missing")) + comma +
             json_field_i64("invalid_edge_count", import_edge_status_count_from_base(source, base_dir, "invalid")) + comma +
             json_field_i64("duplicate_edge_count", import_edge_status_count_from_base(source, base_dir, "duplicate")) + comma +
+            json_field_i64("duplicate_or_cycle_edge_count", import_edge_status_count_from_base(source, base_dir, "duplicate")) + comma +
             json_field_raw("imports", unique_import_paths_json_from_base(source, base_dir)) + comma +
             json_field_raw("edges", import_edges_json_from_base(source, base_dir)) + comma +
+            json_field_bool("has_duplicate_or_cycle_import", import_edge_status_count_from_base(source, base_dir, "duplicate") > 0) + comma +
             json_field_bool("has_invalid_import", len(invalid_import) > 0) + comma +
             json_field_str("invalid_import", invalid_import) + comma +
             json_field_bool("has_missing_import", len(missing_import) > 0) + comma +
