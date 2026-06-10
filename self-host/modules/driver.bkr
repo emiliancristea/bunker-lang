@@ -608,6 +608,8 @@
             self_host_diagnostic_code_json("BKR_SELF_ASSIGNMENT_TARGET", "typecheck", "type_system", "Invalid non-assignable assignment target."));
         result = import_graph_json_array_append(result,
             self_host_diagnostic_code_json("BKR_SELF_CONTROL_FLOW", "typecheck", "control_flow", "Invalid break or continue outside a loop."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_RETURN_PATH", "typecheck", "control_flow", "Non-void function can fall through without returning a value."));
         return result + "]";
     }
 

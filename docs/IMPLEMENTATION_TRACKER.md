@@ -220,6 +220,7 @@ These are the next concrete PR-sized slices.
 | Q-157 | DONE | Add match pattern type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `match_pattern_type_mismatch` when literal match patterns are incompatible with the scrutinee type. |
 | Q-158 | DONE | Add array element type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `array_element_type_mismatch` when array literal elements produce incompatible value types. |
 | Q-159 | DONE | Add loop-control context diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `invalid_loop_control` with stable `BKR_SELF_CONTROL_FLOW` diagnostics for `break`/`continue` outside loops. |
+| Q-160 | DONE | Add return-path diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `missing_return` with stable `BKR_SELF_RETURN_PATH` diagnostics when non-void functions can fall through. |
 
 ## Language Core
 
@@ -355,7 +356,7 @@ These are the next concrete PR-sized slices.
 | CF-004 | PARTIAL | P0 | Source spans on AST nodes. | Self-host AST nodes and patterns carry byte start/end offsets; final gate requires file, line, column, byte offsets, and source excerpts across compiler phases. |
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
-| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return, condition, ternary/match branch values and patterns, array elements, loop-control context, assignment value/target, index, unary/binary operand, range, direct call-argument type mismatches, direct call arity mismatches, and struct literal field-value mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
+| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return values/paths, condition, ternary/match branch values and patterns, array elements, loop-control context, assignment value/target, index, unary/binary operand, range, direct call-argument type mismatches, direct call arity mismatches, and struct literal field-value mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
 | CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass lives in `modules/resolver.bkr` and reports duplicate declarations plus unresolved identifiers/calls/types/struct literal fields with related declaration span objects; final gate requires import graph, visibility, overloads, and cross-file definition origins. |
 | CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
 | CF-010 | PARTIAL | P0 | Semantic validation passes. | Self-host diagnostics now include loop-control context validation for `break`/`continue` outside loops; final gate requires a separate semantic pass with fixtures. |
@@ -644,3 +645,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added match pattern type diagnostics. | Typecheck now compares integer/bool literal match patterns against the scrutinee type and reports `match_pattern_type_mismatch`. |
 | 2026-06-10 | Added array element type diagnostics. | Typecheck now compares array literal elements against the first known element type and reports `array_element_type_mismatch`. |
 | 2026-06-10 | Added loop-control context diagnostics. | Typecheck now scans function bodies for `break`/`continue` outside loop depth and reports `invalid_loop_control` with `BKR_SELF_CONTROL_FLOW`. |
+| 2026-06-10 | Added return-path diagnostics. | Typecheck now reports non-void functions that can fall through as `missing_return` with `BKR_SELF_RETURN_PATH`. |

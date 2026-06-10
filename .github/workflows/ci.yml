@@ -155,6 +155,7 @@ jobs:
           grep -q 'json_field_raw("diagnostic_codes", self_host_diagnostic_codes_json())' "$driver"
           grep -q 'BKR_SELF_ASSIGNMENT_TARGET' "$driver"
           grep -q 'BKR_SELF_CONTROL_FLOW' "$driver"
+          grep -q 'BKR_SELF_RETURN_PATH' "$driver"
           grep -q 'let source_excerpt = source_line_excerpt_at(source, source_start);' "$driver"
 
       - name: Require self-host import path policy
@@ -675,6 +676,10 @@ jobs:
           grep -q 'invalid_loop_control' "$typecheck"
           grep -q 'BKR_SELF_CONTROL_FLOW' "$typecheck"
           grep -q 'json_field_bool("loop_control_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_block_definitely_returns_ref' "$typecheck"
+          grep -q 'missing_return' "$typecheck"
+          grep -q 'BKR_SELF_RETURN_PATH' "$typecheck"
+          grep -q 'json_field_bool("return_path_checks", true)' "$typecheck"
           grep -q 'fn typecheck_struct_field_kind_ref' "$typecheck"
           grep -q 'struct_field_type_mismatch' "$typecheck"
           grep -q 'json_field_bool("struct_field_value_checks", true)' "$typecheck"
