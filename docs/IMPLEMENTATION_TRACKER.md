@@ -219,6 +219,7 @@ These are the next concrete PR-sized slices.
 | Q-156 | DONE | Add match arm value type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `match_arm_type_mismatch` when match arms produce incompatible value types. |
 | Q-157 | DONE | Add match pattern type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `match_pattern_type_mismatch` when literal match patterns are incompatible with the scrutinee type. |
 | Q-158 | DONE | Add array element type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `array_element_type_mismatch` when array literal elements produce incompatible value types. |
+| Q-159 | DONE | Add loop-control context diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `invalid_loop_control` with stable `BKR_SELF_CONTROL_FLOW` diagnostics for `break`/`continue` outside loops. |
 
 ## Language Core
 
@@ -302,7 +303,7 @@ These are the next concrete PR-sized slices.
 |---|---|---:|---|---|
 | C-001 | TODO | P0 | `?` operator. | Result/Option propagation is typed, hygienic, and tested. |
 | C-002 | PARTIAL | P1 | `defer` in self-host path. | Self-host compiler can parse/codegen defer or rejects it clearly. |
-| C-003 | TODO | P2 | Labeled break/continue. | Nested loop exits are explicit and tested. |
+| C-003 | PARTIAL | P2 | Labeled break/continue. | Invalid unlabeled `break`/`continue` outside loops is now diagnosed in the self-host typecheck report; final gate requires labeled nested loop exits. |
 | C-004 | TODO | P0 | Pattern guards. | Guards typecheck and preserve exhaustiveness rules. |
 | C-005 | TODO | P0 | Early-exit cleanup guarantees. | Return/break/continue/? run required cleanup/defer. |
 | C-006 | TODO | P1 | Panic/abort policy. | Runtime failure policy is documented and enforced. |
@@ -354,10 +355,10 @@ These are the next concrete PR-sized slices.
 | CF-004 | PARTIAL | P0 | Source spans on AST nodes. | Self-host AST nodes and patterns carry byte start/end offsets; final gate requires file, line, column, byte offsets, and source excerpts across compiler phases. |
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
-| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return, condition, ternary/match branch values and patterns, array elements, assignment value/target, index, unary/binary operand, range, direct call-argument type mismatches, direct call arity mismatches, and struct literal field-value mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
+| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return, condition, ternary/match branch values and patterns, array elements, loop-control context, assignment value/target, index, unary/binary operand, range, direct call-argument type mismatches, direct call arity mismatches, and struct literal field-value mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
 | CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass lives in `modules/resolver.bkr` and reports duplicate declarations plus unresolved identifiers/calls/types/struct literal fields with related declaration span objects; final gate requires import graph, visibility, overloads, and cross-file definition origins. |
 | CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
-| CF-010 | TODO | P0 | Semantic validation passes. | Non-type semantic errors are separate and tested. |
+| CF-010 | PARTIAL | P0 | Semantic validation passes. | Self-host diagnostics now include loop-control context validation for `break`/`continue` outside loops; final gate requires a separate semantic pass with fixtures. |
 | CF-011 | TODO | P0 | Exhaustiveness checker. | Match exhaustiveness works for ADTs. |
 | CF-012 | BLOCKED | P0 | Borrow/resource checker. | Depends on selected memory/resource model. |
 
@@ -642,3 +643,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added match arm value type diagnostics. | Typecheck now reports incompatible match arm value types as `match_arm_type_mismatch`. |
 | 2026-06-10 | Added match pattern type diagnostics. | Typecheck now compares integer/bool literal match patterns against the scrutinee type and reports `match_pattern_type_mismatch`. |
 | 2026-06-10 | Added array element type diagnostics. | Typecheck now compares array literal elements against the first known element type and reports `array_element_type_mismatch`. |
+| 2026-06-10 | Added loop-control context diagnostics. | Typecheck now scans function bodies for `break`/`continue` outside loop depth and reports `invalid_loop_control` with `BKR_SELF_CONTROL_FLOW`. |
