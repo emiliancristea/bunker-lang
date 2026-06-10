@@ -236,6 +236,7 @@ These are the next concrete PR-sized slices.
 | Q-173 | DONE | Add field-access base type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `field_access_base_type_mismatch` when a field access base is known not to be a struct. |
 | Q-174 | DONE | Add builtin argument type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `builtin_argument_type_mismatch` for known string, file, handle, index, Result, and conversion builtin argument types. |
 | Q-175 | DONE | Add collection constructor ambiguity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `ambiguous_collection_constructor` for unannotated `vec_new` and `hashmap_new` initializers. |
+| Q-176 | DONE | Add index base type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `index_base_type_mismatch` when an indexed base is known not to be an array. |
 
 ## Language Core
 
@@ -293,7 +294,7 @@ These are the next concrete PR-sized slices.
 | D-004 | TODO | P1 | Struct methods. | Methods are declared and called with receiver semantics. |
 | D-005 | TODO | P2 | Struct update syntax. | Copy/update syntax works or is intentionally rejected. |
 | D-006 | TODO | P2 | Tuple structs. | Tuple-like structs parse and typecheck. |
-| D-007 | PARTIAL | P1 | Nested structs/arrays. | Deeply nested values codegen and typecheck robustly, with array element and struct literal field-shape diagnostics in self-host reports. |
+| D-007 | PARTIAL | P1 | Nested structs/arrays. | Deeply nested values codegen and typecheck robustly, with array element/index-base and struct literal field-shape diagnostics in self-host reports. |
 | D-008 | TODO | P0 | Slices. | Borrowed views into arrays/Vec have bounds-safe operations. |
 | D-009 | PARTIAL | P0 | Typed Vec. | `Vec<T>` preserves element type through all operations. |
 | D-010 | PARTIAL | P0 | Typed HashMap. | `HashMap<K,V>` preserves key/value types beyond integer-key bootstrap. |
@@ -676,3 +677,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added field-access base type diagnostics. | Typecheck now reports non-struct field access bases as `field_access_base_type_mismatch`. |
 | 2026-06-10 | Added builtin argument type diagnostics. | Typecheck now reports known builtin argument type mismatches as `builtin_argument_type_mismatch`. |
 | 2026-06-10 | Added collection constructor ambiguity diagnostics. | Typecheck now reports unannotated `vec_new` and `hashmap_new` initializers as `ambiguous_collection_constructor`. |
+| 2026-06-10 | Added index base type diagnostics. | Typecheck now reports indexing non-array bases as `index_base_type_mismatch`. |
