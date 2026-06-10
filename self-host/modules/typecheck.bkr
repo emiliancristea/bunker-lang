@@ -99,6 +99,16 @@
                                                        node_ref: AstNodeRef, expected: str, found: str,
                                                        expected_type: str, found_type: str,
                                                        repair_hint: str) -> str {
+        return typecheck_diagnostic_span_json_with_type_context(kind, code, name, scope,
+            ast_node_ref_span_start(node_ref), ast_node_ref_span_end(node_ref),
+            expected, found, expected_type, found_type, repair_hint);
+    }
+
+    fn typecheck_diagnostic_span_json_with_type_context(kind: str, code: str, name: str, scope: str,
+                                                        source_start: i64, source_end: i64,
+                                                        expected: str, found: str,
+                                                        expected_type: str, found_type: str,
+                                                        repair_hint: str) -> str {
         let comma: str = ",";
         return "{" +
             json_field_str("phase", "typecheck") + comma +
@@ -106,9 +116,9 @@
             json_field_str("error_code", code) + comma +
             json_field_str("name", name) + comma +
             json_field_str("scope", scope) + comma +
-            json_field_i64("source_start", ast_node_ref_span_start(node_ref)) + comma +
-            json_field_i64("source_end", ast_node_ref_span_end(node_ref)) + comma +
-            json_field_bool("span_known", ast_node_ref_span_start(node_ref) != AST_SPAN_UNKNOWN && ast_node_ref_span_end(node_ref) != AST_SPAN_UNKNOWN) + comma +
+            json_field_i64("source_start", source_start) + comma +
+            json_field_i64("source_end", source_end) + comma +
+            json_field_bool("span_known", source_start != AST_SPAN_UNKNOWN && source_end != AST_SPAN_UNKNOWN) + comma +
             json_field_str("expected", expected) + comma +
             json_field_str("found", found) + comma +
             json_field_raw("expected_type", expected_type) + comma +
@@ -367,6 +377,38 @@
         return state;
     }
 
+    fn typecheck_pattern_expected_kind(pattern_ref: AstPatternRef) -> i64 {
+        let pattern_kind: i64 = ast_pattern_ref_kind(pattern_ref);
+        if pattern_kind == PAT_INT { return TYPE_I64; }
+        if pattern_kind == PAT_BOOL { return TYPE_BOOL; }
+        return TYPE_UNKNOWN;
+    }
+
+    fn typecheck_check_match_patterns_ref(state: Vec<str>, patterns_ref: AstPatternListRef,
+                                          scrutinee_kind: i64, scope: str) -> Vec<str> {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            let expected_kind: i64 = typecheck_pattern_expected_kind(pattern_ref);
+            if expected_kind != TYPE_UNKNOWN && !typecheck_value_kinds_compatible(scrutinee_kind, expected_kind) {
+                state = resolver_state_append(state,
+                    typecheck_diagnostic_span_json_with_type_context("match_pattern_type_mismatch",
+                        "BKR_SELF_TYPE_MISMATCH",
+                        "match pattern " + int_to_string(i + 1),
+                        scope,
+                        ast_pattern_ref_span_start(pattern_ref),
+                        ast_pattern_ref_span_end(pattern_ref),
+                        ast_type_kind_name(scrutinee_kind),
+                        ast_type_kind_name(expected_kind),
+                        type_graph_kind_json(scrutinee_kind, "expected"),
+                        type_graph_kind_json(expected_kind, "found"),
+                        "Use a pattern that matches the scrutinee type."));
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
     fn typecheck_check_expression_against(state: Vec<str>, names: Vec<str>, cstate: CgenStateRef,
                                           expr_value: i64, scope: str, diagnostic_kind: str,
                                           name: str, expected_kind: i64, repair_hint: str) -> Vec<str> {
@@ -535,8 +577,12 @@
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_index_ref_expr_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_MATCH {
-            state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_match_ref_scrutinee_handle(expr_ref), scope, expected_return_kind);
+            let scrutinee_ref: AstExprRef = ast_expr_ref_from_handle(ast_match_ref_scrutinee_handle(expr_ref));
+            let scrutinee_kind: i64 = typecheck_expr_ref_kind(cstate, scrutinee_ref);
+            state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
+                scrutinee_ref, scope, expected_return_kind);
+            state = typecheck_check_match_patterns_ref(state, ast_match_ref_patterns_ref(expr_ref),
+                scrutinee_kind, scope);
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
             state = typecheck_check_match_arm_types_ref(state, cstate, bodies_ref, scope);
             let i: i64 = 0;
@@ -764,13 +810,14 @@
             json_field_bool("unary_operand_checks", true) + comma +
             json_field_bool("ternary_branch_checks", true) + comma +
             json_field_bool("match_arm_type_checks", true) + comma +
+            json_field_bool("match_pattern_type_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, ternary branches, match arm values, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, ternary branches, match patterns and arm values, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
