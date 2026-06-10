@@ -205,12 +205,13 @@ These are the next concrete PR-sized slices.
 | Q-142 | DONE | Add typed context to typecheck diagnostics. | `BUNKER_TYPECHECK_JSON` diagnostics now include `expected_type` and `found_type` objects with type tags, names, C ABI, and known/source metadata. |
 | Q-143 | DONE | Add structured repair metadata to driver diagnostics. | `BUNKER_DIAGNOSTIC_JSON` now carries `suggested_action`, `fix_applicability`, and `fix_confidence` fields alongside `repair_hint`. |
 | Q-144 | DONE | Add structured repair metadata to resolver/typecheck diagnostics. | `BUNKER_RESOLVER_JSON` and `BUNKER_TYPECHECK_JSON` diagnostics now expose the same suggested-action, applicability, and confidence fields. |
+| Q-145 | DONE | Add import graph edge status counters. | `BUNKER_IMPORT_GRAPH_JSON` now includes total, ok, missing, invalid, and duplicate edge counts next to the full edge list. |
 
 ## Language Core
 
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
-| L-001 | PARTIAL | P0 | Real module/import system. | Self-host import expansion walks nested normalized relative string-path imports, resolves them against importer directories, suppresses duplicate/cyclic imports, rejects invalid paths with diagnostics, and emits `BUNKER_IMPORT_GRAPH_JSON` with resolved import path lists plus edge status details; final gate requires stable module paths, import graph diagnostics, visibility, and CI fixtures. |
+| L-001 | PARTIAL | P0 | Real module/import system. | Self-host import expansion walks nested normalized relative string-path imports, resolves them against importer directories, suppresses duplicate/cyclic imports, rejects invalid paths with diagnostics, and emits `BUNKER_IMPORT_GRAPH_JSON` with resolved import path lists, edge status details, and edge status counters; final gate requires stable module paths, import graph diagnostics, visibility, and CI fixtures. |
 | L-002 | PARTIAL | P0 | Multi-file compilation. | Self-host compilation expands dependency files recursively from a root source with an import path policy, importer-directory resolution, and a base-directory-aware compile entrypoint; final gate requires deterministic artifact layout, filesystem canonicalization, and import graph diagnostics. |
 | L-003 | TODO | P1 | Public/private visibility. | Symbols can be exported or hidden; invalid access produces diagnostics. |
 | L-004 | TODO | P1 | Namespaces/packages. | Package/module names avoid global collisions. |
@@ -614,3 +615,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added typed typecheck diagnostic context. | Typecheck diagnostics now carry raw `expected_type` and `found_type` JSON objects instead of requiring agents to infer type tags from strings. |
 | 2026-06-10 | Added structured repair metadata to diagnostics. | Parse/import diagnostics now include suggested action, fix applicability, and confidence fields for safer agent prompting. |
 | 2026-06-10 | Normalized resolver/typecheck repair metadata. | Resolver and typecheck diagnostics now expose the same suggested action, applicability, and confidence fields as parse/import diagnostics. |
+| 2026-06-10 | Added import graph edge status counters. | Import graph reports now expose total, ok, missing, invalid, and duplicate edge counts for quick agent assessment. |

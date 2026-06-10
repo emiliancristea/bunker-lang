@@ -446,6 +446,33 @@
         return import_edges_json_with_seen(source, seen, base_dir);
     }
 
+    fn import_edge_status_count_in_json(edges_json: str, status: str) -> i64 {
+        let quote = from_char_code(34);
+        let needle = quote + "status" + quote + ":" + json_escape_string(status);
+        let count: i64 = 0;
+        let i: i64 = 0;
+        while i + len(needle) <= len(edges_json) {
+            if substring(edges_json, i, i + len(needle)) == needle {
+                count = count + 1;
+                i = i + len(needle);
+            } else {
+                i = i + 1;
+            }
+        }
+        return count;
+    }
+
+    fn import_edge_status_count_from_base(source: str, base_dir: str, status: str) -> i64 {
+        return import_edge_status_count_in_json(import_edges_json_from_base(source, base_dir), status);
+    }
+
+    fn import_edge_count_from_base(source: str, base_dir: str) -> i64 {
+        return import_edge_status_count_from_base(source, base_dir, "ok") +
+            import_edge_status_count_from_base(source, base_dir, "missing") +
+            import_edge_status_count_from_base(source, base_dir, "invalid") +
+            import_edge_status_count_from_base(source, base_dir, "duplicate");
+    }
+
     fn source_line_at(source: str, offset: i64) -> i64 {
         let line: i64 = 1;
         let i: i64 = 0;
@@ -574,6 +601,11 @@
             json_field_bool("recursive_expansion", true) + comma +
             json_field_bool("duplicate_suppression", true) + comma +
             json_field_i64("unique_import_count", unique_import_count_from_base(source, base_dir)) + comma +
+            json_field_i64("edge_count", import_edge_count_from_base(source, base_dir)) + comma +
+            json_field_i64("ok_edge_count", import_edge_status_count_from_base(source, base_dir, "ok")) + comma +
+            json_field_i64("missing_edge_count", import_edge_status_count_from_base(source, base_dir, "missing")) + comma +
+            json_field_i64("invalid_edge_count", import_edge_status_count_from_base(source, base_dir, "invalid")) + comma +
+            json_field_i64("duplicate_edge_count", import_edge_status_count_from_base(source, base_dir, "duplicate")) + comma +
             json_field_raw("imports", unique_import_paths_json_from_base(source, base_dir)) + comma +
             json_field_raw("edges", import_edges_json_from_base(source, base_dir)) + comma +
             json_field_bool("has_invalid_import", len(invalid_import) > 0) + comma +
