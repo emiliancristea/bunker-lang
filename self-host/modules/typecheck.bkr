@@ -1035,6 +1035,41 @@
                 "Add the missing boolean pattern arm or a catch-all pattern."));
     }
 
+    fn typecheck_check_bool_match_redundancy_ref(state: Vec<str>, patterns_ref: AstPatternListRef,
+                                                 scrutinee_kind: i64, scope: str) -> Vec<str> {
+        if scrutinee_kind != TYPE_BOOL {
+            return state;
+        }
+        let covers_true: bool = false;
+        let covers_false: bool = false;
+        let exhausted: bool = false;
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if exhausted {
+                state = typecheck_append_match_pattern_semantic_ref(state,
+                    "unreachable_match_pattern",
+                    "match pattern " + int_to_string(i + 1),
+                    scope,
+                    pattern_ref,
+                    "reachable match pattern",
+                    "previous bool patterns already cover true and false",
+                    "Remove this arm or move it before the exhaustive bool patterns.");
+            }
+            if ast_pattern_ref_kind(pattern_ref) == PAT_BOOL && ast_pattern_ref_value(pattern_ref) == 1 {
+                covers_true = true;
+            }
+            if ast_pattern_ref_kind(pattern_ref) == PAT_BOOL && ast_pattern_ref_value(pattern_ref) == 0 {
+                covers_false = true;
+            }
+            if covers_true && covers_false {
+                exhausted = true;
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
     fn typecheck_check_option_match_exhaustiveness_ref(state: Vec<str>, expr_ref: AstExprRef,
                                                        patterns_ref: AstPatternListRef,
                                                        scope: str) -> Vec<str> {
@@ -1063,6 +1098,41 @@
                 "patterns covering Some and None",
                 "missing " + missing,
                 "Add the missing Option pattern arm or a catch-all pattern."));
+    }
+
+    fn typecheck_check_option_match_redundancy_ref(state: Vec<str>, patterns_ref: AstPatternListRef,
+                                                   scope: str) -> Vec<str> {
+        if !typecheck_match_patterns_contain_option_ref(patterns_ref) {
+            return state;
+        }
+        let covers_some: bool = false;
+        let covers_none: bool = false;
+        let exhausted: bool = false;
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if exhausted {
+                state = typecheck_append_match_pattern_semantic_ref(state,
+                    "unreachable_match_pattern",
+                    "match pattern " + int_to_string(i + 1),
+                    scope,
+                    pattern_ref,
+                    "reachable match pattern",
+                    "previous Option patterns already cover Some and None",
+                    "Remove this arm or move it before the exhaustive Option patterns.");
+            }
+            if ast_pattern_ref_kind(pattern_ref) == PAT_SOME {
+                covers_some = true;
+            }
+            if ast_pattern_ref_kind(pattern_ref) == PAT_NONE {
+                covers_none = true;
+            }
+            if covers_some && covers_none {
+                exhausted = true;
+            }
+            i = i + 1;
+        }
+        return state;
     }
 
     fn typecheck_check_array_element_types_ref(state: Vec<str>, cstate: CgenStateRef,
@@ -1513,6 +1583,10 @@
                 ast_match_ref_patterns_ref(expr_ref), scrutinee_kind, scope);
             state = typecheck_check_option_match_exhaustiveness_ref(state, expr_ref,
                 ast_match_ref_patterns_ref(expr_ref), scope);
+            state = typecheck_check_bool_match_redundancy_ref(state,
+                ast_match_ref_patterns_ref(expr_ref), scrutinee_kind, scope);
+            state = typecheck_check_option_match_redundancy_ref(state,
+                ast_match_ref_patterns_ref(expr_ref), scope);
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
             state = typecheck_check_match_arm_types_ref(state, cstate, bodies_ref, scope);
             let i: i64 = 0;
@@ -1812,6 +1886,7 @@
             json_field_bool("match_pattern_semantic_checks", true) + comma +
             json_field_bool("bool_match_exhaustiveness_checks", true) + comma +
             json_field_bool("option_match_exhaustiveness_checks", true) + comma +
+            json_field_bool("finite_match_redundancy_checks", true) + comma +
             json_field_bool("array_element_type_checks", true) + comma +
             json_field_bool("loop_control_checks", true) + comma +
             json_field_bool("return_path_checks", true) + comma +
@@ -1825,7 +1900,7 @@
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use across initializers and value expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, call targets, builtin argument types, user/builtin call arity, entry-point presence, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use across initializers and value expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, call targets, builtin argument types, user/builtin call arity, entry-point presence, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal, finite bool/Option redundancy, and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
