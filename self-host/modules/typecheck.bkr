@@ -409,6 +409,28 @@
         return state;
     }
 
+    fn typecheck_check_array_element_types_ref(state: Vec<str>, cstate: CgenStateRef,
+                                               elements_ref: AstNodeListRef, scope: str) -> Vec<str> {
+        let expected_kind: i64 = TYPE_UNKNOWN;
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(elements_ref) {
+            let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
+            let element_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_node_ref(element_ref));
+            if expected_kind == TYPE_UNKNOWN {
+                if element_kind != TYPE_UNKNOWN {
+                    expected_kind = element_kind;
+                }
+            } else {
+                state = typecheck_maybe_append_mismatch_ref(state, "array_element_type_mismatch",
+                    "array element " + int_to_string(i + 1), scope, element_ref,
+                    expected_kind, element_kind,
+                    "Make every array literal element produce the same type.");
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
     fn typecheck_check_expression_against(state: Vec<str>, names: Vec<str>, cstate: CgenStateRef,
                                           expr_value: i64, scope: str, diagnostic_kind: str,
                                           name: str, expected_kind: i64, repair_hint: str) -> Vec<str> {
@@ -559,6 +581,7 @@
                 ast_ternary_ref_else_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_ARRAY_LIT {
             let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
+            state = typecheck_check_array_element_types_ref(state, cstate, elements_ref, scope);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(elements_ref) {
                 let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
@@ -811,13 +834,14 @@
             json_field_bool("ternary_branch_checks", true) + comma +
             json_field_bool("match_arm_type_checks", true) + comma +
             json_field_bool("match_pattern_type_checks", true) + comma +
+            json_field_bool("array_element_type_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, ternary branches, match patterns and arm values, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, ternary branches, match patterns and arm values, array elements, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
