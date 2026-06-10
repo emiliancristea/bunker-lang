@@ -109,6 +109,17 @@ jobs:
           grep -q 'let expanded_import = expand_imports_with_seen(imported, seen);' "$driver"
           grep -q 'return first_missing_import_path_with_seen(read_file(import_path), seen);' "$driver"
 
+      - name: Require self-host import graph report
+        shell: bash
+        run: |
+          set -euo pipefail
+          driver='self-host/modules/driver.bkr'
+          grep -q 'fn self_host_import_graph_json(source: str) -> str' "$driver"
+          grep -q 'BUNKER_IMPORT_GRAPH_JSON' "$driver"
+          grep -q 'json_field_i64("unique_import_count", unique_import_count(source))' "$driver"
+          grep -q 'json_field_bool("import_graph_report", true)' "$driver"
+          grep -q 'capability_report + import_graph_report + ast_report' "$driver"
+
       - name: Require parser start spans through typed AST refs
         shell: bash
         run: |

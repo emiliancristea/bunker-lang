@@ -123,6 +123,49 @@
         return first_missing_import_path_with_seen(source, seen);
     }
 
+    fn import_count_in_line_with_seen(line: str, seen: Vec<str>) -> i64 {
+        if is_import_line(line) {
+            let import_path = import_path_from_line(line);
+            if !file_exists(import_path) {
+                return 0;
+            }
+            if import_seen_contains(seen, import_path) {
+                return 0;
+            }
+            vec_push(seen, import_path);
+            return 1 + import_count_with_seen(read_file(import_path), seen);
+        }
+        return 0;
+    }
+
+    fn import_count_with_seen(source: str, seen: Vec<str>) -> i64 {
+        let count: i64 = 0;
+        let start: i64 = 0;
+        let pos: i64 = 0;
+        let source_len = len(source);
+
+        while pos < source_len {
+            if char_code_at(source, pos) == 10 {
+                count = count + import_count_in_line_with_seen(substring(source, start, pos), seen);
+                pos = pos + 1;
+                start = pos;
+            } else {
+                pos = pos + 1;
+            }
+        }
+
+        if start < source_len {
+            count = count + import_count_in_line_with_seen(substring(source, start, source_len), seen);
+        }
+
+        return count;
+    }
+
+    fn unique_import_count(source: str) -> i64 {
+        let seen: Vec<str> = vec_new();
+        return import_count_with_seen(source, seen);
+    }
+
     fn source_line_at(source: str, offset: i64) -> i64 {
         let line: i64 = 1;
         let i: i64 = 0;
@@ -179,6 +222,7 @@
             json_field_bool("source_byte_spans", true) + comma +
             json_field_bool("structured_parse_diagnostics", true) + comma +
             json_field_bool("import_expansion", true) + comma +
+            json_field_bool("import_graph_report", true) + comma +
             json_field_bool("stage1_stage2_ci_gate", true) + comma +
             json_field_bool("type_graph_report", true) + comma +
             json_field_bool("symbol_table_report", true) + comma +
@@ -190,13 +234,31 @@
             json_field_bool("user_defined_adts", false) + comma +
             json_field_bool("multi_error_recovery", false) + comma +
             json_field_str("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec handles, HashMap handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals") + comma +
-            json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, bootstrap name resolver and typecheck reports only, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
+            json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, bootstrap string-path import graph without path normalization or visibility, bootstrap name resolver and typecheck reports only, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
             json_field_str("agent_guidance", "Use BUNKER_DIAGNOSTIC_JSON for repair tasks. Treat BUNKER_CAPABILITY_JSON as the current compiler surface before generating Bunker code.") +
             "}";
     }
 
     fn build_capability_report_comment() -> str {
         return "/* BUNKER_CAPABILITY_JSON: " + self_host_capability_json() + from_char_code(10) +
+            "*/" + from_char_code(10);
+    }
+
+    fn self_host_import_graph_json(source: str) -> str {
+        let comma = ",";
+        let missing_import = first_missing_import_path(source);
+        return "{" +
+            json_field_str("schema_version", "bunker.self_host.import_graph.v1") + comma +
+            json_field_bool("recursive_expansion", true) + comma +
+            json_field_bool("duplicate_suppression", true) + comma +
+            json_field_i64("unique_import_count", unique_import_count(source)) + comma +
+            json_field_bool("has_missing_import", len(missing_import) > 0) + comma +
+            json_field_str("missing_import", missing_import) +
+            "}";
+    }
+
+    fn build_import_graph_report_comment(source: str) -> str {
+        return "/* BUNKER_IMPORT_GRAPH_JSON: " + self_host_import_graph_json(source) + from_char_code(10) +
             "*/" + from_char_code(10);
     }
 
@@ -248,10 +310,12 @@
         self_host_trace_phase("compile_to_c:begin");
         let capability_report = build_capability_report_comment();
         self_host_trace_phase("compile_to_c:capability_report");
+        let import_graph_report = build_import_graph_report_comment(source);
+        self_host_trace_phase("compile_to_c:import_graph_report");
         let missing_import = first_missing_import_path(source);
         if len(missing_import) > 0 {
             self_host_trace_phase("compile_to_c:missing_import");
-            return capability_report + build_import_diagnostic(missing_import) + from_char_code(10);
+            return capability_report + import_graph_report + build_import_diagnostic(missing_import) + from_char_code(10);
         }
 
         let expanded_source = expand_imports(source);
@@ -281,7 +345,7 @@
         let c_program = gen_c_program(ast);
         self_host_trace_phase("compile_to_c:c_program");
 
-        return capability_report + ast_report +
+        return capability_report + import_graph_report + ast_report +
             type_graph_report +
             symbol_table_report +
             resolver_report +
