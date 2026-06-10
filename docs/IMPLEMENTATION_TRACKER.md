@@ -238,6 +238,7 @@ These are the next concrete PR-sized slices.
 | Q-175 | DONE | Add collection constructor ambiguity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `ambiguous_collection_constructor` for unannotated `vec_new` and `hashmap_new` initializers. |
 | Q-176 | DONE | Add index base type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `index_base_type_mismatch` when an indexed base is known not to be an array. |
 | Q-177 | DONE | Add void value diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `void_value_used` with stable `BKR_SELF_VOID_VALUE` diagnostics when unannotated let/const initializers produce void. |
+| Q-178 | DONE | Add entry-point diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `missing_entry_function` with stable `BKR_SELF_ENTRY_POINT` diagnostics when the kernel entry name has no function declaration. |
 
 ## Language Core
 
@@ -283,7 +284,7 @@ These are the next concrete PR-sized slices.
 | T-021 | TODO | P2 | Operator overloading policy. | Either explicitly supported via traits or rejected with diagnostics. |
 | T-022 | PARTIAL | P1 | Numeric promotion rules. | All numeric conversions are specified and tested. |
 | T-023 | PARTIAL | P1 | Cast safety rules. | Safe/unsafe casts are documented, checked, and diagnosed. |
-| T-024 | PARTIAL | P0 | Type diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` expected/found type diagnostics with spans and repair hints for bootstrap annotation, return, condition, ternary/match branch values and patterns, array elements, assignment value/target, index, unary/binary operands, range, direct call-argument, direct call-arity, and struct literal field-value checks; final gate requires origin tracking and a real typechecker across Rust and self-host modes. |
+| T-024 | PARTIAL | P0 | Type diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` expected/found type diagnostics with spans and repair hints for bootstrap annotation, return, condition, ternary/match branch values and patterns, array elements, assignment value/target, index, unary/binary operands, range, entry-point presence, direct call-argument, direct call-arity, and struct literal field-value checks; final gate requires origin tracking and a real typechecker across Rust and self-host modes. |
 
 ## Data Model And Standard Types
 
@@ -680,3 +681,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added collection constructor ambiguity diagnostics. | Typecheck now reports unannotated `vec_new` and `hashmap_new` initializers as `ambiguous_collection_constructor`. |
 | 2026-06-10 | Added index base type diagnostics. | Typecheck now reports indexing non-array bases as `index_base_type_mismatch`. |
 | 2026-06-10 | Added void value diagnostics. | Typecheck now reports void-returning initializers used as values as `void_value_used`. |
+| 2026-06-10 | Added entry-point diagnostics. | Typecheck now reports missing kernel entry functions as `missing_entry_function` with `BKR_SELF_ENTRY_POINT`. |
