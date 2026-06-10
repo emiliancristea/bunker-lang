@@ -519,6 +519,10 @@ jobs:
           grep -q 'resolver_related_declaration_json("function"' "$resolver"
           grep -q 'resolver_related_declaration_json("field"' "$resolver"
           grep -q 'json_field_bool("related_declarations", true)' "$resolver"
+          grep -q 'json_field_bool("structured_repair_metadata", true)' "$resolver"
+          grep -q 'json_field_str("suggested_action", repair_hint)' "$resolver"
+          grep -q 'json_field_str("fix_applicability", "manual_review")' "$resolver"
+          grep -q 'json_field_str("fix_confidence", "medium")' "$resolver"
 
       - name: Require type-graph top-level AST refs
         shell: bash
@@ -620,6 +624,10 @@ jobs:
           grep -q 'type_graph_kind_json(expected_kind, "expected")' "$typecheck"
           grep -q 'type_graph_kind_json(found_kind, "found")' "$typecheck"
           grep -q 'json_field_bool("typed_diagnostic_context", true)' "$typecheck"
+          grep -q 'json_field_bool("structured_repair_metadata", true)' "$typecheck"
+          grep -q 'json_field_str("suggested_action", repair_hint)' "$typecheck"
+          grep -q 'json_field_str("fix_applicability", "manual_review")' "$typecheck"
+          grep -q 'json_field_str("fix_confidence", "medium")' "$typecheck"
 
       - name: Require symbol-table statement AST refs
         shell: bash

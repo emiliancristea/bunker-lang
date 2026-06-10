@@ -104,6 +104,9 @@
             json_field_str("found", found) + comma +
             json_field_raw("expected_type", expected_type) + comma +
             json_field_raw("found_type", found_type) + comma +
+            json_field_str("suggested_action", repair_hint) + comma +
+            json_field_str("fix_applicability", "manual_review") + comma +
+            json_field_str("fix_confidence", "medium") + comma +
             json_field_str("repair_hint", repair_hint) +
             "}";
     }
@@ -525,6 +528,7 @@
             json_field_bool("condition_checks", true) + comma +
             json_field_bool("call_argument_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
+            json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
             json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments, for ranges, and direct user-function call arguments using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, struct field value types, numeric ranges, trait bounds, exhaustiveness, or cross-module types.") + comma +

@@ -29,6 +29,9 @@
             json_field_str("expected", expected) + comma +
             json_field_str("actual", actual) + comma +
             json_field_raw("related_declarations", related_declarations) + comma +
+            json_field_str("suggested_action", repair_hint) + comma +
+            json_field_str("fix_applicability", "manual_review") + comma +
+            json_field_str("fix_confidence", "medium") + comma +
             json_field_str("repair_hint", repair_hint) +
             "}";
     }
@@ -714,6 +717,7 @@
             json_field_bool("duplicate_detection", true) + comma +
             json_field_bool("unresolved_detection", true) + comma +
             json_field_bool("related_declarations", true) + comma +
+            json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
             json_field_str("scope_model", "kernel globals plus function/block/pattern binding scopes using interned names") + comma +

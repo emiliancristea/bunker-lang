@@ -204,6 +204,7 @@ These are the next concrete PR-sized slices.
 | Q-141 | DONE | Add spans to resolver related declarations. | Resolver related declarations are now structured objects with declaration kind, name, source offsets, and span-known flags. |
 | Q-142 | DONE | Add typed context to typecheck diagnostics. | `BUNKER_TYPECHECK_JSON` diagnostics now include `expected_type` and `found_type` objects with type tags, names, C ABI, and known/source metadata. |
 | Q-143 | DONE | Add structured repair metadata to driver diagnostics. | `BUNKER_DIAGNOSTIC_JSON` now carries `suggested_action`, `fix_applicability`, and `fix_confidence` fields alongside `repair_hint`. |
+| Q-144 | DONE | Add structured repair metadata to resolver/typecheck diagnostics. | `BUNKER_RESOLVER_JSON` and `BUNKER_TYPECHECK_JSON` diagnostics now expose the same suggested-action, applicability, and confidence fields. |
 
 ## Language Core
 
@@ -402,9 +403,9 @@ These are the next concrete PR-sized slices.
 | A-003 | PARTIAL | P0 | Exact spans. | Parse diagnostics and self-host AST nodes carry byte offsets, line/column, and parse source excerpts; final gate requires file identity and source excerpts across all compiler phases. |
 | A-004 | PARTIAL | P0 | Expected/found details. | Parse diagnostics include expected/actual tokens, resolver diagnostics include expected/actual symbol context plus related declaration spans, and typecheck diagnostics include typed expected/found objects. |
 | A-005 | TODO | P0 | Suggested fix edits. | Diagnostics include concrete text edits when safe. |
-| A-006 | PARTIAL | P1 | Confidence levels. | Parse/import diagnostics carry structured action/applicability/confidence metadata; final gate requires the same fields and calibrated confidence across every compiler phase. |
+| A-006 | PARTIAL | P1 | Confidence levels. | Parse/import/resolver/typecheck diagnostics carry structured action/applicability/confidence metadata; final gate requires calibrated confidence across every compiler phase. |
 | A-007 | PARTIAL | P1 | Related spans. | Resolver diagnostics include related declaration kind/name/source spans for in-file declarations; final gate requires cross-file definition/use/origin spans. |
-| A-008 | PARTIAL | P0 | Prompt-ready explanations. | Parse/import errors include short repair context plus structured suggested action/applicability/confidence fields; final gate requires phase-wide prompt-ready explanations. |
+| A-008 | PARTIAL | P0 | Prompt-ready explanations. | Parse/import/resolver/typecheck errors include short repair context plus structured suggested action/applicability/confidence fields; final gate requires phase-wide prompt-ready explanations. |
 | A-009 | TODO | P0 | Multi-error recovery. | Parser/typechecker return multiple useful diagnostics. |
 | A-010 | PARTIAL | P0 | Machine-readable AST dump. | Self-host generated outputs include `BUNKER_AST_JSON` root/top-level summaries plus a complete nested `tree`; final gate requires Rust and self-host compiler modes to expose the same stable AST dump contract. |
 | A-011 | PARTIAL | P0 | Machine-readable type graph. | Self-host generated outputs include `BUNKER_TYPE_GRAPH_JSON` from `modules/type_graph.bkr` for declared types plus bootstrap-inferred locals/returns; final gate requires a real typechecker-backed graph across Rust and self-host compiler modes. |
@@ -612,3 +613,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added resolver related declaration spans. | Resolver related declarations now carry declaration kind, name, byte offsets, and span-known flags for prompt-ready repair context. |
 | 2026-06-10 | Added typed typecheck diagnostic context. | Typecheck diagnostics now carry raw `expected_type` and `found_type` JSON objects instead of requiring agents to infer type tags from strings. |
 | 2026-06-10 | Added structured repair metadata to diagnostics. | Parse/import diagnostics now include suggested action, fix applicability, and confidence fields for safer agent prompting. |
+| 2026-06-10 | Normalized resolver/typecheck repair metadata. | Resolver and typecheck diagnostics now expose the same suggested action, applicability, and confidence fields as parse/import diagnostics. |
