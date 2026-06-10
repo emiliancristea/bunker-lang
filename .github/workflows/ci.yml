@@ -144,6 +144,10 @@ jobs:
           grep -q 'json_field_str("suggested_action", repair_hint)' "$driver"
           grep -q 'json_field_str("fix_applicability", "manual_review")' "$driver"
           grep -q 'json_field_str("fix_confidence", "medium")' "$driver"
+          grep -q 'fn self_host_diagnostic_codes_json() -> str' "$driver"
+          grep -q 'json_field_bool("diagnostic_code_registry", true)' "$driver"
+          grep -q 'json_field_raw("diagnostic_codes", self_host_diagnostic_codes_json())' "$driver"
+          grep -q 'BKR_SELF_ASSIGNMENT_TARGET' "$driver"
           grep -q 'let source_excerpt = source_line_excerpt_at(source, source_start);' "$driver"
 
       - name: Require self-host import path policy

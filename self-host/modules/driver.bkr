@@ -553,6 +553,37 @@
             "}";
     }
 
+    fn self_host_diagnostic_code_json(code: str, phase: str, category: str, description: str) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("code", code) + comma +
+            json_field_str("phase", phase) + comma +
+            json_field_str("category", category) + comma +
+            json_field_str("description", description) +
+            "}";
+    }
+
+    fn self_host_diagnostic_codes_json() -> str {
+        let result = "[";
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_PARSE", "parse", "syntax", "Parse error with expected and actual token details."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_IMPORT_PATH", "import", "module", "Invalid normalized relative import path."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_IMPORT", "import", "module", "Missing imported module."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_DUPLICATE_SYMBOL", "resolver", "name_resolution", "Duplicate declaration in a scope."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_UNRESOLVED_SYMBOL", "resolver", "name_resolution", "Unresolved identifier, function, type, struct literal, or field reference."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_TYPE_MISMATCH", "typecheck", "type_system", "Expected/found type mismatch."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_ARITY_MISMATCH", "typecheck", "type_system", "Function call argument count mismatch."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_ASSIGNMENT_TARGET", "typecheck", "type_system", "Invalid non-assignable assignment target."));
+        return result + "]";
+    }
+
     fn self_host_capability_json() -> str {
         let comma = ",";
         return "{" +
@@ -562,6 +593,7 @@
             json_field_bool("source_excerpts", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("structured_parse_diagnostics", true) + comma +
+            json_field_bool("diagnostic_code_registry", true) + comma +
             json_field_bool("import_expansion", true) + comma +
             json_field_bool("import_graph_report", true) + comma +
             json_field_bool("stage1_stage2_ci_gate", true) + comma +
@@ -574,6 +606,7 @@
             json_field_bool("real_generics", false) + comma +
             json_field_bool("user_defined_adts", false) + comma +
             json_field_bool("multi_error_recovery", false) + comma +
+            json_field_raw("diagnostic_codes", self_host_diagnostic_codes_json()) + comma +
             json_field_str("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec handles, HashMap handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals") + comma +
             json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, bootstrap string-path import graph with import path policy and importer-directory resolution but no filesystem canonicalization or visibility, bootstrap name resolver and typecheck reports only, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
             json_field_str("agent_guidance", "Use BUNKER_DIAGNOSTIC_JSON for repair tasks. Treat BUNKER_CAPABILITY_JSON as the current compiler surface before generating Bunker code.") +
