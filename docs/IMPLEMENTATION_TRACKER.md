@@ -235,6 +235,7 @@ These are the next concrete PR-sized slices.
 | Q-172 | DONE | Add duplicate `Some` pattern diagnostics. | `BUNKER_TYPECHECK_JSON` now treats repeated `Some(...)` match arms as duplicate patterns regardless of the binding name. |
 | Q-173 | DONE | Add field-access base type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `field_access_base_type_mismatch` when a field access base is known not to be a struct. |
 | Q-174 | DONE | Add builtin argument type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `builtin_argument_type_mismatch` for known string, file, handle, index, Result, and conversion builtin argument types. |
+| Q-175 | DONE | Add collection constructor ambiguity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `ambiguous_collection_constructor` for unannotated `vec_new` and `hashmap_new` initializers. |
 
 ## Language Core
 
@@ -264,7 +265,7 @@ These are the next concrete PR-sized slices.
 | T-005 | TODO | P1 | Type aliases. | Aliases preserve diagnostics and compile to the same representation. |
 | T-006 | PARTIAL | P0 | Local type inference. | Let bindings infer robustly for all supported expressions. |
 | T-007 | PARTIAL | P0 | Call-result inference. | Builtins and user functions propagate exact result types where known, and user/builtin call arity plus known builtin argument types are diagnosed in self-host reports. |
-| T-008 | PARTIAL | P0 | Inference for `None`, empty arrays, Vec, HashMap, Ok, Err. | Unannotated empty array, `None`, and Result constructor initializers now produce precise self-host diagnostics; final gate requires contextual inference for Vec and HashMap plus richer Ok/Err propagation. |
+| T-008 | PARTIAL | P0 | Inference for `None`, empty arrays, Vec, HashMap, Ok, Err. | Unannotated empty array, `None`, Result constructor, Vec constructor, and HashMap constructor initializers now produce precise self-host diagnostics; final gate requires richer contextual propagation. |
 | T-009 | TODO | P0 | User-defined enums/sum types. | Users can define enum variants with payloads. |
 | T-010 | PARTIAL | P0 | Exhaustive match checking. | Self-host typecheck reports non-exhaustive boolean and Option-pattern matches with missing cases; final gate requires full ADT and integer-range exhaustiveness. |
 | T-011 | PARTIAL | P0 | Pattern type checking. | Match patterns are checked against scrutinee type in Rust and self-host paths, and duplicate/unreachable literal, Option, and catch-all patterns are diagnosed in self-host reports. |
@@ -674,3 +675,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added duplicate `Some` pattern diagnostics. | Typecheck now treats repeated `Some(...)` match arms as duplicate patterns regardless of binding name. |
 | 2026-06-10 | Added field-access base type diagnostics. | Typecheck now reports non-struct field access bases as `field_access_base_type_mismatch`. |
 | 2026-06-10 | Added builtin argument type diagnostics. | Typecheck now reports known builtin argument type mismatches as `builtin_argument_type_mismatch`. |
+| 2026-06-10 | Added collection constructor ambiguity diagnostics. | Typecheck now reports unannotated `vec_new` and `hashmap_new` initializers as `ambiguous_collection_constructor`. |
