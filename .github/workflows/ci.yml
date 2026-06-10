@@ -133,6 +133,10 @@ jobs:
           grep -q 'fn source_line_excerpt_at(source: str, offset: i64) -> str' "$driver"
           grep -q 'json_field_bool("source_excerpts", true)' "$driver"
           grep -q 'json_field_str("source_excerpt", source_excerpt)' "$driver"
+          grep -q 'json_field_bool("structured_repair_metadata", true)' "$driver"
+          grep -q 'json_field_str("suggested_action", repair_hint)' "$driver"
+          grep -q 'json_field_str("fix_applicability", "manual_review")' "$driver"
+          grep -q 'json_field_str("fix_confidence", "medium")' "$driver"
           grep -q 'let source_excerpt = source_line_excerpt_at(source, source_start);' "$driver"
 
       - name: Require self-host import path policy
