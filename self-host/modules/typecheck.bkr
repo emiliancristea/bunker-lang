@@ -465,6 +465,13 @@
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_unary_ref_operand_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_TERNARY {
+            let then_ref: AstExprRef = ast_expr_ref_from_handle(ast_ternary_ref_then_handle(expr_ref));
+            let else_ref: AstExprRef = ast_expr_ref_from_handle(ast_ternary_ref_else_handle(expr_ref));
+            let then_kind: i64 = typecheck_expr_ref_kind(cstate, then_ref);
+            let else_kind: i64 = typecheck_expr_ref_kind(cstate, else_ref);
+            state = typecheck_maybe_append_value_mismatch_ref(state, "ternary_branch_type_mismatch",
+                "ternary else branch", scope, ast_node_ref_from_expr_ref(else_ref), then_kind, else_kind,
+                "Make both ternary branches produce compatible value types.");
             state = typecheck_check_expression_ref_against(state, names, cstate,
                 ast_expr_ref_from_handle(ast_ternary_ref_cond_handle(expr_ref)), scope, "condition_type_mismatch", "ternary condition",
                 TYPE_BOOL, "Make this ternary condition produce bool.");
@@ -720,13 +727,14 @@
             json_field_bool("index_type_checks", true) + comma +
             json_field_bool("binary_operand_checks", true) + comma +
             json_field_bool("unary_operand_checks", true) + comma +
+            json_field_bool("ternary_branch_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, ternary branches, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }

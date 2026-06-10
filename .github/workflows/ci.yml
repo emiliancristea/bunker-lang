@@ -658,6 +658,8 @@ jobs:
           grep -q 'fn typecheck_check_unary_operand_ref' "$typecheck"
           grep -q 'unary_operand_type_mismatch' "$typecheck"
           grep -q 'json_field_bool("unary_operand_checks", true)' "$typecheck"
+          grep -q 'ternary_branch_type_mismatch' "$typecheck"
+          grep -q 'json_field_bool("ternary_branch_checks", true)' "$typecheck"
           grep -q 'fn typecheck_struct_field_kind_ref' "$typecheck"
           grep -q 'struct_field_type_mismatch' "$typecheck"
           grep -q 'json_field_bool("struct_field_value_checks", true)' "$typecheck"
