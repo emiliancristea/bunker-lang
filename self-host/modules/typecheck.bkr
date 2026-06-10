@@ -187,6 +187,27 @@
         return ast_optional_item_ref_none();
     }
 
+    fn typecheck_struct_field_kind_ref(kernel_ref: AstNodeRef, struct_name_idx: i64, field_name_idx: i64) -> i64 {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_ref_name_idx(item_ref) == struct_name_idx {
+                let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(item_ref);
+                let j: i64 = 0;
+                while j < ast_node_list_ref_count(fields_ref) {
+                    let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, j);
+                    if ast_field_decl_ref_name_idx(field_ref) == field_name_idx {
+                        return typecheck_declared_ref_kind(ast_type_ref_from_handle(ast_field_decl_ref_type_handle(field_ref)));
+                    }
+                    j = j + 1;
+                }
+            }
+            i = i + 1;
+        }
+        return TYPE_UNKNOWN;
+    }
+
     fn typecheck_check_expression_against(state: Vec<str>, names: Vec<str>, cstate: CgenStateRef,
                                           expr_value: i64, scope: str, diagnostic_kind: str,
                                           name: str, expected_kind: i64, repair_hint: str) -> Vec<str> {
@@ -286,12 +307,23 @@
                 i = i + 1;
             }
         } else if kind == NODE_STRUCT_LIT {
+            let struct_name_idx: i64 = ast_struct_lit_ref_name_idx(expr_ref);
+            let struct_name: str = ast_report_name(names, struct_name_idx);
+            let field_names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
             let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(field_values_ref) {
+                let field_name_idx: i64 = ast_i64_list_ref_get(field_names_ref, i);
+                let field_name: str = ast_report_name(names, field_name_idx);
                 let field_value_ref: AstNodeRef = ast_node_list_ref_get_ref(field_values_ref, i);
                 state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
                     ast_expr_ref_from_node_ref(field_value_ref), scope, expected_return_kind);
+                let expected_kind: i64 = typecheck_struct_field_kind_ref(kernel_ref, struct_name_idx, field_name_idx);
+                let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_node_ref(field_value_ref));
+                let hint: str = "Change field " + field_name + " for struct " + struct_name +
+                    " to match the declared field type.";
+                state = typecheck_maybe_append_value_mismatch_ref(state, "struct_field_type_mismatch",
+                    struct_name + "." + field_name, scope, field_value_ref, expected_kind, found_kind, hint);
                 i = i + 1;
             }
         } else if kind == NODE_FIELD_ACCESS {
@@ -547,11 +579,12 @@
             json_field_bool("condition_checks", true) + comma +
             json_field_bool("call_argument_checks", true) + comma +
             json_field_bool("call_arity_checks", true) + comma +
+            json_field_bool("struct_field_value_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments, for ranges, direct user-function call arguments, and call arity using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, struct field value types, numeric ranges, trait bounds, exhaustiveness, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
