@@ -104,10 +104,10 @@ jobs:
           set -euo pipefail
           driver='self-host/modules/driver.bkr'
           grep -q 'fn import_seen_contains(seen: Vec<str>, import_path: str) -> bool' "$driver"
-          grep -q 'fn expand_imports_with_seen(source: str, seen: Vec<str>) -> str' "$driver"
-          grep -q 'fn first_missing_import_path_with_seen(source: str, seen: Vec<str>) -> str' "$driver"
-          grep -q 'let expanded_import = expand_imports_with_seen(imported, seen);' "$driver"
-          grep -q 'return first_missing_import_path_with_seen(read_file(import_path), seen);' "$driver"
+          grep -q 'fn expand_imports_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str' "$driver"
+          grep -q 'fn first_missing_import_path_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str' "$driver"
+          grep -q 'let expanded_import = expand_imports_with_seen(imported, seen, import_path_dir(resolved_path));' "$driver"
+          grep -q 'return first_missing_import_path_with_seen(read_file(resolved_path), seen, import_path_dir(resolved_path));' "$driver"
 
       - name: Require self-host import graph report
         shell: bash
@@ -133,6 +133,18 @@ jobs:
           grep -q 'json_field_str("path_policy", "normalized_relative_forward_slash")' "$driver"
           grep -q 'json_field_bool("has_invalid_import", len(invalid_import) > 0)' "$driver"
           grep -q 'compile_to_c:invalid_import' "$driver"
+
+      - name: Require importer-directory import resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          driver='self-host/modules/driver.bkr'
+          grep -q 'fn resolve_import_path(base_dir: str, import_path: str) -> str' "$driver"
+          grep -q 'fn import_path_dir(resolved_path: str) -> str' "$driver"
+          grep -q 'fn expand_imports_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str' "$driver"
+          grep -q 'resolve_import_path(base_dir, import_path)' "$driver"
+          grep -q 'import_path_dir(resolved_path)' "$driver"
+          grep -q 'json_field_bool("base_directory_resolution", true)' "$driver"
 
       - name: Require parser start spans through typed AST refs
         shell: bash

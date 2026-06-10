@@ -62,6 +62,28 @@
         return true;
     }
 
+    fn resolve_import_path(base_dir: str, import_path: str) -> str {
+        if len(base_dir) <= 0 {
+            return import_path;
+        }
+        return base_dir + "/" + import_path;
+    }
+
+    fn import_path_dir(resolved_path: str) -> str {
+        let last_slash: i64 = -1;
+        let i: i64 = 0;
+        while i < len(resolved_path) {
+            if char_code_at(resolved_path, i) == 47 {
+                last_slash = i;
+            }
+            i = i + 1;
+        }
+        if last_slash < 0 {
+            return "";
+        }
+        return substring(resolved_path, 0, last_slash);
+    }
+
     fn import_seen_contains(seen: Vec<str>, import_path: str) -> bool {
         let i: i64 = 0;
         while i < vec_len(seen) {
@@ -73,21 +95,22 @@
         return false;
     }
 
-    fn append_expanded_line_with_seen(output: str, line: str, seen: Vec<str>) -> str {
+    fn append_expanded_line_with_seen(output: str, line: str, seen: Vec<str>, base_dir: str) -> str {
         if is_import_line(line) {
             let import_path = import_path_from_line(line);
             if !import_path_is_valid(import_path) {
                 return output + "// Invalid import path: " + import_path + from_char_code(10);
             }
-            if !file_exists(import_path) {
-                return output + "// Missing import: " + import_path + from_char_code(10);
+            let resolved_path = resolve_import_path(base_dir, import_path);
+            if !file_exists(resolved_path) {
+                return output + "// Missing import: " + resolved_path + from_char_code(10);
             }
-            if import_seen_contains(seen, import_path) {
+            if import_seen_contains(seen, resolved_path) {
                 return output;
             }
-            vec_push(seen, import_path);
-            let imported = read_file(import_path);
-            let expanded_import = expand_imports_with_seen(imported, seen);
+            vec_push(seen, resolved_path);
+            let imported = read_file(resolved_path);
+            let expanded_import = expand_imports_with_seen(imported, seen, import_path_dir(resolved_path));
             let result = output + expanded_import;
             if len(result) > 0 && char_code_at(result, len(result) - 1) != 10 {
                 result = result + from_char_code(10);
@@ -97,7 +120,7 @@
         return output + line + from_char_code(10);
     }
 
-    fn expand_imports_with_seen(source: str, seen: Vec<str>) -> str {
+    fn expand_imports_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
         let output = "";
         let start: i64 = 0;
         let pos: i64 = 0;
@@ -105,7 +128,7 @@
 
         while pos < source_len {
             if char_code_at(source, pos) == 10 {
-                output = append_expanded_line_with_seen(output, substring(source, start, pos), seen);
+                output = append_expanded_line_with_seen(output, substring(source, start, pos), seen, base_dir);
                 pos = pos + 1;
                 start = pos;
             } else {
@@ -114,7 +137,7 @@
         }
 
         if start < source_len {
-            output = append_expanded_line_with_seen(output, substring(source, start, source_len), seen);
+            output = append_expanded_line_with_seen(output, substring(source, start, source_len), seen, base_dir);
         }
 
         return output;
@@ -122,35 +145,36 @@
 
     fn expand_imports(source: str) -> str {
         let seen: Vec<str> = vec_new();
-        return expand_imports_with_seen(source, seen);
+        return expand_imports_with_seen(source, seen, "");
     }
 
-    fn missing_import_in_line_with_seen(line: str, seen: Vec<str>) -> str {
+    fn missing_import_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> str {
         if is_import_line(line) {
             let import_path = import_path_from_line(line);
             if !import_path_is_valid(import_path) {
                 return "";
             }
-            if !file_exists(import_path) {
-                return import_path;
+            let resolved_path = resolve_import_path(base_dir, import_path);
+            if !file_exists(resolved_path) {
+                return resolved_path;
             }
-            if import_seen_contains(seen, import_path) {
+            if import_seen_contains(seen, resolved_path) {
                 return "";
             }
-            vec_push(seen, import_path);
-            return first_missing_import_path_with_seen(read_file(import_path), seen);
+            vec_push(seen, resolved_path);
+            return first_missing_import_path_with_seen(read_file(resolved_path), seen, import_path_dir(resolved_path));
         }
         return "";
     }
 
-    fn first_missing_import_path_with_seen(source: str, seen: Vec<str>) -> str {
+    fn first_missing_import_path_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
         let start: i64 = 0;
         let pos: i64 = 0;
         let source_len = len(source);
 
         while pos < source_len {
             if char_code_at(source, pos) == 10 {
-                let missing = missing_import_in_line_with_seen(substring(source, start, pos), seen);
+                let missing = missing_import_in_line_with_seen(substring(source, start, pos), seen, base_dir);
                 if len(missing) > 0 {
                     return missing;
                 }
@@ -162,7 +186,7 @@
         }
 
         if start < source_len {
-            return missing_import_in_line_with_seen(substring(source, start, source_len), seen);
+            return missing_import_in_line_with_seen(substring(source, start, source_len), seen, base_dir);
         }
 
         return "";
@@ -170,35 +194,36 @@
 
     fn first_missing_import_path(source: str) -> str {
         let seen: Vec<str> = vec_new();
-        return first_missing_import_path_with_seen(source, seen);
+        return first_missing_import_path_with_seen(source, seen, "");
     }
 
-    fn invalid_import_in_line_with_seen(line: str, seen: Vec<str>) -> str {
+    fn invalid_import_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> str {
         if is_import_line(line) {
             let import_path = import_path_from_line(line);
             if !import_path_is_valid(import_path) {
                 return import_path;
             }
-            if !file_exists(import_path) {
+            let resolved_path = resolve_import_path(base_dir, import_path);
+            if !file_exists(resolved_path) {
                 return "";
             }
-            if import_seen_contains(seen, import_path) {
+            if import_seen_contains(seen, resolved_path) {
                 return "";
             }
-            vec_push(seen, import_path);
-            return first_invalid_import_path_with_seen(read_file(import_path), seen);
+            vec_push(seen, resolved_path);
+            return first_invalid_import_path_with_seen(read_file(resolved_path), seen, import_path_dir(resolved_path));
         }
         return "";
     }
 
-    fn first_invalid_import_path_with_seen(source: str, seen: Vec<str>) -> str {
+    fn first_invalid_import_path_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
         let start: i64 = 0;
         let pos: i64 = 0;
         let source_len = len(source);
 
         while pos < source_len {
             if char_code_at(source, pos) == 10 {
-                let invalid = invalid_import_in_line_with_seen(substring(source, start, pos), seen);
+                let invalid = invalid_import_in_line_with_seen(substring(source, start, pos), seen, base_dir);
                 if len(invalid) > 0 {
                     return invalid;
                 }
@@ -210,7 +235,7 @@
         }
 
         if start < source_len {
-            return invalid_import_in_line_with_seen(substring(source, start, source_len), seen);
+            return invalid_import_in_line_with_seen(substring(source, start, source_len), seen, base_dir);
         }
 
         return "";
@@ -218,28 +243,29 @@
 
     fn first_invalid_import_path(source: str) -> str {
         let seen: Vec<str> = vec_new();
-        return first_invalid_import_path_with_seen(source, seen);
+        return first_invalid_import_path_with_seen(source, seen, "");
     }
 
-    fn import_count_in_line_with_seen(line: str, seen: Vec<str>) -> i64 {
+    fn import_count_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> i64 {
         if is_import_line(line) {
             let import_path = import_path_from_line(line);
             if !import_path_is_valid(import_path) {
                 return 0;
             }
-            if !file_exists(import_path) {
+            let resolved_path = resolve_import_path(base_dir, import_path);
+            if !file_exists(resolved_path) {
                 return 0;
             }
-            if import_seen_contains(seen, import_path) {
+            if import_seen_contains(seen, resolved_path) {
                 return 0;
             }
-            vec_push(seen, import_path);
-            return 1 + import_count_with_seen(read_file(import_path), seen);
+            vec_push(seen, resolved_path);
+            return 1 + import_count_with_seen(read_file(resolved_path), seen, import_path_dir(resolved_path));
         }
         return 0;
     }
 
-    fn import_count_with_seen(source: str, seen: Vec<str>) -> i64 {
+    fn import_count_with_seen(source: str, seen: Vec<str>, base_dir: str) -> i64 {
         let count: i64 = 0;
         let start: i64 = 0;
         let pos: i64 = 0;
@@ -247,7 +273,7 @@
 
         while pos < source_len {
             if char_code_at(source, pos) == 10 {
-                count = count + import_count_in_line_with_seen(substring(source, start, pos), seen);
+                count = count + import_count_in_line_with_seen(substring(source, start, pos), seen, base_dir);
                 pos = pos + 1;
                 start = pos;
             } else {
@@ -256,7 +282,7 @@
         }
 
         if start < source_len {
-            count = count + import_count_in_line_with_seen(substring(source, start, source_len), seen);
+            count = count + import_count_in_line_with_seen(substring(source, start, source_len), seen, base_dir);
         }
 
         return count;
@@ -264,7 +290,7 @@
 
     fn unique_import_count(source: str) -> i64 {
         let seen: Vec<str> = vec_new();
-        return import_count_with_seen(source, seen);
+        return import_count_with_seen(source, seen, "");
     }
 
     fn import_graph_json_array_append(result: str, item: str) -> str {
@@ -285,27 +311,28 @@
         return result + inner;
     }
 
-    fn import_paths_json_in_line_with_seen(line: str, seen: Vec<str>) -> str {
+    fn import_paths_json_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> str {
         let result = "[";
         if is_import_line(line) {
             let import_path = import_path_from_line(line);
             if !import_path_is_valid(import_path) {
                 return result + "]";
             }
-            if !file_exists(import_path) {
+            let resolved_path = resolve_import_path(base_dir, import_path);
+            if !file_exists(resolved_path) {
                 return result + "]";
             }
-            if import_seen_contains(seen, import_path) {
+            if import_seen_contains(seen, resolved_path) {
                 return result + "]";
             }
-            vec_push(seen, import_path);
-            result = import_graph_json_array_append(result, json_escape_string(import_path));
-            result = import_graph_json_array_append_items(result, import_paths_json_with_seen(read_file(import_path), seen));
+            vec_push(seen, resolved_path);
+            result = import_graph_json_array_append(result, json_escape_string(resolved_path));
+            result = import_graph_json_array_append_items(result, import_paths_json_with_seen(read_file(resolved_path), seen, import_path_dir(resolved_path)));
         }
         return result + "]";
     }
 
-    fn import_paths_json_with_seen(source: str, seen: Vec<str>) -> str {
+    fn import_paths_json_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
         let result = "[";
         let start: i64 = 0;
         let pos: i64 = 0;
@@ -313,7 +340,7 @@
 
         while pos < source_len {
             if char_code_at(source, pos) == 10 {
-                result = import_graph_json_array_append_items(result, import_paths_json_in_line_with_seen(substring(source, start, pos), seen));
+                result = import_graph_json_array_append_items(result, import_paths_json_in_line_with_seen(substring(source, start, pos), seen, base_dir));
                 pos = pos + 1;
                 start = pos;
             } else {
@@ -322,7 +349,7 @@
         }
 
         if start < source_len {
-            result = import_graph_json_array_append_items(result, import_paths_json_in_line_with_seen(substring(source, start, source_len), seen));
+            result = import_graph_json_array_append_items(result, import_paths_json_in_line_with_seen(substring(source, start, source_len), seen, base_dir));
         }
 
         return result + "]";
@@ -330,7 +357,7 @@
 
     fn unique_import_paths_json(source: str) -> str {
         let seen: Vec<str> = vec_new();
-        return import_paths_json_with_seen(source, seen);
+        return import_paths_json_with_seen(source, seen, "");
     }
 
     fn source_line_at(source: str, offset: i64) -> i64 {
@@ -401,7 +428,7 @@
             json_field_bool("user_defined_adts", false) + comma +
             json_field_bool("multi_error_recovery", false) + comma +
             json_field_str("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec handles, HashMap handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals") + comma +
-            json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, bootstrap string-path import graph with import path policy but no base-directory normalization or visibility, bootstrap name resolver and typecheck reports only, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
+            json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, bootstrap string-path import graph with import path policy and importer-directory resolution but no filesystem canonicalization or visibility, bootstrap name resolver and typecheck reports only, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
             json_field_str("agent_guidance", "Use BUNKER_DIAGNOSTIC_JSON for repair tasks. Treat BUNKER_CAPABILITY_JSON as the current compiler surface before generating Bunker code.") +
             "}";
     }
@@ -418,6 +445,7 @@
         return "{" +
             json_field_str("schema_version", "bunker.self_host.import_graph.v1") + comma +
             json_field_str("path_policy", "normalized_relative_forward_slash") + comma +
+            json_field_bool("base_directory_resolution", true) + comma +
             json_field_bool("recursive_expansion", true) + comma +
             json_field_bool("duplicate_suppression", true) + comma +
             json_field_i64("unique_import_count", unique_import_count(source)) + comma +
