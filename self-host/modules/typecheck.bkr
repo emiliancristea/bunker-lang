@@ -1382,10 +1382,13 @@
                 let field_name_idx: i64 = ast_i64_list_ref_get(field_names_ref, i);
                 let field_name: str = ast_report_name(names, field_name_idx);
                 let field_value_ref: AstNodeRef = ast_node_list_ref_get_ref(field_values_ref, i);
+                let field_expr_ref: AstExprRef = ast_expr_ref_from_node_ref(field_value_ref);
                 state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
-                    ast_expr_ref_from_node_ref(field_value_ref), scope, expected_return_kind);
+                    field_expr_ref, scope, expected_return_kind);
+                state = typecheck_check_void_value_ref(state, cstate, field_expr_ref,
+                    struct_name + "." + field_name, scope);
                 let expected_kind: i64 = typecheck_struct_field_kind_ref(kernel_ref, struct_name_idx, field_name_idx);
-                let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_node_ref(field_value_ref));
+                let found_kind: i64 = typecheck_expr_ref_kind(cstate, field_expr_ref);
                 let hint: str = "Change field " + field_name + " for struct " + struct_name +
                     " to match the declared field type.";
                 state = typecheck_maybe_append_value_mismatch_ref(state, "struct_field_type_mismatch",
@@ -1394,16 +1397,28 @@
             }
         } else if kind == NODE_FIELD_ACCESS {
             state = typecheck_check_field_access_base_ref(state, cstate, expr_ref, scope);
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(ast_field_access_ref_base_handle(expr_ref)),
+                "field access base", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_field_access_ref_base_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_BINARY {
             state = typecheck_check_binary_operands_ref(state, cstate, expr_ref, scope);
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref)),
+                "binary left operand", scope);
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(ast_binary_ref_right_handle(expr_ref)),
+                "binary right operand", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_binary_ref_left_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_binary_ref_right_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_UNARY {
             state = typecheck_check_unary_operand_ref(state, cstate, expr_ref, scope);
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(ast_unary_ref_operand_handle(expr_ref)),
+                "unary operand", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_unary_ref_operand_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_TERNARY {
@@ -1417,6 +1432,13 @@
             state = typecheck_check_expression_ref_against(state, names, cstate,
                 ast_expr_ref_from_handle(ast_ternary_ref_cond_handle(expr_ref)), scope, "condition_type_mismatch", "ternary condition",
                 TYPE_BOOL, "Make this ternary condition produce bool.");
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(ast_ternary_ref_cond_handle(expr_ref)),
+                "ternary condition", scope);
+            state = typecheck_check_void_value_ref(state, cstate, then_ref,
+                "ternary then branch", scope);
+            state = typecheck_check_void_value_ref(state, cstate, else_ref,
+                "ternary else branch", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_ternary_ref_cond_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
@@ -1435,11 +1457,16 @@
             }
         } else if kind == NODE_INDEX {
             state = typecheck_check_index_base_ref(state, cstate, expr_ref, scope);
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(ast_index_ref_base_handle(expr_ref)),
+                "index base", scope);
             let index_expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_index_ref_expr_handle(expr_ref));
             let index_kind: i64 = typecheck_expr_ref_kind(cstate, index_expr_ref);
             state = typecheck_maybe_append_mismatch_ref(state, "index_type_mismatch", "index expression",
                 scope, ast_node_ref_from_expr_ref(index_expr_ref), TYPE_I64, index_kind,
                 "Use an integer-compatible index expression.");
+            state = typecheck_check_void_value_ref(state, cstate, index_expr_ref,
+                "index expression", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_index_ref_base_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
@@ -1466,8 +1493,11 @@
                     state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
                         ast_block_ref_from_node_ref(body_ref), scope, expected_return_kind);
                 } else {
+                    let body_expr_ref: AstExprRef = ast_expr_ref_from_node_ref(body_ref);
+                    state = typecheck_check_void_value_ref(state, cstate, body_expr_ref,
+                        "match arm value", scope);
                     state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
-                        ast_expr_ref_from_node_ref(body_ref), scope, expected_return_kind);
+                        body_expr_ref, scope, expected_return_kind);
                 }
                 i = i + 1;
             }
@@ -1528,6 +1558,8 @@
                         "Return a value matching the function return type or change the function signature.");
                 }
             } else {
+                state = typecheck_check_void_value_ref(state, cstate,
+                    ast_expr_ref_from_handle(return_expr), "return value", scope);
                 let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(return_expr));
                 state = typecheck_maybe_append_value_mismatch_ref(state, "return_type_mismatch", "return",
                     scope, stmt_node_ref, expected_return_kind, found_kind,
@@ -1538,6 +1570,8 @@
             state = typecheck_check_expression_ref_against(state, names, cstate,
                 ast_expr_ref_from_handle(cond), scope, "condition_type_mismatch", "if condition",
                 TYPE_BOOL, "Make this if condition produce bool.");
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(cond), "if condition", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 cond, scope, expected_return_kind);
             state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
@@ -1552,6 +1586,8 @@
             state = typecheck_check_expression_ref_against(state, names, cstate,
                 ast_expr_ref_from_handle(cond), scope, "condition_type_mismatch", "while condition",
                 TYPE_BOOL, "Make this while condition produce bool.");
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(cond), "while condition", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 cond, scope, expected_return_kind);
             state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
@@ -1565,6 +1601,10 @@
             state = typecheck_check_expression_ref_against(state, names, cstate,
                 ast_expr_ref_from_handle(end_expr), scope, "for_range_type_mismatch", "for range end",
                 TYPE_I64, "Make the for range end numeric.");
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(start), "for range start", scope);
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(end_expr), "for range end", scope);
             cgen_add_local_type_ref(cstate, ast_for_ref_name_idx(stmt_ref), TYPE_I64);
             state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
                 ast_for_ref_body_ref(stmt_ref), scope, expected_return_kind);
@@ -1586,6 +1626,8 @@
                 target, scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 value, scope, expected_return_kind);
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(value), "assignment value", scope);
             let expected_kind: i64 = typecheck_expr_ref_kind(cstate, target_ref);
             let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(value));
             state = typecheck_maybe_append_value_mismatch_ref(state, "assignment_type_mismatch",
@@ -1746,13 +1788,14 @@
             json_field_bool("unreachable_code_checks", true) + comma +
             json_field_bool("void_value_checks", true) + comma +
             json_field_bool("compound_void_value_checks", true) + comma +
+            json_field_bool("full_value_context_void_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use in initializers and compound expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, builtin argument types, user/builtin call arity, entry-point presence, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use across initializers and value expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, builtin argument types, user/builtin call arity, entry-point presence, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }

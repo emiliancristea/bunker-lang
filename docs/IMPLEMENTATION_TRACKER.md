@@ -240,6 +240,7 @@ These are the next concrete PR-sized slices.
 | Q-177 | DONE | Add void value diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `void_value_used` with stable `BKR_SELF_VOID_VALUE` diagnostics when unannotated let/const initializers produce void. |
 | Q-178 | DONE | Add entry-point diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `missing_entry_function` with stable `BKR_SELF_ENTRY_POINT` diagnostics when the kernel entry name has no function declaration. |
 | Q-179 | DONE | Add compound void value diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `void_value_used` when void expressions appear in call arguments or array elements. |
+| Q-180 | DONE | Add full value-context void diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `void_value_used` for void expressions in returns, assignments, conditions, ranges, operands, ternary branches, match arms, struct fields, field bases, and index expressions. |
 
 ## Language Core
 
@@ -277,7 +278,7 @@ These are the next concrete PR-sized slices.
 | T-013 | TODO | P1 | Nested patterns. | Nested enum/struct patterns typecheck and bind correctly. |
 | T-014 | TODO | P1 | Match guards. | `pattern if condition` works with scoped bindings. |
 | T-015 | TODO | P1 | Tuple types. | Tuples parse, typecheck, codegen, and destructure. |
-| T-016 | PARTIAL | P1 | Unit type. | Void-returning expressions are now rejected in value initializers, call arguments, and array elements; final gate requires a real `()` syntax and consistent unit value semantics. |
+| T-016 | PARTIAL | P1 | Unit type. | Void-returning expressions are now rejected across initializer, return, assignment, operand, condition, range, branch, call-argument, array-element, match-arm, struct-field, field-base, and index value contexts; final gate requires a real `()` syntax and consistent unit value semantics. |
 | T-017 | TODO | P1 | Never/bottom type. | Diverging expressions typecheck in all contexts. |
 | T-018 | TODO | P2 | Function types. | Functions can be values when needed for higher-order support. |
 | T-019 | TODO | P0 | Trait/interface system. | Shared behavior is expressed without inheritance. |
@@ -285,7 +286,7 @@ These are the next concrete PR-sized slices.
 | T-021 | TODO | P2 | Operator overloading policy. | Either explicitly supported via traits or rejected with diagnostics. |
 | T-022 | PARTIAL | P1 | Numeric promotion rules. | All numeric conversions are specified and tested. |
 | T-023 | PARTIAL | P1 | Cast safety rules. | Safe/unsafe casts are documented, checked, and diagnosed. |
-| T-024 | PARTIAL | P0 | Type diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` expected/found type diagnostics with spans and repair hints for bootstrap annotation, return, condition, ternary/match branch values and patterns, array elements including void element use, assignment value/target, index, unary/binary operands, range, entry-point presence, direct call-argument including void argument use, direct call-arity, and struct literal field-value checks; final gate requires origin tracking and a real typechecker across Rust and self-host modes. |
+| T-024 | PARTIAL | P0 | Type diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` expected/found type diagnostics with spans and repair hints for bootstrap annotation, return, condition, ternary/match branch values and patterns, array elements including void element use, assignment value/target, index, unary/binary operands, range, entry-point presence, direct call-argument including void argument use, direct call-arity, and struct literal field-value checks, with direct void-value diagnostics across value contexts; final gate requires origin tracking and a real typechecker across Rust and self-host modes. |
 
 ## Data Model And Standard Types
 
@@ -684,3 +685,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added void value diagnostics. | Typecheck now reports void-returning initializers used as values as `void_value_used`. |
 | 2026-06-10 | Added entry-point diagnostics. | Typecheck now reports missing kernel entry functions as `missing_entry_function` with `BKR_SELF_ENTRY_POINT`. |
 | 2026-06-10 | Added compound void value diagnostics. | Typecheck now reports void-returning expressions used as call arguments or array elements as `void_value_used`. |
+| 2026-06-10 | Added full value-context void diagnostics. | Typecheck now reports void-returning expressions used across return, assignment, operand, branch, condition, range, field, match-arm, and index value contexts as `void_value_used`. |
