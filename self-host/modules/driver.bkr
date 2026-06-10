@@ -551,6 +551,7 @@
             json_field_str("phase", category) + comma +
             json_field_str("category", category) + comma +
             json_field_str("error_code", code) + comma +
+            json_field_str("rule_id", code) + comma +
             json_field_str("message", message) + comma +
             json_field_i64("source_start", source_start) + comma +
             json_field_i64("source_end", source_end) + comma +
