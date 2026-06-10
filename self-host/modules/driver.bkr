@@ -552,6 +552,7 @@
             json_field_str("category", category) + comma +
             json_field_str("error_code", code) + comma +
             json_field_str("rule_id", code) + comma +
+            json_field_str("severity", "error") + comma +
             json_field_str("message", message) + comma +
             json_field_i64("source_start", source_start) + comma +
             json_field_i64("source_end", source_end) + comma +
@@ -644,6 +645,7 @@
             json_field_bool("diagnostic_code_registry", true) + comma +
             json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("diagnostic_rule_ids", true) + comma +
+            json_field_bool("diagnostic_severity", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("import_expansion", true) + comma +
             json_field_bool("import_graph_report", true) + comma +
