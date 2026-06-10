@@ -605,6 +605,18 @@ jobs:
             exit 1
           fi
 
+      - name: Require typecheck typed diagnostic context
+        shell: bash
+        run: |
+          set -euo pipefail
+          typecheck='self-host/modules/typecheck.bkr'
+          grep -q 'fn typecheck_diagnostic_ref_json_with_type_context' "$typecheck"
+          grep -q 'json_field_raw("expected_type", expected_type)' "$typecheck"
+          grep -q 'json_field_raw("found_type", found_type)' "$typecheck"
+          grep -q 'type_graph_kind_json(expected_kind, "expected")' "$typecheck"
+          grep -q 'type_graph_kind_json(found_kind, "found")' "$typecheck"
+          grep -q 'json_field_bool("typed_diagnostic_context", true)' "$typecheck"
+
       - name: Require symbol-table statement AST refs
         shell: bash
         run: |

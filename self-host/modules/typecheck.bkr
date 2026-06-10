@@ -80,6 +80,17 @@
     fn typecheck_diagnostic_ref_json(kind: str, code: str, name: str, scope: str,
                                      node_ref: AstNodeRef, expected: str, found: str,
                                      repair_hint: str) -> str {
+        return typecheck_diagnostic_ref_json_with_type_context(kind, code, name, scope,
+            node_ref, expected, found,
+            type_graph_kind_json(TYPE_UNKNOWN, "expected"),
+            type_graph_kind_json(TYPE_UNKNOWN, "found"),
+            repair_hint);
+    }
+
+    fn typecheck_diagnostic_ref_json_with_type_context(kind: str, code: str, name: str, scope: str,
+                                                       node_ref: AstNodeRef, expected: str, found: str,
+                                                       expected_type: str, found_type: str,
+                                                       repair_hint: str) -> str {
         let comma: str = ",";
         return "{" +
             json_field_str("kind", kind) + comma +
@@ -91,6 +102,8 @@
             json_field_bool("span_known", ast_node_ref_span_start(node_ref) != AST_SPAN_UNKNOWN && ast_node_ref_span_end(node_ref) != AST_SPAN_UNKNOWN) + comma +
             json_field_str("expected", expected) + comma +
             json_field_str("found", found) + comma +
+            json_field_raw("expected_type", expected_type) + comma +
+            json_field_raw("found_type", found_type) + comma +
             json_field_str("repair_hint", repair_hint) +
             "}";
     }
@@ -106,8 +119,11 @@
                                      node_ref: AstNodeRef, expected_kind: i64, found_kind: i64,
                                      repair_hint: str) -> Vec<str> {
         return resolver_state_append(state,
-            typecheck_diagnostic_ref_json(kind, "BKR_SELF_TYPE_MISMATCH", name, scope,
-                node_ref, ast_type_kind_name(expected_kind), ast_type_kind_name(found_kind), repair_hint));
+            typecheck_diagnostic_ref_json_with_type_context(kind, "BKR_SELF_TYPE_MISMATCH", name, scope,
+                node_ref, ast_type_kind_name(expected_kind), ast_type_kind_name(found_kind),
+                type_graph_kind_json(expected_kind, "expected"),
+                type_graph_kind_json(found_kind, "found"),
+                repair_hint));
     }
 
     fn typecheck_maybe_append_mismatch(state: Vec<str>, kind: str, name: str, scope: str,
@@ -508,9 +524,10 @@
             json_field_bool("return_checks", true) + comma +
             json_field_bool("condition_checks", true) + comma +
             json_field_bool("call_argument_checks", true) + comma +
+            json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments, for ranges, and direct user-function call arguments using codegen inference; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, struct field value types, numeric ranges, trait bounds, exhaustiveness, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments, for ranges, and direct user-function call arguments using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, struct field value types, numeric ranges, trait bounds, exhaustiveness, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }

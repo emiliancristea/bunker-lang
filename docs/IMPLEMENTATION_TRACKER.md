@@ -202,6 +202,7 @@ These are the next concrete PR-sized slices.
 | Q-139 | DONE | Add source excerpts to self-host diagnostics. | `BUNKER_DIAGNOSTIC_JSON` now includes `source_excerpt`, and parse diagnostics populate it from the offending source line for agent repair context. |
 | Q-140 | DONE | Add related declarations to resolver diagnostics. | `BUNKER_RESOLVER_JSON` unresolved diagnostics now include candidate declaration lists for functions, constants, structs, and struct fields. |
 | Q-141 | DONE | Add spans to resolver related declarations. | Resolver related declarations are now structured objects with declaration kind, name, source offsets, and span-known flags. |
+| Q-142 | DONE | Add typed context to typecheck diagnostics. | `BUNKER_TYPECHECK_JSON` diagnostics now include `expected_type` and `found_type` objects with type tags, names, C ABI, and known/source metadata. |
 
 ## Language Core
 
@@ -337,7 +338,7 @@ These are the next concrete PR-sized slices.
 | CF-004 | PARTIAL | P0 | Source spans on AST nodes. | Self-host AST nodes and patterns carry byte start/end offsets; final gate requires file, line, column, byte offsets, and source excerpts across compiler phases. |
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
-| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return, condition, assignment, range, and direct call-argument mismatches; final gate requires full subset enforcement and separation from codegen inference. |
+| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return, condition, assignment, range, and direct call-argument mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
 | CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass lives in `modules/resolver.bkr` and reports duplicate declarations plus unresolved identifiers/calls/types/struct literal fields with related declaration span objects; final gate requires import graph, visibility, overloads, and cross-file definition origins. |
 | CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
 | CF-010 | TODO | P0 | Semantic validation passes. | Non-type semantic errors are separate and tested. |
@@ -398,7 +399,7 @@ These are the next concrete PR-sized slices.
 | A-001 | PARTIAL | P0 | JSON diagnostics. | Parse/import errors, import path-policy errors, import graph reports with path lists/edges, and self-host resolver/typecheck reports emit structured JSON diagnostics; final gate requires every compiler phase to share one documented diagnostic envelope. |
 | A-002 | PARTIAL | P0 | Stable diagnostic codes. | Codes are documented, unique, and testable. |
 | A-003 | PARTIAL | P0 | Exact spans. | Parse diagnostics and self-host AST nodes carry byte offsets, line/column, and parse source excerpts; final gate requires file identity and source excerpts across all compiler phases. |
-| A-004 | PARTIAL | P0 | Expected/found details. | Parse diagnostics include expected/actual tokens, resolver diagnostics include expected/actual symbol context plus related declaration spans, and typecheck diagnostics include expected/found types. |
+| A-004 | PARTIAL | P0 | Expected/found details. | Parse diagnostics include expected/actual tokens, resolver diagnostics include expected/actual symbol context plus related declaration spans, and typecheck diagnostics include typed expected/found objects. |
 | A-005 | TODO | P0 | Suggested fix edits. | Diagnostics include concrete text edits when safe. |
 | A-006 | TODO | P1 | Confidence levels. | Suggestions carry confidence/applicability. |
 | A-007 | PARTIAL | P1 | Related spans. | Resolver diagnostics include related declaration kind/name/source spans for in-file declarations; final gate requires cross-file definition/use/origin spans. |
@@ -608,3 +609,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added source excerpts to self-host diagnostics. | `BUNKER_DIAGNOSTIC_JSON` now includes a `source_excerpt` field, with parse diagnostics carrying the exact offending source line for agent repair. |
 | 2026-06-10 | Added related declarations to resolver diagnostics. | `BUNKER_RESOLVER_JSON` unresolved diagnostics now include candidate functions, constants, structs, or fields to guide agent repairs. |
 | 2026-06-10 | Added resolver related declaration spans. | Resolver related declarations now carry declaration kind, name, byte offsets, and span-known flags for prompt-ready repair context. |
+| 2026-06-10 | Added typed typecheck diagnostic context. | Typecheck diagnostics now carry raw `expected_type` and `found_type` JSON objects instead of requiring agents to infer type tags from strings. |
