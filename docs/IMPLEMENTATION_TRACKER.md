@@ -195,12 +195,13 @@ These are the next concrete PR-sized slices.
 | Q-132 | DONE | Add recursive self-host import expansion. | Self-host import expansion now walks nested imported files, suppresses duplicate/cyclic imports with a seen list, and scans nested imports for missing-module diagnostics. |
 | Q-133 | DONE | Add self-host import graph report. | Successful and missing-import self-host outputs now include `BUNKER_IMPORT_GRAPH_JSON` with recursive expansion support, duplicate suppression, unique import count, and missing-import state. |
 | Q-134 | DONE | Add self-host import path policy diagnostics. | Self-host import resolution rejects invalid string paths before file reads, reports `BKR_SELF_IMPORT_PATH`, and exposes path policy/invalid path state in `BUNKER_IMPORT_GRAPH_JSON`. |
+| Q-135 | DONE | Add import path list to self-host import graph. | `BUNKER_IMPORT_GRAPH_JSON` now includes the recursive unique import path list so agents can inspect the exact module set used for expansion. |
 
 ## Language Core
 
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
-| L-001 | PARTIAL | P0 | Real module/import system. | Self-host import expansion walks nested normalized relative string-path imports, suppresses duplicate/cyclic imports, rejects invalid paths with diagnostics, and emits `BUNKER_IMPORT_GRAPH_JSON`; final gate requires stable module paths, import graph diagnostics, visibility, and CI fixtures. |
+| L-001 | PARTIAL | P0 | Real module/import system. | Self-host import expansion walks nested normalized relative string-path imports, suppresses duplicate/cyclic imports, rejects invalid paths with diagnostics, and emits `BUNKER_IMPORT_GRAPH_JSON` with import path lists; final gate requires stable module paths, import graph diagnostics, visibility, and CI fixtures. |
 | L-002 | PARTIAL | P0 | Multi-file compilation. | Self-host compilation expands dependency files recursively from a root source with an import path policy; final gate requires deterministic artifact layout, base-directory normalization, and import graph diagnostics. |
 | L-003 | TODO | P1 | Public/private visibility. | Symbols can be exported or hidden; invalid access produces diagnostics. |
 | L-004 | TODO | P1 | Namespaces/packages. | Package/module names avoid global collisions. |
@@ -388,7 +389,7 @@ These are the next concrete PR-sized slices.
 
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
-| A-001 | PARTIAL | P0 | JSON diagnostics. | Parse/import errors, import path-policy errors, import graph reports, and self-host resolver/typecheck reports emit structured JSON diagnostics; final gate requires every compiler phase to share one documented diagnostic envelope. |
+| A-001 | PARTIAL | P0 | JSON diagnostics. | Parse/import errors, import path-policy errors, import graph reports with path lists, and self-host resolver/typecheck reports emit structured JSON diagnostics; final gate requires every compiler phase to share one documented diagnostic envelope. |
 | A-002 | PARTIAL | P0 | Stable diagnostic codes. | Codes are documented, unique, and testable. |
 | A-003 | PARTIAL | P0 | Exact spans. | Parse diagnostics and self-host AST nodes carry byte offsets; final gate requires file, line, column, byte offset, and source excerpt across compiler phases. |
 | A-004 | PARTIAL | P0 | Expected/found details. | Parse diagnostics include expected/actual tokens, resolver diagnostics include expected/actual symbol context, and typecheck diagnostics include expected/found types. |
@@ -594,3 +595,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added recursive self-host import expansion. | The self-host driver now expands nested imports, skips duplicate/cyclic imports with a seen list, and scans nested imports before compilation for missing-module diagnostics. |
 | 2026-06-10 | Added self-host import graph report. | Self-host outputs now include `BUNKER_IMPORT_GRAPH_JSON` so agents can inspect recursive import expansion capability, duplicate suppression, import counts, and missing-import state. |
 | 2026-06-10 | Added self-host import path policy diagnostics. | Self-host import resolution now rejects invalid import paths before file reads and reports both `BKR_SELF_IMPORT_PATH` and import graph invalid-path fields. |
+| 2026-06-10 | Added import path list to self-host import graph. | `BUNKER_IMPORT_GRAPH_JSON` now carries a recursive unique `imports` array for agent inspection and future import graph validation. |

@@ -117,6 +117,7 @@ jobs:
           grep -q 'fn self_host_import_graph_json(source: str) -> str' "$driver"
           grep -q 'BUNKER_IMPORT_GRAPH_JSON' "$driver"
           grep -q 'json_field_i64("unique_import_count", unique_import_count(source))' "$driver"
+          grep -q 'json_field_raw("imports", unique_import_paths_json(source))' "$driver"
           grep -q 'json_field_bool("import_graph_report", true)' "$driver"
           grep -q 'capability_report + import_graph_report + ast_report' "$driver"
 

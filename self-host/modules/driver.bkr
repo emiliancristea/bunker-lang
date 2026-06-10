@@ -267,6 +267,72 @@
         return import_count_with_seen(source, seen);
     }
 
+    fn import_graph_json_array_append(result: str, item: str) -> str {
+        if len(result) > 1 {
+            return result + "," + item;
+        }
+        return result + item;
+    }
+
+    fn import_graph_json_array_append_items(result: str, items: str) -> str {
+        if len(items) <= 2 {
+            return result;
+        }
+        let inner = substring(items, 1, len(items) - 1);
+        if len(result) > 1 {
+            return result + "," + inner;
+        }
+        return result + inner;
+    }
+
+    fn import_paths_json_in_line_with_seen(line: str, seen: Vec<str>) -> str {
+        let result = "[";
+        if is_import_line(line) {
+            let import_path = import_path_from_line(line);
+            if !import_path_is_valid(import_path) {
+                return result + "]";
+            }
+            if !file_exists(import_path) {
+                return result + "]";
+            }
+            if import_seen_contains(seen, import_path) {
+                return result + "]";
+            }
+            vec_push(seen, import_path);
+            result = import_graph_json_array_append(result, json_escape_string(import_path));
+            result = import_graph_json_array_append_items(result, import_paths_json_with_seen(read_file(import_path), seen));
+        }
+        return result + "]";
+    }
+
+    fn import_paths_json_with_seen(source: str, seen: Vec<str>) -> str {
+        let result = "[";
+        let start: i64 = 0;
+        let pos: i64 = 0;
+        let source_len = len(source);
+
+        while pos < source_len {
+            if char_code_at(source, pos) == 10 {
+                result = import_graph_json_array_append_items(result, import_paths_json_in_line_with_seen(substring(source, start, pos), seen));
+                pos = pos + 1;
+                start = pos;
+            } else {
+                pos = pos + 1;
+            }
+        }
+
+        if start < source_len {
+            result = import_graph_json_array_append_items(result, import_paths_json_in_line_with_seen(substring(source, start, source_len), seen));
+        }
+
+        return result + "]";
+    }
+
+    fn unique_import_paths_json(source: str) -> str {
+        let seen: Vec<str> = vec_new();
+        return import_paths_json_with_seen(source, seen);
+    }
+
     fn source_line_at(source: str, offset: i64) -> i64 {
         let line: i64 = 1;
         let i: i64 = 0;
@@ -355,6 +421,7 @@
             json_field_bool("recursive_expansion", true) + comma +
             json_field_bool("duplicate_suppression", true) + comma +
             json_field_i64("unique_import_count", unique_import_count(source)) + comma +
+            json_field_raw("imports", unique_import_paths_json(source)) + comma +
             json_field_bool("has_invalid_import", len(invalid_import) > 0) + comma +
             json_field_str("invalid_import", invalid_import) + comma +
             json_field_bool("has_missing_import", len(missing_import) > 0) + comma +
