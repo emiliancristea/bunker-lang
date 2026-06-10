@@ -626,6 +626,8 @@
             self_host_diagnostic_code_json("BKR_SELF_VOID_VALUE", "typecheck", "type_system", "Void expression is used where a value is required."));
         result = import_graph_json_array_append(result,
             self_host_diagnostic_code_json("BKR_SELF_ENTRY_POINT", "typecheck", "program_structure", "Kernel entry function is missing."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_CALL_TARGET", "typecheck", "type_system", "Known non-function symbol is used as a call target."));
         return result + "]";
     }
 

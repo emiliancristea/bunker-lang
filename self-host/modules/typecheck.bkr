@@ -259,6 +259,17 @@
                 "Add fn " + entry_name + "(...) or update the kernel entry name."));
     }
 
+    fn typecheck_append_invalid_call_target_ref(state: Vec<str>, names: Vec<str>, scope: str,
+                                                expr_ref: AstExprRef, actual: str) -> Vec<str> {
+        let call_name: str = ast_report_name(names, ast_call_ref_name_idx(expr_ref));
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("invalid_call_target", "BKR_SELF_CALL_TARGET",
+                call_name, scope, ast_node_ref_from_expr_ref(expr_ref),
+                "function or supported builtin",
+                actual,
+                "Call only functions and supported builtins; use the symbol as a value or rename it."));
+    }
+
     fn typecheck_append_missing_return_ref(state: Vec<str>, names: Vec<str>, scope: str,
                                            fn_ref: AstItemRef) -> Vec<str> {
         return resolver_state_append(state,
@@ -558,6 +569,21 @@
         let entry_ref: AstItemRef = typecheck_find_function_ref(kernel_ref, ast_kernel_ref_entry_idx(kernel_ref));
         if ast_item_ref_is_none(entry_ref) {
             state = typecheck_append_missing_entry_ref(state, names, kernel_ref, kernel_scope);
+        }
+        return state;
+    }
+
+    fn typecheck_check_call_target_ref(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
+                                       expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
+        if ast_item_ref_is_some(typecheck_find_function_ref(kernel_ref, name_idx)) {
+            return state;
+        }
+        if ast_item_ref_is_some(typecheck_find_const_ref(kernel_ref, name_idx)) {
+            return typecheck_append_invalid_call_target_ref(state, names, scope, expr_ref, "constant declaration");
+        }
+        if ast_item_ref_is_some(typecheck_find_struct_ref(kernel_ref, name_idx)) {
+            return typecheck_append_invalid_call_target_ref(state, names, scope, expr_ref, "struct declaration");
         }
         return state;
     }
@@ -1304,6 +1330,9 @@
         let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
         let fn_ref: AstItemRef = typecheck_find_function_ref(kernel_ref, name_idx);
         if ast_item_ref_is_none(fn_ref) {
+            if typecheck_builtin_expected_arity(ast_report_name(names, name_idx)) < 0 {
+                state = typecheck_check_call_target_ref(state, kernel_ref, names, expr_ref, scope);
+            }
             return typecheck_check_builtin_call_ref(state, names, cstate, expr_ref, scope);
         }
 
@@ -1760,6 +1789,7 @@
             json_field_bool("condition_checks", true) + comma +
             json_field_bool("call_argument_checks", true) + comma +
             json_field_bool("call_arity_checks", true) + comma +
+            json_field_bool("call_target_checks", true) + comma +
             json_field_bool("builtin_arity_checks", true) + comma +
             json_field_bool("builtin_argument_type_checks", true) + comma +
             json_field_bool("entry_point_checks", true) + comma +
@@ -1795,7 +1825,7 @@
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use across initializers and value expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, builtin argument types, user/builtin call arity, entry-point presence, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use across initializers and value expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, call targets, builtin argument types, user/builtin call arity, entry-point presence, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }

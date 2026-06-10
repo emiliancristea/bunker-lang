@@ -164,6 +164,7 @@ jobs:
           grep -q 'BKR_SELF_AMBIGUOUS_TYPE' "$driver"
           grep -q 'BKR_SELF_VOID_VALUE' "$driver"
           grep -q 'BKR_SELF_ENTRY_POINT' "$driver"
+          grep -q 'BKR_SELF_CALL_TARGET' "$driver"
           grep -q 'let source_excerpt = source_line_excerpt_at(source, source_start);' "$driver"
 
       - name: Require self-host import path policy
@@ -760,6 +761,10 @@ jobs:
           grep -q 'missing_entry_function' "$typecheck"
           grep -q 'BKR_SELF_ENTRY_POINT' "$typecheck"
           grep -q 'json_field_bool("entry_point_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_call_target_ref' "$typecheck"
+          grep -q 'invalid_call_target' "$typecheck"
+          grep -q 'BKR_SELF_CALL_TARGET' "$typecheck"
+          grep -q 'json_field_bool("call_target_checks", true)' "$typecheck"
           grep -q 'type_graph_kind_json(expected_kind, "expected")' "$typecheck"
           grep -q 'type_graph_kind_json(found_kind, "found")' "$typecheck"
           grep -q 'json_field_bool("typed_diagnostic_context", true)' "$typecheck"
