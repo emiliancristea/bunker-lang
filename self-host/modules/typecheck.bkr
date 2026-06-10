@@ -774,6 +774,33 @@
         return false;
     }
 
+    fn typecheck_match_patterns_contain_option_ref(patterns_ref: AstPatternListRef) -> bool {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_kind: i64 = ast_pattern_ref_kind(ast_pattern_list_ref_get_ref(patterns_ref, i));
+            if pattern_kind == PAT_SOME || pattern_kind == PAT_NONE {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_match_patterns_cover_option_ref(patterns_ref: AstPatternListRef, pattern_kind: i64) -> bool {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if typecheck_pattern_is_catch_all_ref(pattern_ref) {
+                return true;
+            }
+            if ast_pattern_ref_kind(pattern_ref) == pattern_kind {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
     fn typecheck_check_bool_match_exhaustiveness_ref(state: Vec<str>, expr_ref: AstExprRef,
                                                      patterns_ref: AstPatternListRef,
                                                      scrutinee_kind: i64, scope: str) -> Vec<str> {
@@ -802,6 +829,36 @@
                 "patterns covering true and false",
                 "missing " + missing,
                 "Add the missing boolean pattern arm or a catch-all pattern."));
+    }
+
+    fn typecheck_check_option_match_exhaustiveness_ref(state: Vec<str>, expr_ref: AstExprRef,
+                                                       patterns_ref: AstPatternListRef,
+                                                       scope: str) -> Vec<str> {
+        if !typecheck_match_patterns_contain_option_ref(patterns_ref) {
+            return state;
+        }
+        let covers_some: bool = typecheck_match_patterns_cover_option_ref(patterns_ref, PAT_SOME);
+        let covers_none: bool = typecheck_match_patterns_cover_option_ref(patterns_ref, PAT_NONE);
+        if covers_some && covers_none {
+            return state;
+        }
+        let missing: str = "";
+        if !covers_some {
+            missing = "Some";
+        }
+        if !covers_none {
+            if len(missing) > 0 {
+                missing = missing + ", None";
+            } else {
+                missing = "None";
+            }
+        }
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("non_exhaustive_match", "BKR_SELF_EXHAUSTIVENESS",
+                "match", scope, ast_node_ref_from_expr_ref(expr_ref),
+                "patterns covering Some and None",
+                "missing " + missing,
+                "Add the missing Option pattern arm or a catch-all pattern."));
     }
 
     fn typecheck_check_array_element_types_ref(state: Vec<str>, cstate: CgenStateRef,
@@ -1212,6 +1269,8 @@
                 scrutinee_kind, scope);
             state = typecheck_check_bool_match_exhaustiveness_ref(state, expr_ref,
                 ast_match_ref_patterns_ref(expr_ref), scrutinee_kind, scope);
+            state = typecheck_check_option_match_exhaustiveness_ref(state, expr_ref,
+                ast_match_ref_patterns_ref(expr_ref), scope);
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
             state = typecheck_check_match_arm_types_ref(state, cstate, bodies_ref, scope);
             let i: i64 = 0;
@@ -1476,6 +1535,7 @@
             json_field_bool("match_pattern_type_checks", true) + comma +
             json_field_bool("match_pattern_semantic_checks", true) + comma +
             json_field_bool("bool_match_exhaustiveness_checks", true) + comma +
+            json_field_bool("option_match_exhaustiveness_checks", true) + comma +
             json_field_bool("array_element_type_checks", true) + comma +
             json_field_bool("loop_control_checks", true) + comma +
             json_field_bool("return_path_checks", true) + comma +
@@ -1486,7 +1546,7 @@
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, indexes, unary/binary operands, for ranges, direct user-function call arguments, user/builtin call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable match patterns, non-exhaustive bool matches, and unannotated empty arrays/None/Result constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, ADT exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, indexes, unary/binary operands, for ranges, direct user-function call arguments, user/builtin call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
