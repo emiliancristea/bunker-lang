@@ -300,6 +300,62 @@
         return typecheck_expr_ref_is_result_constructor(names, ast_expr_ref_from_handle(expr_value));
     }
 
+    fn typecheck_builtin_expected_arity(name: str) -> i64 {
+        if name == "Some" { return 1; }
+        if name == "len" { return 1; }
+        if name == "substr" { return 3; }
+        if name == "str_eq" { return 2; }
+        if name == "str_ne" { return 2; }
+        if name == "str_to_i64" { return 1; }
+        if name == "i64_to_str" { return 1; }
+        if name == "f64_to_str" { return 1; }
+        if name == "bool_to_str" { return 1; }
+        if name == "read_file" { return 1; }
+        if name == "write_file" { return 2; }
+        if name == "file_exists" { return 1; }
+        if name == "read_file_str" { return 1; }
+        if name == "write_file_str" { return 2; }
+        if name == "vec_new" { return 0; }
+        if name == "vec_push" { return 2; }
+        if name == "vec_get" { return 2; }
+        if name == "vec_set" { return 3; }
+        if name == "vec_len" { return 1; }
+        if name == "vec_pop" { return 1; }
+        if name == "hashmap_new" { return 0; }
+        if name == "hashmap_insert" { return 3; }
+        if name == "hashmap_get" { return 2; }
+        if name == "hashmap_contains" { return 2; }
+        if name == "hashmap_remove" { return 2; }
+        if name == "hashmap_keys" { return 1; }
+        if name == "result_ok" { return 1; }
+        if name == "result_err" { return 1; }
+        if name == "result_is_ok" { return 1; }
+        if name == "result_is_err" { return 1; }
+        if name == "result_unwrap" { return 1; }
+        if name == "result_unwrap_err" { return 1; }
+        if name == "result_tag" { return 1; }
+        if name == "result_value" { return 1; }
+        return -1;
+    }
+
+    fn typecheck_check_builtin_arity_ref(state: Vec<str>, names: Vec<str>,
+                                         expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let fn_name: str = ast_report_name(names, ast_call_ref_name_idx(expr_ref));
+        let expected_count: i64 = typecheck_builtin_expected_arity(fn_name);
+        if expected_count < 0 {
+            return state;
+        }
+        let found_count: i64 = ast_node_list_ref_count(ast_call_ref_args_ref(expr_ref));
+        if expected_count != found_count {
+            let arity_hint: str = "Call builtin " + fn_name + " with exactly " +
+                int_to_string(expected_count) + " argument(s).";
+            state = typecheck_append_count_mismatch_ref(state, "builtin_argument_count_mismatch",
+                fn_name, scope, ast_node_ref_from_expr_ref(expr_ref), expected_count, found_count,
+                arity_hint);
+        }
+        return state;
+    }
+
     fn typecheck_binary_op_requires_bool(op: i64) -> bool {
         return op == TOK_AND || op == TOK_OR;
     }
@@ -1010,7 +1066,7 @@
         let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
         let fn_ref: AstItemRef = typecheck_find_function_ref(kernel_ref, name_idx);
         if ast_item_ref_is_none(fn_ref) {
-            return state;
+            return typecheck_check_builtin_arity_ref(state, names, expr_ref, scope);
         }
 
         let fn_name: str = ast_report_name(names, name_idx);
@@ -1404,6 +1460,7 @@
             json_field_bool("condition_checks", true) + comma +
             json_field_bool("call_argument_checks", true) + comma +
             json_field_bool("call_arity_checks", true) + comma +
+            json_field_bool("builtin_arity_checks", true) + comma +
             json_field_bool("assignment_target_checks", true) + comma +
             json_field_bool("const_assignment_checks", true) + comma +
             json_field_bool("struct_field_value_checks", true) + comma +
@@ -1429,7 +1486,7 @@
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable match patterns, non-exhaustive bool matches, and unannotated empty arrays/None/Result constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, ADT exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, indexes, unary/binary operands, for ranges, direct user-function call arguments, user/builtin call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable match patterns, non-exhaustive bool matches, and unannotated empty arrays/None/Result constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, ADT exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
