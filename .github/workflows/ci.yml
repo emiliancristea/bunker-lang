@@ -685,6 +685,7 @@ jobs:
           grep -q 'fn typecheck_check_match_pattern_semantics_ref' "$typecheck"
           grep -q 'duplicate_match_pattern' "$typecheck"
           grep -q 'unreachable_match_pattern' "$typecheck"
+          grep -q 'ast_pattern_ref_kind(left_ref) == PAT_SOME' "$typecheck"
           grep -q 'BKR_SELF_MATCH_PATTERN' "$typecheck"
           grep -q 'json_field_bool("match_pattern_semantic_checks", true)' "$typecheck"
           grep -q 'fn typecheck_check_bool_match_exhaustiveness_ref' "$typecheck"

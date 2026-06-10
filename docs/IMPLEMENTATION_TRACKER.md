@@ -232,6 +232,7 @@ These are the next concrete PR-sized slices.
 | Q-169 | DONE | Add Result constructor ambiguity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `ambiguous_result_constructor` with stable `BKR_SELF_AMBIGUOUS_TYPE` diagnostics for unannotated `result_ok`/`result_err` initializers. |
 | Q-170 | DONE | Add builtin call arity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `builtin_argument_count_mismatch` with stable `BKR_SELF_ARITY_MISMATCH` diagnostics for supported bootstrap builtins. |
 | Q-171 | DONE | Add Option match exhaustiveness diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `non_exhaustive_match` when Option-pattern matches omit `Some` or `None` without a catch-all. |
+| Q-172 | DONE | Add duplicate `Some` pattern diagnostics. | `BUNKER_TYPECHECK_JSON` now treats repeated `Some(...)` match arms as duplicate patterns regardless of the binding name. |
 
 ## Language Core
 
@@ -264,7 +265,7 @@ These are the next concrete PR-sized slices.
 | T-008 | PARTIAL | P0 | Inference for `None`, empty arrays, Vec, HashMap, Ok, Err. | Unannotated empty array, `None`, and Result constructor initializers now produce precise self-host diagnostics; final gate requires contextual inference for Vec and HashMap plus richer Ok/Err propagation. |
 | T-009 | TODO | P0 | User-defined enums/sum types. | Users can define enum variants with payloads. |
 | T-010 | PARTIAL | P0 | Exhaustive match checking. | Self-host typecheck reports non-exhaustive boolean and Option-pattern matches with missing cases; final gate requires full ADT and integer-range exhaustiveness. |
-| T-011 | PARTIAL | P0 | Pattern type checking. | Match patterns are checked against scrutinee type in Rust and self-host paths, and duplicate/unreachable literal/catch-all patterns are diagnosed in self-host reports. |
+| T-011 | PARTIAL | P0 | Pattern type checking. | Match patterns are checked against scrutinee type in Rust and self-host paths, and duplicate/unreachable literal, Option, and catch-all patterns are diagnosed in self-host reports. |
 | T-012 | TODO | P1 | Destructuring patterns. | Struct/tuple/enum destructuring works with bound names. |
 | T-013 | TODO | P1 | Nested patterns. | Nested enum/struct patterns typecheck and bind correctly. |
 | T-014 | TODO | P1 | Match guards. | `pattern if condition` works with scoped bindings. |
@@ -668,3 +669,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added Result constructor ambiguity diagnostics. | Typecheck now reports unannotated `result_ok`/`result_err` initializers as `ambiguous_result_constructor` with `BKR_SELF_AMBIGUOUS_TYPE`. |
 | 2026-06-10 | Added builtin call arity diagnostics. | Typecheck now reports wrong argument counts for supported bootstrap builtins as `builtin_argument_count_mismatch`. |
 | 2026-06-10 | Added Option match exhaustiveness diagnostics. | Typecheck now reports Option-pattern matches missing `Some` or `None` as `non_exhaustive_match`. |
+| 2026-06-10 | Added duplicate `Some` pattern diagnostics. | Typecheck now treats repeated `Some(...)` match arms as duplicate patterns regardless of binding name. |

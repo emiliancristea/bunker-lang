@@ -696,6 +696,9 @@
         if ast_pattern_ref_kind(left_ref) != ast_pattern_ref_kind(right_ref) {
             return false;
         }
+        if ast_pattern_ref_kind(left_ref) == PAT_SOME {
+            return true;
+        }
         if !typecheck_pattern_is_literal_like_ref(left_ref) {
             return false;
         }
@@ -1546,7 +1549,7 @@
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, indexes, unary/binary operands, for ranges, direct user-function call arguments, user/builtin call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, indexes, unary/binary operands, for ranges, direct user-function call arguments, user/builtin call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
