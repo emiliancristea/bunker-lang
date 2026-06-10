@@ -1930,9 +1930,12 @@
             json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("diagnostic_rule_ids", true) + comma +
             json_field_bool("diagnostic_severity", true) + comma +
+            json_field_bool("diagnostic_severity_counts", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
+            json_field_i64("error_count", resolver_state_count(state)) + comma +
+            json_field_i64("warning_count", 0) + comma +
             json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use across initializers and value expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, call targets, builtin argument types, user/builtin call arity, entry-point presence/signature, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal, finite bool/Option redundancy, and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";

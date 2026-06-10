@@ -726,9 +726,12 @@
             json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("diagnostic_rule_ids", true) + comma +
             json_field_bool("diagnostic_severity", true) + comma +
+            json_field_bool("diagnostic_severity_counts", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
+            json_field_i64("error_count", resolver_state_count(state)) + comma +
+            json_field_i64("warning_count", 0) + comma +
             json_field_str("scope_model", "kernel globals plus function/block/pattern binding scopes using interned names") + comma +
             json_field_str("known_limits", "Bootstrap resolver validates duplicate declarations and unresolved identifiers, calls, struct types, struct literals, and struct literal fields with related declaration span objects; it does not yet resolve import visibility, overloads, method receiver fields, or cross-file definition origins.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +

@@ -646,6 +646,7 @@
             json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("diagnostic_rule_ids", true) + comma +
             json_field_bool("diagnostic_severity", true) + comma +
+            json_field_bool("diagnostic_severity_counts", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("import_expansion", true) + comma +
             json_field_bool("import_graph_report", true) + comma +

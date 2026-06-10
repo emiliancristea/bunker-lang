@@ -248,6 +248,7 @@ These are the next concrete PR-sized slices.
 | Q-185 | DONE | Add diagnostic rule IDs. | `BUNKER_RESOLVER_JSON` and `BUNKER_TYPECHECK_JSON` diagnostics now include `rule_id` alongside `kind` and stable error codes for agent routing. |
 | Q-186 | DONE | Add parse/import diagnostic rule IDs. | `BUNKER_DIAGNOSTIC_JSON` parse/import diagnostics now include `rule_id` derived from the stable diagnostic code. |
 | Q-187 | DONE | Add diagnostic severity fields. | Parse/import, resolver, and typecheck diagnostics now include `severity` plus capability/report flags for severity-aware agent routing. |
+| Q-188 | DONE | Add diagnostic severity counts. | `BUNKER_RESOLVER_JSON` and `BUNKER_TYPECHECK_JSON` now expose `error_count` and `warning_count` summary fields for agent triage. |
 
 ## Language Core
 
@@ -441,7 +442,7 @@ These are the next concrete PR-sized slices.
 
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
-| A-001 | PARTIAL | P0 | JSON diagnostics. | Parse/import errors, import path-policy errors, import graph reports with path lists/edges/counts, capability diagnostic-code registry, and self-host resolver/typecheck reports emit structured JSON diagnostics with phase, rule-id, and severity fields across current diagnostic phases; final gate requires every compiler phase to share one documented diagnostic envelope. |
+| A-001 | PARTIAL | P0 | JSON diagnostics. | Parse/import errors, import path-policy errors, import graph reports with path lists/edges/counts, capability diagnostic-code registry, and self-host resolver/typecheck reports emit structured JSON diagnostics with phase, rule-id, severity, and severity-count fields across current diagnostic phases; final gate requires every compiler phase to share one documented diagnostic envelope. |
 | A-002 | PARTIAL | P0 | Stable diagnostic codes. | `BUNKER_CAPABILITY_JSON` now advertises parse/import/resolver/typecheck diagnostic codes with phase/category descriptions; final gate requires a shared documented registry across Rust and self-host modes. |
 | A-003 | PARTIAL | P0 | Exact spans. | Parse diagnostics and self-host AST nodes carry byte offsets, line/column, and parse source excerpts; final gate requires file identity and source excerpts across all compiler phases. |
 | A-004 | PARTIAL | P0 | Expected/found details. | Parse diagnostics include expected/actual tokens, resolver diagnostics include expected/actual symbol context plus related declaration spans, and typecheck diagnostics include typed expected/found objects. |
@@ -700,3 +701,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added diagnostic rule IDs. | Resolver and typecheck diagnostics now emit `rule_id` fields matching their machine-rule kind. |
 | 2026-06-10 | Added parse/import diagnostic rule IDs. | Parse and import diagnostics now emit `rule_id` fields derived from their stable diagnostic code. |
 | 2026-06-10 | Added diagnostic severity fields. | Parse/import, resolver, and typecheck diagnostics now emit `severity:"error"` plus capability flags. |
+| 2026-06-10 | Added diagnostic severity counts. | Resolver and typecheck reports now expose `error_count` and `warning_count` fields. |
