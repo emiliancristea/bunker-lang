@@ -238,6 +238,16 @@
                 "Add a Vec<T> or HashMap<K,V> annotation so collection types are known."));
     }
 
+    fn typecheck_append_void_value_ref(state: Vec<str>, name: str, scope: str,
+                                       expr_ref: AstExprRef) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("void_value_used", "BKR_SELF_VOID_VALUE",
+                name, scope, ast_node_ref_from_expr_ref(expr_ref),
+                "value-producing expression",
+                "void expression",
+                "Use this call as a standalone statement or change the function to return a value."));
+    }
+
     fn typecheck_append_missing_return_ref(state: Vec<str>, names: Vec<str>, scope: str,
                                            fn_ref: AstItemRef) -> Vec<str> {
         return resolver_state_append(state,
@@ -323,6 +333,13 @@
             return false;
         }
         return typecheck_expr_ref_is_collection_constructor(names, ast_expr_ref_from_handle(expr_value));
+    }
+
+    fn typecheck_expr_handle_is_void_value(cstate: CgenStateRef, expr_value: i64) -> bool {
+        if ast_optional_is_none(expr_value) {
+            return false;
+        }
+        return typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(expr_value)) == TYPE_VOID;
     }
 
     fn typecheck_builtin_expected_arity(name: str) -> i64 {
@@ -1461,6 +1478,9 @@
             } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_collection_constructor(names, init) {
                 state = typecheck_append_ambiguous_collection_constructor_ref(state, name, scope,
                     ast_expr_ref_from_handle(init));
+            } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_void_value(cstate, init) {
+                state = typecheck_append_void_value_ref(state, name, scope,
+                    ast_expr_ref_from_handle(init));
             }
             type_graph_add_let_ref_to_state(cstate, stmt_ref);
         } else if kind == NODE_RETURN {
@@ -1596,6 +1616,9 @@
         } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_collection_constructor(names, value) {
             state = typecheck_append_ambiguous_collection_constructor_ref(state, const_name, kernel_scope,
                 ast_expr_ref_from_handle(value));
+        } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_void_value(cstate, value) {
+            state = typecheck_append_void_value_ref(state, const_name, kernel_scope,
+                ast_expr_ref_from_handle(value));
         }
         return state;
     }
@@ -1685,13 +1708,14 @@
             json_field_bool("loop_control_checks", true) + comma +
             json_field_bool("return_path_checks", true) + comma +
             json_field_bool("unreachable_code_checks", true) + comma +
+            json_field_bool("void_value_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("diagnostic_phase_field", true) + comma +
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, builtin argument types, user/builtin call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, builtin argument types, user/builtin call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }

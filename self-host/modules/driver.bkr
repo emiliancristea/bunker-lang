@@ -622,6 +622,8 @@
             self_host_diagnostic_code_json("BKR_SELF_CONST_ASSIGNMENT", "typecheck", "control_flow", "Assignment attempts to modify a top-level constant."));
         result = import_graph_json_array_append(result,
             self_host_diagnostic_code_json("BKR_SELF_AMBIGUOUS_TYPE", "typecheck", "type_system", "Expression requires a type annotation or contextual type."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_VOID_VALUE", "typecheck", "type_system", "Void expression is used where a value is required."));
         return result + "]";
     }
 

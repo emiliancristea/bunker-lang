@@ -237,6 +237,7 @@ These are the next concrete PR-sized slices.
 | Q-174 | DONE | Add builtin argument type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `builtin_argument_type_mismatch` for known string, file, handle, index, Result, and conversion builtin argument types. |
 | Q-175 | DONE | Add collection constructor ambiguity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `ambiguous_collection_constructor` for unannotated `vec_new` and `hashmap_new` initializers. |
 | Q-176 | DONE | Add index base type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `index_base_type_mismatch` when an indexed base is known not to be an array. |
+| Q-177 | DONE | Add void value diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `void_value_used` with stable `BKR_SELF_VOID_VALUE` diagnostics when unannotated let/const initializers produce void. |
 
 ## Language Core
 
@@ -274,7 +275,7 @@ These are the next concrete PR-sized slices.
 | T-013 | TODO | P1 | Nested patterns. | Nested enum/struct patterns typecheck and bind correctly. |
 | T-014 | TODO | P1 | Match guards. | `pattern if condition` works with scoped bindings. |
 | T-015 | TODO | P1 | Tuple types. | Tuples parse, typecheck, codegen, and destructure. |
-| T-016 | TODO | P1 | Unit type. | `()` has consistent syntax and return semantics. |
+| T-016 | PARTIAL | P1 | Unit type. | Void-returning expressions are now rejected in value initializers; final gate requires a real `()` syntax and consistent unit value semantics. |
 | T-017 | TODO | P1 | Never/bottom type. | Diverging expressions typecheck in all contexts. |
 | T-018 | TODO | P2 | Function types. | Functions can be values when needed for higher-order support. |
 | T-019 | TODO | P0 | Trait/interface system. | Shared behavior is expressed without inheritance. |
@@ -678,3 +679,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added builtin argument type diagnostics. | Typecheck now reports known builtin argument type mismatches as `builtin_argument_type_mismatch`. |
 | 2026-06-10 | Added collection constructor ambiguity diagnostics. | Typecheck now reports unannotated `vec_new` and `hashmap_new` initializers as `ambiguous_collection_constructor`. |
 | 2026-06-10 | Added index base type diagnostics. | Typecheck now reports indexing non-array bases as `index_base_type_mismatch`. |
+| 2026-06-10 | Added void value diagnostics. | Typecheck now reports void-returning initializers used as values as `void_value_used`. |
