@@ -444,6 +444,83 @@
         return state;
     }
 
+    fn typecheck_pattern_is_literal_like_ref(pattern_ref: AstPatternRef) -> bool {
+        let kind: i64 = ast_pattern_ref_kind(pattern_ref);
+        return kind == PAT_INT || kind == PAT_BOOL || kind == PAT_NONE;
+    }
+
+    fn typecheck_pattern_is_catch_all_ref(pattern_ref: AstPatternRef) -> bool {
+        let kind: i64 = ast_pattern_ref_kind(pattern_ref);
+        return kind == PAT_WILDCARD || kind == PAT_BIND;
+    }
+
+    fn typecheck_patterns_same_literal_ref(left_ref: AstPatternRef, right_ref: AstPatternRef) -> bool {
+        if ast_pattern_ref_kind(left_ref) != ast_pattern_ref_kind(right_ref) {
+            return false;
+        }
+        if !typecheck_pattern_is_literal_like_ref(left_ref) {
+            return false;
+        }
+        return ast_pattern_ref_value(left_ref) == ast_pattern_ref_value(right_ref);
+    }
+
+    fn typecheck_append_match_pattern_semantic_ref(state: Vec<str>, kind: str,
+                                                   name: str, scope: str,
+                                                   pattern_ref: AstPatternRef,
+                                                   expected: str, found: str,
+                                                   repair_hint: str) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_span_json_with_type_context(kind, "BKR_SELF_MATCH_PATTERN",
+                name, scope,
+                ast_pattern_ref_span_start(pattern_ref),
+                ast_pattern_ref_span_end(pattern_ref),
+                expected,
+                found,
+                type_graph_kind_json(TYPE_UNKNOWN, "expected"),
+                type_graph_kind_json(TYPE_UNKNOWN, "found"),
+                repair_hint));
+    }
+
+    fn typecheck_check_match_pattern_semantics_ref(state: Vec<str>, patterns_ref: AstPatternListRef,
+                                                   scope: str) -> Vec<str> {
+        let catch_all_seen: bool = false;
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if catch_all_seen {
+                state = typecheck_append_match_pattern_semantic_ref(state,
+                    "unreachable_match_pattern",
+                    "match pattern " + int_to_string(i + 1),
+                    scope,
+                    pattern_ref,
+                    "reachable match pattern",
+                    "previous catch-all pattern already matches",
+                    "Remove this arm or move it before the catch-all pattern.");
+            } else {
+                let j: i64 = 0;
+                while j < i {
+                    let previous_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, j);
+                    if typecheck_patterns_same_literal_ref(previous_ref, pattern_ref) {
+                        state = typecheck_append_match_pattern_semantic_ref(state,
+                            "duplicate_match_pattern",
+                            "match pattern " + int_to_string(i + 1),
+                            scope,
+                            pattern_ref,
+                            "unique match pattern",
+                            ast_pattern_kind_name(ast_pattern_ref_kind(pattern_ref)),
+                            "Remove the duplicate pattern or merge its arm with the first occurrence.");
+                    }
+                    j = j + 1;
+                }
+                if typecheck_pattern_is_catch_all_ref(pattern_ref) {
+                    catch_all_seen = true;
+                }
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
     fn typecheck_check_array_element_types_ref(state: Vec<str>, cstate: CgenStateRef,
                                                elements_ref: AstNodeListRef, scope: str) -> Vec<str> {
         let expected_kind: i64 = TYPE_UNKNOWN;
@@ -844,6 +921,8 @@
             let scrutinee_kind: i64 = typecheck_expr_ref_kind(cstate, scrutinee_ref);
             state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
                 scrutinee_ref, scope, expected_return_kind);
+            state = typecheck_check_match_pattern_semantics_ref(state,
+                ast_match_ref_patterns_ref(expr_ref), scope);
             state = typecheck_check_match_patterns_ref(state, ast_match_ref_patterns_ref(expr_ref),
                 scrutinee_kind, scope);
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
@@ -1080,6 +1159,7 @@
             json_field_bool("ternary_branch_checks", true) + comma +
             json_field_bool("match_arm_type_checks", true) + comma +
             json_field_bool("match_pattern_type_checks", true) + comma +
+            json_field_bool("match_pattern_semantic_checks", true) + comma +
             json_field_bool("array_element_type_checks", true) + comma +
             json_field_bool("loop_control_checks", true) + comma +
             json_field_bool("return_path_checks", true) + comma +
@@ -1090,7 +1170,7 @@
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets, indexes, unary/binary operands, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate and unreachable match patterns. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }

@@ -157,6 +157,7 @@ jobs:
           grep -q 'BKR_SELF_CONTROL_FLOW' "$driver"
           grep -q 'BKR_SELF_RETURN_PATH' "$driver"
           grep -q 'BKR_SELF_UNREACHABLE_CODE' "$driver"
+          grep -q 'BKR_SELF_MATCH_PATTERN' "$driver"
           grep -q 'let source_excerpt = source_line_excerpt_at(source, source_start);' "$driver"
 
       - name: Require self-host import path policy
@@ -670,6 +671,11 @@ jobs:
           grep -q 'match_pattern_type_mismatch' "$typecheck"
           grep -q 'fn typecheck_diagnostic_span_json_with_type_context' "$typecheck"
           grep -q 'json_field_bool("match_pattern_type_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_match_pattern_semantics_ref' "$typecheck"
+          grep -q 'duplicate_match_pattern' "$typecheck"
+          grep -q 'unreachable_match_pattern' "$typecheck"
+          grep -q 'BKR_SELF_MATCH_PATTERN' "$typecheck"
+          grep -q 'json_field_bool("match_pattern_semantic_checks", true)' "$typecheck"
           grep -q 'fn typecheck_check_array_element_types_ref' "$typecheck"
           grep -q 'array_element_type_mismatch' "$typecheck"
           grep -q 'json_field_bool("array_element_type_checks", true)' "$typecheck"
