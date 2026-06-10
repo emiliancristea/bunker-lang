@@ -115,9 +115,11 @@ jobs:
           set -euo pipefail
           driver='self-host/modules/driver.bkr'
           grep -q 'fn self_host_import_graph_json(source: str) -> str' "$driver"
+          grep -q 'fn self_host_import_graph_json_with_base_dir(source: str, base_dir: str) -> str' "$driver"
           grep -q 'BUNKER_IMPORT_GRAPH_JSON' "$driver"
-          grep -q 'json_field_i64("unique_import_count", unique_import_count(source))' "$driver"
-          grep -q 'json_field_raw("imports", unique_import_paths_json(source))' "$driver"
+          grep -q 'json_field_str("root_base_dir", base_dir)' "$driver"
+          grep -q 'json_field_i64("unique_import_count", unique_import_count_from_base(source, base_dir))' "$driver"
+          grep -q 'json_field_raw("imports", unique_import_paths_json_from_base(source, base_dir))' "$driver"
           grep -q 'json_field_bool("import_graph_report", true)' "$driver"
           grep -q 'capability_report + import_graph_report + ast_report' "$driver"
 
@@ -145,6 +147,8 @@ jobs:
           grep -q 'resolve_import_path(base_dir, import_path)' "$driver"
           grep -q 'import_path_dir(resolved_path)' "$driver"
           grep -q 'json_field_bool("base_directory_resolution", true)' "$driver"
+          grep -q 'fn compile_to_c_with_base_dir(source: str, root_base_dir: str) -> str' "$driver"
+          grep -q 'expand_imports_from_base(source, root_base_dir)' "$driver"
 
       - name: Require parser start spans through typed AST refs
         shell: bash

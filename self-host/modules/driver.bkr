@@ -144,8 +144,12 @@
     }
 
     fn expand_imports(source: str) -> str {
+        return expand_imports_from_base(source, "");
+    }
+
+    fn expand_imports_from_base(source: str, base_dir: str) -> str {
         let seen: Vec<str> = vec_new();
-        return expand_imports_with_seen(source, seen, "");
+        return expand_imports_with_seen(source, seen, base_dir);
     }
 
     fn missing_import_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> str {
@@ -193,8 +197,12 @@
     }
 
     fn first_missing_import_path(source: str) -> str {
+        return first_missing_import_path_from_base(source, "");
+    }
+
+    fn first_missing_import_path_from_base(source: str, base_dir: str) -> str {
         let seen: Vec<str> = vec_new();
-        return first_missing_import_path_with_seen(source, seen, "");
+        return first_missing_import_path_with_seen(source, seen, base_dir);
     }
 
     fn invalid_import_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> str {
@@ -242,8 +250,12 @@
     }
 
     fn first_invalid_import_path(source: str) -> str {
+        return first_invalid_import_path_from_base(source, "");
+    }
+
+    fn first_invalid_import_path_from_base(source: str, base_dir: str) -> str {
         let seen: Vec<str> = vec_new();
-        return first_invalid_import_path_with_seen(source, seen, "");
+        return first_invalid_import_path_with_seen(source, seen, base_dir);
     }
 
     fn import_count_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> i64 {
@@ -289,8 +301,12 @@
     }
 
     fn unique_import_count(source: str) -> i64 {
+        return unique_import_count_from_base(source, "");
+    }
+
+    fn unique_import_count_from_base(source: str, base_dir: str) -> i64 {
         let seen: Vec<str> = vec_new();
-        return import_count_with_seen(source, seen, "");
+        return import_count_with_seen(source, seen, base_dir);
     }
 
     fn import_graph_json_array_append(result: str, item: str) -> str {
@@ -356,8 +372,12 @@
     }
 
     fn unique_import_paths_json(source: str) -> str {
+        return unique_import_paths_json_from_base(source, "");
+    }
+
+    fn unique_import_paths_json_from_base(source: str, base_dir: str) -> str {
         let seen: Vec<str> = vec_new();
-        return import_paths_json_with_seen(source, seen, "");
+        return import_paths_json_with_seen(source, seen, base_dir);
     }
 
     fn source_line_at(source: str, offset: i64) -> i64 {
@@ -439,17 +459,22 @@
     }
 
     fn self_host_import_graph_json(source: str) -> str {
+        return self_host_import_graph_json_with_base_dir(source, "");
+    }
+
+    fn self_host_import_graph_json_with_base_dir(source: str, base_dir: str) -> str {
         let comma = ",";
-        let invalid_import = first_invalid_import_path(source);
-        let missing_import = first_missing_import_path(source);
+        let invalid_import = first_invalid_import_path_from_base(source, base_dir);
+        let missing_import = first_missing_import_path_from_base(source, base_dir);
         return "{" +
             json_field_str("schema_version", "bunker.self_host.import_graph.v1") + comma +
+            json_field_str("root_base_dir", base_dir) + comma +
             json_field_str("path_policy", "normalized_relative_forward_slash") + comma +
             json_field_bool("base_directory_resolution", true) + comma +
             json_field_bool("recursive_expansion", true) + comma +
             json_field_bool("duplicate_suppression", true) + comma +
-            json_field_i64("unique_import_count", unique_import_count(source)) + comma +
-            json_field_raw("imports", unique_import_paths_json(source)) + comma +
+            json_field_i64("unique_import_count", unique_import_count_from_base(source, base_dir)) + comma +
+            json_field_raw("imports", unique_import_paths_json_from_base(source, base_dir)) + comma +
             json_field_bool("has_invalid_import", len(invalid_import) > 0) + comma +
             json_field_str("invalid_import", invalid_import) + comma +
             json_field_bool("has_missing_import", len(missing_import) > 0) + comma +
@@ -458,7 +483,11 @@
     }
 
     fn build_import_graph_report_comment(source: str) -> str {
-        return "/* BUNKER_IMPORT_GRAPH_JSON: " + self_host_import_graph_json(source) + from_char_code(10) +
+        return build_import_graph_report_comment_with_base_dir(source, "");
+    }
+
+    fn build_import_graph_report_comment_with_base_dir(source: str, base_dir: str) -> str {
+        return "/* BUNKER_IMPORT_GRAPH_JSON: " + self_host_import_graph_json_with_base_dir(source, base_dir) + from_char_code(10) +
             "*/" + from_char_code(10);
     }
 
@@ -517,23 +546,27 @@
     }
 
     fn compile_to_c(source: str) -> str {
+        return compile_to_c_with_base_dir(source, "");
+    }
+
+    fn compile_to_c_with_base_dir(source: str, root_base_dir: str) -> str {
         self_host_trace_phase("compile_to_c:begin");
         let capability_report = build_capability_report_comment();
         self_host_trace_phase("compile_to_c:capability_report");
-        let import_graph_report = build_import_graph_report_comment(source);
+        let import_graph_report = build_import_graph_report_comment_with_base_dir(source, root_base_dir);
         self_host_trace_phase("compile_to_c:import_graph_report");
-        let invalid_import = first_invalid_import_path(source);
+        let invalid_import = first_invalid_import_path_from_base(source, root_base_dir);
         if len(invalid_import) > 0 {
             self_host_trace_phase("compile_to_c:invalid_import");
             return capability_report + import_graph_report + build_import_path_diagnostic(invalid_import) + from_char_code(10);
         }
-        let missing_import = first_missing_import_path(source);
+        let missing_import = first_missing_import_path_from_base(source, root_base_dir);
         if len(missing_import) > 0 {
             self_host_trace_phase("compile_to_c:missing_import");
             return capability_report + import_graph_report + build_import_diagnostic(missing_import) + from_char_code(10);
         }
 
-        let expanded_source = expand_imports(source);
+        let expanded_source = expand_imports_from_base(source, root_base_dir);
         self_host_trace_phase("compile_to_c:imports_expanded");
         let lex_result: LexerResultRef = tokenize_ref(expanded_source);
         self_host_trace_phase("compile_to_c:tokenized");
@@ -580,7 +613,7 @@
         }
 
         let source = read_file(input_path);
-        let c_code = compile_to_c(source);
+        let c_code = compile_to_c_with_base_dir(source, import_path_dir(input_path));
         let wrote = write_file(output_path, c_code);
         if !wrote {
             return 1;
