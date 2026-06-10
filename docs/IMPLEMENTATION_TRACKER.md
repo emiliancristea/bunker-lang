@@ -185,6 +185,7 @@ These are the next concrete PR-sized slices.
 | Q-122 | DONE | Route AST-report for fields through typed refs. | Complete-tree for-loop JSON now reads binding, range expressions, inclusive flag, and body through typed statement/block accessors. |
 | Q-123 | DONE | Route AST-report loop fields through typed refs. | Complete-tree loop JSON now reads its body through typed statement/block accessors. |
 | Q-124 | DONE | Route AST-report const, struct, and field fields through typed refs. | Complete-tree const/struct/field JSON now reads declaration fields through typed item/node accessors. |
+| Q-125 | DONE | Route AST-report expression upcasts through typed refs. | AST exposes an `AstNodeRef` to `AstExprRef` upcast helper, and complete-tree expression JSON no longer converts node refs through raw handles in the report. |
 
 ## Language Core
 
@@ -574,3 +575,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-17 | Routed AST-report for fields through typed refs. | Complete-tree for-loop JSON now reads binding, range expressions, inclusive flag, and body through `AstStmtRef` and `AstBlockRef` accessors. |
 | 2026-06-04 | Routed AST-report loop fields through typed refs. | Complete-tree loop JSON now reads its body through `AstStmtRef` and `AstBlockRef` accessors. |
 | 2026-06-10 | Routed AST-report const, struct, and field fields through typed refs. | Complete-tree declaration JSON now reads const, struct, and field data through typed `AstItemRef` and `AstNodeRef` accessors. |
+| 2026-06-10 | Routed AST-report expression upcasts through typed refs. | Complete-tree expression JSON now obtains `AstExprRef` directly from `AstNodeRef`. |

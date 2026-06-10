@@ -311,6 +311,10 @@
         return ast_expr_ref_from_handle(ast_expr_handle(expr));
     }
 
+    fn ast_expr_ref_from_node_ref(node_ref: AstNodeRef) -> AstExprRef {
+        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
+    }
+
     fn ast_expr_ref_handle(expr_ref: AstExprRef) -> i64 {
         return expr_ref.handle;
     }

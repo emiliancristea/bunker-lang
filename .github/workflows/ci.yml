@@ -564,7 +564,7 @@ jobs:
           set -euo pipefail
           ast_report='self-host/modules/ast_report.bkr'
           matches="$(mktemp)"
-          grep -n -E 'ast_name_idx\(|ast_call_name_idx\(|ast_call_args_ref\(|ast_binary_op\(|ast_binary_left\(|ast_binary_right\(|ast_unary_op\(|ast_unary_operand\(|ast_ternary_cond\(|ast_ternary_then\(|ast_ternary_else\(|ast_array_elements_ref\(|ast_index_base\(|ast_index_expr\(|ast_match_scrutinee\(|ast_match_patterns_ref\(|ast_match_bodies_ref\(|ast_field_base\(|ast_field_name_idx\(|ast_struct_lit_name_idx\(|ast_struct_lit_field_names_ref\(|ast_struct_lit_field_values_ref\(|ast_value\(' "$ast_report" > "$matches" || true
+          grep -n -E 'ast_expr_ref_from_handle\(ast_node_ref_handle\(node_ref\)\)|ast_name_idx\(|ast_call_name_idx\(|ast_call_args_ref\(|ast_binary_op\(|ast_binary_left\(|ast_binary_right\(|ast_unary_op\(|ast_unary_operand\(|ast_ternary_cond\(|ast_ternary_then\(|ast_ternary_else\(|ast_array_elements_ref\(|ast_index_base\(|ast_index_expr\(|ast_match_scrutinee\(|ast_match_patterns_ref\(|ast_match_bodies_ref\(|ast_field_base\(|ast_field_name_idx\(|ast_struct_lit_name_idx\(|ast_struct_lit_field_names_ref\(|ast_struct_lit_field_values_ref\(|ast_value\(' "$ast_report" > "$matches" || true
           if [ -s "$matches" ]; then
             echo "AST report expression paths must use typed AST ref accessors."
             cat "$matches"
