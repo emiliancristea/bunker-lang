@@ -8,6 +8,15 @@
     fn resolver_diagnostic_json(kind: str, code: str, name: str, scope: str,
                                 source_start: i64, source_end: i64,
                                 expected: str, actual: str, repair_hint: str) -> str {
+        return resolver_diagnostic_json_with_related(kind, code, name, scope,
+            source_start, source_end, expected, actual, "[]", repair_hint);
+    }
+
+    fn resolver_diagnostic_json_with_related(kind: str, code: str, name: str, scope: str,
+                                             source_start: i64, source_end: i64,
+                                             expected: str, actual: str,
+                                             related_declarations: str,
+                                             repair_hint: str) -> str {
         let comma = ",";
         return "{" +
             json_field_str("kind", kind) + comma +
@@ -19,6 +28,7 @@
             json_field_bool("span_known", source_start != AST_SPAN_UNKNOWN && source_end != AST_SPAN_UNKNOWN) + comma +
             json_field_str("expected", expected) + comma +
             json_field_str("actual", actual) + comma +
+            json_field_raw("related_declarations", related_declarations) + comma +
             json_field_str("repair_hint", repair_hint) +
             "}";
     }
@@ -33,9 +43,17 @@
     fn resolver_node_ref_diagnostic_json(kind: str, code: str, name: str, scope: str,
                                          node_ref: AstNodeRef, expected: str, actual: str,
                                          repair_hint: str) -> str {
-        return resolver_diagnostic_json(kind, code, name, scope,
+        return resolver_node_ref_diagnostic_json_with_related(kind, code, name, scope,
+            node_ref, expected, actual, "[]", repair_hint);
+    }
+
+    fn resolver_node_ref_diagnostic_json_with_related(kind: str, code: str, name: str, scope: str,
+                                                      node_ref: AstNodeRef, expected: str, actual: str,
+                                                      related_declarations: str,
+                                                      repair_hint: str) -> str {
+        return resolver_diagnostic_json_with_related(kind, code, name, scope,
             ast_node_ref_span_start(node_ref), ast_node_ref_span_end(node_ref),
-            expected, actual, repair_hint);
+            expected, actual, related_declarations, repair_hint);
     }
 
     fn resolver_pattern_diagnostic_json(kind: str, code: str, name: str, scope: str,
@@ -88,10 +106,87 @@
     fn resolver_append_unresolved_node_ref(state: Vec<str>, name: str, scope: str,
                                           reference_kind: str, node_ref: AstNodeRef,
                                           expected: str) -> Vec<str> {
+        return resolver_append_unresolved_node_with_related_ref(state, name, scope,
+            reference_kind, node_ref, expected, "[]");
+    }
+
+    fn resolver_append_unresolved_node_with_related_ref(state: Vec<str>, name: str, scope: str,
+                                                        reference_kind: str, node_ref: AstNodeRef,
+                                                        expected: str,
+                                                        related_declarations: str) -> Vec<str> {
         let hint = "Declare " + name + " in scope " + scope + ", import it through a real module, or correct the misspelled reference.";
         return resolver_state_append(state,
-            resolver_node_ref_diagnostic_json("unresolved_reference", "BKR_SELF_UNRESOLVED_SYMBOL",
-                name, scope, node_ref, expected, reference_kind + " " + name, hint));
+            resolver_node_ref_diagnostic_json_with_related("unresolved_reference", "BKR_SELF_UNRESOLVED_SYMBOL",
+                name, scope, node_ref, expected, reference_kind + " " + name, related_declarations, hint));
+    }
+
+    fn resolver_json_array_append(result: str, item: str) -> str {
+        if len(result) > 1 {
+            return result + "," + item;
+        }
+        return result + item;
+    }
+
+    fn resolver_known_functions_json_ref(kernel_ref: AstNodeRef, names: Vec<str>) -> str {
+        let result = "[";
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_FN {
+                result = resolver_json_array_append(result, json_escape_string(ast_report_name(names, ast_fn_ref_name_idx(item_ref))));
+            }
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn resolver_known_consts_json_ref(kernel_ref: AstNodeRef, names: Vec<str>) -> str {
+        let result = "[";
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_CONST {
+                result = resolver_json_array_append(result, json_escape_string(ast_report_name(names, ast_const_ref_name_idx(item_ref))));
+            }
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn resolver_known_structs_json_ref(kernel_ref: AstNodeRef, names: Vec<str>) -> str {
+        let result = "[";
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_STRUCT {
+                result = resolver_json_array_append(result, json_escape_string(ast_report_name(names, ast_struct_ref_name_idx(item_ref))));
+            }
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn resolver_struct_fields_json_ref(kernel_ref: AstNodeRef, names: Vec<str>, struct_name_idx: i64) -> str {
+        let result = "[";
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_ref_name_idx(item_ref) == struct_name_idx {
+                let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(item_ref);
+                let j: i64 = 0;
+                while j < ast_node_list_ref_count(fields_ref) {
+                    let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, j);
+                    result = resolver_json_array_append(result, json_escape_string(ast_report_name(names, ast_field_decl_ref_name_idx(field_ref))));
+                    j = j + 1;
+                }
+            }
+            i = i + 1;
+        }
+        return result + "]";
     }
 
     fn resolver_is_builtin_call(name: str) -> bool {
@@ -232,12 +327,13 @@
         if ast_type_ref_kind_value(type_ref) == TYPE_STRUCT {
             let name_idx: i64 = ast_type_ref_struct_name_idx_value(type_ref);
             if !resolver_has_struct_name_ref(kernel_ref, name_idx) {
-                state = resolver_append_unresolved_node_ref(state,
+                state = resolver_append_unresolved_node_with_related_ref(state,
                     ast_report_name(names, name_idx),
                     scope,
                     "type_reference",
                     ast_node_ref_from_type_ref(type_ref),
-                    "declared struct type");
+                    "declared struct type",
+                    resolver_known_structs_json_ref(kernel_ref, names));
             }
         }
         return state;
@@ -284,13 +380,17 @@
             let name_idx: i64 = ast_expr_ref_name_idx(expr_ref);
             let name = ast_report_name(names, name_idx);
             if name != "None" && !resolver_i64_vec_contains(bindings, name_idx) && !resolver_has_const_name_ref(kernel_ref, name_idx) {
-                state = resolver_append_unresolved_node_ref(state, name, scope, "identifier", expr_node_ref, "local, parameter, for binding, pattern binding, or constant");
+                state = resolver_append_unresolved_node_with_related_ref(state, name, scope, "identifier", expr_node_ref,
+                    "local, parameter, for binding, pattern binding, or constant",
+                    resolver_known_consts_json_ref(kernel_ref, names));
             }
         } else if kind == NODE_CALL {
             let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
             let name = ast_report_name(names, name_idx);
             if !resolver_is_builtin_call(name) && !resolver_has_function_name_ref(kernel_ref, name_idx) {
-                state = resolver_append_unresolved_node_ref(state, name, scope, "function_call", expr_node_ref, "declared function or supported bootstrap builtin");
+                state = resolver_append_unresolved_node_with_related_ref(state, name, scope, "function_call", expr_node_ref,
+                    "declared function or supported bootstrap builtin",
+                    resolver_known_functions_json_ref(kernel_ref, names));
             }
             let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
             let i: i64 = 0;
@@ -303,7 +403,9 @@
             let struct_name_idx: i64 = ast_struct_lit_ref_name_idx(expr_ref);
             let struct_name = ast_report_name(names, struct_name_idx);
             if !resolver_has_struct_name_ref(kernel_ref, struct_name_idx) {
-                state = resolver_append_unresolved_node_ref(state, struct_name, scope, "struct_literal", expr_node_ref, "declared struct");
+                state = resolver_append_unresolved_node_with_related_ref(state, struct_name, scope, "struct_literal", expr_node_ref,
+                    "declared struct",
+                    resolver_known_structs_json_ref(kernel_ref, names));
             }
 
             let seen_fields: Vec<i64> = vec_new();
@@ -318,7 +420,9 @@
                 } else {
                     vec_push(seen_fields, field_name_idx);
                     if resolver_has_struct_name_ref(kernel_ref, struct_name_idx) && !resolver_struct_has_field_ref(kernel_ref, struct_name_idx, field_name_idx) {
-                        state = resolver_append_unresolved_node_ref(state, field_name, scope, "field_initializer", expr_node_ref, "field declared on struct " + struct_name);
+                        state = resolver_append_unresolved_node_with_related_ref(state, field_name, scope, "field_initializer", expr_node_ref,
+                            "field declared on struct " + struct_name,
+                            resolver_struct_fields_json_ref(kernel_ref, names, struct_name_idx));
                     }
                 }
                 let field_value_ref: AstNodeRef = ast_node_list_ref_get_ref(field_values_ref, i);
@@ -584,10 +688,11 @@
             json_field_bool("complete", false) + comma +
             json_field_bool("duplicate_detection", true) + comma +
             json_field_bool("unresolved_detection", true) + comma +
+            json_field_bool("related_declarations", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
             json_field_str("scope_model", "kernel globals plus function/block/pattern binding scopes using interned names") + comma +
-            json_field_str("known_limits", "Bootstrap resolver validates duplicate declarations and unresolved identifiers, calls, struct types, struct literals, and struct literal fields; it does not yet resolve imports, visibility, overloads, method receiver fields, or related definition spans.") + comma +
+            json_field_str("known_limits", "Bootstrap resolver validates duplicate declarations and unresolved identifiers, calls, struct types, struct literals, and struct literal fields with related declaration name lists; it does not yet resolve import visibility, overloads, method receiver fields, or definition-use source spans.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }

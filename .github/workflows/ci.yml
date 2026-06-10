@@ -501,6 +501,18 @@ jobs:
             exit 1
           fi
 
+      - name: Require resolver related declarations
+        shell: bash
+        run: |
+          set -euo pipefail
+          resolver='self-host/modules/resolver.bkr'
+          grep -q 'json_field_raw("related_declarations", related_declarations)' "$resolver"
+          grep -q 'fn resolver_known_functions_json_ref(kernel_ref: AstNodeRef, names: Vec<str>) -> str' "$resolver"
+          grep -q 'fn resolver_known_consts_json_ref(kernel_ref: AstNodeRef, names: Vec<str>) -> str' "$resolver"
+          grep -q 'fn resolver_known_structs_json_ref(kernel_ref: AstNodeRef, names: Vec<str>) -> str' "$resolver"
+          grep -q 'fn resolver_struct_fields_json_ref(kernel_ref: AstNodeRef, names: Vec<str>, struct_name_idx: i64) -> str' "$resolver"
+          grep -q 'json_field_bool("related_declarations", true)' "$resolver"
+
       - name: Require type-graph top-level AST refs
         shell: bash
         run: |
