@@ -621,6 +621,19 @@ jobs:
             exit 1
           fi
 
+      - name: Require AST report optional node refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast_report='self-host/modules/ast_report.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'ast_node_ref_from_handle\(' "$ast_report" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "AST report optional node serialization must use named AST optional-node ref helpers."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require AST report expression refs
         shell: bash
         run: |

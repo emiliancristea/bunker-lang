@@ -143,7 +143,7 @@
         if ast_optional_is_none(node_value) {
             return "null";
         }
-        return ast_report_node_ref_json(names, ast_node_ref_from_handle(node_value));
+        return ast_report_node_ref_json(names, ast_node_ref_from_optional_handle(node_value));
     }
 
     fn ast_report_block_statements_json(names: Vec<str>, block: Vec<i64>) -> str {
