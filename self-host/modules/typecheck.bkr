@@ -338,6 +338,51 @@
         return -1;
     }
 
+    fn typecheck_builtin_expected_arg_kind(name: str, index: i64) -> i64 {
+        if name == "len" && index == 0 { return TYPE_STR; }
+        if name == "substr" && index == 0 { return TYPE_STR; }
+        if name == "substr" && index == 1 { return TYPE_I64; }
+        if name == "substr" && index == 2 { return TYPE_I64; }
+        if name == "str_eq" && index == 0 { return TYPE_STR; }
+        if name == "str_eq" && index == 1 { return TYPE_STR; }
+        if name == "str_ne" && index == 0 { return TYPE_STR; }
+        if name == "str_ne" && index == 1 { return TYPE_STR; }
+        if name == "str_to_i64" && index == 0 { return TYPE_STR; }
+        if name == "i64_to_str" && index == 0 { return TYPE_I64; }
+        if name == "f64_to_str" && index == 0 { return TYPE_F64; }
+        if name == "bool_to_str" && index == 0 { return TYPE_BOOL; }
+        if name == "read_file" && index == 0 { return TYPE_STR; }
+        if name == "write_file" && index == 0 { return TYPE_STR; }
+        if name == "write_file" && index == 1 { return TYPE_STR; }
+        if name == "file_exists" && index == 0 { return TYPE_STR; }
+        if name == "read_file_str" && index == 0 { return TYPE_STR; }
+        if name == "write_file_str" && index == 0 { return TYPE_STR; }
+        if name == "write_file_str" && index == 1 { return TYPE_STR; }
+        if name == "vec_push" && index == 0 { return TYPE_I64; }
+        if name == "vec_get" && index == 0 { return TYPE_I64; }
+        if name == "vec_get" && index == 1 { return TYPE_I64; }
+        if name == "vec_set" && index == 0 { return TYPE_I64; }
+        if name == "vec_set" && index == 1 { return TYPE_I64; }
+        if name == "vec_len" && index == 0 { return TYPE_I64; }
+        if name == "vec_pop" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_insert" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_insert" && index == 1 { return TYPE_I64; }
+        if name == "hashmap_get" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_get" && index == 1 { return TYPE_I64; }
+        if name == "hashmap_contains" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_contains" && index == 1 { return TYPE_I64; }
+        if name == "hashmap_remove" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_remove" && index == 1 { return TYPE_I64; }
+        if name == "hashmap_keys" && index == 0 { return TYPE_I64; }
+        if name == "result_is_ok" && index == 0 { return TYPE_I64; }
+        if name == "result_is_err" && index == 0 { return TYPE_I64; }
+        if name == "result_unwrap" && index == 0 { return TYPE_I64; }
+        if name == "result_unwrap_err" && index == 0 { return TYPE_I64; }
+        if name == "result_tag" && index == 0 { return TYPE_I64; }
+        if name == "result_value" && index == 0 { return TYPE_I64; }
+        return TYPE_UNKNOWN;
+    }
+
     fn typecheck_check_builtin_arity_ref(state: Vec<str>, names: Vec<str>,
                                          expr_ref: AstExprRef, scope: str) -> Vec<str> {
         let fn_name: str = ast_report_name(names, ast_call_ref_name_idx(expr_ref));
@@ -353,6 +398,36 @@
                 fn_name, scope, ast_node_ref_from_expr_ref(expr_ref), expected_count, found_count,
                 arity_hint);
         }
+        return state;
+    }
+
+    fn typecheck_check_builtin_arg_types_ref(state: Vec<str>, names: Vec<str>, cstate: CgenStateRef,
+                                             expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let fn_name: str = ast_report_name(names, ast_call_ref_name_idx(expr_ref));
+        if typecheck_builtin_expected_arity(fn_name) < 0 {
+            return state;
+        }
+        let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(args_ref) {
+            let expected_kind: i64 = typecheck_builtin_expected_arg_kind(fn_name, i);
+            if expected_kind != TYPE_UNKNOWN {
+                let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+                let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_node_ref(arg_node_ref));
+                let hint: str = "Change argument " + int_to_string(i + 1) + " for builtin " +
+                    fn_name + " to match the expected type.";
+                state = typecheck_maybe_append_mismatch_ref(state, "builtin_argument_type_mismatch",
+                    fn_name, scope, arg_node_ref, expected_kind, found_kind, hint);
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_check_builtin_call_ref(state: Vec<str>, names: Vec<str>, cstate: CgenStateRef,
+                                        expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        state = typecheck_check_builtin_arity_ref(state, names, expr_ref, scope);
+        state = typecheck_check_builtin_arg_types_ref(state, names, cstate, expr_ref, scope);
         return state;
     }
 
@@ -1141,7 +1216,7 @@
         let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
         let fn_ref: AstItemRef = typecheck_find_function_ref(kernel_ref, name_idx);
         if ast_item_ref_is_none(fn_ref) {
-            return typecheck_check_builtin_arity_ref(state, names, expr_ref, scope);
+            return typecheck_check_builtin_call_ref(state, names, cstate, expr_ref, scope);
         }
 
         let fn_name: str = ast_report_name(names, name_idx);
@@ -1539,6 +1614,7 @@
             json_field_bool("call_argument_checks", true) + comma +
             json_field_bool("call_arity_checks", true) + comma +
             json_field_bool("builtin_arity_checks", true) + comma +
+            json_field_bool("builtin_argument_type_checks", true) + comma +
             json_field_bool("assignment_target_checks", true) + comma +
             json_field_bool("const_assignment_checks", true) + comma +
             json_field_bool("struct_field_value_checks", true) + comma +
@@ -1566,7 +1642,7 @@
             json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, indexes, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, user/builtin call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, indexes, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, builtin argument types, user/builtin call arity, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
