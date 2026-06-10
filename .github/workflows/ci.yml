@@ -98,6 +98,17 @@ jobs:
             exit 1
           fi
 
+      - name: Require recursive self-host import expansion
+        shell: bash
+        run: |
+          set -euo pipefail
+          driver='self-host/modules/driver.bkr'
+          grep -q 'fn import_seen_contains(seen: Vec<str>, import_path: str) -> bool' "$driver"
+          grep -q 'fn expand_imports_with_seen(source: str, seen: Vec<str>) -> str' "$driver"
+          grep -q 'fn first_missing_import_path_with_seen(source: str, seen: Vec<str>) -> str' "$driver"
+          grep -q 'let expanded_import = expand_imports_with_seen(imported, seen);' "$driver"
+          grep -q 'return first_missing_import_path_with_seen(read_file(import_path), seen);' "$driver"
+
       - name: Require parser start spans through typed AST refs
         shell: bash
         run: |

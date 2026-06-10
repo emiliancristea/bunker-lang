@@ -192,13 +192,14 @@ These are the next concrete PR-sized slices.
 | Q-129 | DONE | Route typecheck function lookup through typed item refs. | Typecheck call-argument diagnostics now keep resolved function declarations as `AstItemRef` values, with optional item refs handled inside the AST boundary. |
 | Q-130 | DONE | Route AST-report optional node handles through typed refs. | AST report optional-node serialization now converts raw optional handles through an AST-owned helper instead of constructing node refs directly. |
 | Q-131 | DONE | Route parser optional field handles through typed refs. | Parser construction now converts optional type/expression/block refs through named AST helpers instead of direct ref-handle access. |
+| Q-132 | DONE | Add recursive self-host import expansion. | Self-host import expansion now walks nested imported files, suppresses duplicate/cyclic imports with a seen list, and scans nested imports for missing-module diagnostics. |
 
 ## Language Core
 
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
-| L-001 | TODO | P0 | Real module/import system. | `import` resolves Bunker files with stable module paths, duplicate handling, and CI fixtures. |
-| L-002 | TODO | P0 | Multi-file compilation. | Compiler accepts a root file and compiles/imports dependency files deterministically. |
+| L-001 | PARTIAL | P0 | Real module/import system. | Self-host import expansion walks nested string-path imports and suppresses duplicate/cyclic imports; final gate requires stable module paths, import graph diagnostics, visibility, and CI fixtures. |
+| L-002 | PARTIAL | P0 | Multi-file compilation. | Self-host compilation expands dependency files recursively from a root source; final gate requires deterministic artifact layout, path normalization, and import graph diagnostics. |
 | L-003 | TODO | P1 | Public/private visibility. | Symbols can be exported or hidden; invalid access produces diagnostics. |
 | L-004 | TODO | P1 | Namespaces/packages. | Package/module names avoid global collisions. |
 | L-005 | TODO | P1 | Stable grammar versioning. | Source declares or infers language version; parser behavior is reproducible. |
@@ -588,3 +589,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Routed typecheck function lookup through typed item refs. | Typecheck call-argument diagnostics now keep found functions as `AstItemRef` values and use AST-owned optional item-ref helpers. |
 | 2026-06-10 | Routed AST-report optional node handles through typed refs. | AST report optional-node serialization now uses an AST-owned optional-handle-to-node-ref helper, with CI guarding direct raw node-ref construction. |
 | 2026-06-10 | Routed parser optional field handles through typed refs. | Parser construction now uses AST-owned optional-handle helpers for optional type, expression, and block fields, with CI guarding direct ref-handle conversions. |
+| 2026-06-10 | Added recursive self-host import expansion. | The self-host driver now expands nested imports, skips duplicate/cyclic imports with a seen list, and scans nested imports before compilation for missing-module diagnostics. |

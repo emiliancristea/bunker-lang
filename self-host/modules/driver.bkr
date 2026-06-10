@@ -18,14 +18,30 @@
         return substring(trimmed_line, 8, len(trimmed_line) - 2);
     }
 
-    fn append_expanded_line(output: str, line: str) -> str {
+    fn import_seen_contains(seen: Vec<str>, import_path: str) -> bool {
+        let i: i64 = 0;
+        while i < vec_len(seen) {
+            if vec_get(seen, i) == import_path {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn append_expanded_line_with_seen(output: str, line: str, seen: Vec<str>) -> str {
         if is_import_line(line) {
             let import_path = import_path_from_line(line);
             if !file_exists(import_path) {
                 return output + "// Missing import: " + import_path + from_char_code(10);
             }
+            if import_seen_contains(seen, import_path) {
+                return output;
+            }
+            vec_push(seen, import_path);
             let imported = read_file(import_path);
-            let result = output + imported;
+            let expanded_import = expand_imports_with_seen(imported, seen);
+            let result = output + expanded_import;
             if len(result) > 0 && char_code_at(result, len(result) - 1) != 10 {
                 result = result + from_char_code(10);
             }
@@ -34,7 +50,7 @@
         return output + line + from_char_code(10);
     }
 
-    fn expand_imports(source: str) -> str {
+    fn expand_imports_with_seen(source: str, seen: Vec<str>) -> str {
         let output = "";
         let start: i64 = 0;
         let pos: i64 = 0;
@@ -42,7 +58,7 @@
 
         while pos < source_len {
             if char_code_at(source, pos) == 10 {
-                output = append_expanded_line(output, substring(source, start, pos));
+                output = append_expanded_line_with_seen(output, substring(source, start, pos), seen);
                 pos = pos + 1;
                 start = pos;
             } else {
@@ -51,30 +67,40 @@
         }
 
         if start < source_len {
-            output = append_expanded_line(output, substring(source, start, source_len));
+            output = append_expanded_line_with_seen(output, substring(source, start, source_len), seen);
         }
 
         return output;
     }
 
-    fn missing_import_in_line(line: str) -> str {
+    fn expand_imports(source: str) -> str {
+        let seen: Vec<str> = vec_new();
+        return expand_imports_with_seen(source, seen);
+    }
+
+    fn missing_import_in_line_with_seen(line: str, seen: Vec<str>) -> str {
         if is_import_line(line) {
             let import_path = import_path_from_line(line);
             if !file_exists(import_path) {
                 return import_path;
             }
+            if import_seen_contains(seen, import_path) {
+                return "";
+            }
+            vec_push(seen, import_path);
+            return first_missing_import_path_with_seen(read_file(import_path), seen);
         }
         return "";
     }
 
-    fn first_missing_import_path(source: str) -> str {
+    fn first_missing_import_path_with_seen(source: str, seen: Vec<str>) -> str {
         let start: i64 = 0;
         let pos: i64 = 0;
         let source_len = len(source);
 
         while pos < source_len {
             if char_code_at(source, pos) == 10 {
-                let missing = missing_import_in_line(substring(source, start, pos));
+                let missing = missing_import_in_line_with_seen(substring(source, start, pos), seen);
                 if len(missing) > 0 {
                     return missing;
                 }
@@ -86,10 +112,15 @@
         }
 
         if start < source_len {
-            return missing_import_in_line(substring(source, start, source_len));
+            return missing_import_in_line_with_seen(substring(source, start, source_len), seen);
         }
 
         return "";
+    }
+
+    fn first_missing_import_path(source: str) -> str {
+        let seen: Vec<str> = vec_new();
+        return first_missing_import_path_with_seen(source, seen);
     }
 
     fn source_line_at(source: str, offset: i64) -> i64 {
