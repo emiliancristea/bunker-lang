@@ -148,6 +148,10 @@ jobs:
           grep -q 'json_field_bool("diagnostic_code_registry", true)' "$driver"
           grep -q 'json_field_bool("diagnostic_phase_field", true)' "$driver"
           grep -q 'json_field_str("phase", category)' "$driver"
+          grep -q 'json_field_bool("suggested_edit_envelope", true)' "$driver"
+          grep -q 'fn diagnostic_text_edit_json(kind: str, source_start: i64, source_end: i64,' 'self-host/modules/report_support.bkr'
+          grep -q 'json_field_raw("suggested_edits", suggested_edits)' "$driver"
+          grep -q 'fn parse_insert_text_for_expected_token(expected_token: i64) -> str' "$driver"
           grep -q 'json_field_raw("diagnostic_codes", self_host_diagnostic_codes_json())' "$driver"
           grep -q 'BKR_SELF_ASSIGNMENT_TARGET' "$driver"
           grep -q 'let source_excerpt = source_line_excerpt_at(source, source_start);' "$driver"
@@ -538,6 +542,8 @@ jobs:
           grep -q 'json_field_str("fix_confidence", "medium")' "$resolver"
           grep -q 'json_field_bool("diagnostic_phase_field", true)' "$resolver"
           grep -q 'json_field_str("phase", "resolver")' "$resolver"
+          grep -q 'json_field_bool("suggested_edit_envelope", true)' "$resolver"
+          grep -q 'json_field_raw("suggested_edits", diagnostic_no_edits_json())' "$resolver"
 
       - name: Require type-graph top-level AST refs
         shell: bash
@@ -656,6 +662,8 @@ jobs:
           grep -q 'json_field_str("fix_confidence", "medium")' "$typecheck"
           grep -q 'json_field_bool("diagnostic_phase_field", true)' "$typecheck"
           grep -q 'json_field_str("phase", "typecheck")' "$typecheck"
+          grep -q 'json_field_bool("suggested_edit_envelope", true)' "$typecheck"
+          grep -q 'json_field_raw("suggested_edits", diagnostic_no_edits_json())' "$typecheck"
 
       - name: Require symbol-table statement AST refs
         shell: bash

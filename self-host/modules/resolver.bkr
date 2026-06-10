@@ -33,6 +33,8 @@
             json_field_str("suggested_action", repair_hint) + comma +
             json_field_str("fix_applicability", "manual_review") + comma +
             json_field_str("fix_confidence", "medium") + comma +
+            json_field_bool("safe_edit_available", false) + comma +
+            json_field_raw("suggested_edits", diagnostic_no_edits_json()) + comma +
             json_field_str("repair_hint", repair_hint) +
             "}";
     }
@@ -720,6 +722,7 @@
             json_field_bool("related_declarations", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("diagnostic_phase_field", true) + comma +
+            json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
             json_field_str("scope_model", "kernel globals plus function/block/pattern binding scopes using interned names") + comma +

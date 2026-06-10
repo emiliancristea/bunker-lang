@@ -60,6 +60,27 @@
         return quote + name + quote + ":" + value;
     }
 
+    fn diagnostic_text_edit_json(kind: str, source_start: i64, source_end: i64,
+                                 replacement: str, applicability: str, confidence: str) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("kind", kind) + comma +
+            json_field_i64("source_start", source_start) + comma +
+            json_field_i64("source_end", source_end) + comma +
+            json_field_str("replacement", replacement) + comma +
+            json_field_str("applicability", applicability) + comma +
+            json_field_str("confidence", confidence) +
+            "}";
+    }
+
+    fn diagnostic_no_edits_json() -> str {
+        return "[]";
+    }
+
+    fn diagnostic_single_edit_json(edit_json: str) -> str {
+        return "[" + edit_json + "]";
+    }
+
     fn ast_report_name(names: Vec<str>, idx: i64) -> str {
         if idx >= 0 && idx < vec_len(names) {
             return vec_get(names, idx);

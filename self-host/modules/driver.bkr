@@ -533,6 +533,18 @@
                                  source_line: i64, source_column: i64,
                                  source_excerpt: str,
                                  expected: str, actual: str, repair_hint: str) -> str {
+        return self_host_diagnostic_json_with_edits(category, code, message,
+            source_start, source_end, source_line, source_column, source_excerpt,
+            expected, actual, repair_hint, false, diagnostic_no_edits_json());
+    }
+
+    fn self_host_diagnostic_json_with_edits(category: str, code: str, message: str,
+                                            source_start: i64, source_end: i64,
+                                            source_line: i64, source_column: i64,
+                                            source_excerpt: str,
+                                            expected: str, actual: str, repair_hint: str,
+                                            safe_edit_available: bool,
+                                            suggested_edits: str) -> str {
         let comma = ",";
         return "{" +
             json_field_str("schema_version", "bunker.self_host.diagnostic.v1") + comma +
@@ -550,8 +562,20 @@
             json_field_str("suggested_action", repair_hint) + comma +
             json_field_str("fix_applicability", "manual_review") + comma +
             json_field_str("fix_confidence", "medium") + comma +
+            json_field_bool("safe_edit_available", safe_edit_available) + comma +
+            json_field_raw("suggested_edits", suggested_edits) + comma +
             json_field_str("repair_hint", repair_hint) +
             "}";
+    }
+
+    fn parse_insert_text_for_expected_token(expected_token: i64) -> str {
+        if expected_token == TOK_SEMICOLON { return ";"; }
+        if expected_token == TOK_RPAREN { return ")"; }
+        if expected_token == TOK_RBRACE { return "}"; }
+        if expected_token == TOK_RBRACKET { return "]"; }
+        if expected_token == TOK_COMMA { return ","; }
+        if expected_token == TOK_COLON { return ":"; }
+        return "";
     }
 
     fn self_host_diagnostic_code_json(code: str, phase: str, category: str, description: str) -> str {
@@ -596,6 +620,7 @@
             json_field_bool("structured_parse_diagnostics", true) + comma +
             json_field_bool("diagnostic_code_registry", true) + comma +
             json_field_bool("diagnostic_phase_field", true) + comma +
+            json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("import_expansion", true) + comma +
             json_field_bool("import_graph_report", true) + comma +
             json_field_bool("stage1_stage2_ci_gate", true) + comma +
@@ -691,8 +716,16 @@
         let repair_hint = "Inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, match expressions, Option<T> via Some/None, Result<T,E> via result_* builtins, Vec<T> and HashMap<i32,V> runtime handles, for-in ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary expressions, bitwise operators, and basic expressions.";
         let message = "Parse error at token " + int_to_string(parser_error_position_ref(p)) +
             ": expected " + expected + ", got " + actual;
-        let json = self_host_diagnostic_json("parse", "BKR_SELF_PARSE", message,
-            source_start, source_end, source_line, source_column, source_excerpt, expected, actual, repair_hint);
+        let insert_text = parse_insert_text_for_expected_token(parser_error_expected_ref(p));
+        let suggested_edits = diagnostic_no_edits_json();
+        let safe_edit_available = false;
+        if len(insert_text) > 0 {
+            suggested_edits = diagnostic_single_edit_json(diagnostic_text_edit_json("insert_text",
+                source_start, source_start, insert_text, "manual_review", "medium"));
+        }
+        let json = self_host_diagnostic_json_with_edits("parse", "BKR_SELF_PARSE", message,
+            source_start, source_end, source_line, source_column, source_excerpt, expected, actual, repair_hint,
+            safe_edit_available, suggested_edits);
         return "/* " + message + ". AI repair hint: " + repair_hint + from_char_code(10) +
             "BUNKER_DIAGNOSTIC_JSON: " + json + from_char_code(10) +
             "*/";

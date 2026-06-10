@@ -211,6 +211,7 @@ These are the next concrete PR-sized slices.
 | Q-148 | DONE | Add invalid assignment target diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `invalid_assignment_target` with stable `BKR_SELF_ASSIGNMENT_TARGET` diagnostics for non-assignable targets. |
 | Q-149 | DONE | Add diagnostic code registry to capabilities. | `BUNKER_CAPABILITY_JSON` now advertises supported diagnostic codes with phase, category, and description metadata for agent discovery. |
 | Q-150 | DONE | Add uniform diagnostic phase fields. | Parse/import, resolver, and typecheck diagnostics now expose a `phase` field plus capability/report flags for phase-aware agent routing. |
+| Q-151 | DONE | Add suggested-edit diagnostic envelopes. | Parse/import, resolver, and typecheck diagnostics now expose `suggested_edits`; parse diagnostics emit concrete insert-token edit candidates for common missing punctuation. |
 
 ## Language Core
 
@@ -408,7 +409,7 @@ These are the next concrete PR-sized slices.
 | A-002 | PARTIAL | P0 | Stable diagnostic codes. | `BUNKER_CAPABILITY_JSON` now advertises parse/import/resolver/typecheck diagnostic codes with phase/category descriptions; final gate requires a shared documented registry across Rust and self-host modes. |
 | A-003 | PARTIAL | P0 | Exact spans. | Parse diagnostics and self-host AST nodes carry byte offsets, line/column, and parse source excerpts; final gate requires file identity and source excerpts across all compiler phases. |
 | A-004 | PARTIAL | P0 | Expected/found details. | Parse diagnostics include expected/actual tokens, resolver diagnostics include expected/actual symbol context plus related declaration spans, and typecheck diagnostics include typed expected/found objects. |
-| A-005 | TODO | P0 | Suggested fix edits. | Diagnostics include concrete text edits when safe. |
+| A-005 | PARTIAL | P0 | Suggested fix edits. | Diagnostics expose a shared `suggested_edits` envelope, and parse diagnostics emit concrete insert-token edit candidates for common missing punctuation; final gate requires safe edits across semantic phases. |
 | A-006 | PARTIAL | P1 | Confidence levels. | Parse/import/resolver/typecheck diagnostics carry structured action/applicability/confidence metadata; final gate requires calibrated confidence across every compiler phase. |
 | A-007 | PARTIAL | P1 | Related spans. | Resolver diagnostics include related declaration kind/name/source spans for in-file declarations; final gate requires cross-file definition/use/origin spans. |
 | A-008 | PARTIAL | P0 | Prompt-ready explanations. | Parse/import/resolver/typecheck errors include short repair context plus structured suggested action/applicability/confidence fields; final gate requires phase-wide prompt-ready explanations. |
@@ -626,3 +627,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added invalid assignment target diagnostics. | Typecheck now reports non-assignable assignment targets with `BKR_SELF_ASSIGNMENT_TARGET` diagnostics. |
 | 2026-06-10 | Added diagnostic code registry. | Capability reports now advertise supported diagnostic codes with phase, category, and description metadata for agents. |
 | 2026-06-10 | Added uniform diagnostic phase fields. | Parse/import, resolver, and typecheck diagnostics now carry explicit phase fields for agent routing. |
+| 2026-06-10 | Added suggested-edit diagnostic envelopes. | Diagnostics now expose `suggested_edits`, with parse diagnostics providing concrete insert-token candidates for common missing punctuation. |
