@@ -225,6 +225,7 @@ These are the next concrete PR-sized slices.
 | Q-162 | DONE | Add match pattern semantic diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `duplicate_match_pattern` and `unreachable_match_pattern` for repeated literal patterns and arms after catch-all patterns. |
 | Q-163 | DONE | Add bool match exhaustiveness diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `non_exhaustive_match` with stable `BKR_SELF_EXHAUSTIVENESS` diagnostics for boolean matches missing `true` or `false`. |
 | Q-164 | DONE | Add duplicate struct literal field diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `duplicate_struct_literal_field` with stable `BKR_SELF_STRUCT_LITERAL` diagnostics for repeated field initializers. |
+| Q-165 | DONE | Add missing struct literal field diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `missing_struct_literal_field` with stable `BKR_SELF_STRUCT_LITERAL` diagnostics for omitted declared fields. |
 
 ## Language Core
 
@@ -654,3 +655,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added match pattern semantic diagnostics. | Typecheck now reports duplicate literal patterns and unreachable patterns after catch-all arms with `BKR_SELF_MATCH_PATTERN`. |
 | 2026-06-10 | Added bool match exhaustiveness diagnostics. | Typecheck now reports boolean matches missing `true` or `false` as `non_exhaustive_match` with `BKR_SELF_EXHAUSTIVENESS`. |
 | 2026-06-10 | Added duplicate struct literal field diagnostics. | Typecheck now reports repeated struct literal fields as `duplicate_struct_literal_field` with `BKR_SELF_STRUCT_LITERAL`. |
+| 2026-06-10 | Added missing struct literal field diagnostics. | Typecheck now reports omitted declared fields as `missing_struct_literal_field` with `BKR_SELF_STRUCT_LITERAL`. |

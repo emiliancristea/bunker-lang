@@ -702,6 +702,8 @@ jobs:
           grep -q 'json_field_bool("struct_field_value_checks", true)' "$typecheck"
           grep -q 'fn typecheck_check_struct_literal_duplicate_fields_ref' "$typecheck"
           grep -q 'duplicate_struct_literal_field' "$typecheck"
+          grep -q 'fn typecheck_check_struct_literal_missing_fields_ref' "$typecheck"
+          grep -q 'missing_struct_literal_field' "$typecheck"
           grep -q 'BKR_SELF_STRUCT_LITERAL' "$typecheck"
           grep -q 'json_field_bool("struct_field_shape_checks", true)' "$typecheck"
           grep -q 'type_graph_kind_json(expected_kind, "expected")' "$typecheck"

@@ -277,6 +277,19 @@
         return ast_optional_item_ref_none();
     }
 
+    fn typecheck_find_struct_ref(kernel_ref: AstNodeRef, name_idx: i64) -> AstItemRef {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_ref_name_idx(item_ref) == name_idx {
+                return item_ref;
+            }
+            i = i + 1;
+        }
+        return ast_optional_item_ref_none();
+    }
+
     fn typecheck_struct_field_kind_ref(kernel_ref: AstNodeRef, struct_name_idx: i64, field_name_idx: i64) -> i64 {
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         let i: i64 = 0;
@@ -321,6 +334,49 @@
                             "Remove the duplicate field or merge the intended value into the first initializer."));
                 }
                 j = j + 1;
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_struct_literal_has_field_ref(field_names_ref: AstI64ListRef, field_name_idx: i64) -> bool {
+        let i: i64 = 0;
+        while i < ast_i64_list_ref_count(field_names_ref) {
+            if ast_i64_list_ref_get(field_names_ref, i) == field_name_idx {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_check_struct_literal_missing_fields_ref(state: Vec<str>, kernel_ref: AstNodeRef,
+                                                         names: Vec<str>, expr_ref: AstExprRef,
+                                                         scope: str) -> Vec<str> {
+        let struct_name_idx: i64 = ast_struct_lit_ref_name_idx(expr_ref);
+        let struct_ref: AstItemRef = typecheck_find_struct_ref(kernel_ref, struct_name_idx);
+        if ast_item_ref_is_none(struct_ref) {
+            return state;
+        }
+        let struct_name: str = ast_report_name(names, struct_name_idx);
+        let field_names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
+        let declared_fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(struct_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(declared_fields_ref) {
+            let field_ref: AstNodeRef = ast_node_list_ref_get_ref(declared_fields_ref, i);
+            let field_name_idx: i64 = ast_field_decl_ref_name_idx(field_ref);
+            if !typecheck_struct_literal_has_field_ref(field_names_ref, field_name_idx) {
+                let field_name: str = ast_report_name(names, field_name_idx);
+                state = resolver_state_append(state,
+                    typecheck_diagnostic_ref_json("missing_struct_literal_field",
+                        "BKR_SELF_STRUCT_LITERAL",
+                        struct_name + "." + field_name,
+                        scope,
+                        ast_node_ref_from_expr_ref(expr_ref),
+                        "field initializer",
+                        "missing field",
+                        "Add an initializer for " + field_name + " or update the struct definition."));
             }
             i = i + 1;
         }
@@ -926,6 +982,7 @@
             let field_names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
             let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
             state = typecheck_check_struct_literal_duplicate_fields_ref(state, names, expr_ref, scope);
+            state = typecheck_check_struct_literal_missing_fields_ref(state, kernel_ref, names, expr_ref, scope);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(field_values_ref) {
                 let field_name_idx: i64 = ast_i64_list_ref_get(field_names_ref, i);
