@@ -140,6 +140,26 @@
                 repair_hint));
     }
 
+    fn typecheck_append_invalid_assignment_target_ref(state: Vec<str>, scope: str,
+                                                      target_ref: AstExprRef) -> Vec<str> {
+        let target_kind: i64 = ast_expr_ref_kind(target_ref);
+        let hint = "Assign only to a mutable local name, an indexed element, or a field access target.";
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("invalid_assignment_target", "BKR_SELF_ASSIGNMENT_TARGET",
+                "assignment", scope, ast_node_ref_from_expr_ref(target_ref),
+                "identifier, index, or field access assignment target",
+                ast_node_kind_name(target_kind),
+                hint));
+    }
+
+    fn typecheck_assignment_target_valid_ref(target_ref: AstExprRef) -> bool {
+        let target_kind: i64 = ast_expr_ref_kind(target_ref);
+        if target_kind == NODE_IDENT { return true; }
+        if target_kind == NODE_INDEX { return true; }
+        if target_kind == NODE_FIELD_ACCESS { return true; }
+        return false;
+    }
+
     fn typecheck_maybe_append_mismatch(state: Vec<str>, kind: str, name: str, scope: str,
                                        node: Vec<i64>, expected_kind: i64, found_kind: i64,
                                        repair_hint: str) -> Vec<str> {
@@ -465,11 +485,15 @@
         } else if kind == NODE_ASSIGN {
             let target: i64 = ast_assign_ref_target_handle(stmt_ref);
             let value: i64 = ast_assign_ref_value_handle(stmt_ref);
+            let target_ref: AstExprRef = ast_expr_ref_from_handle(target);
+            if !typecheck_assignment_target_valid_ref(target_ref) {
+                state = typecheck_append_invalid_assignment_target_ref(state, scope, target_ref);
+            }
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 target, scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 value, scope, expected_return_kind);
-            let expected_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(target));
+            let expected_kind: i64 = typecheck_expr_ref_kind(cstate, target_ref);
             let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(value));
             state = typecheck_maybe_append_value_mismatch_ref(state, "assignment_type_mismatch",
                 "assignment", scope, stmt_node_ref, expected_kind, found_kind,
@@ -579,12 +603,13 @@
             json_field_bool("condition_checks", true) + comma +
             json_field_bool("call_argument_checks", true) + comma +
             json_field_bool("call_arity_checks", true) + comma +
+            json_field_bool("assignment_target_checks", true) + comma +
             json_field_bool("struct_field_value_checks", true) + comma +
             json_field_bool("typed_diagnostic_context", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments and assignment targets, for ranges, direct user-function call arguments, call arity, and struct literal field values using codegen inference, and emits expected/found type objects for diagnostics; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, exhaustiveness, method/field access typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
