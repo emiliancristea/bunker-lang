@@ -638,6 +638,11 @@
         return "{" +
             json_field_str("schema_version", "bunker.self_host.capability.v1") + comma +
             json_field_str("compiler", "bkrc-self-host-bootstrap") + comma +
+            json_field_str("agent_contract_version", "bunker.agent.diagnostics.v1") + comma +
+            json_field_str("self_hosting_stage", "bootstrap-self-hosted-reports") + comma +
+            json_field_bool("ai_agent_native_diagnostics", true) + comma +
+            json_field_bool("production_language_ready", false) + comma +
+            json_field_bool("requires_ci_validation", true) + comma +
             json_field_bool("source_byte_spans", true) + comma +
             json_field_bool("source_excerpts", true) + comma +
             json_field_bool("structured_repair_metadata", true) + comma +
@@ -664,7 +669,7 @@
             json_field_raw("diagnostic_codes", self_host_diagnostic_codes_json()) + comma +
             json_field_str("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec handles, HashMap handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals") + comma +
             json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, bootstrap string-path import graph with import path policy and importer-directory resolution but no filesystem canonicalization or visibility, bootstrap name resolver and typecheck reports only, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
-            json_field_str("agent_guidance", "Use BUNKER_DIAGNOSTIC_JSON for repair tasks. Treat BUNKER_CAPABILITY_JSON as the current compiler surface before generating Bunker code.") +
+            json_field_str("agent_guidance", "Use BUNKER_CAPABILITY_JSON before generating Bunker code. Use BUNKER_DIAGNOSTIC_JSON, BUNKER_RESOLVER_JSON, and BUNKER_TYPECHECK_JSON for repair tasks. Treat production_language_ready=false as requiring CI validation before release.") +
             "}";
     }
 

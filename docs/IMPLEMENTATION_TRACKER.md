@@ -249,6 +249,7 @@ These are the next concrete PR-sized slices.
 | Q-186 | DONE | Add parse/import diagnostic rule IDs. | `BUNKER_DIAGNOSTIC_JSON` parse/import diagnostics now include `rule_id` derived from the stable diagnostic code. |
 | Q-187 | DONE | Add diagnostic severity fields. | Parse/import, resolver, and typecheck diagnostics now include `severity` plus capability/report flags for severity-aware agent routing. |
 | Q-188 | DONE | Add diagnostic severity counts. | `BUNKER_RESOLVER_JSON` and `BUNKER_TYPECHECK_JSON` now expose `error_count` and `warning_count` summary fields for agent triage. |
+| Q-189 | DONE | Add AI-agent capability contract fields. | `BUNKER_CAPABILITY_JSON` now exposes agent contract version, self-hosting stage, agent-native diagnostics, production readiness, and CI validation state. |
 
 ## Language Core
 
@@ -454,7 +455,7 @@ These are the next concrete PR-sized slices.
 | A-010 | PARTIAL | P0 | Machine-readable AST dump. | Self-host generated outputs include `BUNKER_AST_JSON` root/top-level summaries plus a complete nested `tree`; final gate requires Rust and self-host compiler modes to expose the same stable AST dump contract. |
 | A-011 | PARTIAL | P0 | Machine-readable type graph. | Self-host generated outputs include `BUNKER_TYPE_GRAPH_JSON` from `modules/type_graph.bkr` for declared types plus bootstrap-inferred locals/returns; final gate requires a real typechecker-backed graph across Rust and self-host compiler modes. |
 | A-012 | PARTIAL | P0 | Machine-readable symbol table. | Self-host generated outputs include `BUNKER_SYMBOL_TABLE_JSON` declarations/references and `BUNKER_RESOLVER_JSON` duplicate/unresolved diagnostics; final gate requires import-aware visibility, overloads, and related definition-use spans. |
-| A-013 | PARTIAL | P0 | Capability report. | Self-host generated outputs include `BUNKER_CAPABILITY_JSON`; final gate requires CLI-native capability reports across Rust and self-host compiler modes. |
+| A-013 | PARTIAL | P0 | Capability report. | Self-host generated outputs include `BUNKER_CAPABILITY_JSON` with agent contract, self-hosting stage, diagnostics, readiness, and validation fields; final gate requires CLI-native capability reports across Rust and self-host compiler modes. |
 | A-014 | PARTIAL | P0 | Machine-readable typecheck diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` from `modules/typecheck.bkr` for bootstrap expected/found semantic diagnostics, now walked through typed AST refs; final gate requires stable codes, related origins, fix edits, and parity across Rust and self-host compiler modes. |
 
 ## Safety And Production Readiness
@@ -497,7 +498,7 @@ These are the next concrete PR-sized slices.
 | Self-Host Typed | TODO | Compiler AST/types use Bunker structs/enums/generics instead of raw handles. |
 | Self-Host Primary | TODO | Bunker compiler can build a working compiler without Rust for normal development. |
 | Production Language | TODO | Modules, generics, ADTs, diagnostics, memory/resource model, stdlib, tooling, and safety gates are green. |
-| AI-Agent Native | TODO | Diagnostics, capability reports, AST/type/symbol dumps, and repair hints are machine-readable and stable. |
+| AI-Agent Native | PARTIAL | Diagnostics, capability reports, AST/type/symbol dumps, and repair hints are machine-readable and stable for the bootstrap self-host path; final gate requires Rust/self-host parity and CI validation. |
 
 ## Work Log
 
@@ -702,3 +703,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added parse/import diagnostic rule IDs. | Parse and import diagnostics now emit `rule_id` fields derived from their stable diagnostic code. |
 | 2026-06-10 | Added diagnostic severity fields. | Parse/import, resolver, and typecheck diagnostics now emit `severity:"error"` plus capability flags. |
 | 2026-06-10 | Added diagnostic severity counts. | Resolver and typecheck reports now expose `error_count` and `warning_count` fields. |
+| 2026-06-10 | Added AI-agent capability contract fields. | Capability JSON now advertises the agent diagnostics contract, self-hosting stage, production-readiness state, and CI-validation requirement. |
