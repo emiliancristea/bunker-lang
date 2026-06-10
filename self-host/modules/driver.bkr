@@ -18,6 +18,50 @@
         return substring(trimmed_line, 8, len(trimmed_line) - 2);
     }
 
+    fn import_path_has_backslash(import_path: str) -> bool {
+        let i: i64 = 0;
+        while i < len(import_path) {
+            if char_code_at(import_path, i) == 92 {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn import_path_is_absolute(import_path: str) -> bool {
+        if len(import_path) <= 0 { return false; }
+        if char_code_at(import_path, 0) == 47 { return true; }
+        if char_code_at(import_path, 0) == 92 { return true; }
+        if len(import_path) >= 2 && char_code_at(import_path, 1) == 58 { return true; }
+        return false;
+    }
+
+    fn import_path_has_parent_segment(import_path: str) -> bool {
+        if import_path == ".." { return true; }
+        if starts_with(import_path, "../") { return true; }
+        if ends_with(import_path, "/..") { return true; }
+        if contains(import_path, "/../") { return true; }
+        return false;
+    }
+
+    fn import_path_has_empty_segment(import_path: str) -> bool {
+        if starts_with(import_path, "./") { return true; }
+        if ends_with(import_path, "/") { return true; }
+        if contains(import_path, "//") { return true; }
+        return false;
+    }
+
+    fn import_path_is_valid(import_path: str) -> bool {
+        if len(import_path) <= 0 { return false; }
+        if import_path_is_absolute(import_path) { return false; }
+        if import_path_has_backslash(import_path) { return false; }
+        if contains(import_path, ":") { return false; }
+        if import_path_has_parent_segment(import_path) { return false; }
+        if import_path_has_empty_segment(import_path) { return false; }
+        return true;
+    }
+
     fn import_seen_contains(seen: Vec<str>, import_path: str) -> bool {
         let i: i64 = 0;
         while i < vec_len(seen) {
@@ -32,6 +76,9 @@
     fn append_expanded_line_with_seen(output: str, line: str, seen: Vec<str>) -> str {
         if is_import_line(line) {
             let import_path = import_path_from_line(line);
+            if !import_path_is_valid(import_path) {
+                return output + "// Invalid import path: " + import_path + from_char_code(10);
+            }
             if !file_exists(import_path) {
                 return output + "// Missing import: " + import_path + from_char_code(10);
             }
@@ -81,6 +128,9 @@
     fn missing_import_in_line_with_seen(line: str, seen: Vec<str>) -> str {
         if is_import_line(line) {
             let import_path = import_path_from_line(line);
+            if !import_path_is_valid(import_path) {
+                return "";
+            }
             if !file_exists(import_path) {
                 return import_path;
             }
@@ -123,9 +173,60 @@
         return first_missing_import_path_with_seen(source, seen);
     }
 
+    fn invalid_import_in_line_with_seen(line: str, seen: Vec<str>) -> str {
+        if is_import_line(line) {
+            let import_path = import_path_from_line(line);
+            if !import_path_is_valid(import_path) {
+                return import_path;
+            }
+            if !file_exists(import_path) {
+                return "";
+            }
+            if import_seen_contains(seen, import_path) {
+                return "";
+            }
+            vec_push(seen, import_path);
+            return first_invalid_import_path_with_seen(read_file(import_path), seen);
+        }
+        return "";
+    }
+
+    fn first_invalid_import_path_with_seen(source: str, seen: Vec<str>) -> str {
+        let start: i64 = 0;
+        let pos: i64 = 0;
+        let source_len = len(source);
+
+        while pos < source_len {
+            if char_code_at(source, pos) == 10 {
+                let invalid = invalid_import_in_line_with_seen(substring(source, start, pos), seen);
+                if len(invalid) > 0 {
+                    return invalid;
+                }
+                pos = pos + 1;
+                start = pos;
+            } else {
+                pos = pos + 1;
+            }
+        }
+
+        if start < source_len {
+            return invalid_import_in_line_with_seen(substring(source, start, source_len), seen);
+        }
+
+        return "";
+    }
+
+    fn first_invalid_import_path(source: str) -> str {
+        let seen: Vec<str> = vec_new();
+        return first_invalid_import_path_with_seen(source, seen);
+    }
+
     fn import_count_in_line_with_seen(line: str, seen: Vec<str>) -> i64 {
         if is_import_line(line) {
             let import_path = import_path_from_line(line);
+            if !import_path_is_valid(import_path) {
+                return 0;
+            }
             if !file_exists(import_path) {
                 return 0;
             }
@@ -234,7 +335,7 @@
             json_field_bool("user_defined_adts", false) + comma +
             json_field_bool("multi_error_recovery", false) + comma +
             json_field_str("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec handles, HashMap handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals") + comma +
-            json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, bootstrap string-path import graph without path normalization or visibility, bootstrap name resolver and typecheck reports only, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
+            json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, bootstrap string-path import graph with import path policy but no base-directory normalization or visibility, bootstrap name resolver and typecheck reports only, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
             json_field_str("agent_guidance", "Use BUNKER_DIAGNOSTIC_JSON for repair tasks. Treat BUNKER_CAPABILITY_JSON as the current compiler surface before generating Bunker code.") +
             "}";
     }
@@ -246,12 +347,16 @@
 
     fn self_host_import_graph_json(source: str) -> str {
         let comma = ",";
+        let invalid_import = first_invalid_import_path(source);
         let missing_import = first_missing_import_path(source);
         return "{" +
             json_field_str("schema_version", "bunker.self_host.import_graph.v1") + comma +
+            json_field_str("path_policy", "normalized_relative_forward_slash") + comma +
             json_field_bool("recursive_expansion", true) + comma +
             json_field_bool("duplicate_suppression", true) + comma +
             json_field_i64("unique_import_count", unique_import_count(source)) + comma +
+            json_field_bool("has_invalid_import", len(invalid_import) > 0) + comma +
+            json_field_str("invalid_import", invalid_import) + comma +
             json_field_bool("has_missing_import", len(missing_import) > 0) + comma +
             json_field_str("missing_import", missing_import) +
             "}";
@@ -260,6 +365,16 @@
     fn build_import_graph_report_comment(source: str) -> str {
         return "/* BUNKER_IMPORT_GRAPH_JSON: " + self_host_import_graph_json(source) + from_char_code(10) +
             "*/" + from_char_code(10);
+    }
+
+    fn build_import_path_diagnostic(invalid_import: str) -> str {
+        let repair_hint = "Use a normalized relative import path such as modules/example.bkr. Do not use empty paths, absolute paths, drive prefixes, backslashes, parent traversal, leading ./, trailing /, or // segments.";
+        let message = "Import error: invalid import path " + invalid_import;
+        let json = self_host_diagnostic_json("import", "BKR_SELF_IMPORT_PATH", message,
+            0, 0, 1, 1, "normalized relative forward-slash import path", invalid_import, repair_hint);
+        return "/* " + message + ". AI repair hint: " + repair_hint + from_char_code(10) +
+            "BUNKER_DIAGNOSTIC_JSON: " + json + from_char_code(10) +
+            "*/";
     }
 
     fn build_import_diagnostic(missing_import: str) -> str {
@@ -312,6 +427,11 @@
         self_host_trace_phase("compile_to_c:capability_report");
         let import_graph_report = build_import_graph_report_comment(source);
         self_host_trace_phase("compile_to_c:import_graph_report");
+        let invalid_import = first_invalid_import_path(source);
+        if len(invalid_import) > 0 {
+            self_host_trace_phase("compile_to_c:invalid_import");
+            return capability_report + import_graph_report + build_import_path_diagnostic(invalid_import) + from_char_code(10);
+        }
         let missing_import = first_missing_import_path(source);
         if len(missing_import) > 0 {
             self_host_trace_phase("compile_to_c:missing_import");
@@ -329,7 +449,7 @@
 
         if parser_has_error_ref(p) {
             self_host_trace_phase("compile_to_c:parse_error");
-            return capability_report + build_parse_diagnostic(expanded_source, p) + from_char_code(10);
+            return capability_report + import_graph_report + build_parse_diagnostic(expanded_source, p) + from_char_code(10);
         }
 
         let ast_report = build_ast_report_comment(expanded_source, ast);

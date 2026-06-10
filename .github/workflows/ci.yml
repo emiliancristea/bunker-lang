@@ -120,6 +120,19 @@ jobs:
           grep -q 'json_field_bool("import_graph_report", true)' "$driver"
           grep -q 'capability_report + import_graph_report + ast_report' "$driver"
 
+      - name: Require self-host import path policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          driver='self-host/modules/driver.bkr'
+          grep -q 'fn import_path_is_valid(import_path: str) -> bool' "$driver"
+          grep -q 'fn first_invalid_import_path(source: str) -> str' "$driver"
+          grep -q 'fn build_import_path_diagnostic(invalid_import: str) -> str' "$driver"
+          grep -q 'BKR_SELF_IMPORT_PATH' "$driver"
+          grep -q 'json_field_str("path_policy", "normalized_relative_forward_slash")' "$driver"
+          grep -q 'json_field_bool("has_invalid_import", len(invalid_import) > 0)' "$driver"
+          grep -q 'compile_to_c:invalid_import' "$driver"
+
       - name: Require parser start spans through typed AST refs
         shell: bash
         run: |
