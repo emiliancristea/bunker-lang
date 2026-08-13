@@ -300,6 +300,22 @@ jobs:
           grep -q 'let rec: AstCall = ast_call_record(name_idx, ast_node_list_ref_handle(args_ref));' "$ast"
           ! grep -q 'ast_node_ref_new(NODE_CALL)' "$ast"
 
+      - name: Require AstIndex and AstFieldAccess struct records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstIndex {' "$ast"
+          grep -q 'struct AstFieldAccess {' "$ast"
+          grep -q 'fn ast_index_record(base: i64, index: i64) -> AstIndex' "$ast"
+          grep -q 'fn ast_index_pack(idx: AstIndex) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_index_unpack(node: Vec<i64>) -> AstIndex' "$ast"
+          grep -q 'fn ast_expr_ref_index(expr_ref: AstExprRef) -> AstIndex' "$ast"
+          grep -q 'fn ast_field_access_record(base: i64, name_idx: i64) -> AstFieldAccess' "$ast"
+          grep -q 'fn ast_expr_ref_field_access(expr_ref: AstExprRef) -> AstFieldAccess' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_INDEX)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_FIELD_ACCESS)' "$ast"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |
@@ -1459,6 +1475,18 @@ jobs:
           grep -q "int main(void)" /tmp/103_ast_call_struct.c
           grep -q "make_call" /tmp/103_ast_call_struct.c
           grep -q "bkr_i64" /tmp/103_ast_call_struct.c
+
+      - name: Compile AstIndex struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/104_ast_index_struct.bkr \
+            -o /tmp/104_ast_index_struct.c
+          test -s /tmp/104_ast_index_struct.c
+          ! grep -q "Parse error at token" /tmp/104_ast_index_struct.c
+          grep -q "int main(void)" /tmp/104_ast_index_struct.c
+          grep -q "make_index" /tmp/104_ast_index_struct.c
+          grep -q "bkr_i64" /tmp/104_ast_index_struct.c
 
       - name: Compile pattern and type kind enum fixture through self-host compiler
         timeout-minutes: 2

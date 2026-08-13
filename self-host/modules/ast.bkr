@@ -57,6 +57,20 @@
         args: i64
     }
 
+    struct AstIndex {
+        start: i64,
+        end: i64,
+        base: i64,
+        index: i64
+    }
+
+    struct AstFieldAccess {
+        start: i64,
+        end: i64,
+        base: i64,
+        name_idx: i64
+    }
+
     struct AstExprRef {
         handle: i64,
     }
@@ -1011,11 +1025,17 @@
     }
 
     fn ast_index_base_handle(node: Vec<i64>) -> i64 {
-        return ast_field(node, 1);
+        let rec: AstIndex = ast_index_unpack(node);
+        return rec.base;
+    }
+
+    fn ast_expr_ref_index(expr_ref: AstExprRef) -> AstIndex {
+        return ast_index_unpack(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_index_ref_base_handle(expr_ref: AstExprRef) -> i64 {
-        return ast_index_base_handle(ast_expr_node_from_ref(expr_ref));
+        let rec: AstIndex = ast_expr_ref_index(expr_ref);
+        return rec.base;
     }
 
     fn ast_index_expr(node: Vec<i64>) -> Vec<i64> {
@@ -1023,11 +1043,13 @@
     }
 
     fn ast_index_expr_handle(node: Vec<i64>) -> i64 {
-        return ast_field(node, 2);
+        let rec: AstIndex = ast_index_unpack(node);
+        return rec.index;
     }
 
     fn ast_index_ref_expr_handle(expr_ref: AstExprRef) -> i64 {
-        return ast_index_expr_handle(ast_expr_node_from_ref(expr_ref));
+        let rec: AstIndex = ast_expr_ref_index(expr_ref);
+        return rec.index;
     }
 
     fn ast_field_base(node: Vec<i64>) -> Vec<i64> {
@@ -1035,19 +1057,27 @@
     }
 
     fn ast_field_base_handle(node: Vec<i64>) -> i64 {
-        return ast_field(node, 1);
+        let rec: AstFieldAccess = ast_field_access_unpack(node);
+        return rec.base;
+    }
+
+    fn ast_expr_ref_field_access(expr_ref: AstExprRef) -> AstFieldAccess {
+        return ast_field_access_unpack(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_field_access_ref_base_handle(expr_ref: AstExprRef) -> i64 {
-        return ast_field_base_handle(ast_expr_node_from_ref(expr_ref));
+        let rec: AstFieldAccess = ast_expr_ref_field_access(expr_ref);
+        return rec.base;
     }
 
     fn ast_field_name_idx(node: Vec<i64>) -> i64 {
-        return ast_field(node, 2);
+        let rec: AstFieldAccess = ast_field_access_unpack(node);
+        return rec.name_idx;
     }
 
     fn ast_field_access_ref_name_idx(expr_ref: AstExprRef) -> i64 {
-        return ast_field_name_idx(ast_expr_node_from_ref(expr_ref));
+        let rec: AstFieldAccess = ast_expr_ref_field_access(expr_ref);
+        return rec.name_idx;
     }
 
     fn ast_struct_lit_name_idx(node: Vec<i64>) -> i64 {
@@ -2009,22 +2039,90 @@
         return ast_expr_node_from_ref(ast_unary_ref(op, ast_expr_ref_from_node(operand)));
     }
 
+    fn ast_index_record(base: i64, index: i64) -> AstIndex {
+        return AstIndex {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            base: base,
+            index: index
+        };
+    }
+
+    fn ast_index_pack(idx: AstIndex) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_INDEX);
+        vec_push(node, idx.start);
+        vec_push(node, idx.end);
+        vec_push(node, idx.base);
+        vec_push(node, idx.index);
+        return node;
+    }
+
+    fn ast_index_unpack(node: Vec<i64>) -> AstIndex {
+        let base: i64 = 0;
+        let index: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            base = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            index = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        return AstIndex {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            base: base,
+            index: index
+        };
+    }
+
     fn ast_index_ref(base_ref: AstExprRef, index_ref: AstExprRef) -> AstExprRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_INDEX);
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(base_ref));
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(index_ref));
-        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
+        let rec: AstIndex = ast_index_record(ast_expr_ref_handle(base_ref), ast_expr_ref_handle(index_ref));
+        return ast_expr_ref_from_handle(ast_index_pack(rec) as i64);
     }
 
     fn ast_index(base: Vec<i64>, index: Vec<i64>) -> Vec<i64> {
         return ast_expr_node_from_ref(ast_index_ref(ast_expr_ref_from_node(base), ast_expr_ref_from_node(index)));
     }
 
+    fn ast_field_access_record(base: i64, name_idx: i64) -> AstFieldAccess {
+        return AstFieldAccess {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            base: base,
+            name_idx: name_idx
+        };
+    }
+
+    fn ast_field_access_pack(access: AstFieldAccess) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_FIELD_ACCESS);
+        vec_push(node, access.start);
+        vec_push(node, access.end);
+        vec_push(node, access.base);
+        vec_push(node, access.name_idx);
+        return node;
+    }
+
+    fn ast_field_access_unpack(node: Vec<i64>) -> AstFieldAccess {
+        let base: i64 = 0;
+        let name_idx: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            base = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            name_idx = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        return AstFieldAccess {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            base: base,
+            name_idx: name_idx
+        };
+    }
+
     fn ast_field_access_ref(base_ref: AstExprRef, field_name: i64) -> AstExprRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_FIELD_ACCESS);
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(base_ref));
-        ast_node_ref_push(node_ref, field_name);
-        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
+        let rec: AstFieldAccess = ast_field_access_record(ast_expr_ref_handle(base_ref), field_name);
+        return ast_expr_ref_from_handle(ast_field_access_pack(rec) as i64);
     }
 
     fn ast_field_access(base: Vec<i64>, field_name: i64) -> Vec<i64> {
