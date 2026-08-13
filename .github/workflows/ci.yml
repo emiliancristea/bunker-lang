@@ -436,6 +436,22 @@ jobs:
           ! grep -q 'ast_node_ref_new(NODE_PARAM)' "$ast"
           ! grep -q 'ast_node_ref_new(NODE_FN)' "$ast"
 
+      - name: Require AstConst and AstFieldDecl struct item records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstConst {' "$ast"
+          grep -q 'struct AstFieldDecl {' "$ast"
+          grep -q 'fn ast_const_record(name_idx: i64, type_handle: i64, value: i64) -> AstConst' "$ast"
+          grep -q 'fn ast_const_pack(item: AstConst) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_const_unpack(node: Vec<i64>) -> AstConst' "$ast"
+          grep -q 'fn ast_item_ref_const(item_ref: AstItemRef) -> AstConst' "$ast"
+          grep -q 'fn ast_field_decl_record(name_idx: i64, type_handle: i64) -> AstFieldDecl' "$ast"
+          grep -q 'fn ast_node_ref_field_decl(node_ref: AstNodeRef) -> AstFieldDecl' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_CONST)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_FIELD)' "$ast"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |
@@ -1713,6 +1729,18 @@ jobs:
           grep -q "int main(void)" /tmp/112_ast_fn_struct.c
           grep -q "make_fn" /tmp/112_ast_fn_struct.c
           grep -q "bkr_i64" /tmp/112_ast_fn_struct.c
+
+      - name: Compile AstConst struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/113_ast_const_struct.bkr \
+            -o /tmp/113_ast_const_struct.c
+          test -s /tmp/113_ast_const_struct.c
+          ! grep -q "Parse error at token" /tmp/113_ast_const_struct.c
+          grep -q "int main(void)" /tmp/113_ast_const_struct.c
+          grep -q "make_const" /tmp/113_ast_const_struct.c
+          grep -q "bkr_i64" /tmp/113_ast_const_struct.c
 
       - name: Compile pattern and type kind enum fixture through self-host compiler
         timeout-minutes: 2
