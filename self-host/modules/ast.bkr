@@ -3,7 +3,8 @@
     // ========================================
     //
     // The bootstrap compiler still represents AST nodes as Vec<i64>.
-    // Keep all layout construction here so later slices can replace the
+    // Node-kind construction and typed-ref kind readers now use enum NodeKind;
+    // keep layout construction here so later slices can replace the
     // representation with real Bunker structs/enums behind one boundary.
 
     struct AstNodeRef {
@@ -50,7 +51,7 @@
         handle: i64,
     }
 
-    fn ast_node_ref_new(kind: i64) -> AstNodeRef {
+    fn ast_node_ref_new(kind: NodeKind) -> AstNodeRef {
         let node: Vec<i64> = vec_new();
         vec_push(node, kind);
         vec_push(node, AST_SPAN_UNKNOWN);
@@ -106,6 +107,10 @@
 
     fn ast_kind(node: Vec<i64>) -> i64 {
         return vec_get(node, 0);
+    }
+
+    fn ast_node_kind(node: Vec<i64>) -> NodeKind {
+        return ast_kind(node);
     }
 
     fn ast_span(start: i64, end: i64) -> Vec<i64> {
@@ -244,8 +249,8 @@
         return ast_node_from_handle(ast_node_ref_handle(node_ref));
     }
 
-    fn ast_node_ref_kind(node_ref: AstNodeRef) -> i64 {
-        return ast_kind(ast_node_from_ref(node_ref));
+    fn ast_node_ref_kind(node_ref: AstNodeRef) -> NodeKind {
+        return ast_node_kind(ast_node_from_ref(node_ref));
     }
 
     fn ast_node_ref_category(node_ref: AstNodeRef) -> i64 {
@@ -340,8 +345,8 @@
         return ast_node_from_handle(ast_expr_ref_handle(expr_ref));
     }
 
-    fn ast_expr_ref_kind(expr_ref: AstExprRef) -> i64 {
-        return ast_kind(ast_expr_node_from_ref(expr_ref));
+    fn ast_expr_ref_kind(expr_ref: AstExprRef) -> NodeKind {
+        return ast_node_kind(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_expr_ref_span_start(expr_ref: AstExprRef) -> i64 {
@@ -376,8 +381,8 @@
         return ast_node_from_handle(ast_stmt_ref_handle(stmt_ref));
     }
 
-    fn ast_stmt_ref_kind(stmt_ref: AstStmtRef) -> i64 {
-        return ast_kind(ast_stmt_node_from_ref(stmt_ref));
+    fn ast_stmt_ref_kind(stmt_ref: AstStmtRef) -> NodeKind {
+        return ast_node_kind(ast_stmt_node_from_ref(stmt_ref));
     }
 
     fn ast_item_handle(item: Vec<i64>) -> i64 {
@@ -416,8 +421,8 @@
         return ast_node_from_handle(ast_item_ref_handle(item_ref));
     }
 
-    fn ast_item_ref_kind(item_ref: AstItemRef) -> i64 {
-        return ast_kind(ast_item_node_from_ref(item_ref));
+    fn ast_item_ref_kind(item_ref: AstItemRef) -> NodeKind {
+        return ast_node_kind(ast_item_node_from_ref(item_ref));
     }
 
     fn ast_block_handle(block: Vec<i64>) -> i64 {

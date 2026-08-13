@@ -134,6 +134,24 @@ jobs:
           ! grep -q 'const PAT_INT: i64 = 1;' "$constants"
           ! grep -q 'const TYPE_I32: i64 = 0;' "$constants"
 
+      - name: Require NodeKind-typed AST kind APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          kind_model='self-host/modules/kind_model.bkr'
+          ast='self-host/modules/ast.bkr'
+          grep -q 'fn ast_node_kind_name(kind: NodeKind) -> str' "$kind_model"
+          grep -q 'fn ast_node_category_kind(kind: NodeKind) -> i64' "$kind_model"
+          grep -q 'fn ast_is_item_kind(kind: NodeKind) -> bool' "$kind_model"
+          grep -q 'fn ast_node_ref_new(kind: NodeKind) -> AstNodeRef' "$ast"
+          grep -q 'fn ast_node_kind(node: Vec<i64>) -> NodeKind' "$ast"
+          grep -q 'fn ast_node_ref_kind(node_ref: AstNodeRef) -> NodeKind' "$ast"
+          grep -q 'fn ast_expr_ref_kind(expr_ref: AstExprRef) -> NodeKind' "$ast"
+          grep -q 'fn ast_stmt_ref_kind(stmt_ref: AstStmtRef) -> NodeKind' "$ast"
+          grep -q 'fn ast_item_ref_kind(item_ref: AstItemRef) -> NodeKind' "$ast"
+          ! grep -q 'fn ast_node_kind_name(kind: i64)' "$kind_model"
+          ! grep -q 'fn ast_node_ref_kind(node_ref: AstNodeRef) -> i64' "$ast"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |
@@ -1184,6 +1202,18 @@ jobs:
       - name: Check self-host compiler sources
         timeout-minutes: 2
         run: ./bunker-cli/target/release/bunker-cli self-host-check self-host
+
+      - name: Compile NodeKind-typed API fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/94_node_kind_typed_api.bkr \
+            -o /tmp/94_node_kind_typed_api.c
+          test -s /tmp/94_node_kind_typed_api.c
+          ! grep -q "Parse error at token" /tmp/94_node_kind_typed_api.c
+          grep -q "int main(void)" /tmp/94_node_kind_typed_api.c
+          grep -q "echo_kind" /tmp/94_node_kind_typed_api.c
+          grep -q "bkr_i64" /tmp/94_node_kind_typed_api.c
 
       - name: Compile pattern and type kind enum fixture through self-host compiler
         timeout-minutes: 2

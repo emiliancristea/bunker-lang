@@ -2,43 +2,43 @@
     // KIND MODEL HELPERS
     // ========================================
     //
-    // Centralizes bootstrap numeric tag interpretation. NODE_* values now
-    // come from enum NodeKind in constants.bkr; call sites still compare i64.
+    // Centralizes bootstrap tag interpretation. Node-kind helpers now take
+    // enum NodeKind; TOKEN/PATTERN/TYPE helpers still accept i64 aliases.
 
-    fn ast_node_kind_name(kind: i64) -> str {
-        if kind == NODE_KERNEL { return "kernel"; }
-        if kind == NODE_FN { return "function"; }
-        if kind == NODE_PARAM { return "parameter"; }
-        if kind == NODE_TYPE { return "type"; }
-        if kind == NODE_BLOCK { return "block"; }
-        if kind == NODE_LET { return "let"; }
-        if kind == NODE_RETURN { return "return"; }
-        if kind == NODE_IF { return "if"; }
-        if kind == NODE_WHILE { return "while"; }
-        if kind == NODE_EXPR_STMT { return "expression statement"; }
-        if kind == NODE_ASSIGN { return "assignment"; }
-        if kind == NODE_BREAK { return "break"; }
-        if kind == NODE_CONTINUE { return "continue"; }
-        if kind == NODE_FOR { return "for"; }
-        if kind == NODE_LOOP { return "loop"; }
-        if kind == NODE_BINARY { return "binary expression"; }
-        if kind == NODE_UNARY { return "unary expression"; }
-        if kind == NODE_CALL { return "call expression"; }
-        if kind == NODE_IDENT { return "identifier"; }
-        if kind == NODE_INT_LIT { return "integer literal"; }
-        if kind == NODE_BOOL_LIT { return "boolean literal"; }
-        if kind == NODE_STR_LIT { return "string literal"; }
-        if kind == NODE_CONST { return "constant"; }
-        if kind == NODE_TERNARY { return "ternary expression"; }
-        if kind == NODE_FLOAT_LIT { return "float literal"; }
-        if kind == NODE_ARRAY_LIT { return "array literal"; }
-        if kind == NODE_INDEX { return "index expression"; }
-        if kind == NODE_STRUCT { return "struct"; }
-        if kind == NODE_ENUM { return "enum"; }
-        if kind == NODE_FIELD { return "field"; }
-        if kind == NODE_FIELD_ACCESS { return "field access"; }
-        if kind == NODE_STRUCT_LIT { return "struct literal"; }
-        if kind == NODE_MATCH { return "match expression"; }
+    fn ast_node_kind_name(kind: NodeKind) -> str {
+        if kind == NodeKind.Kernel { return "kernel"; }
+        if kind == NodeKind.Fn { return "function"; }
+        if kind == NodeKind.Param { return "parameter"; }
+        if kind == NodeKind.TypeTag { return "type"; }
+        if kind == NodeKind.Block { return "block"; }
+        if kind == NodeKind.Let { return "let"; }
+        if kind == NodeKind.Return { return "return"; }
+        if kind == NodeKind.If { return "if"; }
+        if kind == NodeKind.While { return "while"; }
+        if kind == NodeKind.ExprStmt { return "expression statement"; }
+        if kind == NodeKind.Assign { return "assignment"; }
+        if kind == NodeKind.Break { return "break"; }
+        if kind == NodeKind.Continue { return "continue"; }
+        if kind == NodeKind.For { return "for"; }
+        if kind == NodeKind.Loop { return "loop"; }
+        if kind == NodeKind.Binary { return "binary expression"; }
+        if kind == NodeKind.Unary { return "unary expression"; }
+        if kind == NodeKind.Call { return "call expression"; }
+        if kind == NodeKind.Ident { return "identifier"; }
+        if kind == NodeKind.IntLit { return "integer literal"; }
+        if kind == NodeKind.BoolLit { return "boolean literal"; }
+        if kind == NodeKind.StrLit { return "string literal"; }
+        if kind == NodeKind.Const { return "constant"; }
+        if kind == NodeKind.Ternary { return "ternary expression"; }
+        if kind == NodeKind.FloatLit { return "float literal"; }
+        if kind == NodeKind.ArrayLit { return "array literal"; }
+        if kind == NodeKind.Index { return "index expression"; }
+        if kind == NodeKind.Struct { return "struct"; }
+        if kind == NodeKind.Enum { return "enum"; }
+        if kind == NodeKind.Field { return "field"; }
+        if kind == NodeKind.FieldAccess { return "field access"; }
+        if kind == NodeKind.StructLit { return "struct literal"; }
+        if kind == NodeKind.Match { return "match expression"; }
         return "node " + int_to_string(kind);
     }
 
@@ -75,47 +75,47 @@
         return "unknown";
     }
 
-    fn ast_node_category_kind(kind: i64) -> i64 {
-        if kind == NODE_KERNEL || kind == NODE_FN || kind == NODE_CONST || kind == NODE_STRUCT || kind == NODE_ENUM {
+    fn ast_node_category_kind(kind: NodeKind) -> i64 {
+        if kind == NodeKind.Kernel || kind == NodeKind.Fn || kind == NodeKind.Const || kind == NodeKind.Struct || kind == NodeKind.Enum {
             return AST_CAT_ITEM;
         }
-        if kind == NODE_BLOCK || kind == NODE_LET || kind == NODE_RETURN || kind == NODE_IF ||
-           kind == NODE_WHILE || kind == NODE_EXPR_STMT || kind == NODE_ASSIGN ||
-           kind == NODE_BREAK || kind == NODE_CONTINUE || kind == NODE_FOR || kind == NODE_LOOP {
+        if kind == NodeKind.Block || kind == NodeKind.Let || kind == NodeKind.Return || kind == NodeKind.If ||
+           kind == NodeKind.While || kind == NodeKind.ExprStmt || kind == NodeKind.Assign ||
+           kind == NodeKind.Break || kind == NodeKind.Continue || kind == NodeKind.For || kind == NodeKind.Loop {
             return AST_CAT_STMT;
         }
-        if kind == NODE_BINARY || kind == NODE_UNARY || kind == NODE_CALL || kind == NODE_IDENT ||
-           kind == NODE_INT_LIT || kind == NODE_BOOL_LIT || kind == NODE_STR_LIT ||
-           kind == NODE_TERNARY || kind == NODE_FLOAT_LIT || kind == NODE_ARRAY_LIT ||
-           kind == NODE_INDEX || kind == NODE_FIELD_ACCESS || kind == NODE_STRUCT_LIT ||
-           kind == NODE_MATCH {
+        if kind == NodeKind.Binary || kind == NodeKind.Unary || kind == NodeKind.Call || kind == NodeKind.Ident ||
+           kind == NodeKind.IntLit || kind == NodeKind.BoolLit || kind == NodeKind.StrLit ||
+           kind == NodeKind.Ternary || kind == NodeKind.FloatLit || kind == NodeKind.ArrayLit ||
+           kind == NodeKind.Index || kind == NodeKind.FieldAccess || kind == NodeKind.StructLit ||
+           kind == NodeKind.Match {
             return AST_CAT_EXPR;
         }
-        if kind == NODE_TYPE {
+        if kind == NodeKind.TypeTag {
             return AST_CAT_TYPE;
         }
-        if kind == NODE_PARAM || kind == NODE_FIELD {
+        if kind == NodeKind.Param || kind == NodeKind.Field {
             return AST_CAT_DECL;
         }
         return AST_CAT_UNKNOWN;
     }
 
-    fn ast_is_item_kind(kind: i64) -> bool {
+    fn ast_is_item_kind(kind: NodeKind) -> bool {
         return ast_node_category_kind(kind) == AST_CAT_ITEM;
     }
 
-    fn ast_is_stmt_kind(kind: i64) -> bool {
+    fn ast_is_stmt_kind(kind: NodeKind) -> bool {
         return ast_node_category_kind(kind) == AST_CAT_STMT;
     }
 
-    fn ast_is_expr_kind(kind: i64) -> bool {
+    fn ast_is_expr_kind(kind: NodeKind) -> bool {
         return ast_node_category_kind(kind) == AST_CAT_EXPR;
     }
 
-    fn ast_is_type_kind(kind: i64) -> bool {
+    fn ast_is_type_kind(kind: NodeKind) -> bool {
         return ast_node_category_kind(kind) == AST_CAT_TYPE;
     }
 
-    fn ast_is_decl_kind(kind: i64) -> bool {
+    fn ast_is_decl_kind(kind: NodeKind) -> bool {
         return ast_node_category_kind(kind) == AST_CAT_DECL;
     }
