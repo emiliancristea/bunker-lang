@@ -1,67 +1,192 @@
-    // ===== Token Constants =====
-    const TOK_EOF: i64 = 0;
-    const TOK_IDENT: i64 = 10;
-    const TOK_INT: i64 = 11;
-    const TOK_STR: i64 = 12;
-    const TOK_FLOAT: i64 = 13;
-    const TOK_TRUE: i64 = 14;
-    const TOK_FALSE: i64 = 15;
-    const TOK_KERNEL: i64 = 20;
-    const TOK_ENUM: i64 = 21;
-    const TOK_STRUCT: i64 = 22;
-    const TOK_FN: i64 = 23;
-    const TOK_LET: i64 = 24;
-    const TOK_IF: i64 = 25;
-    const TOK_ELSE: i64 = 26;
-    const TOK_FOR: i64 = 27;
-    const TOK_IN: i64 = 28;
-    const TOK_WHILE: i64 = 29;
-    const TOK_BREAK: i64 = 30;
-    const TOK_CONTINUE: i64 = 31;
-    const TOK_LOOP: i64 = 32;
-    const TOK_RETURN: i64 = 33;
-    const TOK_MATCH: i64 = 34;
-    const TOK_CONST: i64 = 35;
-    const TOK_I32: i64 = 60;
-    const TOK_I64: i64 = 61;
-    const TOK_F64: i64 = 62;
-    const TOK_BOOL: i64 = 63;
-    const TOK_STR_TYPE: i64 = 64;
-    const TOK_PLUS: i64 = 80;
-    const TOK_MINUS: i64 = 81;
-    const TOK_STAR: i64 = 82;
-    const TOK_SLASH: i64 = 83;
-    const TOK_PERCENT: i64 = 84;
-    const TOK_EQ: i64 = 85;
-    const TOK_NE: i64 = 86;
-    const TOK_LT: i64 = 87;
-    const TOK_GT: i64 = 88;
-    const TOK_LE: i64 = 89;
-    const TOK_GE: i64 = 90;
-    const TOK_AND: i64 = 91;
-    const TOK_OR: i64 = 92;
-    const TOK_NOT: i64 = 93;
-    const TOK_BIT_AND: i64 = 94;
-    const TOK_BIT_OR: i64 = 95;
-    const TOK_BIT_XOR: i64 = 96;
-    const TOK_SHL: i64 = 97;
-    const TOK_SHR: i64 = 98;
-    const TOK_ASSIGN: i64 = 99;
-    const TOK_ARROW: i64 = 101;
-    const TOK_DOT_DOT: i64 = 102;
-    const TOK_DOT_DOT_EQ: i64 = 103;
-    const TOK_DOT: i64 = 104;
-    const TOK_LPAREN: i64 = 110;
-    const TOK_RPAREN: i64 = 111;
-    const TOK_LBRACE: i64 = 112;
-    const TOK_RBRACE: i64 = 113;
-    const TOK_LBRACKET: i64 = 114;
-    const TOK_RBRACKET: i64 = 115;
-    const TOK_COMMA: i64 = 116;
-    const TOK_SEMICOLON: i64 = 117;
-    const TOK_COLON: i64 = 118;
-    const TOK_QUESTION: i64 = 119;
-    const TOK_FAT_ARROW: i64 = 120;
+    // ===== Token Kinds =====
+    // Declaration order is the stored numeric tag. Unused slots keep historical values.
+    enum TokenKind {
+        Eof,
+        Unused1,
+        Unused2,
+        Unused3,
+        Unused4,
+        Unused5,
+        Unused6,
+        Unused7,
+        Unused8,
+        Unused9,
+        Ident,
+        Int,
+        Str,
+        Float,
+        True,
+        False,
+        Unused16,
+        Unused17,
+        Unused18,
+        Unused19,
+        Kernel,
+        Enum,
+        Struct,
+        Fn,
+        Let,
+        If,
+        Else,
+        For,
+        In,
+        While,
+        Break,
+        Continue,
+        Loop,
+        Return,
+        Match,
+        Const,
+        Unused36,
+        Unused37,
+        Unused38,
+        Unused39,
+        Unused40,
+        Unused41,
+        Unused42,
+        Unused43,
+        Unused44,
+        Unused45,
+        Unused46,
+        Unused47,
+        Unused48,
+        Unused49,
+        Unused50,
+        Unused51,
+        Unused52,
+        Unused53,
+        Unused54,
+        Unused55,
+        Unused56,
+        Unused57,
+        Unused58,
+        Unused59,
+        I32,
+        I64,
+        F64,
+        Bool,
+        StrType,
+        Unused65,
+        Unused66,
+        Unused67,
+        Unused68,
+        Unused69,
+        Unused70,
+        Unused71,
+        Unused72,
+        Unused73,
+        Unused74,
+        Unused75,
+        Unused76,
+        Unused77,
+        Unused78,
+        Unused79,
+        Plus,
+        Minus,
+        Star,
+        Slash,
+        Percent,
+        Eq,
+        Ne,
+        Lt,
+        Gt,
+        Le,
+        Ge,
+        And,
+        Or,
+        Not,
+        BitAnd,
+        BitOr,
+        BitXor,
+        Shl,
+        Shr,
+        Assign,
+        Unused100,
+        Arrow,
+        DotDot,
+        DotDotEq,
+        Dot,
+        Unused105,
+        Unused106,
+        Unused107,
+        Unused108,
+        Unused109,
+        LParen,
+        RParen,
+        LBrace,
+        RBrace,
+        LBracket,
+        RBracket,
+        Comma,
+        Semicolon,
+        Colon,
+        Question,
+        FatArrow,
+    }
+
+    const TOK_EOF: i64 = TokenKind.Eof;
+    const TOK_IDENT: i64 = TokenKind.Ident;
+    const TOK_INT: i64 = TokenKind.Int;
+    const TOK_STR: i64 = TokenKind.Str;
+    const TOK_FLOAT: i64 = TokenKind.Float;
+    const TOK_TRUE: i64 = TokenKind.True;
+    const TOK_FALSE: i64 = TokenKind.False;
+    const TOK_KERNEL: i64 = TokenKind.Kernel;
+    const TOK_ENUM: i64 = TokenKind.Enum;
+    const TOK_STRUCT: i64 = TokenKind.Struct;
+    const TOK_FN: i64 = TokenKind.Fn;
+    const TOK_LET: i64 = TokenKind.Let;
+    const TOK_IF: i64 = TokenKind.If;
+    const TOK_ELSE: i64 = TokenKind.Else;
+    const TOK_FOR: i64 = TokenKind.For;
+    const TOK_IN: i64 = TokenKind.In;
+    const TOK_WHILE: i64 = TokenKind.While;
+    const TOK_BREAK: i64 = TokenKind.Break;
+    const TOK_CONTINUE: i64 = TokenKind.Continue;
+    const TOK_LOOP: i64 = TokenKind.Loop;
+    const TOK_RETURN: i64 = TokenKind.Return;
+    const TOK_MATCH: i64 = TokenKind.Match;
+    const TOK_CONST: i64 = TokenKind.Const;
+    const TOK_I32: i64 = TokenKind.I32;
+    const TOK_I64: i64 = TokenKind.I64;
+    const TOK_F64: i64 = TokenKind.F64;
+    const TOK_BOOL: i64 = TokenKind.Bool;
+    const TOK_STR_TYPE: i64 = TokenKind.StrType;
+    const TOK_PLUS: i64 = TokenKind.Plus;
+    const TOK_MINUS: i64 = TokenKind.Minus;
+    const TOK_STAR: i64 = TokenKind.Star;
+    const TOK_SLASH: i64 = TokenKind.Slash;
+    const TOK_PERCENT: i64 = TokenKind.Percent;
+    const TOK_EQ: i64 = TokenKind.Eq;
+    const TOK_NE: i64 = TokenKind.Ne;
+    const TOK_LT: i64 = TokenKind.Lt;
+    const TOK_GT: i64 = TokenKind.Gt;
+    const TOK_LE: i64 = TokenKind.Le;
+    const TOK_GE: i64 = TokenKind.Ge;
+    const TOK_AND: i64 = TokenKind.And;
+    const TOK_OR: i64 = TokenKind.Or;
+    const TOK_NOT: i64 = TokenKind.Not;
+    const TOK_BIT_AND: i64 = TokenKind.BitAnd;
+    const TOK_BIT_OR: i64 = TokenKind.BitOr;
+    const TOK_BIT_XOR: i64 = TokenKind.BitXor;
+    const TOK_SHL: i64 = TokenKind.Shl;
+    const TOK_SHR: i64 = TokenKind.Shr;
+    const TOK_ASSIGN: i64 = TokenKind.Assign;
+    const TOK_ARROW: i64 = TokenKind.Arrow;
+    const TOK_DOT_DOT: i64 = TokenKind.DotDot;
+    const TOK_DOT_DOT_EQ: i64 = TokenKind.DotDotEq;
+    const TOK_DOT: i64 = TokenKind.Dot;
+    const TOK_LPAREN: i64 = TokenKind.LParen;
+    const TOK_RPAREN: i64 = TokenKind.RParen;
+    const TOK_LBRACE: i64 = TokenKind.LBrace;
+    const TOK_RBRACE: i64 = TokenKind.RBrace;
+    const TOK_LBRACKET: i64 = TokenKind.LBracket;
+    const TOK_RBRACKET: i64 = TokenKind.RBracket;
+    const TOK_COMMA: i64 = TokenKind.Comma;
+    const TOK_SEMICOLON: i64 = TokenKind.Semicolon;
+    const TOK_COLON: i64 = TokenKind.Colon;
+    const TOK_QUESTION: i64 = TokenKind.Question;
+    const TOK_FAT_ARROW: i64 = TokenKind.FatArrow;
 
     // ===== AST Node Kinds =====
     // Declaration order is the stored numeric tag. Unused slots keep historical values.

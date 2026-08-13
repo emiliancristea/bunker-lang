@@ -72,6 +72,7 @@ $expectedResults = @{
     "85_result_handle_roundtrip" = 42
     "88_kernel_unit_enum" = 42
     "91_node_kind_enum" = 42
+    "92_token_kind_enum" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -240,7 +241,8 @@ if (-not $JitOnly) {
         "tests\81_typed_hashmap_operations.bkr",
         "tests\85_result_handle_roundtrip.bkr",
         "tests\88_kernel_unit_enum.bkr",
-        "tests\91_node_kind_enum.bkr"
+        "tests\91_node_kind_enum.bkr",
+        "tests\92_token_kind_enum.bkr"
     )
 
     $subsetOk = $true

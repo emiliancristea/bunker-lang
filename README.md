@@ -147,7 +147,7 @@ bunker-lang/
 │   │   ├── codegen.rs        # Cranelift AOT compilation
 │   │   └── shell_runtime.rs  # Agent VM runtime
 │   └── Cargo.toml
-├── tests/                # 96 acceptance tests
+├── tests/                # 97 acceptance tests
 ├── docs/
 │   ├── VISION.md         # Language design philosophy
 │   └── ARCHITECTURE.md   # Compiler pipeline design
@@ -274,7 +274,7 @@ view MyView {
 - [x] Self-host readiness command (`self-host-check`) for top-level `self-host/*.bkr` sources; 8/8 of those files pass (this command does not enumerate `self-host/modules/`)
 - [x] Self-host compile wrapper (`self-host-compile`) that runs modular `self-host/bkrc.bkr` on real `.bkr` input and emits C
 - [x] Stage1/stage2 self-compilation for the supported bootstrap subset (CI-certified on `main`)
-- [x] **96 tests passing** (including 18 negative `*_BAD` tests; 59 JIT-validated)
+- [x] **97 tests passing** (including 18 negative `*_BAD` tests; 60 JIT-validated)
 - [x] Kernel unit enums (`enum Color { Red, Green }`, `Color.Red`, exhaustive match)
 
 ### In Progress 🚧

@@ -108,6 +108,17 @@ jobs:
           grep -q 'const NODE_ENUM: i64 = NodeKind.Enum;' "$constants"
           ! grep -q 'const NODE_FN: i64 = 2;' "$constants"
 
+      - name: Require TokenKind enum-backed lexer tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          constants='self-host/modules/constants.bkr'
+          grep -q 'enum TokenKind {' "$constants"
+          grep -q 'const TOK_EOF: i64 = TokenKind.Eof;' "$constants"
+          grep -q 'const TOK_FN: i64 = TokenKind.Fn;' "$constants"
+          grep -q 'const TOK_FAT_ARROW: i64 = TokenKind.FatArrow;' "$constants"
+          ! grep -q 'const TOK_FN: i64 = 23;' "$constants"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |
@@ -1158,6 +1169,17 @@ jobs:
       - name: Check self-host compiler sources
         timeout-minutes: 2
         run: ./bunker-cli/target/release/bunker-cli self-host-check self-host
+
+      - name: Compile token-kind enum fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/92_token_kind_enum.bkr \
+            -o /tmp/92_token_kind_enum.c
+          test -s /tmp/92_token_kind_enum.c
+          ! grep -q "Parse error at token" /tmp/92_token_kind_enum.c
+          grep -q "int main(void)" /tmp/92_token_kind_enum.c
+          grep -q "TOK_IDENT" /tmp/92_token_kind_enum.c
 
       - name: Compile node-kind enum fixture through self-host compiler
         timeout-minutes: 2
