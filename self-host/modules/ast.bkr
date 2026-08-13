@@ -50,6 +50,13 @@
         operand: i64
     }
 
+    struct AstCall {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        args: i64
+    }
+
     struct AstExprRef {
         handle: i64,
     }
@@ -960,11 +967,17 @@
     }
 
     fn ast_call_name_idx(node: Vec<i64>) -> i64 {
-        return ast_field(node, 1);
+        let rec: AstCall = ast_call_unpack(node);
+        return rec.name_idx;
+    }
+
+    fn ast_expr_ref_call(expr_ref: AstExprRef) -> AstCall {
+        return ast_call_unpack(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_call_ref_name_idx(expr_ref: AstExprRef) -> i64 {
-        return ast_call_name_idx(ast_expr_node_from_ref(expr_ref));
+        let rec: AstCall = ast_expr_ref_call(expr_ref);
+        return rec.name_idx;
     }
 
     fn ast_call_args(node: Vec<i64>) -> Vec<i64> {
@@ -972,11 +985,13 @@
     }
 
     fn ast_call_args_ref(node: Vec<i64>) -> AstNodeListRef {
-        return ast_field_node_list_ref(node, 2);
+        let rec: AstCall = ast_call_unpack(node);
+        return ast_node_list_ref_from_handle(rec.args);
     }
 
     fn ast_call_ref_args_ref(expr_ref: AstExprRef) -> AstNodeListRef {
-        return ast_call_args_ref(ast_expr_node_from_ref(expr_ref));
+        let rec: AstCall = ast_expr_ref_call(expr_ref);
+        return ast_node_list_ref_from_handle(rec.args);
     }
 
     fn ast_array_elements(node: Vec<i64>) -> Vec<i64> {
@@ -1896,11 +1911,45 @@
         return ast_expr_node_from_ref(ast_struct_lit_ref(name_idx, ast_i64_list_ref_from_list(field_names), ast_node_list_ref_from_list(field_values)));
     }
 
+    fn ast_call_record(name_idx: i64, args: i64) -> AstCall {
+        return AstCall {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            name_idx: name_idx,
+            args: args
+        };
+    }
+
+    fn ast_call_pack(call: AstCall) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_CALL);
+        vec_push(node, call.start);
+        vec_push(node, call.end);
+        vec_push(node, call.name_idx);
+        vec_push(node, call.args);
+        return node;
+    }
+
+    fn ast_call_unpack(node: Vec<i64>) -> AstCall {
+        let name_idx: i64 = 0;
+        let args: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            name_idx = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            args = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        return AstCall {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            name_idx: name_idx,
+            args: args
+        };
+    }
+
     fn ast_call_ref(name_idx: i64, args_ref: AstNodeListRef) -> AstExprRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_CALL);
-        ast_node_ref_push(node_ref, name_idx);
-        ast_node_ref_push(node_ref, ast_node_list_ref_handle(args_ref));
-        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
+        let rec: AstCall = ast_call_record(name_idx, ast_node_list_ref_handle(args_ref));
+        return ast_expr_ref_from_handle(ast_call_pack(rec) as i64);
     }
 
     fn ast_call(name_idx: i64, args: Vec<i64>) -> Vec<i64> {
