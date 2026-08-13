@@ -463,8 +463,12 @@ jobs:
           grep -q 'fn ast_struct_pack(item: AstStruct) -> Vec<i64>' "$ast"
           grep -q 'fn ast_struct_unpack(node: Vec<i64>) -> AstStruct' "$ast"
           grep -q 'fn ast_item_ref_struct(item_ref: AstItemRef) -> AstStruct' "$ast"
-          grep -q 'fn ast_enum_record(name_idx: i64, variants: i64) -> AstEnum' "$ast"
+          grep -q 'fn ast_enum_record(name_idx: i64, variants: i64, payloads: i64) -> AstEnum' "$ast"
+          grep -q 'fn ast_enum_ref_payloads_ref(item_ref: AstItemRef) -> AstI64ListRef' "$ast"
+          grep -q 'fn ast_enum_ref_payload_count(item_ref: AstItemRef) -> i64' "$ast"
           grep -q 'fn ast_item_ref_enum(item_ref: AstItemRef) -> AstEnum' "$ast"
+          grep -q 'payload = ast_type_ref_to_optional_handle(parse_type_ref(p));' self-host/modules/parser.bkr
+          grep -q 'enum_variant = { identifier ~ ("(" ~ type_expr ~ ")")? }' bunker-cli/src/grammar/bunker.pest
           ! grep -q 'ast_node_ref_new(NODE_STRUCT)' "$ast"
           ! grep -q 'ast_node_ref_new(NODE_ENUM)' "$ast"
 
@@ -1880,6 +1884,19 @@ jobs:
           grep -q "BKR_SELF_EXHAUSTIVENESS" /tmp/89_enum_nonexhaustive_BAD.c
           grep -q "missing Color.Blue" /tmp/89_enum_nonexhaustive_BAD.c
           grep -q '"enum_match_exhaustiveness_checks":true' /tmp/89_enum_nonexhaustive_BAD.c
+
+      - name: Compile enum payload declaration fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/117_enum_payload_decl.bkr \
+            -o /tmp/117_enum_payload_decl.c
+          test -s /tmp/117_enum_payload_decl.c
+          ! grep -q "Parse error" /tmp/117_enum_payload_decl.c
+          grep -q "int main(void)" /tmp/117_enum_payload_decl.c
+          grep -q '"enum_count":1' /tmp/117_enum_payload_decl.c
+          grep -q '"variant_count":2' /tmp/117_enum_payload_decl.c
+          grep -q '"payload_count":1' /tmp/117_enum_payload_decl.c
 
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2

@@ -94,17 +94,17 @@ impl TypeChecker {
                     }
                     let mut seen = HashSet::new();
                     for variant in &e.variants {
-                        if !seen.insert(variant.clone()) {
+                        if !seen.insert(variant.name.clone()) {
                             self.errors.push(TypeError {
                                 message: format!(
                                     "Duplicate variant '{}' in enum '{}'",
-                                    variant, e.name
+                                    variant.name, e.name
                                 ),
                                 location: e.name.clone(),
                             });
                         }
                     }
-                    self.enums.insert(e.name.clone(), e.variants.clone());
+                    self.enums.insert(e.name.clone(), e.variant_names());
                 }
                 ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f) => {
                     let param_types: Vec<Type> = f.params.iter().map(|p| p.ty.clone()).collect();
@@ -1601,7 +1601,7 @@ fn collect_unit_enums(file: &ast::File) -> HashMap<String, Vec<String>> {
     for kernel in &file.kernels {
         for item in &kernel.items {
             if let ast::KernelItem::Enum(def) = item {
-                enums.insert(def.name.clone(), def.variants.clone());
+                enums.insert(def.name.clone(), def.variant_names());
             }
         }
     }

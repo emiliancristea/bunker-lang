@@ -992,15 +992,24 @@
 
         let variants: Vec<i64> = vec_new();
         let variants_ref: AstI64ListRef = ast_i64_list_ref_from_list(variants);
+        let payloads: Vec<i64> = vec_new();
+        let payloads_ref: AstI64ListRef = ast_i64_list_ref_from_list(payloads);
         while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
             ast_i64_list_append_ref(variants_ref, parser_expect_name(p));
+            let payload: i64 = ast_optional_none();
+            if parser_peek_ref(p) == TOK_LPAREN {
+                parser_advance_ref(p);
+                payload = ast_type_ref_to_optional_handle(parse_type_ref(p));
+                parser_expect_ref(p, TOK_RPAREN);
+            }
+            ast_i64_list_append_ref(payloads_ref, payload);
             if parser_peek_ref(p) == TOK_COMMA {
                 parser_advance_ref(p);
             }
         }
 
         parser_expect_ref(p, TOK_RBRACE);
-        return parser_set_item_ref_span_from_start(p, ast_enum_ref(name_idx, variants_ref), start);
+        return parser_set_item_ref_span_from_start(p, ast_enum_ref(name_idx, variants_ref, payloads_ref), start);
     }
 
     fn parse_struct(p: ParserStateRef) -> Vec<i64> {

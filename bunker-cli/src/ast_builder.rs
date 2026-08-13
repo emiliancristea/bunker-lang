@@ -301,10 +301,24 @@ fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
             Rule::enum_variant_list => {
                 for variant_pair in inner.into_inner() {
                     if variant_pair.as_rule() == Rule::enum_variant {
+                        let mut variant_name = String::new();
+                        let mut payload = None;
                         for variant_inner in variant_pair.into_inner() {
-                            if variant_inner.as_rule() == Rule::identifier {
-                                variants.push(variant_inner.as_str().to_string());
+                            match variant_inner.as_rule() {
+                                Rule::identifier => {
+                                    variant_name = variant_inner.as_str().to_string();
+                                }
+                                Rule::type_expr => {
+                                    payload = Some(build_type(variant_inner)?);
+                                }
+                                _ => {}
                             }
+                        }
+                        if !variant_name.is_empty() {
+                            variants.push(ast::EnumVariant {
+                                name: variant_name,
+                                payload,
+                            });
                         }
                     }
                 }

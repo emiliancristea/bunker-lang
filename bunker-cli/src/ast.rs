@@ -46,9 +46,21 @@ pub struct StructField {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct EnumVariant {
+    pub name: String,
+    pub payload: Option<Type>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct EnumDef {
     pub name: String,
-    pub variants: Vec<String>,
+    pub variants: Vec<EnumVariant>,
+}
+
+impl EnumDef {
+    pub fn variant_names(&self) -> Vec<String> {
+        self.variants.iter().map(|variant| variant.name.clone()).collect()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]

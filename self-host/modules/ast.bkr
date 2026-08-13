@@ -220,7 +220,8 @@
         start: i64,
         end: i64,
         name_idx: i64,
-        variants: i64
+        variants: i64,
+        payloads: i64
     }
 
     struct AstKernel {
@@ -3313,12 +3314,13 @@
         return ast_item_ref_from_handle(ast_struct_pack(rec) as i64);
     }
 
-    fn ast_enum_record(name_idx: i64, variants: i64) -> AstEnum {
+    fn ast_enum_record(name_idx: i64, variants: i64, payloads: i64) -> AstEnum {
         return AstEnum {
             start: AST_SPAN_UNKNOWN,
             end: AST_SPAN_UNKNOWN,
             name_idx: name_idx,
-            variants: variants
+            variants: variants,
+            payloads: payloads
         };
     }
 
@@ -3329,28 +3331,34 @@
         vec_push(node, item.end);
         vec_push(node, item.name_idx);
         vec_push(node, item.variants);
+        vec_push(node, item.payloads);
         return node;
     }
 
     fn ast_enum_unpack(node: Vec<i64>) -> AstEnum {
         let name_idx: i64 = 0;
         let variants: i64 = 0;
+        let payloads: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             name_idx = vec_get(node, AST_NODE_DATA_START);
         }
         if vec_len(node) > AST_NODE_DATA_START + 1 {
             variants = vec_get(node, AST_NODE_DATA_START + 1);
         }
+        if vec_len(node) > AST_NODE_DATA_START + 2 {
+            payloads = vec_get(node, AST_NODE_DATA_START + 2);
+        }
         return AstEnum {
             start: vec_get(node, AST_NODE_SPAN_START_INDEX),
             end: vec_get(node, AST_NODE_SPAN_END_INDEX),
             name_idx: name_idx,
-            variants: variants
+            variants: variants,
+            payloads: payloads
         };
     }
 
-    fn ast_enum_ref(name_idx: i64, variants_ref: AstI64ListRef) -> AstItemRef {
-        let rec: AstEnum = ast_enum_record(name_idx, ast_i64_list_ref_handle(variants_ref));
+    fn ast_enum_ref(name_idx: i64, variants_ref: AstI64ListRef, payloads_ref: AstI64ListRef) -> AstItemRef {
+        let rec: AstEnum = ast_enum_record(name_idx, ast_i64_list_ref_handle(variants_ref), ast_i64_list_ref_handle(payloads_ref));
         return ast_item_ref_from_handle(ast_enum_pack(rec) as i64);
     }
 
@@ -3360,6 +3368,23 @@
 
     fn ast_enum_ref_variants_ref(item_ref: AstItemRef) -> AstI64ListRef {
         return ast_field_i64_list_ref(ast_item_node_from_ref(item_ref), 2);
+    }
+
+    fn ast_enum_ref_payloads_ref(item_ref: AstItemRef) -> AstI64ListRef {
+        return ast_field_i64_list_ref(ast_item_node_from_ref(item_ref), 3);
+    }
+
+    fn ast_enum_ref_payload_count(item_ref: AstItemRef) -> i64 {
+        let payloads_ref: AstI64ListRef = ast_enum_ref_payloads_ref(item_ref);
+        let count: i64 = 0;
+        let i: i64 = 0;
+        while i < ast_i64_list_ref_count(payloads_ref) {
+            if ast_optional_is_some(ast_i64_list_ref_get(payloads_ref, i)) {
+                count = count + 1;
+            }
+            i = i + 1;
+        }
+        return count;
     }
 
     fn ast_struct(name_idx: i64, fields: Vec<i64>) -> Vec<i64> {
