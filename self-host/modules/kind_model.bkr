@@ -2,9 +2,8 @@
     // KIND MODEL HELPERS
     // ========================================
     //
-    // Centralizes bootstrap numeric tag interpretation behind enum-ready
-    // helpers. Later slices can replace these i64 constants with language
-    // enums without changing parser/codegen/report call sites.
+    // Centralizes bootstrap numeric tag interpretation. NODE_* values now
+    // come from enum NodeKind in constants.bkr; call sites still compare i64.
 
     fn ast_node_kind_name(kind: i64) -> str {
         if kind == NODE_KERNEL { return "kernel"; }

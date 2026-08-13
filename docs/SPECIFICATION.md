@@ -1034,7 +1034,7 @@ This section tracks the implementation status of each specification area against
 
 ### Test Coverage
 
-- **Total Tests:** 95 passing
+- **Total Tests:** 96 passing
 - **JIT-Enabled:** 57 tests
 - **Negative Tests:** 16 tests
 - **Shell-Bearing Files:** 14 tests

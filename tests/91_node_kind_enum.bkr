@@ -1,0 +1,21 @@
+// Test 91: Node-kind enum as integer tags
+// Purpose: Unit enums can seed i64 compiler constants and compare with i64 kinds.
+// Expected: Result: 42
+
+kernel NodeKindEnum {
+    enum NodeKind {
+        Unused0,
+        Kernel,
+        Fn,
+    }
+
+    const NODE_FN: i64 = NodeKind.Fn;
+
+    fn main() -> i32 {
+        let kind: i64 = NODE_FN;
+        if kind == NodeKind.Fn {
+            return 42;
+        }
+        return 0;
+    }
+}

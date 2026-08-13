@@ -117,10 +117,25 @@ impl TypeChecker {
             }
         }
 
-        // Second pass: type check function bodies
+        // Second pass: type check constants and function bodies
         for item in &kernel.items {
-            if let ast::KernelItem::Function(f) = item {
-                self.check_function(f)?;
+            match item {
+                ast::KernelItem::Const(c) => {
+                    let actual = self.infer_expr(&c.value, &c.name)?;
+                    if !self.types_compatible(&c.ty, &actual) {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Constant '{}' type mismatch: expected {:?}, got {:?}",
+                                c.name, c.ty, actual
+                            ),
+                            location: c.name.clone(),
+                        });
+                    }
+                }
+                ast::KernelItem::Function(f) => {
+                    self.check_function(f)?;
+                }
+                _ => {}
             }
         }
 
@@ -1404,6 +1419,13 @@ impl TypeChecker {
         matches!(ty, Type::I32 | Type::I64)
     }
 
+    fn is_unit_enum(&self, ty: &Type) -> bool {
+        match ty {
+            Type::Named(name) => self.enums.contains_key(name),
+            _ => false,
+        }
+    }
+
     fn matches_builtin_arg_rule(&self, rule: BuiltinArgRule, ty: &Type) -> bool {
         match rule {
             BuiltinArgRule::Any => true,
@@ -1538,6 +1560,12 @@ impl TypeChecker {
 
     fn types_compatible(&self, expected: &Type, actual: &Type) -> bool {
         if expected == actual {
+            return true;
+        }
+        // Unit enums lower to integer tags.
+        if (self.is_integer(expected) && self.is_unit_enum(actual))
+            || (self.is_unit_enum(expected) && self.is_integer(actual))
+        {
             return true;
         }
         // Allow numeric coercions

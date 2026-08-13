@@ -253,6 +253,7 @@ These are the next concrete PR-sized slices.
 | Q-189 | DONE | Add AI-agent capability contract fields. | `BUNKER_CAPABILITY_JSON` now exposes agent contract version, self-hosting stage, agent-native diagnostics, production readiness, and CI validation state. |
 | Q-190 | DONE | Add Rust-compiler unit enums. | Grammar/AST/typeck/JIT lowering support `enum Name { A, B }` plus `Name.A` construction and exhaustive `Name.A` match; fixtures `88`/`89_BAD`/`90_BAD` passed in GitHub Actions. |
 | Q-191 | PARTIAL | Add self-host unit enums. | Self-host lexer/parser/AST/C codegen lower unit enums and `Enum.Variant` match/construction to i64 tags; `tests/88_kernel_unit_enum.bkr` is in the self-host compile subset. Payloads and self-host exhaustiveness remain. |
+| Q-192 | DONE | Back AST node tags with `enum NodeKind`. | `self-host/modules/constants.bkr` declares `enum NodeKind` and defines `NODE_*` as `NodeKind.*` aliases; CI rejects a return to raw `NODE_FN = 2`. |
 
 ## Language Core
 
@@ -417,7 +418,7 @@ These are the next concrete PR-sized slices.
 | SH-001 | PARTIAL | P0 | Self-host smoke gate. | Current stage1/stage2 CI remains green after every change. |
 | SH-002 | DONE | P0 | Split `bkrc.bkr` into modules. | Compiler source is multiple Bunker files with imports. |
 | SH-003 | PARTIAL | P0 | Typed AST in self-host compiler. | Parser construction, parser/codegen reads, common AST collection iteration, optional AST node handles, AST handle conversions, semantic child-handle access, explicit handle-named optional field access, read-only AST wrapper structs, typed AST node/pattern builder refs, C-codegen typed-ref consumption, AST-report typed-ref consumption, symbol-table typed-ref consumption, type-graph typed-ref consumption, resolver typed-ref consumption, typecheck typed-ref consumption, codegen state typed-ref consumption, and AST field conversions go through Bunker bridge helpers; final gate requires raw numeric tags to be replaced by Bunker types. |
-| SH-004 | TODO | P0 | Enums for token/node kinds. | Token and AST tags use language enums. |
+| SH-004 | PARTIAL | P0 | Enums for token/node kinds. | AST node tags are declared as `enum NodeKind` and `NODE_*` aliases; token kinds and remaining numeric families still use raw i64 constants. |
 | SH-005 | TODO | P0 | Real generic collections in self-host compiler. | `Vec<T>` and maps preserve element/key/value types. |
 | SH-006 | TODO | P0 | Stage0/Stage1/Stage2 docs. | Bootstrap chain is documented and reproducible. |
 | SH-007 | DONE | P0 | Golden tests vs Rust compiler. | Outputs/diagnostics match for selected fixtures or known differences are logged. |
@@ -709,3 +710,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added AI-agent capability contract fields. | Capability JSON now advertises the agent diagnostics contract, self-hosting stage, production-readiness state, and CI-validation requirement. |
 | 2026-08-13 | Added Rust-compiler unit enums. | `enum` items, `Enum.Variant` constructors, exhaustive unit-enum match, and i64 tag lowering landed with fixtures `88_kernel_unit_enum.bkr`, `89_enum_nonexhaustive_BAD.bkr`, and `90_enum_unknown_variant_BAD.bkr`. Pending GitHub Actions. |
 | 2026-08-13 | Added self-host unit enums. | Self-host lexer/parser/AST/C codegen now parse `enum` items and lower `Enum.Variant` construction/match to i64 tags; `88_kernel_unit_enum.bkr` is in the self-host compile subset. |
+| 2026-08-13 | Backed AST node tags with `enum NodeKind`. | `NODE_*` constants are now `NodeKind` variant aliases so stored numeric tags stay stable while the kind family is a language enum. |

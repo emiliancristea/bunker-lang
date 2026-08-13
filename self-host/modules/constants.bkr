@@ -63,40 +63,82 @@
     const TOK_QUESTION: i64 = 119;
     const TOK_FAT_ARROW: i64 = 120;
 
-    // ===== AST Node Constants =====
-    const NODE_KERNEL: i64 = 1;
-    const NODE_FN: i64 = 2;
-    const NODE_PARAM: i64 = 3;
-    const NODE_TYPE: i64 = 4;
-    const NODE_BLOCK: i64 = 5;
-    const NODE_LET: i64 = 6;
-    const NODE_RETURN: i64 = 7;
-    const NODE_IF: i64 = 8;
-    const NODE_WHILE: i64 = 9;
-    const NODE_EXPR_STMT: i64 = 10;
-    const NODE_ASSIGN: i64 = 11;
-    const NODE_BREAK: i64 = 12;
-    const NODE_CONTINUE: i64 = 13;
-    const NODE_FOR: i64 = 14;
-    const NODE_LOOP: i64 = 15;
-    const NODE_BINARY: i64 = 20;
-    const NODE_UNARY: i64 = 21;
-    const NODE_CALL: i64 = 22;
-    const NODE_IDENT: i64 = 23;
-    const NODE_INT_LIT: i64 = 24;
-    const NODE_BOOL_LIT: i64 = 25;
-    const NODE_STR_LIT: i64 = 26;
-    const NODE_CONST: i64 = 27;
-    const NODE_TERNARY: i64 = 28;
-    const NODE_FLOAT_LIT: i64 = 29;
-    const NODE_ARRAY_LIT: i64 = 30;
-    const NODE_INDEX: i64 = 31;
-    const NODE_STRUCT: i64 = 32;
-    const NODE_FIELD: i64 = 33;
-    const NODE_FIELD_ACCESS: i64 = 34;
-    const NODE_STRUCT_LIT: i64 = 35;
-    const NODE_MATCH: i64 = 36;
-    const NODE_ENUM: i64 = 37;
+    // ===== AST Node Kinds =====
+    // Declaration order is the stored numeric tag. Unused slots keep historical values.
+    enum NodeKind {
+        Unused0,
+        Kernel,
+        Fn,
+        Param,
+        TypeTag,
+        Block,
+        Let,
+        Return,
+        If,
+        While,
+        ExprStmt,
+        Assign,
+        Break,
+        Continue,
+        For,
+        Loop,
+        Unused16,
+        Unused17,
+        Unused18,
+        Unused19,
+        Binary,
+        Unary,
+        Call,
+        Ident,
+        IntLit,
+        BoolLit,
+        StrLit,
+        Const,
+        Ternary,
+        FloatLit,
+        ArrayLit,
+        Index,
+        Struct,
+        Field,
+        FieldAccess,
+        StructLit,
+        Match,
+        Enum,
+    }
+
+    const NODE_KERNEL: i64 = NodeKind.Kernel;
+    const NODE_FN: i64 = NodeKind.Fn;
+    const NODE_PARAM: i64 = NodeKind.Param;
+    const NODE_TYPE: i64 = NodeKind.TypeTag;
+    const NODE_BLOCK: i64 = NodeKind.Block;
+    const NODE_LET: i64 = NodeKind.Let;
+    const NODE_RETURN: i64 = NodeKind.Return;
+    const NODE_IF: i64 = NodeKind.If;
+    const NODE_WHILE: i64 = NodeKind.While;
+    const NODE_EXPR_STMT: i64 = NodeKind.ExprStmt;
+    const NODE_ASSIGN: i64 = NodeKind.Assign;
+    const NODE_BREAK: i64 = NodeKind.Break;
+    const NODE_CONTINUE: i64 = NodeKind.Continue;
+    const NODE_FOR: i64 = NodeKind.For;
+    const NODE_LOOP: i64 = NodeKind.Loop;
+    const NODE_BINARY: i64 = NodeKind.Binary;
+    const NODE_UNARY: i64 = NodeKind.Unary;
+    const NODE_CALL: i64 = NodeKind.Call;
+    const NODE_IDENT: i64 = NodeKind.Ident;
+    const NODE_INT_LIT: i64 = NodeKind.IntLit;
+    const NODE_BOOL_LIT: i64 = NodeKind.BoolLit;
+    const NODE_STR_LIT: i64 = NodeKind.StrLit;
+    const NODE_CONST: i64 = NodeKind.Const;
+    const NODE_TERNARY: i64 = NodeKind.Ternary;
+    const NODE_FLOAT_LIT: i64 = NodeKind.FloatLit;
+    const NODE_ARRAY_LIT: i64 = NodeKind.ArrayLit;
+    const NODE_INDEX: i64 = NodeKind.Index;
+    const NODE_STRUCT: i64 = NodeKind.Struct;
+    const NODE_FIELD: i64 = NodeKind.Field;
+    const NODE_FIELD_ACCESS: i64 = NodeKind.FieldAccess;
+    const NODE_STRUCT_LIT: i64 = NodeKind.StructLit;
+    const NODE_MATCH: i64 = NodeKind.Match;
+    const NODE_ENUM: i64 = NodeKind.Enum;
 
     // ===== AST Category Constants =====
     const AST_CAT_UNKNOWN: i64 = 0;
