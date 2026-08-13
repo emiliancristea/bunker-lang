@@ -274,7 +274,7 @@ view MyView {
 - [x] Self-host readiness command (`self-host-check`) for top-level `self-host/*.bkr` sources; 8/8 of those files pass (this command does not enumerate `self-host/modules/`)
 - [x] Self-host compile wrapper (`self-host-compile`) that runs modular `self-host/bkrc.bkr` on real `.bkr` input and emits C
 - [x] Stage1/stage2 self-compilation for the supported bootstrap subset (CI-certified on `main`)
-- [x] **119 tests passing** (including 18 negative `*_BAD` tests; 82 JIT-validated)
+- [x] **120 tests passing** (including 18 negative `*_BAD` tests; 83 JIT-validated)
 - [x] Kernel unit enums (`enum Color { Red, Green }`, `Color.Red`, exhaustive match)
 - [x] Self-host AST kind APIs typed with `enum NodeKind`
 - [x] Self-host lexer token APIs typed with `enum TokenKind`
@@ -287,6 +287,7 @@ view MyView {
 - [x] Self-host call expressions are `struct AstCall` records packed at the handle boundary
 - [x] Self-host index/field-access expressions are `struct AstIndex` / `struct AstFieldAccess` records
 - [x] Self-host let/return statements are `struct AstLet` / `struct AstReturn` records
+- [x] Self-host break/continue/block nodes are `struct AstBreak` / `struct AstContinue` / `struct AstBlock` records
 
 ### In Progress 🚧
 - [x] Z3 SMT verification integration (`--smt` flag, requires Z3 installation) ✅

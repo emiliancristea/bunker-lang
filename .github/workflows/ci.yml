@@ -480,6 +480,28 @@ jobs:
           grep -q 'fn ast_node_ref_kernel(node_ref: AstNodeRef) -> AstKernel' "$ast"
           ! grep -q 'ast_node_ref_new(NODE_KERNEL)' "$ast"
 
+      - name: Require AstBreak, AstContinue, and AstBlock records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstBreak {' "$ast"
+          grep -q 'struct AstContinue {' "$ast"
+          grep -q 'struct AstBlock {' "$ast"
+          grep -q 'fn ast_break_record() -> AstBreak' "$ast"
+          grep -q 'fn ast_break_pack(stmt: AstBreak) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_break_unpack(node: Vec<i64>) -> AstBreak' "$ast"
+          grep -q 'fn ast_stmt_ref_break(stmt_ref: AstStmtRef) -> AstBreak' "$ast"
+          grep -q 'fn ast_continue_record() -> AstContinue' "$ast"
+          grep -q 'fn ast_stmt_ref_continue(stmt_ref: AstStmtRef) -> AstContinue' "$ast"
+          grep -q 'fn ast_block_record() -> AstBlock' "$ast"
+          grep -q 'fn ast_block_pack(block: AstBlock) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_block_unpack(node: Vec<i64>) -> AstBlock' "$ast"
+          grep -q 'fn ast_block_ref_record(block_ref: AstBlockRef) -> AstBlock' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_BREAK)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_CONTINUE)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_BLOCK)' "$ast"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |

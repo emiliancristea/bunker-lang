@@ -133,6 +133,21 @@
         expr: i64
     }
 
+    struct AstBreak {
+        start: i64,
+        end: i64
+    }
+
+    struct AstContinue {
+        start: i64,
+        end: i64
+    }
+
+    struct AstBlock {
+        start: i64,
+        end: i64
+    }
+
     struct AstTernary {
         start: i64,
         end: i64,
@@ -1392,6 +1407,18 @@
         return ast_expr_stmt_unpack(ast_stmt_node_from_ref(stmt_ref));
     }
 
+    fn ast_stmt_ref_break(stmt_ref: AstStmtRef) -> AstBreak {
+        return ast_break_unpack(ast_stmt_node_from_ref(stmt_ref));
+    }
+
+    fn ast_stmt_ref_continue(stmt_ref: AstStmtRef) -> AstContinue {
+        return ast_continue_unpack(ast_stmt_node_from_ref(stmt_ref));
+    }
+
+    fn ast_block_ref_record(block_ref: AstBlockRef) -> AstBlock {
+        return ast_block_unpack(ast_block_node_from_ref(block_ref));
+    }
+
     fn ast_expr_ref_ternary(expr_ref: AstExprRef) -> AstTernary {
         return ast_ternary_unpack(ast_expr_node_from_ref(expr_ref));
     }
@@ -2629,16 +2656,62 @@
         return ast_stmt_node_from_ref(ast_return_ref(expr));
     }
 
+    fn ast_break_record() -> AstBreak {
+        return AstBreak {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN
+        };
+    }
+
+    fn ast_break_pack(stmt: AstBreak) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_BREAK);
+        vec_push(node, stmt.start);
+        vec_push(node, stmt.end);
+        return node;
+    }
+
+    fn ast_break_unpack(node: Vec<i64>) -> AstBreak {
+        return AstBreak {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX)
+        };
+    }
+
     fn ast_break_ref() -> AstStmtRef {
-        return ast_stmt_ref_from_handle(ast_node_ref_handle(ast_node_ref_new(NODE_BREAK)));
+        let rec: AstBreak = ast_break_record();
+        return ast_stmt_ref_from_handle(ast_break_pack(rec) as i64);
     }
 
     fn ast_break() -> Vec<i64> {
         return ast_stmt_node_from_ref(ast_break_ref());
     }
 
+    fn ast_continue_record() -> AstContinue {
+        return AstContinue {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN
+        };
+    }
+
+    fn ast_continue_pack(stmt: AstContinue) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_CONTINUE);
+        vec_push(node, stmt.start);
+        vec_push(node, stmt.end);
+        return node;
+    }
+
+    fn ast_continue_unpack(node: Vec<i64>) -> AstContinue {
+        return AstContinue {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX)
+        };
+    }
+
     fn ast_continue_ref() -> AstStmtRef {
-        return ast_stmt_ref_from_handle(ast_node_ref_handle(ast_node_ref_new(NODE_CONTINUE)));
+        let rec: AstContinue = ast_continue_record();
+        return ast_stmt_ref_from_handle(ast_continue_pack(rec) as i64);
     }
 
     fn ast_continue() -> Vec<i64> {
@@ -2728,8 +2801,31 @@
         return ast_stmt_node_from_ref(ast_expr_stmt_ref(ast_expr_ref_from_node(expr)));
     }
 
+    fn ast_block_record() -> AstBlock {
+        return AstBlock {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN
+        };
+    }
+
+    fn ast_block_pack(block: AstBlock) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_BLOCK);
+        vec_push(node, block.start);
+        vec_push(node, block.end);
+        return node;
+    }
+
+    fn ast_block_unpack(node: Vec<i64>) -> AstBlock {
+        return AstBlock {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX)
+        };
+    }
+
     fn ast_block_ref() -> AstBlockRef {
-        return ast_block_ref_from_handle(ast_node_ref_handle(ast_node_ref_new(NODE_BLOCK)));
+        let rec: AstBlock = ast_block_record();
+        return ast_block_ref_from_handle(ast_block_pack(rec) as i64);
     }
 
     fn ast_block() -> Vec<i64> {
