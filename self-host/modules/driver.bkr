@@ -826,6 +826,7 @@
         self_host_trace_phase("compile_to_c:symbol_table_report");
         let resolver_report = build_resolver_report_comment(ast);
         self_host_trace_phase("compile_to_c:resolver_report");
+        self_host_trace_phase("compile_to_c:typecheck_begin");
         let typecheck_report = build_typecheck_report_comment(ast);
         self_host_trace_phase("compile_to_c:typecheck_report");
         let c_program = gen_c_program(ast);

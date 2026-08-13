@@ -266,7 +266,7 @@ These are the next concrete PR-sized slices.
 | Q-202 | DONE | Replace binary/unary records with structs. | Binary/unary constructors pack `AstBinary`/`AstUnary` with `TokenKind` ops; readers unpack op/child handles; `tests/102_ast_binary_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_BINARY)` construction. |
 | Q-203 | DONE | Replace call records with `struct AstCall`. | Call constructors pack `AstCall` and name/args readers unpack fields; `tests/103_ast_call_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_CALL)` construction. |
 | Q-204 | DONE | Replace index/field-access records with structs. | Index and field-access constructors pack `AstIndex`/`AstFieldAccess`; readers unpack base/index/name fields; `tests/104_ast_index_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_INDEX)` construction. |
-| Q-205 | DONE | Replace let/return statement records with structs. | Let/return constructors pack `AstLet`/`AstReturn`; readers unpack name/type/init/expr fields; `tests/105_ast_let_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_LET)` construction. |
+| Q-205 | DONE | Replace let/return statement records with structs. | Let/return constructors pack `AstLet`/`AstReturn`; typed unpack APIs remain; hot name/type/init/expr readers use `ast_field` so stage1 typecheck of `bkrc` stays inside the 600s smoke; `tests/105_ast_let_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_LET)` construction. |
 
 ## Language Core
 
@@ -737,3 +737,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-08-13 | Replaced call records with `struct AstCall`. | Call constructors pack `AstCall` and name/args readers unpack fields; fixture `103_ast_call_struct.bkr` covers struct param/return/field use. |
 | 2026-08-13 | Replaced index/field-access records with structs. | Index and field-access constructors pack `AstIndex`/`AstFieldAccess`; fixture `104_ast_index_struct.bkr` covers struct param/return/field use. |
 | 2026-08-13 | Replaced let/return statement records with structs. | Let/return constructors pack `AstLet`/`AstReturn`; fixture `105_ast_let_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Keep SH-003 pack/unpack off the typecheck hot path. | Single-field AST readers use `ast_field` again; typed record unpack stays for whole-struct APIs so stage1 `bkrc` typecheck does not exceed the 600s smoke. |

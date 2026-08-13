@@ -6,6 +6,10 @@
     // Node-kind construction and typed-ref kind readers now use enum NodeKind;
     // keep layout construction here so later slices can replace the
     // representation with real Bunker structs/enums behind one boundary.
+    //
+    // SH-003 convention: pack structs at construction and keep typed unpack
+    // APIs for whole-record access. Single-field hot readers must use
+    // ast_field so stage1 typecheck of bkrc stays inside the CI smoke.
 
     struct AstSpan {
         start: i64,
@@ -899,8 +903,7 @@
     }
 
     fn ast_expr_ref_name_idx(expr_ref: AstExprRef) -> i64 {
-        let rec: AstAtom = ast_expr_ref_atom(expr_ref);
-        return rec.payload;
+        return ast_name_idx(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_node_ref_name_idx(node_ref: AstNodeRef) -> i64 {
@@ -912,8 +915,7 @@
     }
 
     fn ast_expr_ref_value(expr_ref: AstExprRef) -> i64 {
-        let rec: AstAtom = ast_expr_ref_atom(expr_ref);
-        return rec.payload;
+        return ast_value(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_type_node(node: Vec<i64>) -> i64 {
@@ -925,8 +927,7 @@
     }
 
     fn ast_binary_op(node: Vec<i64>) -> TokenKind {
-        let rec: AstBinary = ast_binary_unpack(node);
-        return rec.op;
+        return ast_field(node, 1);
     }
 
     fn ast_expr_ref_binary(expr_ref: AstExprRef) -> AstBinary {
@@ -934,8 +935,7 @@
     }
 
     fn ast_binary_ref_op(expr_ref: AstExprRef) -> TokenKind {
-        let rec: AstBinary = ast_expr_ref_binary(expr_ref);
-        return rec.op;
+        return ast_binary_op(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_binary_left(node: Vec<i64>) -> Vec<i64> {
@@ -943,13 +943,11 @@
     }
 
     fn ast_binary_left_handle(node: Vec<i64>) -> i64 {
-        let rec: AstBinary = ast_binary_unpack(node);
-        return rec.left;
+        return ast_field(node, 2);
     }
 
     fn ast_binary_ref_left_handle(expr_ref: AstExprRef) -> i64 {
-        let rec: AstBinary = ast_expr_ref_binary(expr_ref);
-        return rec.left;
+        return ast_binary_left_handle(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_binary_right(node: Vec<i64>) -> Vec<i64> {
@@ -957,18 +955,15 @@
     }
 
     fn ast_binary_right_handle(node: Vec<i64>) -> i64 {
-        let rec: AstBinary = ast_binary_unpack(node);
-        return rec.right;
+        return ast_field(node, 3);
     }
 
     fn ast_binary_ref_right_handle(expr_ref: AstExprRef) -> i64 {
-        let rec: AstBinary = ast_expr_ref_binary(expr_ref);
-        return rec.right;
+        return ast_binary_right_handle(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_unary_op(node: Vec<i64>) -> TokenKind {
-        let rec: AstUnary = ast_unary_unpack(node);
-        return rec.op;
+        return ast_field(node, 1);
     }
 
     fn ast_expr_ref_unary(expr_ref: AstExprRef) -> AstUnary {
@@ -976,8 +971,7 @@
     }
 
     fn ast_unary_ref_op(expr_ref: AstExprRef) -> TokenKind {
-        let rec: AstUnary = ast_expr_ref_unary(expr_ref);
-        return rec.op;
+        return ast_unary_op(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_unary_operand(node: Vec<i64>) -> Vec<i64> {
@@ -985,18 +979,15 @@
     }
 
     fn ast_unary_operand_handle(node: Vec<i64>) -> i64 {
-        let rec: AstUnary = ast_unary_unpack(node);
-        return rec.operand;
+        return ast_field(node, 2);
     }
 
     fn ast_unary_ref_operand_handle(expr_ref: AstExprRef) -> i64 {
-        let rec: AstUnary = ast_expr_ref_unary(expr_ref);
-        return rec.operand;
+        return ast_unary_operand_handle(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_call_name_idx(node: Vec<i64>) -> i64 {
-        let rec: AstCall = ast_call_unpack(node);
-        return rec.name_idx;
+        return ast_field(node, 1);
     }
 
     fn ast_expr_ref_call(expr_ref: AstExprRef) -> AstCall {
@@ -1004,8 +995,7 @@
     }
 
     fn ast_call_ref_name_idx(expr_ref: AstExprRef) -> i64 {
-        let rec: AstCall = ast_expr_ref_call(expr_ref);
-        return rec.name_idx;
+        return ast_call_name_idx(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_call_args(node: Vec<i64>) -> Vec<i64> {
@@ -1013,13 +1003,11 @@
     }
 
     fn ast_call_args_ref(node: Vec<i64>) -> AstNodeListRef {
-        let rec: AstCall = ast_call_unpack(node);
-        return ast_node_list_ref_from_handle(rec.args);
+        return ast_field_node_list_ref(node, 2);
     }
 
     fn ast_call_ref_args_ref(expr_ref: AstExprRef) -> AstNodeListRef {
-        let rec: AstCall = ast_expr_ref_call(expr_ref);
-        return ast_node_list_ref_from_handle(rec.args);
+        return ast_call_args_ref(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_array_elements(node: Vec<i64>) -> Vec<i64> {
@@ -1039,8 +1027,7 @@
     }
 
     fn ast_index_base_handle(node: Vec<i64>) -> i64 {
-        let rec: AstIndex = ast_index_unpack(node);
-        return rec.base;
+        return ast_field(node, 1);
     }
 
     fn ast_expr_ref_index(expr_ref: AstExprRef) -> AstIndex {
@@ -1048,8 +1035,7 @@
     }
 
     fn ast_index_ref_base_handle(expr_ref: AstExprRef) -> i64 {
-        let rec: AstIndex = ast_expr_ref_index(expr_ref);
-        return rec.base;
+        return ast_index_base_handle(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_index_expr(node: Vec<i64>) -> Vec<i64> {
@@ -1057,13 +1043,11 @@
     }
 
     fn ast_index_expr_handle(node: Vec<i64>) -> i64 {
-        let rec: AstIndex = ast_index_unpack(node);
-        return rec.index;
+        return ast_field(node, 2);
     }
 
     fn ast_index_ref_expr_handle(expr_ref: AstExprRef) -> i64 {
-        let rec: AstIndex = ast_expr_ref_index(expr_ref);
-        return rec.index;
+        return ast_index_expr_handle(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_field_base(node: Vec<i64>) -> Vec<i64> {
@@ -1071,8 +1055,7 @@
     }
 
     fn ast_field_base_handle(node: Vec<i64>) -> i64 {
-        let rec: AstFieldAccess = ast_field_access_unpack(node);
-        return rec.base;
+        return ast_field(node, 1);
     }
 
     fn ast_expr_ref_field_access(expr_ref: AstExprRef) -> AstFieldAccess {
@@ -1080,18 +1063,15 @@
     }
 
     fn ast_field_access_ref_base_handle(expr_ref: AstExprRef) -> i64 {
-        let rec: AstFieldAccess = ast_expr_ref_field_access(expr_ref);
-        return rec.base;
+        return ast_field_base_handle(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_field_name_idx(node: Vec<i64>) -> i64 {
-        let rec: AstFieldAccess = ast_field_access_unpack(node);
-        return rec.name_idx;
+        return ast_field(node, 2);
     }
 
     fn ast_field_access_ref_name_idx(expr_ref: AstExprRef) -> i64 {
-        let rec: AstFieldAccess = ast_expr_ref_field_access(expr_ref);
-        return rec.name_idx;
+        return ast_field_name_idx(ast_expr_node_from_ref(expr_ref));
     }
 
     fn ast_struct_lit_name_idx(node: Vec<i64>) -> i64 {
@@ -1209,8 +1189,7 @@
     }
 
     fn ast_let_name_idx(node: Vec<i64>) -> i64 {
-        let rec: AstLet = ast_let_unpack(node);
-        return rec.name_idx;
+        return ast_field(node, 1);
     }
 
     fn ast_stmt_ref_let(stmt_ref: AstStmtRef) -> AstLet {
@@ -1218,8 +1197,7 @@
     }
 
     fn ast_let_ref_name_idx(stmt_ref: AstStmtRef) -> i64 {
-        let rec: AstLet = ast_stmt_ref_let(stmt_ref);
-        return rec.name_idx;
+        return ast_let_name_idx(ast_stmt_node_from_ref(stmt_ref));
     }
 
     fn ast_let_type_node(node: Vec<i64>) -> i64 {
@@ -1227,13 +1205,11 @@
     }
 
     fn ast_let_type_handle(node: Vec<i64>) -> i64 {
-        let rec: AstLet = ast_let_unpack(node);
-        return rec.type_handle;
+        return ast_field(node, 2);
     }
 
     fn ast_let_ref_type_handle(stmt_ref: AstStmtRef) -> i64 {
-        let rec: AstLet = ast_stmt_ref_let(stmt_ref);
-        return rec.type_handle;
+        return ast_let_type_handle(ast_stmt_node_from_ref(stmt_ref));
     }
 
     fn ast_let_init(node: Vec<i64>) -> i64 {
@@ -1241,13 +1217,11 @@
     }
 
     fn ast_let_init_handle(node: Vec<i64>) -> i64 {
-        let rec: AstLet = ast_let_unpack(node);
-        return rec.init;
+        return ast_field(node, 3);
     }
 
     fn ast_let_ref_init_handle(stmt_ref: AstStmtRef) -> i64 {
-        let rec: AstLet = ast_stmt_ref_let(stmt_ref);
-        return rec.init;
+        return ast_let_init_handle(ast_stmt_node_from_ref(stmt_ref));
     }
 
     fn ast_return_expr(node: Vec<i64>) -> i64 {
@@ -1255,8 +1229,7 @@
     }
 
     fn ast_return_expr_handle(node: Vec<i64>) -> i64 {
-        let rec: AstReturn = ast_return_unpack(node);
-        return rec.expr;
+        return ast_field(node, 1);
     }
 
     fn ast_stmt_ref_return(stmt_ref: AstStmtRef) -> AstReturn {
@@ -1264,8 +1237,7 @@
     }
 
     fn ast_return_ref_expr_handle(stmt_ref: AstStmtRef) -> i64 {
-        let rec: AstReturn = ast_stmt_ref_return(stmt_ref);
-        return rec.expr;
+        return ast_return_expr_handle(ast_stmt_node_from_ref(stmt_ref));
     }
 
     fn ast_if_cond(node: Vec<i64>) -> Vec<i64> {
