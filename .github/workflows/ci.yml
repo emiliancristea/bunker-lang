@@ -452,6 +452,22 @@ jobs:
           ! grep -q 'ast_node_ref_new(NODE_CONST)' "$ast"
           ! grep -q 'ast_node_ref_new(NODE_FIELD)' "$ast"
 
+      - name: Require AstStruct and AstEnum struct item records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstStruct {' "$ast"
+          grep -q 'struct AstEnum {' "$ast"
+          grep -q 'fn ast_struct_record(name_idx: i64, fields: i64) -> AstStruct' "$ast"
+          grep -q 'fn ast_struct_pack(item: AstStruct) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_struct_unpack(node: Vec<i64>) -> AstStruct' "$ast"
+          grep -q 'fn ast_item_ref_struct(item_ref: AstItemRef) -> AstStruct' "$ast"
+          grep -q 'fn ast_enum_record(name_idx: i64, variants: i64) -> AstEnum' "$ast"
+          grep -q 'fn ast_item_ref_enum(item_ref: AstItemRef) -> AstEnum' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_STRUCT)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_ENUM)' "$ast"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |
@@ -1741,6 +1757,18 @@ jobs:
           grep -q "int main(void)" /tmp/113_ast_const_struct.c
           grep -q "make_const" /tmp/113_ast_const_struct.c
           grep -q "bkr_i64" /tmp/113_ast_const_struct.c
+
+      - name: Compile AstStruct item fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/114_ast_struct_item.bkr \
+            -o /tmp/114_ast_struct_item.c
+          test -s /tmp/114_ast_struct_item.c
+          ! grep -q "Parse error at token" /tmp/114_ast_struct_item.c
+          grep -q "int main(void)" /tmp/114_ast_struct_item.c
+          grep -q "make_struct" /tmp/114_ast_struct_item.c
+          grep -q "bkr_i64" /tmp/114_ast_struct_item.c
 
       - name: Compile pattern and type kind enum fixture through self-host compiler
         timeout-minutes: 2

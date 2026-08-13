@@ -1,0 +1,60 @@
+// Test 114: AstStruct as a real compiler struct-item record
+// Purpose: Struct/enum name/members/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstStructItem {
+    struct AstStruct {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        fields: i64
+    }
+
+    struct AstEnum {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        variants: i64
+    }
+
+    fn make_struct(name_idx: i64, fields: i64) -> AstStruct {
+        return AstStruct {
+            start: 0,
+            end: 6,
+            name_idx: name_idx,
+            fields: fields
+        };
+    }
+
+    fn make_enum(name_idx: i64, variants: i64) -> AstEnum {
+        return AstEnum {
+            start: 1,
+            end: 5,
+            name_idx: name_idx,
+            variants: variants
+        };
+    }
+
+    fn struct_fields(item: AstStruct) -> i64 {
+        return item.fields;
+    }
+
+    fn enum_name(item: AstEnum) -> i64 {
+        return item.name_idx;
+    }
+
+    fn main() -> i32 {
+        let item: AstStruct = make_struct(1, 20);
+        let en: AstEnum = make_enum(3, 4);
+        if item.start == 0 {
+            if struct_fields(make_struct(2, 21)) == 21 {
+                if en.variants == 4 {
+                    if enum_name(make_enum(21, 0)) == 21 {
+                        return 42;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}
