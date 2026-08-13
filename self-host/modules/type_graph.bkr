@@ -445,23 +445,33 @@
     fn self_host_type_graph_json(kernel: Vec<i64>) -> str {
         let comma = ",";
         let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
-        let state: CgenStateRef = type_graph_seed_state_ref(kernel_ref);
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let full_walk: bool = ast_report_full_walk(kernel_ref);
+        let structs_json: str = "[]";
+        let constants_json: str = "[]";
+        let functions_json: str = "[]";
+        if full_walk {
+            let state: CgenStateRef = type_graph_seed_state_ref(kernel_ref);
+            structs_json = type_graph_structs_ref_json(kernel_ref);
+            constants_json = type_graph_consts_ref_json(kernel_ref, state);
+            functions_json = type_graph_functions_ref_json(kernel_ref);
+        }
         return "{" +
             json_field_str("schema_version", "bunker.self_host.type_graph.v1") + comma +
             json_field_str("representation", "bootstrap_codegen_inference") + comma +
             json_field_bool("complete", false) + comma +
-            json_field_bool("declared_types", true) + comma +
-            json_field_bool("local_inference", true) + comma +
-            json_field_str("known_limits", "Derived from declarations plus bootstrap C codegen inference; no real Bunker typechecker, generic graph, trait constraints, exhaustiveness graph, or cross-module type graph yet.") + comma +
+            json_field_bool("declared_types", full_walk) + comma +
+            json_field_bool("local_inference", full_walk) + comma +
+            json_field_bool("truncated", !full_walk) + comma +
+            json_field_str("known_limits", "Derived from declarations plus bootstrap C codegen inference; no real Bunker typechecker, generic graph, trait constraints, exhaustiveness graph, or cross-module type graph yet. Detail arrays are omitted when interned names exceed AST_REPORT_FULL_WALK_NAME_LIMIT.") + comma +
             json_field_raw("summary", "{" +
                 json_field_i64("function_count", ast_report_count_kind_ref(items_ref, NODE_FN)) + comma +
                 json_field_i64("struct_count", ast_report_count_kind_ref(items_ref, NODE_STRUCT)) + comma +
                 json_field_i64("const_count", ast_report_count_kind_ref(items_ref, NODE_CONST)) +
                 "}") + comma +
-            json_field_raw("structs", type_graph_structs_ref_json(kernel_ref)) + comma +
-            json_field_raw("constants", type_graph_consts_ref_json(kernel_ref, state)) + comma +
-            json_field_raw("functions", type_graph_functions_ref_json(kernel_ref)) +
+            json_field_raw("structs", structs_json) + comma +
+            json_field_raw("constants", constants_json) + comma +
+            json_field_raw("functions", functions_json) +
             "}";
     }
 

@@ -279,6 +279,7 @@
     const AST_NODE_SPAN_END_INDEX: i64 = 2;
     const AST_NODE_DATA_OFFSET: i64 = 2;
     const AST_NODE_DATA_START: i64 = 3;
+    const AST_REPORT_FULL_WALK_NAME_LIMIT: i64 = 96;
 
     // ===== Pattern Kinds =====
     // Declaration order is the stored numeric tag.

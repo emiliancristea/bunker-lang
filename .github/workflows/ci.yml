@@ -1047,6 +1047,16 @@ jobs:
           grep -q 'json_field_bool("suggested_edit_envelope", true)' "$typecheck"
           grep -q 'json_field_raw("suggested_edits", diagnostic_no_edits_json())' "$typecheck"
 
+      - name: Require large-AST report truncation
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'const AST_REPORT_FULL_WALK_NAME_LIMIT: i64 = 96' self-host/modules/constants.bkr
+          grep -q 'fn ast_report_full_walk(kernel_ref: AstNodeRef) -> bool' self-host/modules/report_support.bkr
+          grep -q 'let full_walk: bool = ast_report_full_walk(kernel_ref);' self-host/modules/symbol_table.bkr
+          grep -q 'let full_walk: bool = ast_report_full_walk(kernel_ref);' self-host/modules/type_graph.bkr
+          grep -q 'let full_walk: bool = ast_report_full_walk(kernel_ref);' self-host/modules/ast_report.bkr
+
       - name: Require symbol-table statement AST refs
         shell: bash
         run: |

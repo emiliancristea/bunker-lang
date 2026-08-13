@@ -6,6 +6,10 @@
     // Keeping these helpers outside driver.bkr makes resolver/typecheck report
     // extraction possible without duplicating diagnostic plumbing.
 
+    fn ast_report_full_walk(kernel_ref: AstNodeRef) -> bool {
+        return vec_len(ast_kernel_ref_names(kernel_ref)) <= AST_REPORT_FULL_WALK_NAME_LIMIT;
+    }
+
     fn json_escape_string(raw: str) -> str {
         let quote = from_char_code(34);
         let backslash = from_char_code(92);

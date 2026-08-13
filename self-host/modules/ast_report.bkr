@@ -429,15 +429,23 @@
             json_field_i64("enum_count", ast_report_count_kind_ref(items_ref, NODE_ENUM)) + comma +
             json_field_i64("const_count", ast_report_count_kind_ref(items_ref, NODE_CONST)) +
             "}";
+        let full_walk: bool = ast_report_full_walk(kernel_ref);
+        let items_json: str = "[]";
+        let tree_json: str = root;
+        if full_walk {
+            items_json = ast_report_items_json_ref(names, items_ref);
+            tree_json = ast_report_node_ref_json(names, ast_node_ref_from_node(kernel));
+        }
         return "{" +
             json_field_str("schema_version", "bunker.self_host.ast.v1") + comma +
             json_field_str("representation", "bootstrap_vec_i64") + comma +
             json_field_bool("source_byte_spans", true) + comma +
-            json_field_bool("complete_tree", true) + comma +
+            json_field_bool("complete_tree", full_walk) + comma +
+            json_field_bool("truncated", !full_walk) + comma +
             json_field_raw("root", root) + comma +
             json_field_raw("summary", summary) + comma +
-            json_field_raw("items", ast_report_items_json_ref(names, items_ref)) + comma +
-            json_field_raw("tree", ast_report_node_ref_json(names, ast_node_ref_from_node(kernel))) +
+            json_field_raw("items", items_json) + comma +
+            json_field_raw("tree", tree_json) +
             "}";
     }
 
