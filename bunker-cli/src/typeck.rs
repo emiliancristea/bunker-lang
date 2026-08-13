@@ -478,10 +478,7 @@ impl TypeChecker {
                             return Ok(Type::Named(type_name.clone()));
                         }
                         self.errors.push(TypeError {
-                            message: format!(
-                                "Unknown variant '{}' on enum {}",
-                                field, type_name
-                            ),
+                            message: format!("Unknown variant '{}' on enum {}", field, type_name),
                             location: context.to_string(),
                         });
                         return Ok(Type::Named(type_name.clone()));
@@ -1370,10 +1367,7 @@ impl TypeChecker {
                     }
                     if !seen.insert(variant.clone()) {
                         self.errors.push(TypeError {
-                            message: format!(
-                                "Duplicate match pattern '{}.{}'",
-                                pat_enum, variant
-                            ),
+                            message: format!("Duplicate match pattern '{}.{}'", pat_enum, variant),
                             location: context.to_string(),
                         });
                     }
@@ -1586,7 +1580,11 @@ fn collect_unit_enums(file: &ast::File) -> HashMap<String, Vec<String>> {
     enums
 }
 
-fn unit_enum_tag(enums: &HashMap<String, Vec<String>>, enum_name: &str, variant: &str) -> Option<i64> {
+fn unit_enum_tag(
+    enums: &HashMap<String, Vec<String>>,
+    enum_name: &str,
+    variant: &str,
+) -> Option<i64> {
     enums.get(enum_name).and_then(|variants| {
         variants
             .iter()
@@ -1653,7 +1651,10 @@ fn lower_expr(expr: &mut Expr, enums: &HashMap<String, Vec<String>>) {
             lower_expr(then_expr, enums);
             lower_expr(else_expr, enums);
         }
-        Expr::Match { expr: scrutinee, arms } => {
+        Expr::Match {
+            expr: scrutinee,
+            arms,
+        } => {
             lower_expr(scrutinee, enums);
             for arm in arms {
                 lower_pattern(&mut arm.pattern, enums);

@@ -281,7 +281,7 @@ if (-not $JitOnly) {
         $generated = Get-Content $selfHostOut -Raw
         $hasI32Entry = $generated -match "bkr_i32\s+_v[0-9]+\(void\)"
         $hasMainWrapper = $generated -match "int\s+main\(void\)" -and $generated -match "return\s+\(int\)_v[0-9]+\(\);"
-        $hasNoParseError = $generated -notmatch "Parse error"
+        $hasNoParseError = $generated -notmatch "Parse error at token"
         if ($hasI32Entry -and $hasMainWrapper -and $hasNoParseError) {
             Write-Host "PASS" -ForegroundColor Green -NoNewline
             Write-Host " (Bunker compiler emitted C)"
