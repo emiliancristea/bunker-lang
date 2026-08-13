@@ -392,6 +392,22 @@ jobs:
           grep -q 'fn ast_expr_ref_ternary(expr_ref: AstExprRef) -> AstTernary' "$ast"
           ! grep -q 'ast_node_ref_new(NODE_TERNARY)' "$ast"
 
+      - name: Require AstArrayLit and AstStructLit struct records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstArrayLit {' "$ast"
+          grep -q 'struct AstStructLit {' "$ast"
+          grep -q 'fn ast_array_lit_record(elements: i64) -> AstArrayLit' "$ast"
+          grep -q 'fn ast_array_lit_pack(expr: AstArrayLit) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_array_lit_unpack(node: Vec<i64>) -> AstArrayLit' "$ast"
+          grep -q 'fn ast_expr_ref_array_lit(expr_ref: AstExprRef) -> AstArrayLit' "$ast"
+          grep -q 'fn ast_struct_lit_record(name_idx: i64, field_names: i64, field_values: i64) -> AstStructLit' "$ast"
+          grep -q 'fn ast_expr_ref_struct_lit(expr_ref: AstExprRef) -> AstStructLit' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_ARRAY_LIT)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_STRUCT_LIT)' "$ast"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |
@@ -1633,6 +1649,18 @@ jobs:
           grep -q "int main(void)" /tmp/109_ast_ternary_struct.c
           grep -q "make_ternary" /tmp/109_ast_ternary_struct.c
           grep -q "bkr_i64" /tmp/109_ast_ternary_struct.c
+
+      - name: Compile AstArrayLit struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/110_ast_array_lit_struct.bkr \
+            -o /tmp/110_ast_array_lit_struct.c
+          test -s /tmp/110_ast_array_lit_struct.c
+          ! grep -q "Parse error at token" /tmp/110_ast_array_lit_struct.c
+          grep -q "int main(void)" /tmp/110_ast_array_lit_struct.c
+          grep -q "make_array" /tmp/110_ast_array_lit_struct.c
+          grep -q "bkr_i64" /tmp/110_ast_array_lit_struct.c
 
       - name: Compile pattern and type kind enum fixture through self-host compiler
         timeout-minutes: 2

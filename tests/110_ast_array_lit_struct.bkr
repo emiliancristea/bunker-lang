@@ -1,0 +1,60 @@
+// Test 110: AstArrayLit as a real compiler array-literal record
+// Purpose: Array/struct-lit handles/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstArrayLitStruct {
+    struct AstArrayLit {
+        start: i64,
+        end: i64,
+        elements: i64
+    }
+
+    struct AstStructLit {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        field_names: i64,
+        field_values: i64
+    }
+
+    fn make_array(elements: i64) -> AstArrayLit {
+        return AstArrayLit {
+            start: 0,
+            end: 4,
+            elements: elements
+        };
+    }
+
+    fn make_struct_lit(name_idx: i64, field_names: i64, field_values: i64) -> AstStructLit {
+        return AstStructLit {
+            start: 1,
+            end: 8,
+            name_idx: name_idx,
+            field_names: field_names,
+            field_values: field_values
+        };
+    }
+
+    fn array_elements(expr: AstArrayLit) -> i64 {
+        return expr.elements;
+    }
+
+    fn struct_lit_name(expr: AstStructLit) -> i64 {
+        return expr.name_idx;
+    }
+
+    fn main() -> i32 {
+        let arr: AstArrayLit = make_array(20);
+        let lit: AstStructLit = make_struct_lit(3, 4, 5);
+        if arr.start == 0 {
+            if array_elements(make_array(21)) == 21 {
+                if lit.name_idx == 3 {
+                    if struct_lit_name(make_struct_lit(21, 1, 2)) == 21 {
+                        return 42;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}
