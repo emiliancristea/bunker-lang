@@ -208,6 +208,15 @@
         variants: i64
     }
 
+    struct AstKernel {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        items: i64,
+        entry_idx: i64,
+        names: i64
+    }
+
     struct AstExprRef {
         handle: i64,
     }
@@ -1421,6 +1430,10 @@
 
     fn ast_item_ref_enum(item_ref: AstItemRef) -> AstEnum {
         return ast_enum_unpack(ast_item_node_from_ref(item_ref));
+    }
+
+    fn ast_node_ref_kernel(node_ref: AstNodeRef) -> AstKernel {
+        return ast_kernel_unpack(ast_node_from_ref(node_ref));
     }
 
     fn ast_if_cond(node: Vec<i64>) -> Vec<i64> {
@@ -3257,13 +3270,59 @@
         return ast_item_node_from_ref(ast_struct_ref(name_idx, ast_node_list_ref_from_list(fields)));
     }
 
+    fn ast_kernel_record(name_idx: i64, items: i64, entry_idx: i64, names: i64) -> AstKernel {
+        return AstKernel {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            name_idx: name_idx,
+            items: items,
+            entry_idx: entry_idx,
+            names: names
+        };
+    }
+
+    fn ast_kernel_pack(kernel: AstKernel) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_KERNEL);
+        vec_push(node, kernel.start);
+        vec_push(node, kernel.end);
+        vec_push(node, kernel.name_idx);
+        vec_push(node, kernel.items);
+        vec_push(node, kernel.entry_idx);
+        vec_push(node, kernel.names);
+        return node;
+    }
+
+    fn ast_kernel_unpack(node: Vec<i64>) -> AstKernel {
+        let name_idx: i64 = 0;
+        let items: i64 = 0;
+        let entry_idx: i64 = 0;
+        let names: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            name_idx = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            items = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 2 {
+            entry_idx = vec_get(node, AST_NODE_DATA_START + 2);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 3 {
+            names = vec_get(node, AST_NODE_DATA_START + 3);
+        }
+        return AstKernel {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            name_idx: name_idx,
+            items: items,
+            entry_idx: entry_idx,
+            names: names
+        };
+    }
+
     fn ast_kernel_ref(name_idx: i64, items_ref: AstNodeListRef, main_name_idx: i64, names_ref: AstStringListRef) -> AstNodeRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_KERNEL);
-        ast_node_ref_push(node_ref, name_idx);
-        ast_node_ref_push(node_ref, ast_node_list_ref_handle(items_ref));
-        ast_node_ref_push(node_ref, main_name_idx);
-        ast_node_ref_push(node_ref, ast_string_list_ref_handle(names_ref));
-        return node_ref;
+        let rec: AstKernel = ast_kernel_record(name_idx, ast_node_list_ref_handle(items_ref), main_name_idx, ast_string_list_ref_handle(names_ref));
+        return ast_node_ref_from_handle(ast_kernel_pack(rec) as i64);
     }
 
     fn ast_kernel(name_idx: i64, items: Vec<i64>, main_name_idx: i64, names: Vec<str>) -> Vec<i64> {
