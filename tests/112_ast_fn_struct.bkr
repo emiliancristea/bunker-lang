@@ -1,0 +1,64 @@
+// Test 112: AstFn as a real compiler function-item record
+// Purpose: Fn/param name/type/body/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstFnStruct {
+    struct AstParam {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        type_handle: i64
+    }
+
+    struct AstFn {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        params: i64,
+        return_type: i64,
+        body: i64
+    }
+
+    fn make_param(name_idx: i64, type_handle: i64) -> AstParam {
+        return AstParam {
+            start: 0,
+            end: 3,
+            name_idx: name_idx,
+            type_handle: type_handle
+        };
+    }
+
+    fn make_fn(name_idx: i64, params: i64, body: i64) -> AstFn {
+        return AstFn {
+            start: 1,
+            end: 8,
+            name_idx: name_idx,
+            params: params,
+            return_type: 0,
+            body: body
+        };
+    }
+
+    fn param_name(param: AstParam) -> i64 {
+        return param.name_idx;
+    }
+
+    fn fn_body(item: AstFn) -> i64 {
+        return item.body;
+    }
+
+    fn main() -> i32 {
+        let param: AstParam = make_param(2, 7);
+        let item: AstFn = make_fn(1, 4, 20);
+        if param.type_handle == 7 {
+            if param_name(make_param(21, 0)) == 21 {
+                if item.name_idx == 1 {
+                    if fn_body(make_fn(3, 5, 21)) == 21 {
+                        return 42;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}
