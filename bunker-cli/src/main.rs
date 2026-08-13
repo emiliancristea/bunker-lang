@@ -833,6 +833,7 @@ fn build_ast_from_source_for_run(file_path: &str, source: &str) -> Result<ast::F
     let mut ast = build_ast(file_pair)
         .map_err(|err| anyhow::anyhow!("AST build error in {}: {}", file_path, err))?;
     let _comptime_stats = comptime::fold_comptime_calls(&mut ast);
+    typeck::lower_unit_enums(&mut ast);
     Ok(ast)
 }
 
