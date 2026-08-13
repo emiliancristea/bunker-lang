@@ -364,6 +364,22 @@ jobs:
           ! grep -q 'ast_node_ref_new(NODE_FOR)' "$ast"
           ! grep -q 'ast_node_ref_new(NODE_LOOP)' "$ast"
 
+      - name: Require AstAssign and AstExprStmt struct statement records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstAssign {' "$ast"
+          grep -q 'struct AstExprStmt {' "$ast"
+          grep -q 'fn ast_assign_record(target: i64, value: i64) -> AstAssign' "$ast"
+          grep -q 'fn ast_assign_pack(stmt: AstAssign) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_assign_unpack(node: Vec<i64>) -> AstAssign' "$ast"
+          grep -q 'fn ast_stmt_ref_assign(stmt_ref: AstStmtRef) -> AstAssign' "$ast"
+          grep -q 'fn ast_expr_stmt_record(expr: i64) -> AstExprStmt' "$ast"
+          grep -q 'fn ast_stmt_ref_expr_stmt(stmt_ref: AstStmtRef) -> AstExprStmt' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_ASSIGN)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_EXPR_STMT)' "$ast"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |
@@ -1581,6 +1597,18 @@ jobs:
           grep -q "int main(void)" /tmp/107_ast_for_struct.c
           grep -q "make_for" /tmp/107_ast_for_struct.c
           grep -q "bkr_i64" /tmp/107_ast_for_struct.c
+
+      - name: Compile AstAssign struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/108_ast_assign_struct.bkr \
+            -o /tmp/108_ast_assign_struct.c
+          test -s /tmp/108_ast_assign_struct.c
+          ! grep -q "Parse error at token" /tmp/108_ast_assign_struct.c
+          grep -q "int main(void)" /tmp/108_ast_assign_struct.c
+          grep -q "make_assign" /tmp/108_ast_assign_struct.c
+          grep -q "bkr_i64" /tmp/108_ast_assign_struct.c
 
       - name: Compile pattern and type kind enum fixture through self-host compiler
         timeout-minutes: 2

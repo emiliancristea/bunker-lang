@@ -120,6 +120,19 @@
         body: i64
     }
 
+    struct AstAssign {
+        start: i64,
+        end: i64,
+        target: i64,
+        value: i64
+    }
+
+    struct AstExprStmt {
+        start: i64,
+        end: i64,
+        expr: i64
+    }
+
     struct AstExprRef {
         handle: i64,
     }
@@ -1287,6 +1300,14 @@
         return ast_loop_unpack(ast_stmt_node_from_ref(stmt_ref));
     }
 
+    fn ast_stmt_ref_assign(stmt_ref: AstStmtRef) -> AstAssign {
+        return ast_assign_unpack(ast_stmt_node_from_ref(stmt_ref));
+    }
+
+    fn ast_stmt_ref_expr_stmt(stmt_ref: AstStmtRef) -> AstExprStmt {
+        return ast_expr_stmt_unpack(ast_stmt_node_from_ref(stmt_ref));
+    }
+
     fn ast_if_cond(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 1);
     }
@@ -2348,21 +2369,83 @@
         return ast_stmt_node_from_ref(ast_continue_ref());
     }
 
+    fn ast_assign_record(target: i64, value: i64) -> AstAssign {
+        return AstAssign {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            target: target,
+            value: value
+        };
+    }
+
+    fn ast_assign_pack(stmt: AstAssign) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_ASSIGN);
+        vec_push(node, stmt.start);
+        vec_push(node, stmt.end);
+        vec_push(node, stmt.target);
+        vec_push(node, stmt.value);
+        return node;
+    }
+
+    fn ast_assign_unpack(node: Vec<i64>) -> AstAssign {
+        let target: i64 = 0;
+        let value: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            target = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            value = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        return AstAssign {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            target: target,
+            value: value
+        };
+    }
+
     fn ast_assign_ref(target_ref: AstExprRef, value_ref: AstExprRef) -> AstStmtRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_ASSIGN);
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(target_ref));
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(value_ref));
-        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
+        let rec: AstAssign = ast_assign_record(ast_expr_ref_handle(target_ref), ast_expr_ref_handle(value_ref));
+        return ast_stmt_ref_from_handle(ast_assign_pack(rec) as i64);
     }
 
     fn ast_assign(target: Vec<i64>, value: Vec<i64>) -> Vec<i64> {
         return ast_stmt_node_from_ref(ast_assign_ref(ast_expr_ref_from_node(target), ast_expr_ref_from_node(value)));
     }
 
+    fn ast_expr_stmt_record(expr: i64) -> AstExprStmt {
+        return AstExprStmt {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            expr: expr
+        };
+    }
+
+    fn ast_expr_stmt_pack(stmt: AstExprStmt) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_EXPR_STMT);
+        vec_push(node, stmt.start);
+        vec_push(node, stmt.end);
+        vec_push(node, stmt.expr);
+        return node;
+    }
+
+    fn ast_expr_stmt_unpack(node: Vec<i64>) -> AstExprStmt {
+        let expr: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            expr = vec_get(node, AST_NODE_DATA_START);
+        }
+        return AstExprStmt {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            expr: expr
+        };
+    }
+
     fn ast_expr_stmt_ref(expr_ref: AstExprRef) -> AstStmtRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_EXPR_STMT);
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(expr_ref));
-        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
+        let rec: AstExprStmt = ast_expr_stmt_record(ast_expr_ref_handle(expr_ref));
+        return ast_stmt_ref_from_handle(ast_expr_stmt_pack(rec) as i64);
     }
 
     fn ast_expr_stmt(expr: Vec<i64>) -> Vec<i64> {
