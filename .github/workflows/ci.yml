@@ -468,7 +468,7 @@ jobs:
           grep -q 'fn ast_enum_ref_payload_count(item_ref: AstItemRef) -> i64' "$ast"
           grep -q 'fn ast_item_ref_enum(item_ref: AstItemRef) -> AstEnum' "$ast"
           grep -q 'payload = ast_type_ref_to_optional_handle(parse_type_ref(p));' self-host/modules/parser.bkr
-          grep -q 'enum_variant = { identifier ~ ("(" ~ type_expr ~ ("," ~ type_expr)* ~ ")")? }' bunker-cli/src/grammar/bunker.pest
+          grep -qF 'enum_variant = { identifier ~ ("(" ~ type_expr ~ ("," ~ type_expr)* ~ ")")? }' bunker-cli/src/grammar/bunker.pest
           grep -q 'fn ast_enum_ref_payload_arity_sum(item_ref: AstItemRef) -> i64' self-host/modules/ast.bkr
           ! grep -q 'ast_node_ref_new(NODE_STRUCT)' "$ast"
           ! grep -q 'ast_node_ref_new(NODE_ENUM)' "$ast"
