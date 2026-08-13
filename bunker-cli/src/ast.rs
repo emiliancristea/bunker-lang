@@ -48,7 +48,7 @@ pub struct StructField {
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumVariantDecl {
     pub name: String,
-    pub payload: Option<Type>,
+    pub payloads: Vec<Type>,
 }
 
 #[derive(Debug, Clone, PartialEq)]

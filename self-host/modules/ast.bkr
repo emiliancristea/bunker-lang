@@ -3409,6 +3409,20 @@
         return count;
     }
 
+    fn ast_enum_ref_payload_arity_sum(item_ref: AstItemRef) -> i64 {
+        let payloads_ref: AstI64ListRef = ast_enum_ref_payloads_ref(item_ref);
+        let sum: i64 = 0;
+        let i: i64 = 0;
+        while i < ast_i64_list_ref_count(payloads_ref) {
+            let payload: i64 = ast_i64_list_ref_get(payloads_ref, i);
+            if ast_optional_is_some(payload) {
+                sum = sum + ast_i64_list_ref_count(ast_i64_list_ref_from_handle(payload));
+            }
+            i = i + 1;
+        }
+        return sum;
+    }
+
     fn ast_struct(name_idx: i64, fields: Vec<i64>) -> Vec<i64> {
         return ast_item_node_from_ref(ast_struct_ref(name_idx, ast_node_list_ref_from_list(fields)));
     }

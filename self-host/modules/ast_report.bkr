@@ -383,7 +383,8 @@
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_enum_ref_name_idx(item_ref))) + comma +
                 json_field_i64("variant_count", ast_i64_list_ref_count(ast_enum_ref_variants_ref(item_ref))) + comma +
-                json_field_i64("payload_count", ast_enum_ref_payload_count(item_ref));
+                json_field_i64("payload_count", ast_enum_ref_payload_count(item_ref)) + comma +
+                json_field_i64("payload_arity_sum", ast_enum_ref_payload_arity_sum(item_ref));
         } else if kind == NODE_FIELD {
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_field_decl_ref_name_idx(node_ref))) + comma +

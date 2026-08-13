@@ -302,14 +302,14 @@ fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
                 for variant_pair in inner.into_inner() {
                     if variant_pair.as_rule() == Rule::enum_variant {
                         let mut variant_name = String::new();
-                        let mut payload = None;
+                        let mut payloads = Vec::new();
                         for variant_inner in variant_pair.into_inner() {
                             match variant_inner.as_rule() {
                                 Rule::identifier => {
                                     variant_name = variant_inner.as_str().to_string();
                                 }
                                 Rule::type_expr => {
-                                    payload = Some(build_type(variant_inner)?);
+                                    payloads.push(build_type(variant_inner)?);
                                 }
                                 _ => {}
                             }
@@ -317,7 +317,7 @@ fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
                         if !variant_name.is_empty() {
                             variants.push(EnumVariantDecl {
                                 name: variant_name,
-                                payload,
+                                payloads,
                             });
                         }
                     }

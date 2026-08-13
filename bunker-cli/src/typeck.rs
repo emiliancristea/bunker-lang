@@ -26,7 +26,7 @@ pub struct TypeChecker {
     // Unit enum definitions: name -> variant names in declaration order
     enums: HashMap<String, Vec<String>>,
     // Parallel payload types for each enum variant; None means a unit variant.
-    enum_payloads: HashMap<String, Vec<Option<Type>>>,
+    enum_payloads: HashMap<String, Vec<Vec<Type>>>,
     // Errors collected during type checking
     errors: Vec<TypeError>,
     // Current function return type (for checking return statements)
@@ -112,7 +112,7 @@ impl TypeChecker {
                         e.name.clone(),
                         e.variants
                             .iter()
-                            .map(|variant| variant.payload.clone())
+                            .map(|variant| variant.payloads.clone())
                             .collect(),
                     );
                 }
@@ -1442,14 +1442,18 @@ impl TypeChecker {
         matches!(ty, Type::I32 | Type::I64)
     }
 
-    fn enum_variant_payload(&self, enum_name: &str, variant: &str) -> Option<&Option<Type>> {
+    fn enum_variant_payloads(&self, enum_name: &str, variant: &str) -> Option<&[Type]> {
         let names = self.enums.get(enum_name)?;
         let index = names.iter().position(|name| name == variant)?;
-        self.enum_payloads.get(enum_name)?.get(index)
+        self.enum_payloads
+            .get(enum_name)?
+            .get(index)
+            .map(|types| types.as_slice())
     }
 
     fn enum_variant_has_payload(&self, enum_name: &str, variant: &str) -> bool {
-        matches!(self.enum_variant_payload(enum_name, variant), Some(Some(_)))
+        self.enum_variant_payloads(enum_name, variant)
+            .is_some_and(|types| !types.is_empty())
     }
 
     fn bind_pattern(&mut self, pattern: &ast::Pattern, expr_ty: &Type) {
@@ -1467,8 +1471,13 @@ impl TypeChecker {
                 variant,
                 binding: Some(name),
             } if name != "_" => {
-                if let Some(Some(payload)) = self.enum_variant_payload(enum_name, variant).cloned()
-                {
+                let payload_ty = self
+                    .enum_variant_payloads(enum_name, variant)
+                    .and_then(|types| match types {
+                        [ty] => Some(ty.clone()),
+                        _ => None,
+                    });
+                if let Some(payload) = payload_ty {
                     self.variables.insert(name.clone(), payload);
                 }
             }
@@ -1484,7 +1493,10 @@ impl TypeChecker {
         context: &str,
     ) -> Result<Type> {
         let named = Type::Named(enum_name.to_string());
-        match self.enum_variant_payload(enum_name, variant).cloned() {
+        let payloads = self
+            .enum_variant_payloads(enum_name, variant)
+            .map(|types| types.to_vec());
+        match payloads.as_deref() {
             None => {
                 self.errors.push(TypeError {
                     message: format!("Unknown variant '{}' on enum {}", variant, enum_name),
@@ -1492,7 +1504,7 @@ impl TypeChecker {
                 });
                 Ok(named)
             }
-            Some(None) => {
+            Some([]) => {
                 if !args.is_empty() {
                     self.errors.push(TypeError {
                         message: format!(
@@ -1504,7 +1516,7 @@ impl TypeChecker {
                 }
                 Ok(named)
             }
-            Some(Some(expected)) => {
+            Some([expected]) => {
                 if args.len() != 1 {
                     self.errors.push(TypeError {
                         message: format!(
@@ -1516,6 +1528,7 @@ impl TypeChecker {
                         location: context.to_string(),
                     });
                 } else {
+                    let expected = expected.clone();
                     let actual = self.infer_expr(&args[0], context)?;
                     if !self.types_compatible(&expected, &actual) {
                         self.errors.push(TypeError {
@@ -1527,6 +1540,18 @@ impl TypeChecker {
                         });
                     }
                 }
+                Ok(named)
+            }
+            Some(types) => {
+                self.errors.push(TypeError {
+                    message: format!(
+                        "Multi-field payload construction for {}.{} is not supported yet ({} fields)",
+                        enum_name,
+                        variant,
+                        types.len()
+                    ),
+                    location: context.to_string(),
+                });
                 Ok(named)
             }
         }
