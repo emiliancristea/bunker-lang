@@ -71,6 +71,20 @@
         name_idx: i64
     }
 
+    struct AstLet {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        type_handle: i64,
+        init: i64
+    }
+
+    struct AstReturn {
+        start: i64,
+        end: i64,
+        expr: i64
+    }
+
     struct AstExprRef {
         handle: i64,
     }
@@ -1195,11 +1209,17 @@
     }
 
     fn ast_let_name_idx(node: Vec<i64>) -> i64 {
-        return ast_field(node, 1);
+        let rec: AstLet = ast_let_unpack(node);
+        return rec.name_idx;
+    }
+
+    fn ast_stmt_ref_let(stmt_ref: AstStmtRef) -> AstLet {
+        return ast_let_unpack(ast_stmt_node_from_ref(stmt_ref));
     }
 
     fn ast_let_ref_name_idx(stmt_ref: AstStmtRef) -> i64 {
-        return ast_let_name_idx(ast_stmt_node_from_ref(stmt_ref));
+        let rec: AstLet = ast_stmt_ref_let(stmt_ref);
+        return rec.name_idx;
     }
 
     fn ast_let_type_node(node: Vec<i64>) -> i64 {
@@ -1207,11 +1227,13 @@
     }
 
     fn ast_let_type_handle(node: Vec<i64>) -> i64 {
-        return ast_field(node, 2);
+        let rec: AstLet = ast_let_unpack(node);
+        return rec.type_handle;
     }
 
     fn ast_let_ref_type_handle(stmt_ref: AstStmtRef) -> i64 {
-        return ast_let_type_handle(ast_stmt_node_from_ref(stmt_ref));
+        let rec: AstLet = ast_stmt_ref_let(stmt_ref);
+        return rec.type_handle;
     }
 
     fn ast_let_init(node: Vec<i64>) -> i64 {
@@ -1219,11 +1241,13 @@
     }
 
     fn ast_let_init_handle(node: Vec<i64>) -> i64 {
-        return ast_field(node, 3);
+        let rec: AstLet = ast_let_unpack(node);
+        return rec.init;
     }
 
     fn ast_let_ref_init_handle(stmt_ref: AstStmtRef) -> i64 {
-        return ast_let_init_handle(ast_stmt_node_from_ref(stmt_ref));
+        let rec: AstLet = ast_stmt_ref_let(stmt_ref);
+        return rec.init;
     }
 
     fn ast_return_expr(node: Vec<i64>) -> i64 {
@@ -1231,11 +1255,17 @@
     }
 
     fn ast_return_expr_handle(node: Vec<i64>) -> i64 {
-        return ast_field(node, 1);
+        let rec: AstReturn = ast_return_unpack(node);
+        return rec.expr;
+    }
+
+    fn ast_stmt_ref_return(stmt_ref: AstStmtRef) -> AstReturn {
+        return ast_return_unpack(ast_stmt_node_from_ref(stmt_ref));
     }
 
     fn ast_return_ref_expr_handle(stmt_ref: AstStmtRef) -> i64 {
-        return ast_return_expr_handle(ast_stmt_node_from_ref(stmt_ref));
+        let rec: AstReturn = ast_stmt_ref_return(stmt_ref);
+        return rec.expr;
     }
 
     fn ast_if_cond(node: Vec<i64>) -> Vec<i64> {
@@ -2193,22 +2223,90 @@
         return ast_expr_node_from_ref(ast_ternary_ref(ast_expr_ref_from_node(cond), ast_expr_ref_from_node(then_expr), ast_expr_ref_from_node(else_expr)));
     }
 
+    fn ast_let_record(name_idx: i64, type_handle: i64, init: i64) -> AstLet {
+        return AstLet {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            name_idx: name_idx,
+            type_handle: type_handle,
+            init: init
+        };
+    }
+
+    fn ast_let_pack(stmt: AstLet) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_LET);
+        vec_push(node, stmt.start);
+        vec_push(node, stmt.end);
+        vec_push(node, stmt.name_idx);
+        vec_push(node, stmt.type_handle);
+        vec_push(node, stmt.init);
+        return node;
+    }
+
+    fn ast_let_unpack(node: Vec<i64>) -> AstLet {
+        let name_idx: i64 = 0;
+        let type_handle: i64 = 0;
+        let init: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            name_idx = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            type_handle = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 2 {
+            init = vec_get(node, AST_NODE_DATA_START + 2);
+        }
+        return AstLet {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            name_idx: name_idx,
+            type_handle: type_handle,
+            init: init
+        };
+    }
+
     fn ast_let_ref(name_idx: i64, type_node: i64, init: i64) -> AstStmtRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_LET);
-        ast_node_ref_push(node_ref, name_idx);
-        ast_node_ref_push(node_ref, type_node);
-        ast_node_ref_push(node_ref, init);
-        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
+        let rec: AstLet = ast_let_record(name_idx, type_node, init);
+        return ast_stmt_ref_from_handle(ast_let_pack(rec) as i64);
     }
 
     fn ast_let(name_idx: i64, type_node: i64, init: i64) -> Vec<i64> {
         return ast_stmt_node_from_ref(ast_let_ref(name_idx, type_node, init));
     }
 
+    fn ast_return_record(expr: i64) -> AstReturn {
+        return AstReturn {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            expr: expr
+        };
+    }
+
+    fn ast_return_pack(stmt: AstReturn) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_RETURN);
+        vec_push(node, stmt.start);
+        vec_push(node, stmt.end);
+        vec_push(node, stmt.expr);
+        return node;
+    }
+
+    fn ast_return_unpack(node: Vec<i64>) -> AstReturn {
+        let expr: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            expr = vec_get(node, AST_NODE_DATA_START);
+        }
+        return AstReturn {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            expr: expr
+        };
+    }
+
     fn ast_return_ref(expr: i64) -> AstStmtRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_RETURN);
-        ast_node_ref_push(node_ref, expr);
-        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
+        let rec: AstReturn = ast_return_record(expr);
+        return ast_stmt_ref_from_handle(ast_return_pack(rec) as i64);
     }
 
     fn ast_return(expr: i64) -> Vec<i64> {
