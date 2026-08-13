@@ -267,7 +267,7 @@ These are the next concrete PR-sized slices.
 | Q-203 | DONE | Replace call records with `struct AstCall`. | Call constructors pack `AstCall` and name/args readers unpack fields; `tests/103_ast_call_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_CALL)` construction. |
 | Q-204 | DONE | Replace index/field-access records with structs. | Index and field-access constructors pack `AstIndex`/`AstFieldAccess`; readers unpack base/index/name fields; `tests/104_ast_index_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_INDEX)` construction. |
 | Q-205 | DONE | Replace let/return statement records with structs. | Let/return constructors pack `AstLet`/`AstReturn`; typed unpack APIs remain; hot name/type/init/expr readers use `ast_field` so stage1 typecheck of `bkrc` stays inside the 600s smoke; `tests/105_ast_let_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_LET)` construction. |
-| Q-207 | DONE | Truncate large-kernel AST reports. | AST/type-graph/symbol-table JSON skips detail walks when interned names exceed 96; small fixture reports stay complete; CI requires `ast_report_full_walk`. |
+| Q-207 | DONE | Truncate large-kernel AST reports. | AST/type-graph/symbol-table JSON skips detail walks when interned names exceed 512; language-test fixture reports stay complete; CI requires `ast_report_full_walk`. |
 
 ## Language Core
 
@@ -740,4 +740,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-08-13 | Replaced let/return statement records with structs. | Let/return constructors pack `AstLet`/`AstReturn`; fixture `105_ast_let_struct.bkr` covers struct param/return/field use. |
 | 2026-08-13 | Keep SH-003 pack/unpack off the typecheck hot path. | Single-field AST readers use `ast_field` again; typed record unpack stays for whole-struct APIs so stage1 `bkrc` typecheck does not exceed the 600s smoke. |
 | 2026-08-13 | Hold AstIf/AstWhile until stage1 reports slim down. | Pack constructors for `AstIf`/`AstWhile` parsed and fixture-compiled, but stage1 `symbol_table_report` on full `bkrc` killed the GitHub runner three times. Reverted to keep SH-001 green. |
-| 2026-08-13 | Truncate full-AST JSON reports on large kernels. | AST/type-graph/symbol-table reports skip detail walks when interned names exceed 96 so stage1 compile of `bkrc` stays inside runner memory; small fixture reports stay complete. |
+| 2026-08-13 | Truncate full-AST JSON reports on large kernels. | AST/type-graph/symbol-table reports skip detail walks when interned names exceed 512 so stage1 compile of `bkrc` stays inside runner memory; language-test fixture reports stay complete. |

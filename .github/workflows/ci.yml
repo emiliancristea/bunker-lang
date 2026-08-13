@@ -1051,7 +1051,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          grep -q 'const AST_REPORT_FULL_WALK_NAME_LIMIT: i64 = 96' self-host/modules/constants.bkr
+          grep -q 'const AST_REPORT_FULL_WALK_NAME_LIMIT: i64 = 512' self-host/modules/constants.bkr
           grep -q 'fn ast_report_full_walk(kernel_ref: AstNodeRef) -> bool' self-host/modules/report_support.bkr
           grep -q 'let full_walk: bool = ast_report_full_walk(kernel_ref);' self-host/modules/symbol_table.bkr
           grep -q 'let full_walk: bool = ast_report_full_walk(kernel_ref);' self-host/modules/type_graph.bkr
