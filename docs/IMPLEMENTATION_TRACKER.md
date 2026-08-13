@@ -251,7 +251,8 @@ These are the next concrete PR-sized slices.
 | Q-187 | DONE | Add diagnostic severity fields. | Parse/import, resolver, and typecheck diagnostics now include `severity` plus capability/report flags for severity-aware agent routing. |
 | Q-188 | DONE | Add diagnostic severity counts. | `BUNKER_RESOLVER_JSON` and `BUNKER_TYPECHECK_JSON` now expose `error_count` and `warning_count` summary fields for agent triage. |
 | Q-189 | DONE | Add AI-agent capability contract fields. | `BUNKER_CAPABILITY_JSON` now exposes agent contract version, self-hosting stage, agent-native diagnostics, production readiness, and CI validation state. |
-| Q-190 | PARTIAL | Add Rust-compiler unit enums. | Grammar/AST/typeck/JIT lowering support `enum Name { A, B }` plus `Name.A` construction and exhaustive `Name.A` match; fixtures `88`/`89_BAD`/`90_BAD` exist; still needs GitHub Actions proof and self-host parse. |
+| Q-190 | DONE | Add Rust-compiler unit enums. | Grammar/AST/typeck/JIT lowering support `enum Name { A, B }` plus `Name.A` construction and exhaustive `Name.A` match; fixtures `88`/`89_BAD`/`90_BAD` passed in GitHub Actions. |
+| Q-191 | PARTIAL | Add self-host unit enums. | Self-host lexer/parser/AST/C codegen lower unit enums and `Enum.Variant` match/construction to i64 tags; `tests/88_kernel_unit_enum.bkr` is in the self-host compile subset. Payloads and self-host exhaustiveness remain. |
 
 ## Language Core
 
@@ -282,7 +283,7 @@ These are the next concrete PR-sized slices.
 | T-006 | PARTIAL | P0 | Local type inference. | Let bindings infer robustly for all supported expressions. |
 | T-007 | PARTIAL | P0 | Call-result inference. | Builtins and user functions propagate exact result types where known, and user/builtin call arity plus known builtin argument types are diagnosed in self-host reports. |
 | T-008 | PARTIAL | P0 | Inference for `None`, empty arrays, Vec, HashMap, Ok, Err. | Unannotated empty array, `None`, Result constructor, Vec constructor, and HashMap constructor initializers now produce precise self-host diagnostics; final gate requires richer contextual propagation. |
-| T-009 | PARTIAL | P0 | User-defined enums/sum types. | Rust compiler parses unit enums, constructs `Enum.Variant`, typechecks/exhaustively matches them, and lowers tags to i64 for JIT/codegen; final gate requires payloads, self-host parse/typecheck, and CI proof. |
+| T-009 | PARTIAL | P0 | User-defined enums/sum types. | Rust and self-host compilers parse unit enums and `Enum.Variant` construction/match; Rust exhaustiveness is enforced; final gate requires payloads and self-host exhaustiveness. |
 | T-010 | PARTIAL | P0 | Exhaustive match checking. | Self-host typecheck reports non-exhaustive boolean and Option-pattern matches; the Rust compiler now also rejects non-exhaustive unit-enum matches; final gate requires full ADT and integer-range exhaustiveness. |
 | T-011 | PARTIAL | P0 | Pattern type checking. | Match patterns are checked against scrutinee type in Rust and self-host paths, and duplicate/unreachable literal, finite bool/Option, and catch-all patterns are diagnosed in self-host reports. |
 | T-012 | TODO | P1 | Destructuring patterns. | Struct/tuple/enum destructuring works with bound names. |
@@ -707,3 +708,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added diagnostic severity counts. | Resolver and typecheck reports now expose `error_count` and `warning_count` fields. |
 | 2026-06-10 | Added AI-agent capability contract fields. | Capability JSON now advertises the agent diagnostics contract, self-hosting stage, production-readiness state, and CI-validation requirement. |
 | 2026-08-13 | Added Rust-compiler unit enums. | `enum` items, `Enum.Variant` constructors, exhaustive unit-enum match, and i64 tag lowering landed with fixtures `88_kernel_unit_enum.bkr`, `89_enum_nonexhaustive_BAD.bkr`, and `90_enum_unknown_variant_BAD.bkr`. Pending GitHub Actions. |
+| 2026-08-13 | Added self-host unit enums. | Self-host lexer/parser/AST/C codegen now parse `enum` items and lower `Enum.Variant` construction/match to i64 tags; `88_kernel_unit_enum.bkr` is in the self-host compile subset. |

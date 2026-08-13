@@ -7,6 +7,7 @@
     const TOK_TRUE: i64 = 14;
     const TOK_FALSE: i64 = 15;
     const TOK_KERNEL: i64 = 20;
+    const TOK_ENUM: i64 = 21;
     const TOK_STRUCT: i64 = 22;
     const TOK_FN: i64 = 23;
     const TOK_LET: i64 = 24;
@@ -95,6 +96,7 @@
     const NODE_FIELD_ACCESS: i64 = 34;
     const NODE_STRUCT_LIT: i64 = 35;
     const NODE_MATCH: i64 = 36;
+    const NODE_ENUM: i64 = 37;
 
     // ===== AST Category Constants =====
     const AST_CAT_UNKNOWN: i64 = 0;
@@ -118,6 +120,7 @@
     const PAT_WILDCARD: i64 = 4;
     const PAT_SOME: i64 = 5;
     const PAT_NONE: i64 = 6;
+    const PAT_ENUM_VARIANT: i64 = 7;
 
     // ===== Type Constants =====
     const TYPE_I32: i64 = 0;

@@ -75,11 +75,16 @@
     }
 
     fn ast_pattern_ref_new(kind: i64, value: i64) -> AstPatternRef {
+        return ast_pattern_ref_new2(kind, value, 0);
+    }
+
+    fn ast_pattern_ref_new2(kind: i64, value: i64, aux: i64) -> AstPatternRef {
         let pattern: Vec<i64> = vec_new();
         vec_push(pattern, kind);
         vec_push(pattern, AST_SPAN_UNKNOWN);
         vec_push(pattern, AST_SPAN_UNKNOWN);
         vec_push(pattern, value);
+        vec_push(pattern, aux);
         return AstPatternRef { handle: pattern as i64 };
     }
 
@@ -493,6 +498,14 @@
 
     fn ast_pattern_ref_value(pattern_ref: AstPatternRef) -> i64 {
         return ast_pattern_value(ast_pattern_from_ref(pattern_ref));
+    }
+
+    fn ast_pattern_ref_aux(pattern_ref: AstPatternRef) -> i64 {
+        let pattern: Vec<i64> = ast_pattern_from_ref(pattern_ref);
+        if vec_len(pattern) <= AST_NODE_DATA_START + 1 {
+            return 0;
+        }
+        return vec_get(pattern, AST_NODE_DATA_START + 1);
     }
 
     fn ast_pattern_ref_span_start(pattern_ref: AstPatternRef) -> i64 {
@@ -1952,6 +1965,21 @@
         ast_node_ref_push(node_ref, name_idx);
         ast_node_ref_push(node_ref, ast_node_list_ref_handle(fields_ref));
         return ast_item_ref_from_handle(ast_node_ref_handle(node_ref));
+    }
+
+    fn ast_enum_ref(name_idx: i64, variants_ref: AstI64ListRef) -> AstItemRef {
+        let node_ref: AstNodeRef = ast_node_ref_new(NODE_ENUM);
+        ast_node_ref_push(node_ref, name_idx);
+        ast_node_ref_push(node_ref, ast_i64_list_ref_handle(variants_ref));
+        return ast_item_ref_from_handle(ast_node_ref_handle(node_ref));
+    }
+
+    fn ast_enum_ref_name_idx(item_ref: AstItemRef) -> i64 {
+        return ast_field(ast_item_node_from_ref(item_ref), 1);
+    }
+
+    fn ast_enum_ref_variants_ref(item_ref: AstItemRef) -> AstI64ListRef {
+        return ast_field_i64_list_ref(ast_item_node_from_ref(item_ref), 2);
     }
 
     fn ast_struct(name_idx: i64, fields: Vec<i64>) -> Vec<i64> {

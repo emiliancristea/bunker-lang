@@ -31,6 +31,9 @@
         if kind == NODE_STRUCT {
             return ast_struct_ref_name_idx(item_ref);
         }
+        if kind == NODE_ENUM {
+            return ast_enum_ref_name_idx(item_ref);
+        }
         return -1;
     }
 
@@ -375,6 +378,11 @@
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_struct_ref_name_idx(item_ref))) + comma +
                 json_field_raw("fields", ast_report_node_array_json_ref(names, ast_struct_ref_fields_ref(item_ref)));
+        } else if kind == NODE_ENUM {
+            let item_ref: AstItemRef = ast_item_ref_from_node_ref(node_ref);
+            result = result + comma +
+                json_field_str("name", ast_report_name(names, ast_enum_ref_name_idx(item_ref))) + comma +
+                json_field_i64("variant_count", ast_i64_list_ref_count(ast_enum_ref_variants_ref(item_ref)));
         } else if kind == NODE_FIELD {
             result = result + comma +
                 json_field_str("name", ast_report_name(names, ast_field_decl_ref_name_idx(node_ref))) + comma +
@@ -418,6 +426,7 @@
             json_field_i64("item_count", ast_node_list_ref_count(items_ref)) + comma +
             json_field_i64("function_count", ast_report_count_kind_ref(items_ref, NODE_FN)) + comma +
             json_field_i64("struct_count", ast_report_count_kind_ref(items_ref, NODE_STRUCT)) + comma +
+            json_field_i64("enum_count", ast_report_count_kind_ref(items_ref, NODE_ENUM)) + comma +
             json_field_i64("const_count", ast_report_count_kind_ref(items_ref, NODE_CONST)) +
             "}";
         return "{" +

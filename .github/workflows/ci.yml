@@ -1149,6 +1149,18 @@ jobs:
         timeout-minutes: 2
         run: ./bunker-cli/target/release/bunker-cli self-host-check self-host
 
+      - name: Compile unit enum fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/88_kernel_unit_enum.bkr \
+            -o /tmp/88_kernel_unit_enum.c
+          test -s /tmp/88_kernel_unit_enum.c
+          ! grep -q "Parse error at token" /tmp/88_kernel_unit_enum.c
+          grep -q "int main(void)" /tmp/88_kernel_unit_enum.c
+          grep -q "bkr_i64" /tmp/88_kernel_unit_enum.c
+          grep -q '"enum_count":1' /tmp/88_kernel_unit_enum.c
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

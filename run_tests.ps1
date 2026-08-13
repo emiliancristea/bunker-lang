@@ -237,7 +237,8 @@ if (-not $JitOnly) {
         "tests\77_typed_vec_operations.bkr",
         "tests\79_typed_result_operations.bkr",
         "tests\81_typed_hashmap_operations.bkr",
-        "tests\85_result_handle_roundtrip.bkr"
+        "tests\85_result_handle_roundtrip.bkr",
+        "tests\88_kernel_unit_enum.bkr"
     )
 
     $subsetOk = $true

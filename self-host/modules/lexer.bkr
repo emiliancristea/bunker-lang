@@ -91,6 +91,7 @@
 
                 if word == "kernel" { tok_type = TOK_KERNEL; }
                 if word == "struct" { tok_type = TOK_STRUCT; }
+                if word == "enum" { tok_type = TOK_ENUM; }
                 if word == "fn" { tok_type = TOK_FN; }
                 if word == "let" { tok_type = TOK_LET; }
                 if word == "if" { tok_type = TOK_IF; }

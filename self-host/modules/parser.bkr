@@ -377,6 +377,12 @@
             let raw_name = parser_get_name_ref(p, name_idx);
             parser_advance_ref(p);
 
+            if parser_peek_ref(p) == TOK_DOT {
+                parser_advance_ref(p);
+                let variant_idx = parser_expect_name(p);
+                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new2(PAT_ENUM_VARIANT, name_idx, variant_idx), start);
+            }
+
             if raw_name == "_" {
                 return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_WILDCARD, 0), start);
             }
@@ -1042,6 +1048,29 @@
         return parser_set_item_ref_span_from_start(p, const_ref, start);
     }
 
+    fn parse_enum(p: ParserStateRef) -> Vec<i64> {
+        return parser_item_ref_to_compat_node(parse_enum_ref(p));
+    }
+
+    fn parse_enum_ref(p: ParserStateRef) -> AstItemRef {
+        let start = parser_current_token_start(p);
+        parser_expect_ref(p, TOK_ENUM);
+        let name_idx = parser_expect_name(p);
+        parser_expect_ref(p, TOK_LBRACE);
+
+        let variants: Vec<i64> = vec_new();
+        let variants_ref: AstI64ListRef = ast_i64_list_ref_from_list(variants);
+        while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
+            ast_i64_list_append_ref(variants_ref, parser_expect_name(p));
+            if parser_peek_ref(p) == TOK_COMMA {
+                parser_advance_ref(p);
+            }
+        }
+
+        parser_expect_ref(p, TOK_RBRACE);
+        return parser_set_item_ref_span_from_start(p, ast_enum_ref(name_idx, variants_ref), start);
+    }
+
     fn parse_struct(p: ParserStateRef) -> Vec<i64> {
         return parser_item_ref_to_compat_node(parse_struct_ref(p));
     }
@@ -1100,6 +1129,8 @@
                 ast_node_list_append_item_ref(items_ref, parse_const_ref(p));
             } else if tok == TOK_STRUCT {
                 ast_node_list_append_item_ref(items_ref, parse_struct_ref(p));
+            } else if tok == TOK_ENUM {
+                ast_node_list_append_item_ref(items_ref, parse_enum_ref(p));
             } else {
                 parser_advance_ref(p);  // skip unknown
             }

@@ -97,6 +97,7 @@
     fn type_graph_seed_state_ref(kernel_ref: AstNodeRef) -> CgenStateRef {
         let names = ast_kernel_ref_names(kernel_ref);
         let state: CgenStateRef = cgen_new_ref(ast_report_name(names, ast_node_ref_name_idx(kernel_ref)), names);
+        cgen_attach_kernel_handle(state, ast_node_ref_handle(kernel_ref));
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         let i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
