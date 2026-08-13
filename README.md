@@ -276,6 +276,7 @@ view MyView {
 - [x] Stage1/stage2 self-compilation for the supported bootstrap subset (CI-certified on `main`)
 - [x] **120 tests passing** (including 18 negative `*_BAD` tests; 83 JIT-validated)
 - [x] Kernel unit enums (`enum Color { Red, Green }`, `Color.Red`, exhaustive match)
+- [x] Self-host unit-enum match exhaustiveness (`non_exhaustive_match` / `BKR_SELF_EXHAUSTIVENESS`)
 - [x] Self-host AST kind APIs typed with `enum NodeKind`
 - [x] Self-host lexer token APIs typed with `enum TokenKind`
 - [x] Self-host pattern/type kind APIs typed with `enum PatternKind` / `enum TypeKind`

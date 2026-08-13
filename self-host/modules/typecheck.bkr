@@ -1165,6 +1165,192 @@
         return state;
     }
 
+    fn typecheck_match_patterns_contain_enum_variant_ref(patterns_ref: AstPatternListRef) -> bool {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            if ast_pattern_ref_kind(ast_pattern_list_ref_get_ref(patterns_ref, i)) == PAT_ENUM_VARIANT {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_first_enum_variant_name_idx(patterns_ref: AstPatternListRef) -> i64 {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if ast_pattern_ref_kind(pattern_ref) == PAT_ENUM_VARIANT {
+                return ast_pattern_ref_value(pattern_ref);
+            }
+            i = i + 1;
+        }
+        return -1;
+    }
+
+    fn typecheck_find_enum_item_ref(kernel_ref: AstNodeRef, enum_name_idx: i64) -> AstItemRef {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_ENUM {
+                if ast_enum_ref_name_idx(item_ref) == enum_name_idx {
+                    return item_ref;
+                }
+            }
+            i = i + 1;
+        }
+        return ast_optional_item_ref_none();
+    }
+
+    fn typecheck_match_patterns_cover_enum_variant_ref(patterns_ref: AstPatternListRef,
+                                                      enum_name_idx: i64,
+                                                      variant_idx: i64) -> bool {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if typecheck_pattern_is_catch_all_ref(pattern_ref) {
+                return true;
+            }
+            if ast_pattern_ref_kind(pattern_ref) == PAT_ENUM_VARIANT {
+                if ast_pattern_ref_value(pattern_ref) == enum_name_idx {
+                    if ast_pattern_ref_aux(pattern_ref) == variant_idx {
+                        return true;
+                    }
+                }
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_check_enum_match_exhaustiveness_ref(state: Vec<str>, kernel_ref: AstNodeRef,
+                                                    names: Vec<str>, expr_ref: AstExprRef,
+                                                    patterns_ref: AstPatternListRef,
+                                                    scope: str) -> Vec<str> {
+        if !typecheck_match_patterns_contain_enum_variant_ref(patterns_ref) {
+            return state;
+        }
+        let enum_name_idx: i64 = typecheck_first_enum_variant_name_idx(patterns_ref);
+        if enum_name_idx < 0 {
+            return state;
+        }
+        let enum_item_ref: AstItemRef = typecheck_find_enum_item_ref(kernel_ref, enum_name_idx);
+        if ast_item_ref_is_none(enum_item_ref) {
+            return state;
+        }
+        let variants_ref: AstI64ListRef = ast_enum_ref_variants_ref(enum_item_ref);
+        if ast_i64_list_ref_count(variants_ref) <= 0 {
+            return state;
+        }
+        let missing: str = "";
+        let j: i64 = 0;
+        while j < ast_i64_list_ref_count(variants_ref) {
+            let variant_idx: i64 = ast_i64_list_ref_get(variants_ref, j);
+            if !typecheck_match_patterns_cover_enum_variant_ref(patterns_ref, enum_name_idx, variant_idx) {
+                let variant_label: str = ast_report_name(names, enum_name_idx) + "." + ast_report_name(names, variant_idx);
+                if len(missing) > 0 {
+                    missing = missing + ", " + variant_label;
+                } else {
+                    missing = variant_label;
+                }
+            }
+            j = j + 1;
+        }
+        if len(missing) <= 0 {
+            return state;
+        }
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("non_exhaustive_match", "BKR_SELF_EXHAUSTIVENESS",
+                "match", scope, ast_node_ref_from_expr_ref(expr_ref),
+                "patterns covering every declared unit-enum variant",
+                "missing " + missing,
+                "Add the missing unit-enum pattern arm or a catch-all pattern."));
+    }
+
+    fn typecheck_check_enum_match_redundancy_ref(state: Vec<str>, kernel_ref: AstNodeRef,
+                                                patterns_ref: AstPatternListRef,
+                                                scope: str) -> Vec<str> {
+        if !typecheck_match_patterns_contain_enum_variant_ref(patterns_ref) {
+            return state;
+        }
+        let enum_name_idx: i64 = typecheck_first_enum_variant_name_idx(patterns_ref);
+        if enum_name_idx < 0 {
+            return state;
+        }
+        let enum_item_ref: AstItemRef = typecheck_find_enum_item_ref(kernel_ref, enum_name_idx);
+        if ast_item_ref_is_none(enum_item_ref) {
+            return state;
+        }
+        let variants_ref: AstI64ListRef = ast_enum_ref_variants_ref(enum_item_ref);
+        let variant_count: i64 = ast_i64_list_ref_count(variants_ref);
+        if variant_count <= 0 {
+            return state;
+        }
+        let covered: i64 = 0;
+        let exhausted: bool = false;
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if exhausted {
+                state = typecheck_append_match_pattern_semantic_ref(state,
+                    "unreachable_match_pattern",
+                    "match pattern " + int_to_string(i + 1),
+                    scope,
+                    pattern_ref,
+                    "reachable match pattern",
+                    "previous unit-enum patterns already cover every declared variant",
+                    "Remove this arm or move it before the exhaustive unit-enum patterns.");
+            }
+            if ast_pattern_ref_kind(pattern_ref) == PAT_ENUM_VARIANT {
+                let variant_idx: i64 = ast_pattern_ref_aux(pattern_ref);
+                if ast_pattern_ref_value(pattern_ref) == enum_name_idx {
+                    if typecheck_enum_variant_is_declared_ref(variants_ref, variant_idx) {
+                        if !typecheck_match_patterns_cover_enum_variant_before_ref(patterns_ref,
+                                enum_name_idx, variant_idx, i) {
+                            covered = covered + 1;
+                        }
+                    }
+                }
+            }
+            if covered >= variant_count {
+                exhausted = true;
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_enum_variant_is_declared_ref(variants_ref: AstI64ListRef, variant_idx: i64) -> bool {
+        let j: i64 = 0;
+        while j < ast_i64_list_ref_count(variants_ref) {
+            if ast_i64_list_ref_get(variants_ref, j) == variant_idx {
+                return true;
+            }
+            j = j + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_match_patterns_cover_enum_variant_before_ref(patterns_ref: AstPatternListRef,
+                                                             enum_name_idx: i64,
+                                                             variant_idx: i64,
+                                                             before: i64) -> bool {
+        let i: i64 = 0;
+        while i < before {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if ast_pattern_ref_kind(pattern_ref) == PAT_ENUM_VARIANT {
+                if ast_pattern_ref_value(pattern_ref) == enum_name_idx {
+                    if ast_pattern_ref_aux(pattern_ref) == variant_idx {
+                        return true;
+                    }
+                }
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
     fn typecheck_check_array_element_types_ref(state: Vec<str>, cstate: CgenStateRef,
                                                elements_ref: AstNodeListRef, scope: str) -> Vec<str> {
         let expected_kind: i64 = TYPE_UNKNOWN;
@@ -1613,9 +1799,13 @@
                 ast_match_ref_patterns_ref(expr_ref), scrutinee_kind, scope);
             state = typecheck_check_option_match_exhaustiveness_ref(state, expr_ref,
                 ast_match_ref_patterns_ref(expr_ref), scope);
+            state = typecheck_check_enum_match_exhaustiveness_ref(state, kernel_ref, names, expr_ref,
+                ast_match_ref_patterns_ref(expr_ref), scope);
             state = typecheck_check_bool_match_redundancy_ref(state,
                 ast_match_ref_patterns_ref(expr_ref), scrutinee_kind, scope);
             state = typecheck_check_option_match_redundancy_ref(state,
+                ast_match_ref_patterns_ref(expr_ref), scope);
+            state = typecheck_check_enum_match_redundancy_ref(state, kernel_ref,
                 ast_match_ref_patterns_ref(expr_ref), scope);
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
             state = typecheck_check_match_arm_types_ref(state, cstate, bodies_ref, scope);
@@ -1917,6 +2107,7 @@
             json_field_bool("match_pattern_semantic_checks", true) + comma +
             json_field_bool("bool_match_exhaustiveness_checks", true) + comma +
             json_field_bool("option_match_exhaustiveness_checks", true) + comma +
+            json_field_bool("enum_match_exhaustiveness_checks", true) + comma +
             json_field_bool("finite_match_redundancy_checks", true) + comma +
             json_field_bool("array_element_type_checks", true) + comma +
             json_field_bool("loop_control_checks", true) + comma +
@@ -1936,7 +2127,7 @@
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
             json_field_i64("error_count", resolver_state_count(state)) + comma +
             json_field_i64("warning_count", 0) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use across initializers and value expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, call targets, builtin argument types, user/builtin call arity, entry-point presence/signature, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal, finite bool/Option redundancy, and Option match patterns, non-exhaustive bool/Option matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use across initializers and value expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, call targets, builtin argument types, user/builtin call arity, entry-point presence/signature, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal, finite bool/Option/unit-enum redundancy, and Option match patterns, non-exhaustive bool/Option/unit-enum matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, payload/ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }

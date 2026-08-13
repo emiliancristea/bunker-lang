@@ -1132,10 +1132,15 @@ jobs:
           grep -q 'fn typecheck_check_option_match_exhaustiveness_ref' "$typecheck"
           grep -q 'patterns covering Some and None' "$typecheck"
           grep -q 'json_field_bool("option_match_exhaustiveness_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_enum_match_exhaustiveness_ref' "$typecheck"
+          grep -q 'patterns covering every declared unit-enum variant' "$typecheck"
+          grep -q 'json_field_bool("enum_match_exhaustiveness_checks", true)' "$typecheck"
           grep -q 'fn typecheck_check_bool_match_redundancy_ref' "$typecheck"
           grep -q 'fn typecheck_check_option_match_redundancy_ref' "$typecheck"
+          grep -q 'fn typecheck_check_enum_match_redundancy_ref' "$typecheck"
           grep -q 'previous bool patterns already cover true and false' "$typecheck"
           grep -q 'previous Option patterns already cover Some and None' "$typecheck"
+          grep -q 'previous unit-enum patterns already cover every declared variant' "$typecheck"
           grep -q 'json_field_bool("finite_match_redundancy_checks", true)' "$typecheck"
           grep -q 'fn typecheck_check_array_element_types_ref' "$typecheck"
           grep -q 'array_element_type_mismatch' "$typecheck"
@@ -1860,6 +1865,21 @@ jobs:
           grep -q "int main(void)" /tmp/88_kernel_unit_enum.c
           grep -q "bkr_i64" /tmp/88_kernel_unit_enum.c
           grep -q '"enum_count":1' /tmp/88_kernel_unit_enum.c
+          ! grep -q '"kind":"non_exhaustive_match"' /tmp/88_kernel_unit_enum.c
+
+      - name: Check self-host unit-enum exhaustiveness diagnostics
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/89_enum_nonexhaustive_BAD.bkr \
+            -o /tmp/89_enum_nonexhaustive_BAD.c
+          test -s /tmp/89_enum_nonexhaustive_BAD.c
+          ! grep -q "Parse error" /tmp/89_enum_nonexhaustive_BAD.c
+          grep -q "BUNKER_TYPECHECK_JSON" /tmp/89_enum_nonexhaustive_BAD.c
+          grep -q '"kind":"non_exhaustive_match"' /tmp/89_enum_nonexhaustive_BAD.c
+          grep -q "BKR_SELF_EXHAUSTIVENESS" /tmp/89_enum_nonexhaustive_BAD.c
+          grep -q "missing Color.Blue" /tmp/89_enum_nonexhaustive_BAD.c
+          grep -q '"enum_match_exhaustiveness_checks":true' /tmp/89_enum_nonexhaustive_BAD.c
 
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
