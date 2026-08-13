@@ -1957,6 +1957,28 @@ jobs:
           grep -q '"payload_count":1' /tmp/120_enum_multi_payload_decl.c
           grep -q '"payload_arity_sum":2' /tmp/120_enum_multi_payload_decl.c
 
+      - name: Compile and run enum multi-field payload constructor fixture
+        timeout-minutes: 2
+        run: |
+          grep -q 'Pack two-field payload constructors as (a << 20) | (b << 8) | tag' bunker-cli/src/typeck.rs
+          grep -q 'let twenty_ref: AstExprRef = ast_int_lit_ref(20);' self-host/modules/parser.bkr
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/121_enum_multi_payload_ctor.bkr \
+            -o /tmp/121_enum_multi_payload_ctor.c
+          test -s /tmp/121_enum_multi_payload_ctor.c
+          ! grep -q "Parse error" /tmp/121_enum_multi_payload_ctor.c
+          grep -q " << 20" /tmp/121_enum_multi_payload_ctor.c
+          grep -q " << 8" /tmp/121_enum_multi_payload_ctor.c
+          grep -q " | " /tmp/121_enum_multi_payload_ctor.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/121_enum_multi_payload_ctor.c -o /tmp/121_enum_multi_payload_ctor
+          set +e
+          timeout --kill-after=5s 60s /tmp/121_enum_multi_payload_ctor
+          status=$?
+          set -e
+          echo "121_enum_multi_payload_ctor exited $status, expected 42"
+          test "$status" -eq 42
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

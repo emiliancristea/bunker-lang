@@ -100,6 +100,7 @@ $expectedResults = @{
     "118_enum_payload_ctor" = 42
     "119_enum_payload_match" = 42
     "120_enum_multi_payload_decl" = 42
+    "121_enum_multi_payload_ctor" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -296,7 +297,8 @@ if (-not $JitOnly) {
         "tests\117_enum_payload_decl.bkr",
         "tests\118_enum_payload_ctor.bkr",
         "tests\119_enum_payload_match.bkr",
-        "tests\120_enum_multi_payload_decl.bkr"
+        "tests\120_enum_multi_payload_decl.bkr",
+        "tests\121_enum_multi_payload_ctor.bkr"
     )
 
     $subsetOk = $true

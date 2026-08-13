@@ -1516,28 +1516,36 @@ impl TypeChecker {
                 }
                 Ok(named)
             }
-            Some([expected]) => {
-                if args.len() != 1 {
+            Some(types) if types.len() == 1 || types.len() == 2 => {
+                if args.len() != types.len() {
                     self.errors.push(TypeError {
                         message: format!(
-                            "Variant {}.{} expects 1 payload argument, got {}",
+                            "Variant {}.{} expects {} payload argument{}, got {}",
                             enum_name,
                             variant,
+                            types.len(),
+                            if types.len() == 1 { "" } else { "s" },
                             args.len()
                         ),
                         location: context.to_string(),
                     });
                 } else {
-                    let expected = expected.clone();
-                    let actual = self.infer_expr(&args[0], context)?;
-                    if !self.types_compatible(&expected, &actual) {
-                        self.errors.push(TypeError {
-                            message: format!(
-                                "Payload type mismatch for {}.{}: expected {:?}, got {:?}",
-                                enum_name, variant, expected, actual
-                            ),
-                            location: context.to_string(),
-                        });
+                    for (index, expected) in types.iter().enumerate() {
+                        let expected = expected.clone();
+                        let actual = self.infer_expr(&args[index], context)?;
+                        if !self.types_compatible(&expected, &actual) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Payload type mismatch for {}.{} argument {}: expected {:?}, got {:?}",
+                                    enum_name,
+                                    variant,
+                                    index + 1,
+                                    expected,
+                                    actual
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
                     }
                 }
                 Ok(named)
@@ -1802,6 +1810,18 @@ fn lower_pattern(pattern: &mut ast::Pattern, enums: &HashMap<String, Vec<String>
     }
 }
 
+fn pack_enum_payload(value: Expr, shift: i64, rest: Expr) -> Expr {
+    Expr::Binary {
+        op: BinaryOp::BitOr,
+        left: Box::new(Expr::Binary {
+            op: BinaryOp::Shl,
+            left: Box::new(value),
+            right: Box::new(Expr::Literal(Literal::Int(shift))),
+        }),
+        right: Box::new(rest),
+    }
+}
+
 fn lower_expr(expr: &mut Expr, enums: &HashMap<String, Vec<String>>) {
     match expr {
         Expr::Field {
@@ -1823,25 +1843,30 @@ fn lower_expr(expr: &mut Expr, enums: &HashMap<String, Vec<String>>) {
         Expr::Unary { expr: inner, .. } => lower_expr(inner, enums),
         Expr::Call { func, args } => {
             // Pack payload constructors as (payload << 8) | tag.
+            // Pack two-field payload constructors as (a << 20) | (b << 8) | tag.
             if let Expr::Field {
                 expr: object,
                 field,
             } = func.as_ref()
             {
                 if let Expr::Ident(type_name) = object.as_ref() {
-                    if args.len() == 1 {
-                        if let Some(tag) = unit_enum_tag(enums, type_name, field) {
+                    if let Some(tag) = unit_enum_tag(enums, type_name, field) {
+                        if args.len() == 1 {
                             let mut payload = args[0].clone();
                             lower_expr(&mut payload, enums);
-                            *expr = Expr::Binary {
-                                op: BinaryOp::BitOr,
-                                left: Box::new(Expr::Binary {
-                                    op: BinaryOp::Shl,
-                                    left: Box::new(payload),
-                                    right: Box::new(Expr::Literal(Literal::Int(8))),
-                                }),
-                                right: Box::new(Expr::Literal(Literal::Int(tag))),
-                            };
+                            *expr = pack_enum_payload(payload, 8, Expr::Literal(Literal::Int(tag)));
+                            return;
+                        }
+                        if args.len() == 2 {
+                            let mut first = args[0].clone();
+                            let mut second = args[1].clone();
+                            lower_expr(&mut first, enums);
+                            lower_expr(&mut second, enums);
+                            *expr = pack_enum_payload(
+                                first,
+                                20,
+                                pack_enum_payload(second, 8, Expr::Literal(Literal::Int(tag))),
+                            );
                             return;
                         }
                     }
