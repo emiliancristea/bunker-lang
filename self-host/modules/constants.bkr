@@ -280,22 +280,46 @@
     const AST_NODE_DATA_OFFSET: i64 = 2;
     const AST_NODE_DATA_START: i64 = 3;
 
-    // ===== Pattern Constants =====
-    const PAT_INT: i64 = 1;
-    const PAT_BOOL: i64 = 2;
-    const PAT_BIND: i64 = 3;
-    const PAT_WILDCARD: i64 = 4;
-    const PAT_SOME: i64 = 5;
-    const PAT_NONE: i64 = 6;
-    const PAT_ENUM_VARIANT: i64 = 7;
+    // ===== Pattern Kinds =====
+    // Declaration order is the stored numeric tag.
+    enum PatternKind {
+        Unused0,
+        Int,
+        Bool,
+        Bind,
+        Wildcard,
+        Some,
+        None,
+        EnumVariant,
+    }
 
-    // ===== Type Constants =====
-    const TYPE_I32: i64 = 0;
-    const TYPE_I64: i64 = 1;
-    const TYPE_F64: i64 = 2;
-    const TYPE_BOOL: i64 = 3;
-    const TYPE_STR: i64 = 4;
-    const TYPE_VOID: i64 = 5;
-    const TYPE_ARRAY: i64 = 6;
-    const TYPE_STRUCT: i64 = 7;
+    const PAT_INT: i64 = PatternKind.Int;
+    const PAT_BOOL: i64 = PatternKind.Bool;
+    const PAT_BIND: i64 = PatternKind.Bind;
+    const PAT_WILDCARD: i64 = PatternKind.Wildcard;
+    const PAT_SOME: i64 = PatternKind.Some;
+    const PAT_NONE: i64 = PatternKind.None;
+    const PAT_ENUM_VARIANT: i64 = PatternKind.EnumVariant;
+
+    // ===== Type Kinds =====
+    enum TypeKind {
+        I32,
+        I64,
+        F64,
+        Bool,
+        Str,
+        Void,
+        Array,
+        Struct,
+    }
+
+    const TYPE_I32: i64 = TypeKind.I32;
+    const TYPE_I64: i64 = TypeKind.I64;
+    const TYPE_F64: i64 = TypeKind.F64;
+    const TYPE_BOOL: i64 = TypeKind.Bool;
+    const TYPE_STR: i64 = TypeKind.Str;
+    const TYPE_VOID: i64 = TypeKind.Void;
+    const TYPE_ARRAY: i64 = TypeKind.Array;
+    const TYPE_STRUCT: i64 = TypeKind.Struct;
+    // Sentinel, not a TypeKind variant: keep the historical unknown tag.
     const TYPE_UNKNOWN: i64 = 99;

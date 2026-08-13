@@ -46,8 +46,8 @@ To run Shell and View, the project includes a small runtime implementation (Rust
 
 ## Current Test Coverage
 
-- **Total Tests:** 97 passing
-- **JIT-Enabled:** 60 tests (validated by `run_tests.ps1`)
+- **Total Tests:** 98 passing
+- **JIT-Enabled:** 61 tests (validated by `run_tests.ps1`)
 - **Negative Tests:** 18 tests (type errors, move errors)
 - **Shell-Bearing Files:** 14 tests
 - **View-Bearing Files:** 7 tests

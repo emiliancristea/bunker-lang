@@ -119,6 +119,21 @@ jobs:
           grep -q 'const TOK_FAT_ARROW: i64 = TokenKind.FatArrow;' "$constants"
           ! grep -q 'const TOK_FN: i64 = 23;' "$constants"
 
+      - name: Require PatternKind and TypeKind enum-backed tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          constants='self-host/modules/constants.bkr'
+          grep -q 'enum PatternKind {' "$constants"
+          grep -q 'const PAT_INT: i64 = PatternKind.Int;' "$constants"
+          grep -q 'const PAT_ENUM_VARIANT: i64 = PatternKind.EnumVariant;' "$constants"
+          grep -q 'enum TypeKind {' "$constants"
+          grep -q 'const TYPE_I32: i64 = TypeKind.I32;' "$constants"
+          grep -q 'const TYPE_STRUCT: i64 = TypeKind.Struct;' "$constants"
+          grep -q 'const TYPE_UNKNOWN: i64 = 99;' "$constants"
+          ! grep -q 'const PAT_INT: i64 = 1;' "$constants"
+          ! grep -q 'const TYPE_I32: i64 = 0;' "$constants"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |
@@ -1169,6 +1184,17 @@ jobs:
       - name: Check self-host compiler sources
         timeout-minutes: 2
         run: ./bunker-cli/target/release/bunker-cli self-host-check self-host
+
+      - name: Compile pattern and type kind enum fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/93_pattern_type_kind_enums.bkr \
+            -o /tmp/93_pattern_type_kind_enums.c
+          test -s /tmp/93_pattern_type_kind_enums.c
+          ! grep -q "Parse error at token" /tmp/93_pattern_type_kind_enums.c
+          grep -q "int main(void)" /tmp/93_pattern_type_kind_enums.c
+          grep -q "PAT_INT" /tmp/93_pattern_type_kind_enums.c
 
       - name: Compile token-kind enum fixture through self-host compiler
         timeout-minutes: 2

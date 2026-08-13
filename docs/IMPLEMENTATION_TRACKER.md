@@ -255,6 +255,7 @@ These are the next concrete PR-sized slices.
 | Q-191 | PARTIAL | Add self-host unit enums. | Self-host lexer/parser/AST/C codegen lower unit enums and `Enum.Variant` match/construction to i64 tags; `tests/88_kernel_unit_enum.bkr` is in the self-host compile subset. Payloads and self-host exhaustiveness remain. |
 | Q-192 | DONE | Back AST node tags with `enum NodeKind`. | `self-host/modules/constants.bkr` declares `enum NodeKind` and defines `NODE_*` as `NodeKind.*` aliases; CI rejects a return to raw `NODE_FN = 2`. |
 | Q-193 | DONE | Back lexer tags with `enum TokenKind`. | `TOK_*` constants are `TokenKind` variant aliases; CI rejects a return to raw `TOK_FN = 23`. |
+| Q-194 | DONE | Back pattern and type tags with enums. | `PAT_*` comes from `enum PatternKind` and `TYPE_*` from `enum TypeKind`; CI rejects raw `PAT_INT = 1` / `TYPE_I32 = 0`. |
 
 ## Language Core
 
@@ -419,7 +420,7 @@ These are the next concrete PR-sized slices.
 | SH-001 | PARTIAL | P0 | Self-host smoke gate. | Current stage1/stage2 CI remains green after every change. |
 | SH-002 | DONE | P0 | Split `bkrc.bkr` into modules. | Compiler source is multiple Bunker files with imports. |
 | SH-003 | PARTIAL | P0 | Typed AST in self-host compiler. | Parser construction, parser/codegen reads, common AST collection iteration, optional AST node handles, AST handle conversions, semantic child-handle access, explicit handle-named optional field access, read-only AST wrapper structs, typed AST node/pattern builder refs, C-codegen typed-ref consumption, AST-report typed-ref consumption, symbol-table typed-ref consumption, type-graph typed-ref consumption, resolver typed-ref consumption, typecheck typed-ref consumption, codegen state typed-ref consumption, and AST field conversions go through Bunker bridge helpers; final gate requires raw numeric tags to be replaced by Bunker types. |
-| SH-004 | PARTIAL | P0 | Enums for token/node kinds. | AST node tags are `enum NodeKind` and lexer tags are `enum TokenKind`; pattern/type kind families still use raw i64 constants. |
+| SH-004 | DONE | P0 | Enums for token/node kinds. | Token, node, pattern, and type tags are language enums with i64 aliases; `TYPE_UNKNOWN` stays the historical 99 sentinel. |
 | SH-005 | TODO | P0 | Real generic collections in self-host compiler. | `Vec<T>` and maps preserve element/key/value types. |
 | SH-006 | TODO | P0 | Stage0/Stage1/Stage2 docs. | Bootstrap chain is documented and reproducible. |
 | SH-007 | DONE | P0 | Golden tests vs Rust compiler. | Outputs/diagnostics match for selected fixtures or known differences are logged. |
@@ -713,3 +714,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-08-13 | Added self-host unit enums. | Self-host lexer/parser/AST/C codegen now parse `enum` items and lower `Enum.Variant` construction/match to i64 tags; `88_kernel_unit_enum.bkr` is in the self-host compile subset. |
 | 2026-08-13 | Backed AST node tags with `enum NodeKind`. | `NODE_*` constants are now `NodeKind` variant aliases so stored numeric tags stay stable while the kind family is a language enum. |
 | 2026-08-13 | Backed lexer tags with `enum TokenKind`. | `TOK_*` constants are now `TokenKind` variant aliases with unused slots preserving historical lexer numbers. |
+| 2026-08-13 | Backed pattern and type tags with enums. | `PAT_*` and `TYPE_*` are now `PatternKind` / `TypeKind` aliases; `TYPE_UNKNOWN` remains the 99 sentinel. |
