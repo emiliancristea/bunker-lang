@@ -79,6 +79,7 @@ $expectedResults = @{
     "96_pattern_type_kind_typed_api" = 42
     "97_ast_span_struct" = 42
     "98_ast_pattern_struct" = 42
+    "100_ast_type_struct" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -254,7 +255,8 @@ if (-not $JitOnly) {
         "tests\95_token_kind_typed_api.bkr",
         "tests\96_pattern_type_kind_typed_api.bkr",
         "tests\97_ast_span_struct.bkr",
-        "tests\98_ast_pattern_struct.bkr"
+        "tests\98_ast_pattern_struct.bkr",
+        "tests\100_ast_type_struct.bkr"
     )
 
     $subsetOk = $true

@@ -1,0 +1,48 @@
+// Test 100: AstType as a real compiler type record
+// Purpose: Type kind/payload/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstTypeStruct {
+    enum TypeKind {
+        I32,
+        I64,
+        Array,
+        Struct
+    }
+
+    struct AstType {
+        kind: TypeKind,
+        start: i64,
+        end: i64,
+        payload: i64,
+        aux: i64
+    }
+
+    fn make_i64() -> AstType {
+        return AstType {
+            kind: TypeKind.I64,
+            start: 0,
+            end: 3,
+            payload: 0,
+            aux: -1
+        };
+    }
+
+    fn type_kind(type_rec: AstType) -> TypeKind {
+        return type_rec.kind;
+    }
+
+    fn main() -> i32 {
+        let type_rec: AstType = make_i64();
+        if type_rec.kind == TypeKind.I64 {
+            if type_rec.start == 0 {
+                if type_rec.end == 3 {
+                    if type_kind(make_i64()) == TypeKind.I64 {
+                        return 42;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

@@ -235,6 +235,20 @@ jobs:
           grep -q 'let pattern: AstPattern = ast_pattern_ref_record(pattern_ref);' "$ast"
           ! grep -q 'vec_push(pattern, kind);' "$ast"
 
+      - name: Require AstType struct type records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstType {' "$ast"
+          grep -q 'fn ast_type_record(kind: TypeKind) -> AstType' "$ast"
+          grep -q 'fn ast_type_pack(type_rec: AstType) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_type_unpack(node: Vec<i64>) -> AstType' "$ast"
+          grep -q 'fn ast_type_ref_record(type_ref: AstTypeRef) -> AstType' "$ast"
+          grep -q 'let rec: AstType = ast_type_record(kind);' "$ast"
+          grep -q 'let rec: AstType = ast_type_ref_record(type_ref);' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_TYPE)' "$ast"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |
@@ -1346,6 +1360,18 @@ jobs:
           grep -q "int main(void)" /tmp/98_ast_pattern_struct.c
           grep -q "make_int" /tmp/98_ast_pattern_struct.c
           grep -q "bkr_i64" /tmp/98_ast_pattern_struct.c
+
+      - name: Compile AstType struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/100_ast_type_struct.bkr \
+            -o /tmp/100_ast_type_struct.c
+          test -s /tmp/100_ast_type_struct.c
+          ! grep -q "Parse error at token" /tmp/100_ast_type_struct.c
+          grep -q "int main(void)" /tmp/100_ast_type_struct.c
+          grep -q "make_i64" /tmp/100_ast_type_struct.c
+          grep -q "bkr_i64" /tmp/100_ast_type_struct.c
 
       - name: Compile pattern and type kind enum fixture through self-host compiler
         timeout-minutes: 2
