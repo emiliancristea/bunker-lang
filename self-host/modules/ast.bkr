@@ -255,7 +255,8 @@
         end: i64,
         value: i64,
         aux: i64,
-        bind: i64
+        bind: i64,
+        bind2: i64
     }
 
     struct AstPatternRef {
@@ -311,13 +312,18 @@
     }
 
     fn ast_pattern_record3(kind: PatternKind, value: i64, aux: i64, bind: i64) -> AstPattern {
+        return ast_pattern_record4(kind, value, aux, bind, -1);
+    }
+
+    fn ast_pattern_record4(kind: PatternKind, value: i64, aux: i64, bind: i64, bind2: i64) -> AstPattern {
         return AstPattern {
             kind: kind,
             start: AST_SPAN_UNKNOWN,
             end: AST_SPAN_UNKNOWN,
             value: value,
             aux: aux,
-            bind: bind
+            bind: bind,
+            bind2: bind2
         };
     }
 
@@ -329,17 +335,22 @@
         vec_push(node, pattern.value);
         vec_push(node, pattern.aux);
         vec_push(node, pattern.bind);
+        vec_push(node, pattern.bind2);
         return node;
     }
 
     fn ast_pattern_unpack(node: Vec<i64>) -> AstPattern {
         let aux: i64 = 0;
         let bind: i64 = -1;
+        let bind2: i64 = -1;
         if vec_len(node) > AST_NODE_DATA_START + 1 {
             aux = vec_get(node, AST_NODE_DATA_START + 1);
         }
         if vec_len(node) > AST_NODE_DATA_START + 2 {
             bind = vec_get(node, AST_NODE_DATA_START + 2);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 3 {
+            bind2 = vec_get(node, AST_NODE_DATA_START + 3);
         }
         return AstPattern {
             kind: vec_get(node, 0),
@@ -347,7 +358,8 @@
             end: vec_get(node, AST_NODE_SPAN_END_INDEX),
             value: vec_get(node, AST_NODE_DATA_START),
             aux: aux,
-            bind: bind
+            bind: bind,
+            bind2: bind2
         };
     }
 
@@ -362,6 +374,11 @@
 
     fn ast_pattern_ref_new3(kind: PatternKind, value: i64, aux: i64, bind: i64) -> AstPatternRef {
         let pattern: AstPattern = ast_pattern_record3(kind, value, aux, bind);
+        return AstPatternRef { handle: ast_pattern_pack(pattern) as i64 };
+    }
+
+    fn ast_pattern_ref_new4(kind: PatternKind, value: i64, aux: i64, bind: i64, bind2: i64) -> AstPatternRef {
+        let pattern: AstPattern = ast_pattern_record4(kind, value, aux, bind, bind2);
         return AstPatternRef { handle: ast_pattern_pack(pattern) as i64 };
     }
 
@@ -803,6 +820,11 @@
     fn ast_pattern_ref_bind(pattern_ref: AstPatternRef) -> i64 {
         let pattern: AstPattern = ast_pattern_ref_record(pattern_ref);
         return pattern.bind;
+    }
+
+    fn ast_pattern_ref_bind2(pattern_ref: AstPatternRef) -> i64 {
+        let pattern: AstPattern = ast_pattern_ref_record(pattern_ref);
+        return pattern.bind2;
     }
 
     fn ast_pattern_ref_span_start(pattern_ref: AstPatternRef) -> i64 {

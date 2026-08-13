@@ -208,7 +208,7 @@ pattern = {
     literal |
     identifier
 }
-enum_variant_pattern = { identifier ~ "." ~ identifier ~ ("(" ~ identifier ~ ")")? }
+enum_variant_pattern = { identifier ~ "." ~ identifier ~ ("(" ~ identifier ~ ("," ~ identifier)* ~ ")")? }
 
 // ====================
 // TYPES

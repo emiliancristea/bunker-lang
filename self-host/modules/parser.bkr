@@ -313,12 +313,17 @@
                 parser_advance_ref(p);
                 let variant_idx = parser_expect_name(p);
                 let bind_idx: i64 = -1;
+                let bind2_idx: i64 = -1;
                 if parser_peek_ref(p) == TOK_LPAREN {
                     parser_advance_ref(p);
                     bind_idx = parser_expect_name(p);
+                    if parser_peek_ref(p) == TOK_COMMA {
+                        parser_advance_ref(p);
+                        bind2_idx = parser_expect_name(p);
+                    }
                     parser_expect_ref(p, TOK_RPAREN);
                 }
-                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new3(PAT_ENUM_VARIANT, name_idx, variant_idx, bind_idx), start);
+                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new4(PAT_ENUM_VARIANT, name_idx, variant_idx, bind_idx, bind2_idx), start);
             }
 
             if raw_name == "_" {

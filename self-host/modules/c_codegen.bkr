@@ -501,6 +501,10 @@
         if kind == PAT_ENUM_VARIANT {
             let bind_idx: i64 = ast_pattern_ref_bind(pattern_ref);
             if bind_idx >= 0 {
+                let bind2_idx: i64 = ast_pattern_ref_bind2(pattern_ref);
+                if bind2_idx >= 0 {
+                    return "bkr_i64 " + name_to_c_ref(state, bind_idx) + " = (" + value_name + " >> 20); " + "bkr_i64 " + name_to_c_ref(state, bind2_idx) + " = ((" + value_name + " >> 8) & 4095); ";
+                }
                 return "bkr_i64 " + name_to_c_ref(state, bind_idx) + " = (" + value_name + " >> 8); ";
             }
         }

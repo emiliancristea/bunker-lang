@@ -222,11 +222,11 @@ pub enum Pattern {
     EnumVariant {
         enum_name: String,
         variant: String,
-        binding: Option<String>,
+        bindings: Vec<String>,
     },
     EnumPayload {
         tag: i64,
-        binding: String,
+        bindings: Vec<String>,
     },
 }
 

@@ -1398,7 +1398,7 @@ impl TypeChecker {
                 ast::Pattern::EnumVariant {
                     enum_name: pat_enum,
                     variant,
-                    binding: _,
+                    bindings: _,
                 } => {
                     if pat_enum != enum_name {
                         continue;
@@ -1469,16 +1469,16 @@ impl TypeChecker {
             ast::Pattern::EnumVariant {
                 enum_name,
                 variant,
-                binding: Some(name),
-            } if name != "_" => {
-                let payload_ty = self
+                bindings,
+            } => {
+                let types = self
                     .enum_variant_payloads(enum_name, variant)
-                    .and_then(|types| match types {
-                        [ty] => Some(ty.clone()),
-                        _ => None,
-                    });
-                if let Some(payload) = payload_ty {
-                    self.variables.insert(name.clone(), payload);
+                    .map(|types| types.to_vec())
+                    .unwrap_or_default();
+                for (name, payload) in bindings.iter().zip(types.iter()) {
+                    if name != "_" {
+                        self.variables.insert(name.clone(), payload.clone());
+                    }
                 }
             }
             _ => {}
@@ -1655,7 +1655,7 @@ impl TypeChecker {
             ast::Pattern::EnumVariant {
                 enum_name,
                 variant,
-                binding,
+                bindings,
             } => match expr_ty {
                 Type::Named(name) if name == enum_name => {
                     if let Some(variants) = self.enums.get(enum_name) {
@@ -1667,26 +1667,34 @@ impl TypeChecker {
                                 ),
                                 location: context.to_string(),
                             });
-                        } else if self.enum_variant_has_payload(enum_name, variant)
-                            && binding.is_none()
-                        {
-                            self.errors.push(TypeError {
-                                message: format!(
-                                    "Variant {}.{} expects a payload binding",
-                                    enum_name, variant
-                                ),
-                                location: context.to_string(),
-                            });
-                        } else if !self.enum_variant_has_payload(enum_name, variant)
-                            && binding.is_some()
-                        {
-                            self.errors.push(TypeError {
-                                message: format!(
-                                    "Unit variant {}.{} does not take a payload binding",
-                                    enum_name, variant
-                                ),
-                                location: context.to_string(),
-                            });
+                        } else {
+                            let expected = self
+                                .enum_variant_payloads(enum_name, variant)
+                                .map(|types| types.len())
+                                .unwrap_or(0);
+                            if bindings.len() != expected {
+                                if expected == 0 {
+                                    self.errors.push(TypeError {
+                                        message: format!(
+                                            "Unit variant {}.{} does not take a payload binding",
+                                            enum_name, variant
+                                        ),
+                                        location: context.to_string(),
+                                    });
+                                } else {
+                                    self.errors.push(TypeError {
+                                        message: format!(
+                                            "Variant {}.{} expects {} payload binding{}, got {}",
+                                            enum_name,
+                                            variant,
+                                            expected,
+                                            if expected == 1 { "" } else { "s" },
+                                            bindings.len()
+                                        ),
+                                        location: context.to_string(),
+                                    });
+                                }
+                            }
                         }
                     } else {
                         self.errors.push(TypeError {
@@ -1796,16 +1804,16 @@ fn lower_pattern(pattern: &mut ast::Pattern, enums: &HashMap<String, Vec<String>
     let ast::Pattern::EnumVariant {
         enum_name,
         variant,
-        binding,
+        bindings,
     } = pattern.clone()
     else {
         return;
     };
     if let Some(tag) = unit_enum_tag(enums, &enum_name, &variant) {
-        if let Some(name) = binding {
-            *pattern = ast::Pattern::EnumPayload { tag, binding: name };
-        } else {
+        if bindings.is_empty() {
             *pattern = ast::Pattern::Literal(Literal::Int(tag));
+        } else {
+            *pattern = ast::Pattern::EnumPayload { tag, bindings };
         }
     }
 }

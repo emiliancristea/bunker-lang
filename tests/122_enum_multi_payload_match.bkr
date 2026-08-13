@@ -1,0 +1,18 @@
+// Test 122: Multi-field enum variant payload match
+// Purpose: Match Pair.Both(x, y) extracts (value >> 20) and ((value >> 8) & 4095).
+// Expected: Result: 42
+
+kernel EnumMultiPayloadMatch {
+    enum Pair {
+        Both(i32, i32),
+        Empty,
+    }
+
+    fn main() -> i32 {
+        let a: Pair = Pair.Both(40, 2);
+        return match a {
+            Pair.Both(x, y) => x + y;
+            Pair.Empty => 0;
+        };
+    }
+}

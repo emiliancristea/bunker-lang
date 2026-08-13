@@ -1923,7 +1923,7 @@ jobs:
       - name: Compile and run enum payload match fixture
         timeout-minutes: 2
         run: |
-          grep -q 'enum_variant_pattern = { identifier ~ "." ~ identifier ~ ("(" ~ identifier ~ ")")? }' bunker-cli/src/grammar/bunker.pest
+          grep -qF 'enum_variant_pattern = { identifier ~ "." ~ identifier ~ ("(" ~ identifier ~ ("," ~ identifier)* ~ ")")? }' bunker-cli/src/grammar/bunker.pest
           grep -q 'fn ast_pattern_ref_new3(kind: PatternKind, value: i64, aux: i64, bind: i64) -> AstPatternRef' self-host/modules/ast.bkr
           grep -q 'fn ast_pattern_ref_bind(pattern_ref: AstPatternRef) -> i64' self-host/modules/ast.bkr
           grep -q 'value_name + " >> 8)' self-host/modules/c_codegen.bkr
@@ -1977,6 +1977,31 @@ jobs:
           status=$?
           set -e
           echo "121_enum_multi_payload_ctor exited $status, expected 42"
+          test "$status" -eq 42
+
+      - name: Compile and run enum multi-field payload match fixture
+        timeout-minutes: 2
+        run: |
+          grep -q 'fn ast_pattern_ref_new4(kind: PatternKind, value: i64, aux: i64, bind: i64, bind2: i64) -> AstPatternRef' self-host/modules/ast.bkr
+          grep -q 'fn ast_pattern_ref_bind2(pattern_ref: AstPatternRef) -> i64' self-host/modules/ast.bkr
+          grep -q 'value_name + " >> 20)' self-host/modules/c_codegen.bkr
+          grep -q 'value_name + " >> 8) & 4095)' self-host/modules/c_codegen.bkr
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/122_enum_multi_payload_match.bkr \
+            -o /tmp/122_enum_multi_payload_match.c
+          test -s /tmp/122_enum_multi_payload_match.c
+          ! grep -q "Parse error" /tmp/122_enum_multi_payload_match.c
+          grep -q " >> 20" /tmp/122_enum_multi_payload_match.c
+          grep -q " >> 8" /tmp/122_enum_multi_payload_match.c
+          grep -q " & 4095" /tmp/122_enum_multi_payload_match.c
+          grep -q " & 255" /tmp/122_enum_multi_payload_match.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/122_enum_multi_payload_match.c -o /tmp/122_enum_multi_payload_match
+          set +e
+          timeout --kill-after=5s 60s /tmp/122_enum_multi_payload_match
+          status=$?
+          set -e
+          echo "122_enum_multi_payload_match exited $status, expected 42"
           test "$status" -eq 42
 
       - name: Compile basic fixture through self-host compiler
