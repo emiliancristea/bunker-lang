@@ -70,6 +70,7 @@ $expectedResults = @{
     "79_typed_result_operations" = 42
     "81_typed_hashmap_operations" = 42
     "85_result_handle_roundtrip" = 42
+    "88_kernel_unit_enum" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)

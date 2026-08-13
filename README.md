@@ -147,7 +147,7 @@ bunker-lang/
 │   │   ├── codegen.rs        # Cranelift AOT compilation
 │   │   └── shell_runtime.rs  # Agent VM runtime
 │   └── Cargo.toml
-├── tests/                # 92 acceptance tests
+├── tests/                # 95 acceptance tests
 ├── docs/
 │   ├── VISION.md         # Language design philosophy
 │   └── ARCHITECTURE.md   # Compiler pipeline design
@@ -271,9 +271,11 @@ view MyView {
 - [x] Contracts: `#[requires]`/`#[ensures]` with lightweight verification
 - [x] Bootstrap stdlib builtins: file I/O, string methods, `Vec`, `Result`, `HashMap`
 - [x] AI diagnostic envelope: schema version, source excerpts, structured suggestions, prompt-ready repair context
-- [x] Self-host readiness command (`self-host-check`) for Bunker-written compiler sources; 8/8 current sources pass checks
-- [x] Self-host compile wrapper (`self-host-compile`) that runs `self-host/bkrc.bkr` on real `.bkr` input and emits C
-- [x] **92 tests passing** (including 16 negative `*_BAD` tests)
+- [x] Self-host readiness command (`self-host-check`) for top-level `self-host/*.bkr` sources; 8/8 of those files pass (this command does not enumerate `self-host/modules/`)
+- [x] Self-host compile wrapper (`self-host-compile`) that runs modular `self-host/bkrc.bkr` on real `.bkr` input and emits C
+- [x] Stage1/stage2 self-compilation for the supported bootstrap subset (CI-certified on `main`)
+- [x] **95 tests passing** (including 18 negative `*_BAD` tests; 58 JIT-validated)
+- [x] Kernel unit enums (`enum Color { Red, Green }`, `Color.Red`, exhaustive match)
 
 ### In Progress 🚧
 - [x] Z3 SMT verification integration (`--smt` flag, requires Z3 installation) ✅
@@ -290,7 +292,7 @@ view MyView {
 - [ ] Embedded profile (`--profile=metal`)
 - [ ] Language server (LSP)
 - [ ] Package manager
-- [ ] Self-hosting compiler (prototype can emit C for a bootstrap subset; not self-compiling yet)
+- [ ] Primary self-hosted compiler (stage1/stage2 works for the bootstrap subset; Rust is still the production path)
 
 ## Why Not Existing Languages?
 

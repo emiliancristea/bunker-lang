@@ -542,6 +542,7 @@ impl ComptimeEvaluator {
                 Some(bindings)
             }
             (ast::Pattern::None, ComptimeValue::None) => Some(bindings),
+            (ast::Pattern::EnumVariant { .. }, _) => None,
             _ => None,
         }
     }
@@ -621,7 +622,7 @@ fn fold_kernel(kernel: &mut ast::Kernel, eval: &ComptimeEvaluator, stats: &mut C
             ast::KernelItem::Const(c) => {
                 fold_expr(&mut c.value, eval, stats);
             }
-            ast::KernelItem::Struct(_) => {}
+            ast::KernelItem::Struct(_) | ast::KernelItem::Enum(_) => {}
         }
     }
 }

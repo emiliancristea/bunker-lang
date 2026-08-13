@@ -19,6 +19,7 @@ pub struct Kernel {
 pub enum KernelItem {
     Function(Function),
     Struct(StructDef),
+    Enum(EnumDef),
     Const(ConstDef),
     ComptimeFn(Function),
 }
@@ -42,6 +43,12 @@ pub struct StructDef {
 pub struct StructField {
     pub name: String,
     pub ty: Type,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnumDef {
+    pub name: String,
+    pub variants: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -197,6 +204,7 @@ pub enum Pattern {
     Bool(bool),
     Literal(Literal),
     Ident(String),
+    EnumVariant { enum_name: String, variant: String },
 }
 
 // ====================

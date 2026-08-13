@@ -429,6 +429,8 @@ fn build_file(
         std::process::exit(1);
     }
 
+    typeck::lower_unit_enums(&mut ast);
+
     // Code generation
     if kernel_count > 0 || shell_count > 0 {
         println!("\n{}", "Generating code...".cyan().bold());
@@ -1143,6 +1145,8 @@ fn run_file(
         }
         std::process::exit(1);
     }
+
+    typeck::lower_unit_enums(&mut ast);
 
     // Prefer Kernel entrypoint if present; otherwise, fall back to a Shell simulation.
     // Supported main() return types: i32, i64, f64, bool

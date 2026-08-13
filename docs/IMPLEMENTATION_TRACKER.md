@@ -2,7 +2,7 @@
 
 This is the authoritative implementation tracker for moving Bunker from a bootstrap language into a production language and then into full self-hosting.
 
-Last updated: 2026-05-07
+Last updated: 2026-08-13
 
 ## Operating Rules
 
@@ -39,6 +39,7 @@ Current bootstrap state after the latest self-host work:
 - Successful self-host compiler outputs include `BUNKER_RESOLVER_JSON`, a machine-readable bootstrap resolver report for duplicate and unresolved symbol diagnostics.
 - Successful self-host compiler outputs include `BUNKER_TYPECHECK_JSON`, a machine-readable bootstrap typecheck report for annotation, return, condition, assignment, range, and direct call-argument diagnostics.
 - The language is not yet production-complete.
+- Verification note: the latest green GitHub Actions baseline is commit `1b282fe` / run `28668326471`. This checkout's HEAD (`1697301`) is 70 commits ahead of `origin/main` and is not CI-certified. Queue items after Q-122 exist only in this local history until they are pushed and pass Actions.
 
 ## Critical Path
 
@@ -47,12 +48,12 @@ Implement in this order unless a CI failure forces a repair first.
 | Order | Gate | Status | Goal |
 |---:|---|---|---|
 | 1 | Self-host runtime surface | PARTIAL | Finish file I/O, string methods, stdlib handles, and C runtime coverage. |
-| 2 | Modules and multi-file compilation | TODO | Split Bunker compiler source into real modules. |
+| 2 | Modules and multi-file compilation | PARTIAL | Bootstrap import expansion and module split exist; visibility, packages, and production module semantics remain. |
 | 3 | Typed compiler data structures | TODO | Replace raw numeric AST nodes with Bunker structs/enums. |
 | 4 | Real generics and ADTs | TODO | Replace erased handles and hardcoded Option/Result logic. |
 | 5 | Production diagnostics | PARTIAL | Make compiler errors exact, structured, and AI-repairable. |
 | 6 | Memory/resource model | PARTIAL | Make long-running compiler processes safe and leak-controlled. |
-| 7 | Self-host module migration | TODO | Move lexer, parser, typechecker, and codegen out of Rust. |
+| 7 | Self-host module migration | PARTIAL | Lexer, parser, typechecker, and C codegen live in Bunker modules; Rust remains the production compiler and bootstrap driver. |
 | 8 | Rust removal gate | BLOCKED | Build Bunker compiler with Bunker compiler, with Rust only as bootstrap. |
 
 ## Immediate Implementation Queue
@@ -250,6 +251,7 @@ These are the next concrete PR-sized slices.
 | Q-187 | DONE | Add diagnostic severity fields. | Parse/import, resolver, and typecheck diagnostics now include `severity` plus capability/report flags for severity-aware agent routing. |
 | Q-188 | DONE | Add diagnostic severity counts. | `BUNKER_RESOLVER_JSON` and `BUNKER_TYPECHECK_JSON` now expose `error_count` and `warning_count` summary fields for agent triage. |
 | Q-189 | DONE | Add AI-agent capability contract fields. | `BUNKER_CAPABILITY_JSON` now exposes agent contract version, self-hosting stage, agent-native diagnostics, production readiness, and CI validation state. |
+| Q-190 | PARTIAL | Add Rust-compiler unit enums. | Grammar/AST/typeck/JIT lowering support `enum Name { A, B }` plus `Name.A` construction and exhaustive `Name.A` match; fixtures `88`/`89_BAD`/`90_BAD` exist; still needs GitHub Actions proof and self-host parse. |
 
 ## Language Core
 
@@ -280,8 +282,8 @@ These are the next concrete PR-sized slices.
 | T-006 | PARTIAL | P0 | Local type inference. | Let bindings infer robustly for all supported expressions. |
 | T-007 | PARTIAL | P0 | Call-result inference. | Builtins and user functions propagate exact result types where known, and user/builtin call arity plus known builtin argument types are diagnosed in self-host reports. |
 | T-008 | PARTIAL | P0 | Inference for `None`, empty arrays, Vec, HashMap, Ok, Err. | Unannotated empty array, `None`, Result constructor, Vec constructor, and HashMap constructor initializers now produce precise self-host diagnostics; final gate requires richer contextual propagation. |
-| T-009 | TODO | P0 | User-defined enums/sum types. | Users can define enum variants with payloads. |
-| T-010 | PARTIAL | P0 | Exhaustive match checking. | Self-host typecheck reports non-exhaustive boolean and Option-pattern matches with missing cases, plus unreachable bool/Option arms after finite coverage; final gate requires full ADT and integer-range exhaustiveness. |
+| T-009 | PARTIAL | P0 | User-defined enums/sum types. | Rust compiler parses unit enums, constructs `Enum.Variant`, typechecks/exhaustively matches them, and lowers tags to i64 for JIT/codegen; final gate requires payloads, self-host parse/typecheck, and CI proof. |
+| T-010 | PARTIAL | P0 | Exhaustive match checking. | Self-host typecheck reports non-exhaustive boolean and Option-pattern matches; the Rust compiler now also rejects non-exhaustive unit-enum matches; final gate requires full ADT and integer-range exhaustiveness. |
 | T-011 | PARTIAL | P0 | Pattern type checking. | Match patterns are checked against scrutinee type in Rust and self-host paths, and duplicate/unreachable literal, finite bool/Option, and catch-all patterns are diagnosed in self-host reports. |
 | T-012 | TODO | P1 | Destructuring patterns. | Struct/tuple/enum destructuring works with bound names. |
 | T-013 | TODO | P1 | Nested patterns. | Nested enum/struct patterns typecheck and bind correctly. |
@@ -704,3 +706,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-06-10 | Added diagnostic severity fields. | Parse/import, resolver, and typecheck diagnostics now emit `severity:"error"` plus capability flags. |
 | 2026-06-10 | Added diagnostic severity counts. | Resolver and typecheck reports now expose `error_count` and `warning_count` fields. |
 | 2026-06-10 | Added AI-agent capability contract fields. | Capability JSON now advertises the agent diagnostics contract, self-hosting stage, production-readiness state, and CI-validation requirement. |
+| 2026-08-13 | Added Rust-compiler unit enums. | `enum` items, `Enum.Variant` constructors, exhaustive unit-enum match, and i64 tag lowering landed with fixtures `88_kernel_unit_enum.bkr`, `89_enum_nonexhaustive_BAD.bkr`, and `90_enum_unknown_variant_BAD.bkr`. Pending GitHub Actions. |

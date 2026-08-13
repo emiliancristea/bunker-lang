@@ -1437,6 +1437,7 @@ fn match_bindings(pattern: &ast::Pattern, value: &Value) -> Option<HashMap<Strin
             Value::Option(None) => Some(bindings),
             _ => None,
         },
+        ast::Pattern::EnumVariant { .. } => None,
     }
 }
 

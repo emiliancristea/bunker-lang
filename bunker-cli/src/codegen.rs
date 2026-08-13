@@ -1298,6 +1298,11 @@ fn compile_pattern_cond(
             let val = cast_value(builder, value, types::I64);
             Ok(builder.ins().icmp_imm(IntCC::Equal, val, 0))
         }
+        ast::Pattern::EnumVariant { enum_name, variant } => Err(anyhow!(
+            "Enum variant pattern '{}.{}' must be lowered before codegen",
+            enum_name,
+            variant
+        )),
     }
 }
 
