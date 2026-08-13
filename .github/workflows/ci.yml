@@ -249,6 +249,25 @@ jobs:
           grep -q 'let rec: AstType = ast_type_ref_record(type_ref);' "$ast"
           ! grep -q 'ast_node_ref_new(NODE_TYPE)' "$ast"
 
+      - name: Require AstAtom struct atomic expression records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstAtom {' "$ast"
+          grep -q 'fn ast_atom_record(kind: NodeKind, payload: i64) -> AstAtom' "$ast"
+          grep -q 'fn ast_atom_pack(atom: AstAtom) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_atom_unpack(node: Vec<i64>) -> AstAtom' "$ast"
+          grep -q 'fn ast_expr_ref_atom(expr_ref: AstExprRef) -> AstAtom' "$ast"
+          grep -q 'let rec: AstAtom = ast_atom_record(kind, payload);' "$ast"
+          grep -q 'return ast_atom_expr_ref(NodeKind.IntLit, value);' "$ast"
+          grep -q 'return ast_atom_expr_ref(NodeKind.Ident, name_idx);' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_INT_LIT)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_IDENT)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_BOOL_LIT)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_STR_LIT)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_FLOAT_LIT)' "$ast"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |
@@ -1372,6 +1391,18 @@ jobs:
           grep -q "int main(void)" /tmp/100_ast_type_struct.c
           grep -q "make_i64" /tmp/100_ast_type_struct.c
           grep -q "bkr_i64" /tmp/100_ast_type_struct.c
+
+      - name: Compile AstAtom struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/101_ast_atom_struct.bkr \
+            -o /tmp/101_ast_atom_struct.c
+          test -s /tmp/101_ast_atom_struct.c
+          ! grep -q "Parse error at token" /tmp/101_ast_atom_struct.c
+          grep -q "int main(void)" /tmp/101_ast_atom_struct.c
+          grep -q "make_int" /tmp/101_ast_atom_struct.c
+          grep -q "bkr_i64" /tmp/101_ast_atom_struct.c
 
       - name: Compile pattern and type kind enum fixture through self-host compiler
         timeout-minutes: 2

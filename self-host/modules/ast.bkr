@@ -28,6 +28,13 @@
         handle: i64,
     }
 
+    struct AstAtom {
+        kind: NodeKind,
+        start: i64,
+        end: i64,
+        payload: i64
+    }
+
     struct AstExprRef {
         handle: i64,
     }
@@ -837,8 +844,13 @@
         return ast_field(node, 1);
     }
 
+    fn ast_expr_ref_atom(expr_ref: AstExprRef) -> AstAtom {
+        return ast_atom_unpack(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_expr_ref_name_idx(expr_ref: AstExprRef) -> i64 {
-        return ast_name_idx(ast_expr_node_from_ref(expr_ref));
+        let rec: AstAtom = ast_expr_ref_atom(expr_ref);
+        return rec.payload;
     }
 
     fn ast_node_ref_name_idx(node_ref: AstNodeRef) -> i64 {
@@ -850,7 +862,8 @@
     }
 
     fn ast_expr_ref_value(expr_ref: AstExprRef) -> i64 {
-        return ast_value(ast_expr_node_from_ref(expr_ref));
+        let rec: AstAtom = ast_expr_ref_atom(expr_ref);
+        return rec.payload;
     }
 
     fn ast_type_node(node: Vec<i64>) -> i64 {
@@ -1760,10 +1773,44 @@
         return ast_expr_node_from_ref(ast_match_ref(ast_expr_ref_from_node(scrutinee), ast_pattern_list_ref_from_list(patterns), ast_node_list_ref_from_list(bodies)));
     }
 
+    fn ast_atom_record(kind: NodeKind, payload: i64) -> AstAtom {
+        return AstAtom {
+            kind: kind,
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            payload: payload
+        };
+    }
+
+    fn ast_atom_pack(atom: AstAtom) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, atom.kind);
+        vec_push(node, atom.start);
+        vec_push(node, atom.end);
+        vec_push(node, atom.payload);
+        return node;
+    }
+
+    fn ast_atom_unpack(node: Vec<i64>) -> AstAtom {
+        let payload: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            payload = vec_get(node, AST_NODE_DATA_START);
+        }
+        return AstAtom {
+            kind: vec_get(node, 0),
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            payload: payload
+        };
+    }
+
+    fn ast_atom_expr_ref(kind: NodeKind, payload: i64) -> AstExprRef {
+        let rec: AstAtom = ast_atom_record(kind, payload);
+        return ast_expr_ref_from_handle(ast_atom_pack(rec) as i64);
+    }
+
     fn ast_int_lit_ref(value: i64) -> AstExprRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_INT_LIT);
-        ast_node_ref_push(node_ref, value);
-        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
+        return ast_atom_expr_ref(NodeKind.IntLit, value);
     }
 
     fn ast_int_lit(value: i64) -> Vec<i64> {
@@ -1771,9 +1818,7 @@
     }
 
     fn ast_float_lit_ref(value: str) -> AstExprRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_FLOAT_LIT);
-        ast_node_ref_push(node_ref, value as i64);
-        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
+        return ast_atom_expr_ref(NodeKind.FloatLit, value as i64);
     }
 
     fn ast_float_lit(value: str) -> Vec<i64> {
@@ -1781,9 +1826,7 @@
     }
 
     fn ast_bool_lit_ref(value: i64) -> AstExprRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_BOOL_LIT);
-        ast_node_ref_push(node_ref, value);
-        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
+        return ast_atom_expr_ref(NodeKind.BoolLit, value);
     }
 
     fn ast_bool_lit(value: i64) -> Vec<i64> {
@@ -1791,9 +1834,7 @@
     }
 
     fn ast_str_lit_ref(value: str) -> AstExprRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_STR_LIT);
-        ast_node_ref_push(node_ref, value as i64);
-        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
+        return ast_atom_expr_ref(NodeKind.StrLit, value as i64);
     }
 
     fn ast_str_lit(value: str) -> Vec<i64> {
@@ -1834,9 +1875,7 @@
     }
 
     fn ast_ident_ref(name_idx: i64) -> AstExprRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_IDENT);
-        ast_node_ref_push(node_ref, name_idx);
-        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
+        return ast_atom_expr_ref(NodeKind.Ident, name_idx);
     }
 
     fn ast_ident(name_idx: i64) -> Vec<i64> {
