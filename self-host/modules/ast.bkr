@@ -155,6 +155,14 @@
         field_values: i64
     }
 
+    struct AstMatch {
+        start: i64,
+        end: i64,
+        scrutinee: i64,
+        patterns: i64,
+        bodies: i64
+    }
+
     struct AstExprRef {
         handle: i64,
     }
@@ -1342,6 +1350,10 @@
         return ast_struct_lit_unpack(ast_expr_node_from_ref(expr_ref));
     }
 
+    fn ast_expr_ref_match(expr_ref: AstExprRef) -> AstMatch {
+        return ast_match_unpack(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_if_cond(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 1);
     }
@@ -1943,12 +1955,52 @@
         return pattern;
     }
 
+    fn ast_match_record(scrutinee: i64, patterns: i64, bodies: i64) -> AstMatch {
+        return AstMatch {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            scrutinee: scrutinee,
+            patterns: patterns,
+            bodies: bodies
+        };
+    }
+
+    fn ast_match_pack(expr: AstMatch) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_MATCH);
+        vec_push(node, expr.start);
+        vec_push(node, expr.end);
+        vec_push(node, expr.scrutinee);
+        vec_push(node, expr.patterns);
+        vec_push(node, expr.bodies);
+        return node;
+    }
+
+    fn ast_match_unpack(node: Vec<i64>) -> AstMatch {
+        let scrutinee: i64 = 0;
+        let patterns: i64 = 0;
+        let bodies: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            scrutinee = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            patterns = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 2 {
+            bodies = vec_get(node, AST_NODE_DATA_START + 2);
+        }
+        return AstMatch {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            scrutinee: scrutinee,
+            patterns: patterns,
+            bodies: bodies
+        };
+    }
+
     fn ast_match_ref(scrutinee_ref: AstExprRef, patterns_ref: AstPatternListRef, bodies_ref: AstNodeListRef) -> AstExprRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_MATCH);
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(scrutinee_ref));
-        ast_node_ref_push(node_ref, ast_pattern_list_ref_handle(patterns_ref));
-        ast_node_ref_push(node_ref, ast_node_list_ref_handle(bodies_ref));
-        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
+        let rec: AstMatch = ast_match_record(ast_expr_ref_handle(scrutinee_ref), ast_pattern_list_ref_handle(patterns_ref), ast_node_list_ref_handle(bodies_ref));
+        return ast_expr_ref_from_handle(ast_match_pack(rec) as i64);
     }
 
     fn ast_match(scrutinee: Vec<i64>, patterns: Vec<i64>, bodies: Vec<i64>) -> Vec<i64> {
