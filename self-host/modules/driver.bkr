@@ -570,7 +570,7 @@
             "}";
     }
 
-    fn parse_insert_text_for_expected_token(expected_token: i64) -> str {
+    fn parse_insert_text_for_expected_token(expected_token: TokenKind) -> str {
         if expected_token == TOK_SEMICOLON { return ";"; }
         if expected_token == TOK_RPAREN { return ")"; }
         if expected_token == TOK_RBRACE { return "}"; }

@@ -78,7 +78,7 @@
 
             let start = pos;
             let c = char_code_at(source, pos);
-            let tok_type: i64 = 0;
+            let tok_type: TokenKind = TokenKind.Eof;
             let handled = false;
 
             // Identifier or keyword

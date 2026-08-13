@@ -2,8 +2,9 @@
     // KIND MODEL HELPERS
     // ========================================
     //
-    // Centralizes bootstrap tag interpretation. Node-kind helpers now take
-    // enum NodeKind; TOKEN/PATTERN/TYPE helpers still accept i64 aliases.
+    // Centralizes bootstrap tag interpretation. Node-kind helpers take
+    // enum NodeKind; token-kind helpers take enum TokenKind; PATTERN/TYPE
+    // helpers still accept i64 aliases.
 
     fn ast_node_kind_name(kind: NodeKind) -> str {
         if kind == NodeKind.Kernel { return "kernel"; }
@@ -40,6 +41,84 @@
         if kind == NodeKind.StructLit { return "struct literal"; }
         if kind == NodeKind.Match { return "match expression"; }
         return "node " + int_to_string(kind);
+    }
+
+    fn token_kind_name(kind: TokenKind) -> str {
+        if kind == TokenKind.Eof { return "EOF"; }
+        if kind == TokenKind.Ident { return "identifier"; }
+        if kind == TokenKind.Int { return "integer"; }
+        if kind == TokenKind.Str { return "string"; }
+        if kind == TokenKind.Float { return "float"; }
+        if kind == TokenKind.True { return "true"; }
+        if kind == TokenKind.False { return "false"; }
+        if kind == TokenKind.Kernel { return "kernel"; }
+        if kind == TokenKind.Enum { return "enum"; }
+        if kind == TokenKind.Struct { return "struct"; }
+        if kind == TokenKind.Fn { return "fn"; }
+        if kind == TokenKind.Let { return "let"; }
+        if kind == TokenKind.If { return "if"; }
+        if kind == TokenKind.Else { return "else"; }
+        if kind == TokenKind.For { return "for"; }
+        if kind == TokenKind.In { return "in"; }
+        if kind == TokenKind.While { return "while"; }
+        if kind == TokenKind.Break { return "break"; }
+        if kind == TokenKind.Continue { return "continue"; }
+        if kind == TokenKind.Loop { return "loop"; }
+        if kind == TokenKind.Return { return "return"; }
+        if kind == TokenKind.Match { return "match"; }
+        if kind == TokenKind.Const { return "const"; }
+        if kind == TokenKind.I32 { return "i32"; }
+        if kind == TokenKind.I64 { return "i64"; }
+        if kind == TokenKind.F64 { return "f64"; }
+        if kind == TokenKind.Bool { return "bool"; }
+        if kind == TokenKind.StrType { return "str"; }
+        if kind == TokenKind.Plus { return "+"; }
+        if kind == TokenKind.Minus { return "-"; }
+        if kind == TokenKind.Star { return "*"; }
+        if kind == TokenKind.Slash { return "/"; }
+        if kind == TokenKind.Percent { return "%"; }
+        if kind == TokenKind.Eq { return "=="; }
+        if kind == TokenKind.Ne { return "!="; }
+        if kind == TokenKind.Lt { return "<"; }
+        if kind == TokenKind.Gt { return ">"; }
+        if kind == TokenKind.Le { return "<="; }
+        if kind == TokenKind.Ge { return ">="; }
+        if kind == TokenKind.And { return "&&"; }
+        if kind == TokenKind.Or { return "||"; }
+        if kind == TokenKind.Not { return "!"; }
+        if kind == TokenKind.BitAnd { return "&"; }
+        if kind == TokenKind.BitOr { return "|"; }
+        if kind == TokenKind.BitXor { return "^"; }
+        if kind == TokenKind.Shl { return "<<"; }
+        if kind == TokenKind.Shr { return ">>"; }
+        if kind == TokenKind.Assign { return "="; }
+        if kind == TokenKind.Arrow { return "->"; }
+        if kind == TokenKind.FatArrow { return "=>"; }
+        if kind == TokenKind.DotDot { return ".."; }
+        if kind == TokenKind.DotDotEq { return "..="; }
+        if kind == TokenKind.Dot { return "."; }
+        if kind == TokenKind.LParen { return "("; }
+        if kind == TokenKind.RParen { return ")"; }
+        if kind == TokenKind.LBrace { return "{"; }
+        if kind == TokenKind.RBrace { return "}"; }
+        if kind == TokenKind.LBracket { return "["; }
+        if kind == TokenKind.RBracket { return "]"; }
+        if kind == TokenKind.Comma { return ","; }
+        if kind == TokenKind.Semicolon { return ";"; }
+        if kind == TokenKind.Colon { return ":"; }
+        if kind == TokenKind.Question { return "?"; }
+        return "token " + int_to_string(kind);
+    }
+
+    fn token_is_name_kind(kind: TokenKind) -> bool {
+        return kind == TokenKind.Ident || kind == TokenKind.Kernel || kind == TokenKind.Enum ||
+               kind == TokenKind.Struct || kind == TokenKind.Fn || kind == TokenKind.Let ||
+               kind == TokenKind.If || kind == TokenKind.Else || kind == TokenKind.For ||
+               kind == TokenKind.In || kind == TokenKind.While || kind == TokenKind.Break ||
+               kind == TokenKind.Continue || kind == TokenKind.Loop || kind == TokenKind.Return ||
+               kind == TokenKind.Match || kind == TokenKind.Const || kind == TokenKind.I32 ||
+               kind == TokenKind.I64 || kind == TokenKind.F64 || kind == TokenKind.Bool ||
+               kind == TokenKind.StrType;
     }
 
     fn ast_type_kind_name(kind: i64) -> str {

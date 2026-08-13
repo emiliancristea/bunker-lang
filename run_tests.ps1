@@ -75,6 +75,7 @@ $expectedResults = @{
     "92_token_kind_enum" = 42
     "93_pattern_type_kind_enums" = 42
     "94_node_kind_typed_api" = 42
+    "95_token_kind_typed_api" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -246,7 +247,8 @@ if (-not $JitOnly) {
         "tests\91_node_kind_enum.bkr",
         "tests\92_token_kind_enum.bkr",
         "tests\93_pattern_type_kind_enums.bkr",
-        "tests\94_node_kind_typed_api.bkr"
+        "tests\94_node_kind_typed_api.bkr",
+        "tests\95_token_kind_typed_api.bkr"
     )
 
     $subsetOk = $true

@@ -2,80 +2,12 @@
     // PARSER
     // ========================================
 
-    fn token_name(tok: i64) -> str {
-        if tok == TOK_EOF { return "EOF"; }
-        if tok == TOK_IDENT { return "identifier"; }
-        if tok == TOK_INT { return "integer"; }
-        if tok == TOK_STR { return "string"; }
-        if tok == TOK_FLOAT { return "float"; }
-        if tok == TOK_TRUE { return "true"; }
-        if tok == TOK_FALSE { return "false"; }
-        if tok == TOK_KERNEL { return "kernel"; }
-        if tok == TOK_STRUCT { return "struct"; }
-        if tok == TOK_FN { return "fn"; }
-        if tok == TOK_LET { return "let"; }
-        if tok == TOK_IF { return "if"; }
-        if tok == TOK_ELSE { return "else"; }
-        if tok == TOK_FOR { return "for"; }
-        if tok == TOK_IN { return "in"; }
-        if tok == TOK_WHILE { return "while"; }
-        if tok == TOK_BREAK { return "break"; }
-        if tok == TOK_CONTINUE { return "continue"; }
-        if tok == TOK_LOOP { return "loop"; }
-        if tok == TOK_RETURN { return "return"; }
-        if tok == TOK_MATCH { return "match"; }
-        if tok == TOK_CONST { return "const"; }
-        if tok == TOK_I32 { return "i32"; }
-        if tok == TOK_I64 { return "i64"; }
-        if tok == TOK_F64 { return "f64"; }
-        if tok == TOK_BOOL { return "bool"; }
-        if tok == TOK_STR_TYPE { return "str"; }
-        if tok == TOK_PLUS { return "+"; }
-        if tok == TOK_MINUS { return "-"; }
-        if tok == TOK_STAR { return "*"; }
-        if tok == TOK_SLASH { return "/"; }
-        if tok == TOK_PERCENT { return "%"; }
-        if tok == TOK_EQ { return "=="; }
-        if tok == TOK_NE { return "!="; }
-        if tok == TOK_LT { return "<"; }
-        if tok == TOK_GT { return ">"; }
-        if tok == TOK_LE { return "<="; }
-        if tok == TOK_GE { return ">="; }
-        if tok == TOK_AND { return "&&"; }
-        if tok == TOK_OR { return "||"; }
-        if tok == TOK_NOT { return "!"; }
-        if tok == TOK_BIT_AND { return "&"; }
-        if tok == TOK_BIT_OR { return "|"; }
-        if tok == TOK_BIT_XOR { return "^"; }
-        if tok == TOK_SHL { return "<<"; }
-        if tok == TOK_SHR { return ">>"; }
-        if tok == TOK_ASSIGN { return "="; }
-        if tok == TOK_ARROW { return "->"; }
-        if tok == TOK_FAT_ARROW { return "=>"; }
-        if tok == TOK_DOT_DOT { return ".."; }
-        if tok == TOK_DOT_DOT_EQ { return "..="; }
-        if tok == TOK_DOT { return "."; }
-        if tok == TOK_LPAREN { return "("; }
-        if tok == TOK_RPAREN { return ")"; }
-        if tok == TOK_LBRACE { return "{"; }
-        if tok == TOK_RBRACE { return "}"; }
-        if tok == TOK_LBRACKET { return "["; }
-        if tok == TOK_RBRACKET { return "]"; }
-        if tok == TOK_COMMA { return ","; }
-        if tok == TOK_SEMICOLON { return ";"; }
-        if tok == TOK_COLON { return ":"; }
-        if tok == TOK_QUESTION { return "?"; }
-        return "token " + int_to_string(tok);
+    fn token_name(tok: TokenKind) -> str {
+        return token_kind_name(tok);
     }
 
-    fn is_name_token(tok: i64) -> bool {
-        return tok == TOK_IDENT || tok == TOK_KERNEL || tok == TOK_STRUCT ||
-               tok == TOK_FN || tok == TOK_LET ||
-               tok == TOK_IF || tok == TOK_ELSE || tok == TOK_FOR || tok == TOK_IN ||
-               tok == TOK_WHILE || tok == TOK_BREAK || tok == TOK_CONTINUE ||
-               tok == TOK_LOOP || tok == TOK_RETURN || tok == TOK_MATCH || tok == TOK_CONST ||
-               tok == TOK_I32 || tok == TOK_I64 || tok == TOK_F64 || tok == TOK_BOOL ||
-               tok == TOK_STR_TYPE;
+    fn is_name_token(tok: TokenKind) -> bool {
+        return token_is_name_kind(tok);
     }
 
     fn parser_token_end_for_pos(p: Vec<i64>, pos: i64) -> i64 {
