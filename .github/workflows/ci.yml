@@ -200,6 +200,26 @@ jobs:
           ! grep -q 'fn typecheck_is_integer_kind(kind: i64)' "$typecheck"
           ! grep -q 'fn type_to_c(kind: i64)' "$c_codegen"
 
+      - name: Require AstSpan struct span APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          parser='self-host/modules/parser.bkr'
+          driver='self-host/modules/driver.bkr'
+          grep -q 'struct AstSpan {' "$ast"
+          grep -q 'fn ast_span(start: i64, end: i64) -> AstSpan' "$ast"
+          grep -q 'fn ast_span_unknown() -> AstSpan' "$ast"
+          grep -q 'fn ast_span_start(span: AstSpan) -> i64' "$ast"
+          grep -q 'fn ast_span_end(span: AstSpan) -> i64' "$ast"
+          grep -q 'fn ast_span_is_known(span: AstSpan) -> bool' "$ast"
+          grep -q 'fn ast_node_span(node: Vec<i64>) -> AstSpan' "$ast"
+          grep -q 'fn parser_error_span_ref(p: ParserStateRef) -> AstSpan' "$parser"
+          grep -q 'let source_start = error_span.start;' "$driver"
+          ! grep -q 'fn ast_span(start: i64, end: i64) -> Vec<i64>' "$ast"
+          ! grep -q 'fn ast_span_start(span: Vec<i64>)' "$ast"
+          ! grep -q 'fn parser_error_span_ref(p: ParserStateRef) -> Vec<i64>' "$parser"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |
@@ -1287,6 +1307,18 @@ jobs:
           grep -q "echo_pattern" /tmp/96_pattern_type_kind_typed_api.c
           grep -q "echo_type" /tmp/96_pattern_type_kind_typed_api.c
           grep -q "bkr_i64" /tmp/96_pattern_type_kind_typed_api.c
+
+      - name: Compile AstSpan struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/97_ast_span_struct.bkr \
+            -o /tmp/97_ast_span_struct.c
+          test -s /tmp/97_ast_span_struct.c
+          ! grep -q "Parse error at token" /tmp/97_ast_span_struct.c
+          grep -q "int main(void)" /tmp/97_ast_span_struct.c
+          grep -q "make_span" /tmp/97_ast_span_struct.c
+          grep -q "bkr_i64" /tmp/97_ast_span_struct.c
 
       - name: Compile pattern and type kind enum fixture through self-host compiler
         timeout-minutes: 2

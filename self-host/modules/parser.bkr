@@ -80,7 +80,7 @@
         return end;
     }
 
-    fn parser_span_from_start(p: ParserStateRef, start: i64) -> Vec<i64> {
+    fn parser_span_from_start(p: ParserStateRef, start: i64) -> AstSpan {
         return ast_span(start, parser_end_for_span(p, start));
     }
 
@@ -171,11 +171,11 @@
         return ast_node_list_from_ref(nodes_ref);
     }
 
-    fn parser_error_span(p: Vec<i64>) -> Vec<i64> {
+    fn parser_error_span(p: Vec<i64>) -> AstSpan {
         return parser_error_span_ref(parser_state_ref_from_state(p));
     }
 
-    fn parser_error_span_ref(p: ParserStateRef) -> Vec<i64> {
+    fn parser_error_span_ref(p: ParserStateRef) -> AstSpan {
         let pos = parser_error_position_ref(p);
         return ast_span(parser_token_start_for_pos_ref(p, pos), parser_token_end_for_pos_ref(p, pos));
     }
