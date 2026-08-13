@@ -1,0 +1,46 @@
+// Test 102: AstBinary as a real compiler binary-expression record
+// Purpose: Binary op/left/right/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstBinaryStruct {
+    enum TokenKind {
+        Plus,
+        Minus
+    }
+
+    struct AstBinary {
+        start: i64,
+        end: i64,
+        op: TokenKind,
+        left: i64,
+        right: i64
+    }
+
+    fn make_add(left: i64, right: i64) -> AstBinary {
+        return AstBinary {
+            start: 0,
+            end: 3,
+            op: TokenKind.Plus,
+            left: left,
+            right: right
+        };
+    }
+
+    fn binary_sum(binary: AstBinary) -> i64 {
+        return binary.left + binary.right;
+    }
+
+    fn main() -> i32 {
+        let binary: AstBinary = make_add(20, 21);
+        if binary.op == TokenKind.Plus {
+            if binary.start == 0 {
+                if binary.end == 3 {
+                    if binary_sum(make_add(20, 22)) == 42 {
+                        return 42;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

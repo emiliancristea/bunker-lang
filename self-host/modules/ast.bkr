@@ -35,6 +35,21 @@
         payload: i64
     }
 
+    struct AstBinary {
+        start: i64,
+        end: i64,
+        op: TokenKind,
+        left: i64,
+        right: i64
+    }
+
+    struct AstUnary {
+        start: i64,
+        end: i64,
+        op: TokenKind,
+        operand: i64
+    }
+
     struct AstExprRef {
         handle: i64,
     }
@@ -874,12 +889,18 @@
         return ast_field(node, 3);
     }
 
-    fn ast_binary_op(node: Vec<i64>) -> i64 {
-        return ast_field(node, 1);
+    fn ast_binary_op(node: Vec<i64>) -> TokenKind {
+        let rec: AstBinary = ast_binary_unpack(node);
+        return rec.op;
     }
 
-    fn ast_binary_ref_op(expr_ref: AstExprRef) -> i64 {
-        return ast_binary_op(ast_expr_node_from_ref(expr_ref));
+    fn ast_expr_ref_binary(expr_ref: AstExprRef) -> AstBinary {
+        return ast_binary_unpack(ast_expr_node_from_ref(expr_ref));
+    }
+
+    fn ast_binary_ref_op(expr_ref: AstExprRef) -> TokenKind {
+        let rec: AstBinary = ast_expr_ref_binary(expr_ref);
+        return rec.op;
     }
 
     fn ast_binary_left(node: Vec<i64>) -> Vec<i64> {
@@ -887,11 +908,13 @@
     }
 
     fn ast_binary_left_handle(node: Vec<i64>) -> i64 {
-        return ast_field(node, 2);
+        let rec: AstBinary = ast_binary_unpack(node);
+        return rec.left;
     }
 
     fn ast_binary_ref_left_handle(expr_ref: AstExprRef) -> i64 {
-        return ast_binary_left_handle(ast_expr_node_from_ref(expr_ref));
+        let rec: AstBinary = ast_expr_ref_binary(expr_ref);
+        return rec.left;
     }
 
     fn ast_binary_right(node: Vec<i64>) -> Vec<i64> {
@@ -899,19 +922,27 @@
     }
 
     fn ast_binary_right_handle(node: Vec<i64>) -> i64 {
-        return ast_field(node, 3);
+        let rec: AstBinary = ast_binary_unpack(node);
+        return rec.right;
     }
 
     fn ast_binary_ref_right_handle(expr_ref: AstExprRef) -> i64 {
-        return ast_binary_right_handle(ast_expr_node_from_ref(expr_ref));
+        let rec: AstBinary = ast_expr_ref_binary(expr_ref);
+        return rec.right;
     }
 
-    fn ast_unary_op(node: Vec<i64>) -> i64 {
-        return ast_field(node, 1);
+    fn ast_unary_op(node: Vec<i64>) -> TokenKind {
+        let rec: AstUnary = ast_unary_unpack(node);
+        return rec.op;
     }
 
-    fn ast_unary_ref_op(expr_ref: AstExprRef) -> i64 {
-        return ast_unary_op(ast_expr_node_from_ref(expr_ref));
+    fn ast_expr_ref_unary(expr_ref: AstExprRef) -> AstUnary {
+        return ast_unary_unpack(ast_expr_node_from_ref(expr_ref));
+    }
+
+    fn ast_unary_ref_op(expr_ref: AstExprRef) -> TokenKind {
+        let rec: AstUnary = ast_expr_ref_unary(expr_ref);
+        return rec.op;
     }
 
     fn ast_unary_operand(node: Vec<i64>) -> Vec<i64> {
@@ -919,11 +950,13 @@
     }
 
     fn ast_unary_operand_handle(node: Vec<i64>) -> i64 {
-        return ast_field(node, 2);
+        let rec: AstUnary = ast_unary_unpack(node);
+        return rec.operand;
     }
 
     fn ast_unary_ref_operand_handle(expr_ref: AstExprRef) -> i64 {
-        return ast_unary_operand_handle(ast_expr_node_from_ref(expr_ref));
+        let rec: AstUnary = ast_expr_ref_unary(expr_ref);
+        return rec.operand;
     }
 
     fn ast_call_name_idx(node: Vec<i64>) -> i64 {
@@ -1882,11 +1915,45 @@
         return ast_expr_node_from_ref(ast_ident_ref(name_idx));
     }
 
-    fn ast_unary_ref(op: i64, operand_ref: AstExprRef) -> AstExprRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_UNARY);
-        ast_node_ref_push(node_ref, op);
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(operand_ref));
-        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
+    fn ast_unary_record(op: TokenKind, operand: i64) -> AstUnary {
+        return AstUnary {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            op: op,
+            operand: operand
+        };
+    }
+
+    fn ast_unary_pack(unary: AstUnary) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_UNARY);
+        vec_push(node, unary.start);
+        vec_push(node, unary.end);
+        vec_push(node, unary.op);
+        vec_push(node, unary.operand);
+        return node;
+    }
+
+    fn ast_unary_unpack(node: Vec<i64>) -> AstUnary {
+        let op: TokenKind = TokenKind.Eof;
+        let operand: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            op = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            operand = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        return AstUnary {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            op: op,
+            operand: operand
+        };
+    }
+
+    fn ast_unary_ref(op: TokenKind, operand_ref: AstExprRef) -> AstExprRef {
+        let rec: AstUnary = ast_unary_record(op, ast_expr_ref_handle(operand_ref));
+        return ast_expr_ref_from_handle(ast_unary_pack(rec) as i64);
     }
 
     fn ast_unary(op: i64, operand: Vec<i64>) -> Vec<i64> {
@@ -1915,12 +1982,52 @@
         return ast_expr_node_from_ref(ast_field_access_ref(ast_expr_ref_from_node(base), field_name));
     }
 
-    fn ast_binary_ref(op: i64, left_ref: AstExprRef, right_ref: AstExprRef) -> AstExprRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_BINARY);
-        ast_node_ref_push(node_ref, op);
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(left_ref));
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(right_ref));
-        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
+    fn ast_binary_record(op: TokenKind, left: i64, right: i64) -> AstBinary {
+        return AstBinary {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            op: op,
+            left: left,
+            right: right
+        };
+    }
+
+    fn ast_binary_pack(binary: AstBinary) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_BINARY);
+        vec_push(node, binary.start);
+        vec_push(node, binary.end);
+        vec_push(node, binary.op);
+        vec_push(node, binary.left);
+        vec_push(node, binary.right);
+        return node;
+    }
+
+    fn ast_binary_unpack(node: Vec<i64>) -> AstBinary {
+        let op: TokenKind = TokenKind.Eof;
+        let left: i64 = 0;
+        let right: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            op = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            left = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 2 {
+            right = vec_get(node, AST_NODE_DATA_START + 2);
+        }
+        return AstBinary {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            op: op,
+            left: left,
+            right: right
+        };
+    }
+
+    fn ast_binary_ref(op: TokenKind, left_ref: AstExprRef, right_ref: AstExprRef) -> AstExprRef {
+        let rec: AstBinary = ast_binary_record(op, ast_expr_ref_handle(left_ref), ast_expr_ref_handle(right_ref));
+        return ast_expr_ref_from_handle(ast_binary_pack(rec) as i64);
     }
 
     fn ast_binary(op: i64, left: Vec<i64>, right: Vec<i64>) -> Vec<i64> {

@@ -268,6 +268,25 @@ jobs:
           ! grep -q 'ast_node_ref_new(NODE_STR_LIT)' "$ast"
           ! grep -q 'ast_node_ref_new(NODE_FLOAT_LIT)' "$ast"
 
+      - name: Require AstBinary and AstUnary struct operator records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstBinary {' "$ast"
+          grep -q 'struct AstUnary {' "$ast"
+          grep -q 'fn ast_binary_record(op: TokenKind, left: i64, right: i64) -> AstBinary' "$ast"
+          grep -q 'fn ast_binary_pack(binary: AstBinary) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_binary_unpack(node: Vec<i64>) -> AstBinary' "$ast"
+          grep -q 'fn ast_expr_ref_binary(expr_ref: AstExprRef) -> AstBinary' "$ast"
+          grep -q 'fn ast_binary_ref(op: TokenKind, left_ref: AstExprRef, right_ref: AstExprRef) -> AstExprRef' "$ast"
+          grep -q 'fn ast_unary_ref(op: TokenKind, operand_ref: AstExprRef) -> AstExprRef' "$ast"
+          grep -q 'fn ast_binary_ref_op(expr_ref: AstExprRef) -> TokenKind' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_BINARY)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_UNARY)' "$ast"
+          ! grep -q 'fn ast_binary_ref(op: i64' "$ast"
+          ! grep -q 'fn ast_binary_ref_op(expr_ref: AstExprRef) -> i64' "$ast"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |
@@ -1403,6 +1422,18 @@ jobs:
           grep -q "int main(void)" /tmp/101_ast_atom_struct.c
           grep -q "make_int" /tmp/101_ast_atom_struct.c
           grep -q "bkr_i64" /tmp/101_ast_atom_struct.c
+
+      - name: Compile AstBinary struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/102_ast_binary_struct.bkr \
+            -o /tmp/102_ast_binary_struct.c
+          test -s /tmp/102_ast_binary_struct.c
+          ! grep -q "Parse error at token" /tmp/102_ast_binary_struct.c
+          grep -q "int main(void)" /tmp/102_ast_binary_struct.c
+          grep -q "make_add" /tmp/102_ast_binary_struct.c
+          grep -q "bkr_i64" /tmp/102_ast_binary_struct.c
 
       - name: Compile pattern and type kind enum fixture through self-host compiler
         timeout-minutes: 2
