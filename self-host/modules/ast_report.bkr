@@ -431,7 +431,7 @@
             "}";
         let full_walk: bool = ast_report_full_walk(kernel_ref);
         let items_json: str = "[]";
-        let tree_json: str = root;
+        let tree_json: str = "{" + json_field_str("kind", "kernel") + "}";
         if full_walk {
             items_json = ast_report_items_json_ref(names, items_ref);
             tree_json = ast_report_node_ref_json(names, ast_node_ref_from_node(kernel));
