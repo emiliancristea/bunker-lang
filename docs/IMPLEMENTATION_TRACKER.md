@@ -738,3 +738,4 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-08-13 | Replaced index/field-access records with structs. | Index and field-access constructors pack `AstIndex`/`AstFieldAccess`; fixture `104_ast_index_struct.bkr` covers struct param/return/field use. |
 | 2026-08-13 | Replaced let/return statement records with structs. | Let/return constructors pack `AstLet`/`AstReturn`; fixture `105_ast_let_struct.bkr` covers struct param/return/field use. |
 | 2026-08-13 | Keep SH-003 pack/unpack off the typecheck hot path. | Single-field AST readers use `ast_field` again; typed record unpack stays for whole-struct APIs so stage1 `bkrc` typecheck does not exceed the 600s smoke. |
+| 2026-08-13 | Hold AstIf/AstWhile until stage1 reports slim down. | Pack constructors for `AstIf`/`AstWhile` parsed and fixture-compiled, but stage1 `symbol_table_report` on full `bkrc` killed the GitHub runner three times. Reverted to keep SH-001 green. |
