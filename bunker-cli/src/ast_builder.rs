@@ -315,7 +315,7 @@ fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
                             }
                         }
                         if !variant_name.is_empty() {
-                            variants.push(ast::EnumVariant {
+                            variants.push(EnumVariantDecl {
                                 name: variant_name,
                                 payload,
                             });
