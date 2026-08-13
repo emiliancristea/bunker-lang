@@ -1898,6 +1898,27 @@ jobs:
           grep -q '"variant_count":2' /tmp/117_enum_payload_decl.c
           grep -q '"payload_count":1' /tmp/117_enum_payload_decl.c
 
+      - name: Compile and run enum payload constructor fixture
+        timeout-minutes: 2
+        run: |
+          grep -q 'Pack payload constructors as (payload << 8) | tag' bunker-cli/src/typeck.rs
+          grep -q 'let eight_ref: AstExprRef = ast_int_lit_ref(8);' self-host/modules/parser.bkr
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/118_enum_payload_ctor.bkr \
+            -o /tmp/118_enum_payload_ctor.c
+          test -s /tmp/118_enum_payload_ctor.c
+          ! grep -q "Parse error" /tmp/118_enum_payload_ctor.c
+          grep -q " << " /tmp/118_enum_payload_ctor.c
+          grep -q " | " /tmp/118_enum_payload_ctor.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/118_enum_payload_ctor.c -o /tmp/118_enum_payload_ctor
+          set +e
+          timeout --kill-after=5s 60s /tmp/118_enum_payload_ctor
+          status=$?
+          set -e
+          echo "118_enum_payload_ctor exited $status, expected 42"
+          test "$status" -eq 42
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

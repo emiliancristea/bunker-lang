@@ -532,6 +532,20 @@
             let field_ref: AstExprRef = ast_field_access_ref(base_ref, field_name);
             base_ref = parser_set_expr_ref_span(field_ref, start, parser_previous_token_end(p));
         }
+        if parser_peek_ref(p) == TOK_LPAREN {
+            let start = ast_expr_ref_span_start(base_ref);
+            parser_advance_ref(p);
+            if parser_peek_ref(p) != TOK_RPAREN {
+                let payload_ref: AstExprRef = parse_expr_ref(p);
+                parser_expect_ref(p, TOK_RPAREN);
+                let eight_ref: AstExprRef = ast_int_lit_ref(8);
+                let shift_ref: AstExprRef = ast_binary_ref(TOK_SHL, payload_ref, eight_ref);
+                let pack_ref: AstExprRef = ast_binary_ref(TOK_BIT_OR, shift_ref, base_ref);
+                base_ref = parser_set_expr_ref_span(pack_ref, start, parser_previous_token_end(p));
+            } else {
+                parser_advance_ref(p);
+            }
+        }
         return base_ref;
     }
 

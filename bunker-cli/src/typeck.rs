@@ -25,6 +25,8 @@ pub struct TypeChecker {
     structs: HashMap<String, Vec<(String, Type)>>,
     // Unit enum definitions: name -> variant names in declaration order
     enums: HashMap<String, Vec<String>>,
+    // Parallel payload types for each enum variant; None means a unit variant.
+    enum_payloads: HashMap<String, Vec<Option<Type>>>,
     // Errors collected during type checking
     errors: Vec<TypeError>,
     // Current function return type (for checking return statements)
@@ -42,6 +44,7 @@ impl TypeChecker {
             functions: HashMap::new(),
             structs: HashMap::new(),
             enums: HashMap::new(),
+            enum_payloads: HashMap::new(),
             errors: Vec::new(),
             current_return_type: None,
             moved_vars: HashSet::new(),
@@ -105,6 +108,13 @@ impl TypeChecker {
                         }
                     }
                     self.enums.insert(e.name.clone(), e.variant_names());
+                    self.enum_payloads.insert(
+                        e.name.clone(),
+                        e.variants
+                            .iter()
+                            .map(|variant| variant.payload.clone())
+                            .collect(),
+                    );
                 }
                 ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f) => {
                     let param_types: Vec<Type> = f.params.iter().map(|p| p.ty.clone()).collect();
@@ -416,6 +426,14 @@ impl TypeChecker {
                 self.unary_result_type(*op, &ty, context)
             }
             Expr::Call { func, args } => {
+                if let Expr::Field { expr, field } = func.as_ref() {
+                    if let Expr::Ident(type_name) = expr.as_ref() {
+                        if self.enums.contains_key(type_name) {
+                            return self
+                                .check_enum_payload_constructor(type_name, field, args, context);
+                        }
+                    }
+                }
                 if let Expr::Ident(name) = func.as_ref() {
                     if let Some(ty) = self.check_builtin_call(name, args, context, expected)? {
                         return Ok(ty);
@@ -490,6 +508,15 @@ impl TypeChecker {
                 if let Expr::Ident(type_name) = expr.as_ref() {
                     if let Some(variants) = self.enums.get(type_name) {
                         if variants.iter().any(|variant| variant == field) {
+                            if self.enum_variant_has_payload(type_name, field) {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Variant {}.{} expects a payload",
+                                        type_name, field
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
                             return Ok(Type::Named(type_name.clone()));
                         }
                         self.errors.push(TypeError {
@@ -1419,6 +1446,72 @@ impl TypeChecker {
         matches!(ty, Type::I32 | Type::I64)
     }
 
+    fn enum_variant_payload(&self, enum_name: &str, variant: &str) -> Option<&Option<Type>> {
+        let names = self.enums.get(enum_name)?;
+        let index = names.iter().position(|name| name == variant)?;
+        self.enum_payloads.get(enum_name)?.get(index)
+    }
+
+    fn enum_variant_has_payload(&self, enum_name: &str, variant: &str) -> bool {
+        matches!(self.enum_variant_payload(enum_name, variant), Some(Some(_)))
+    }
+
+    fn check_enum_payload_constructor(
+        &mut self,
+        enum_name: &str,
+        variant: &str,
+        args: &[Expr],
+        context: &str,
+    ) -> Result<Type> {
+        let named = Type::Named(enum_name.to_string());
+        match self.enum_variant_payload(enum_name, variant).cloned() {
+            None => {
+                self.errors.push(TypeError {
+                    message: format!("Unknown variant '{}' on enum {}", variant, enum_name),
+                    location: context.to_string(),
+                });
+                Ok(named)
+            }
+            Some(None) => {
+                if !args.is_empty() {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Unit variant {}.{} does not take a payload",
+                            enum_name, variant
+                        ),
+                        location: context.to_string(),
+                    });
+                }
+                Ok(named)
+            }
+            Some(Some(expected)) => {
+                if args.len() != 1 {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Variant {}.{} expects 1 payload argument, got {}",
+                            enum_name,
+                            variant,
+                            args.len()
+                        ),
+                        location: context.to_string(),
+                    });
+                } else {
+                    let actual = self.infer_expr(&args[0], context)?;
+                    if !self.types_compatible(&expected, &actual) {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Payload type mismatch for {}.{}: expected {:?}, got {:?}",
+                                enum_name, variant, expected, actual
+                            ),
+                            location: context.to_string(),
+                        });
+                    }
+                }
+                Ok(named)
+            }
+        }
+    }
+
     fn is_unit_enum(&self, ty: &Type) -> bool {
         match ty {
             Type::Named(name) => self.enums.contains_key(name),
@@ -1649,6 +1742,31 @@ fn lower_expr(expr: &mut Expr, enums: &HashMap<String, Vec<String>>) {
         }
         Expr::Unary { expr: inner, .. } => lower_expr(inner, enums),
         Expr::Call { func, args } => {
+            // Pack payload constructors as (payload << 8) | tag.
+            if let Expr::Field {
+                expr: object,
+                field,
+            } = func.as_ref()
+            {
+                if let Expr::Ident(type_name) = object.as_ref() {
+                    if args.len() == 1 {
+                        if let Some(tag) = unit_enum_tag(enums, type_name, field) {
+                            let mut payload = args[0].clone();
+                            lower_expr(&mut payload, enums);
+                            *expr = Expr::Binary {
+                                op: BinaryOp::BitOr,
+                                left: Box::new(Expr::Binary {
+                                    op: BinaryOp::Shl,
+                                    left: Box::new(payload),
+                                    right: Box::new(Expr::Literal(Literal::Int(8))),
+                                }),
+                                right: Box::new(Expr::Literal(Literal::Int(tag))),
+                            };
+                            return;
+                        }
+                    }
+                }
+            }
             lower_expr(func, enums);
             for arg in args {
                 lower_expr(arg, enums);

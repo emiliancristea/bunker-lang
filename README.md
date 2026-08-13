@@ -274,10 +274,11 @@ view MyView {
 - [x] Self-host readiness command (`self-host-check`) for top-level `self-host/*.bkr` sources; 8/8 of those files pass (this command does not enumerate `self-host/modules/`)
 - [x] Self-host compile wrapper (`self-host-compile`) that runs modular `self-host/bkrc.bkr` on real `.bkr` input and emits C
 - [x] Stage1/stage2 self-compilation for the supported bootstrap subset (CI-certified on `main`)
-- [x] **121 tests passing** (including 18 negative `*_BAD` tests; 84 JIT-validated)
+- [x] **122 tests passing** (including 18 negative `*_BAD` tests; 85 JIT-validated)
 - [x] Kernel unit enums (`enum Color { Red, Green }`, `Color.Red`, exhaustive match)
 - [x] Self-host unit-enum match exhaustiveness (`non_exhaustive_match` / `BKR_SELF_EXHAUSTIVENESS`)
 - [x] Enum variant payload declarations (`enum Opt { Some(i32), None }`)
+- [x] Enum variant payload construction (`Opt.Some(41)` packs as `(payload << 8) | tag`)
 - [x] Self-host AST kind APIs typed with `enum NodeKind`
 - [x] Self-host lexer token APIs typed with `enum TokenKind`
 - [x] Self-host pattern/type kind APIs typed with `enum PatternKind` / `enum TypeKind`
