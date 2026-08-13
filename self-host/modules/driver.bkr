@@ -743,7 +743,7 @@
     fn build_parse_diagnostic(source: str, p: ParserStateRef) -> str {
         let expected = token_name(parser_error_expected_ref(p));
         let actual = token_name(parser_error_actual_ref(p));
-        let error_span = parser_error_span_ref(p);
+        let error_span: AstSpan = parser_error_span_ref(p);
         let source_start = error_span.start;
         let source_end = error_span.end;
         let source_line = source_line_at(source, source_start);

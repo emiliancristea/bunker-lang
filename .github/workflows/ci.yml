@@ -215,6 +215,7 @@ jobs:
           grep -q 'fn ast_span_is_known(span: AstSpan) -> bool' "$ast"
           grep -q 'fn ast_node_span(node: Vec<i64>) -> AstSpan' "$ast"
           grep -q 'fn parser_error_span_ref(p: ParserStateRef) -> AstSpan' "$parser"
+          grep -q 'let error_span: AstSpan = parser_error_span_ref(p);' "$driver"
           grep -q 'let source_start = error_span.start;' "$driver"
           ! grep -q 'fn ast_span(start: i64, end: i64) -> Vec<i64>' "$ast"
           ! grep -q 'fn ast_span_start(span: Vec<i64>)' "$ast"
