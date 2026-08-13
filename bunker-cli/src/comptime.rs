@@ -543,6 +543,7 @@ impl ComptimeEvaluator {
             }
             (ast::Pattern::None, ComptimeValue::None) => Some(bindings),
             (ast::Pattern::EnumVariant { .. }, _) => None,
+            (ast::Pattern::EnumPayload { .. }, _) => None,
             _ => None,
         }
     }

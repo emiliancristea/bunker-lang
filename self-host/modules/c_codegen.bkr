@@ -475,6 +475,9 @@
             let variant_name: str = name_from_table(names, ast_pattern_ref_aux(pattern_ref));
             let tag: i64 = cgen_enum_variant_tag_ref(state, enum_name, variant_name);
             if tag >= 0 {
+                if ast_pattern_ref_bind(pattern_ref) >= 0 {
+                    return "((" + value_name + " & 255) == " + int_to_string(tag) + ")";
+                }
                 return "(" + value_name + " == " + int_to_string(tag) + ")";
             }
         }
@@ -494,6 +497,12 @@
         }
         if kind == PAT_SOME {
             return "bkr_i64 " + name_to_c_ref(state, value) + " = (" + value_name + " >> 1); ";
+        }
+        if kind == PAT_ENUM_VARIANT {
+            let bind_idx: i64 = ast_pattern_ref_bind(pattern_ref);
+            if bind_idx >= 0 {
+                return "bkr_i64 " + name_to_c_ref(state, bind_idx) + " = (" + value_name + " >> 8); ";
+            }
         }
         return "";
     }

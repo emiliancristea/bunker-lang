@@ -951,6 +951,17 @@ fn compile_stmt_inline(
                             local_types.insert(name.clone(), inner.as_ref().clone());
                         }
                     }
+                    ast::Pattern::EnumPayload { binding, .. } if binding != "_" => {
+                        let var = Variable::new(*var_index as usize);
+                        *var_index += 1;
+                        builder.declare_var(var, types::I64);
+                        let val = cast_value(builder, match_val, types::I64);
+                        let eight = builder.ins().iconst(types::I64, 8);
+                        let shifted = builder.ins().ushr(val, eight);
+                        builder.def_var(var, shifted);
+                        local_vars.insert(binding.clone(), var);
+                        local_types.insert(binding.clone(), ast::Type::I64);
+                    }
                     _ => {}
                 }
 
@@ -1298,11 +1309,18 @@ fn compile_pattern_cond(
             let val = cast_value(builder, value, types::I64);
             Ok(builder.ins().icmp_imm(IntCC::Equal, val, 0))
         }
-        ast::Pattern::EnumVariant { enum_name, variant } => Err(anyhow!(
+        ast::Pattern::EnumVariant {
+            enum_name, variant, ..
+        } => Err(anyhow!(
             "Enum variant pattern '{}.{}' must be lowered before codegen",
             enum_name,
             variant
         )),
+        ast::Pattern::EnumPayload { tag, .. } => {
+            let val = cast_value(builder, value, types::I64);
+            let masked = builder.ins().band_imm(val, 255);
+            Ok(builder.ins().icmp_imm(IntCC::Equal, masked, *tag))
+        }
     }
 }
 
@@ -1786,6 +1804,17 @@ fn compile_expr_inline(
                             local_vars.insert(name.clone(), var);
                             local_types.insert(name.clone(), inner.as_ref().clone());
                         }
+                    }
+                    ast::Pattern::EnumPayload { binding, .. } if binding != "_" => {
+                        let var = Variable::new(*var_index as usize);
+                        *var_index += 1;
+                        builder.declare_var(var, types::I64);
+                        let val = cast_value(builder, match_val, types::I64);
+                        let eight = builder.ins().iconst(types::I64, 8);
+                        let shifted = builder.ins().ushr(val, eight);
+                        builder.def_var(var, shifted);
+                        local_vars.insert(binding.clone(), var);
+                        local_types.insert(binding.clone(), ast::Type::I64);
                     }
                     _ => {}
                 }

@@ -624,10 +624,16 @@ fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
                         names.push(part.as_str().to_string());
                     }
                 }
-                if names.len() == 2 {
+                if names.len() == 2 || names.len() == 3 {
+                    let binding = if names.len() == 3 {
+                        Some(names[2].clone())
+                    } else {
+                        None
+                    };
                     return Ok(Pattern::EnumVariant {
                         enum_name: names[0].clone(),
                         variant: names[1].clone(),
+                        binding,
                     });
                 }
             }

@@ -219,7 +219,15 @@ pub enum Pattern {
     Bool(bool),
     Literal(Literal),
     Ident(String),
-    EnumVariant { enum_name: String, variant: String },
+    EnumVariant {
+        enum_name: String,
+        variant: String,
+        binding: Option<String>,
+    },
+    EnumPayload {
+        tag: i64,
+        binding: String,
+    },
 }
 
 // ====================

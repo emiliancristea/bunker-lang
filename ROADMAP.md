@@ -274,7 +274,7 @@ Result: 42
 | 8 | ⬜ Not Started | Embedded/Metal profile |
 | 9 | 🔶 Partial | Stage1/stage2 self-compilation works for the bootstrap subset in CI; Rust remains the production compiler and bootstrap driver |
 
-**Test Suite:** 122 tests passing (85 JIT-validated, 18 negative tests, 14 shell-bearing files, 7 view-bearing files)
+**Test Suite:** 123 tests passing (86 JIT-validated, 18 negative tests, 14 shell-bearing files, 7 view-bearing files)
 
 ---
 

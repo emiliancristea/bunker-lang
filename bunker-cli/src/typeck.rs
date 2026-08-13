@@ -350,6 +350,9 @@ impl TypeChecker {
                 let expr_ty = self.infer_expr(expr, context)?;
                 for arm in arms {
                     self.check_pattern_type(&arm.pattern, &expr_ty, context);
+                    let saved = self.variables.clone();
+                    let saved_moved = self.moved_vars.clone();
+                    self.bind_pattern(&arm.pattern, &expr_ty);
                     match &arm.body {
                         ast::MatchBody::Expr(body_expr) => {
                             self.infer_expr(body_expr, context)?;
@@ -358,6 +361,8 @@ impl TypeChecker {
                             self.check_block(block, context)?;
                         }
                     }
+                    self.variables = saved;
+                    self.moved_vars = saved_moved;
                 }
                 self.check_enum_match(&expr_ty, arms, context);
                 Ok(None)
@@ -682,17 +687,7 @@ impl TypeChecker {
                             let saved = self.variables.clone();
                             let saved_moved = self.moved_vars.clone();
                             // Bind pattern variable
-                            match &first_arm.pattern {
-                                ast::Pattern::Ident(name) if name != "_" => {
-                                    self.variables.insert(name.clone(), expr_ty.clone());
-                                }
-                                ast::Pattern::Some(name) if name != "_" => {
-                                    if let Type::Option(inner) = &expr_ty {
-                                        self.variables.insert(name.clone(), inner.as_ref().clone());
-                                    }
-                                }
-                                _ => {}
-                            }
+                            self.bind_pattern(&first_arm.pattern, &expr_ty);
                             let result = self.infer_expr(e, context)?;
                             self.variables = saved;
                             self.moved_vars = saved_moved;
@@ -1403,6 +1398,7 @@ impl TypeChecker {
                 ast::Pattern::EnumVariant {
                     enum_name: pat_enum,
                     variant,
+                    binding: _,
                 } => {
                     if pat_enum != enum_name {
                         continue;
@@ -1454,6 +1450,30 @@ impl TypeChecker {
 
     fn enum_variant_has_payload(&self, enum_name: &str, variant: &str) -> bool {
         matches!(self.enum_variant_payload(enum_name, variant), Some(Some(_)))
+    }
+
+    fn bind_pattern(&mut self, pattern: &ast::Pattern, expr_ty: &Type) {
+        match pattern {
+            ast::Pattern::Ident(name) if name != "_" => {
+                self.variables.insert(name.clone(), expr_ty.clone());
+            }
+            ast::Pattern::Some(name) if name != "_" => {
+                if let Type::Option(inner) = expr_ty {
+                    self.variables.insert(name.clone(), inner.as_ref().clone());
+                }
+            }
+            ast::Pattern::EnumVariant {
+                enum_name,
+                variant,
+                binding: Some(name),
+            } if name != "_" => {
+                if let Some(Some(payload)) = self.enum_variant_payload(enum_name, variant).cloned()
+                {
+                    self.variables.insert(name.clone(), payload);
+                }
+            }
+            _ => {}
+        }
     }
 
     fn check_enum_payload_constructor(
@@ -1599,7 +1619,11 @@ impl TypeChecker {
             ast::Pattern::Ident(_) => {
                 // Identifier patterns (including wildcard "_") match any type
             }
-            ast::Pattern::EnumVariant { enum_name, variant } => match expr_ty {
+            ast::Pattern::EnumVariant {
+                enum_name,
+                variant,
+                binding,
+            } => match expr_ty {
                 Type::Named(name) if name == enum_name => {
                     if let Some(variants) = self.enums.get(enum_name) {
                         if !variants.iter().any(|item| item == variant) {
@@ -1607,6 +1631,26 @@ impl TypeChecker {
                                 message: format!(
                                     "Unknown variant '{}' on enum {}",
                                     variant, enum_name
+                                ),
+                                location: context.to_string(),
+                            });
+                        } else if self.enum_variant_has_payload(enum_name, variant)
+                            && binding.is_none()
+                        {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Variant {}.{} expects a payload binding",
+                                    enum_name, variant
+                                ),
+                                location: context.to_string(),
+                            });
+                        } else if !self.enum_variant_has_payload(enum_name, variant)
+                            && binding.is_some()
+                        {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Unit variant {}.{} does not take a payload binding",
+                                    enum_name, variant
                                 ),
                                 location: context.to_string(),
                             });
@@ -1648,6 +1692,7 @@ impl TypeChecker {
                     });
                 }
             }
+            ast::Pattern::EnumPayload { .. } => {}
         }
     }
 
@@ -1715,8 +1760,18 @@ fn unit_enum_tag(
 }
 
 fn lower_pattern(pattern: &mut ast::Pattern, enums: &HashMap<String, Vec<String>>) {
-    if let ast::Pattern::EnumVariant { enum_name, variant } = pattern {
-        if let Some(tag) = unit_enum_tag(enums, enum_name, variant) {
+    let ast::Pattern::EnumVariant {
+        enum_name,
+        variant,
+        binding,
+    } = pattern.clone()
+    else {
+        return;
+    };
+    if let Some(tag) = unit_enum_tag(enums, &enum_name, &variant) {
+        if let Some(name) = binding {
+            *pattern = ast::Pattern::EnumPayload { tag, binding: name };
+        } else {
             *pattern = ast::Pattern::Literal(Literal::Int(tag));
         }
     }

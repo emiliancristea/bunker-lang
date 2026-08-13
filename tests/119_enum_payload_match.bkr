@@ -1,0 +1,18 @@
+// Test 119: Enum variant payload match bindings
+// Purpose: Match Opt.Some(x) binds the packed payload (value >> 8).
+// Expected: Result: 42
+
+kernel EnumPayloadMatch {
+    enum Opt {
+        Some(i32),
+        None,
+    }
+
+    fn main() -> i32 {
+        let a: Opt = Opt.Some(42);
+        return match a {
+            Opt.Some(x) => x;
+            Opt.None => 0;
+        };
+    }
+}
