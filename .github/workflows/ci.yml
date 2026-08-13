@@ -348,6 +348,22 @@ jobs:
           ! grep -q 'ast_node_ref_new(NODE_IF)' "$ast"
           ! grep -q 'ast_node_ref_new(NODE_WHILE)' "$ast"
 
+      - name: Require AstFor and AstLoop struct statement records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstFor {' "$ast"
+          grep -q 'struct AstLoop {' "$ast"
+          grep -q 'fn ast_for_record(name_idx: i64, start_expr: i64, end_expr: i64, inclusive: i64, body: i64) -> AstFor' "$ast"
+          grep -q 'fn ast_for_pack(stmt: AstFor) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_for_unpack(node: Vec<i64>) -> AstFor' "$ast"
+          grep -q 'fn ast_stmt_ref_for(stmt_ref: AstStmtRef) -> AstFor' "$ast"
+          grep -q 'fn ast_loop_record(body: i64) -> AstLoop' "$ast"
+          grep -q 'fn ast_stmt_ref_loop(stmt_ref: AstStmtRef) -> AstLoop' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_FOR)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_LOOP)' "$ast"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |
@@ -1553,6 +1569,18 @@ jobs:
           grep -q "int main(void)" /tmp/106_ast_if_struct.c
           grep -q "make_if" /tmp/106_ast_if_struct.c
           grep -q "bkr_i64" /tmp/106_ast_if_struct.c
+
+      - name: Compile AstFor struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/107_ast_for_struct.bkr \
+            -o /tmp/107_ast_for_struct.c
+          test -s /tmp/107_ast_for_struct.c
+          ! grep -q "Parse error at token" /tmp/107_ast_for_struct.c
+          grep -q "int main(void)" /tmp/107_ast_for_struct.c
+          grep -q "make_for" /tmp/107_ast_for_struct.c
+          grep -q "bkr_i64" /tmp/107_ast_for_struct.c
 
       - name: Compile pattern and type kind enum fixture through self-host compiler
         timeout-minutes: 2

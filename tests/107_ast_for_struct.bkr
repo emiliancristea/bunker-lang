@@ -1,0 +1,68 @@
+// Test 107: AstFor as a real compiler for-statement record
+// Purpose: For name/range/body/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstForStruct {
+    struct AstFor {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        start_expr: i64,
+        end_expr: i64,
+        inclusive: i64,
+        body: i64
+    }
+
+    struct AstLoop {
+        start: i64,
+        end: i64,
+        body: i64
+    }
+
+    fn make_for(name_idx: i64, start_expr: i64, end_expr: i64, body: i64) -> AstFor {
+        return AstFor {
+            start: 0,
+            end: 9,
+            name_idx: name_idx,
+            start_expr: start_expr,
+            end_expr: end_expr,
+            inclusive: 1,
+            body: body
+        };
+    }
+
+    fn make_loop(body: i64) -> AstLoop {
+        return AstLoop {
+            start: 2,
+            end: 6,
+            body: body
+        };
+    }
+
+    fn for_body(stmt: AstFor) -> i64 {
+        return stmt.body;
+    }
+
+    fn loop_body(stmt: AstLoop) -> i64 {
+        return stmt.body;
+    }
+
+    fn main() -> i32 {
+        let stmt: AstFor = make_for(1, 0, 10, 20);
+        let loop_stmt: AstLoop = make_loop(19);
+        if stmt.start == 0 {
+            if stmt.name_idx == 1 {
+                if stmt.inclusive == 1 {
+                    if for_body(make_for(2, 1, 4, 21)) == 21 {
+                        if loop_stmt.start == 2 {
+                            if loop_body(make_loop(21)) == 21 {
+                                return 42;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

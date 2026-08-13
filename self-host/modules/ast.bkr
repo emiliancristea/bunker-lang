@@ -104,6 +104,22 @@
         body: i64
     }
 
+    struct AstFor {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        start_expr: i64,
+        end_expr: i64,
+        inclusive: i64,
+        body: i64
+    }
+
+    struct AstLoop {
+        start: i64,
+        end: i64,
+        body: i64
+    }
+
     struct AstExprRef {
         handle: i64,
     }
@@ -1261,6 +1277,14 @@
 
     fn ast_stmt_ref_while(stmt_ref: AstStmtRef) -> AstWhile {
         return ast_while_unpack(ast_stmt_node_from_ref(stmt_ref));
+    }
+
+    fn ast_stmt_ref_for(stmt_ref: AstStmtRef) -> AstFor {
+        return ast_for_unpack(ast_stmt_node_from_ref(stmt_ref));
+    }
+
+    fn ast_stmt_ref_loop(stmt_ref: AstStmtRef) -> AstLoop {
+        return ast_loop_unpack(ast_stmt_node_from_ref(stmt_ref));
     }
 
     fn ast_if_cond(node: Vec<i64>) -> Vec<i64> {
@@ -2443,14 +2467,66 @@
         return ast_stmt_node_from_ref(ast_if_ref(ast_expr_ref_from_node(cond), ast_block_ref_from_node(then_block), else_block));
     }
 
+    fn ast_for_record(name_idx: i64, start_expr: i64, end_expr: i64, inclusive: i64, body: i64) -> AstFor {
+        return AstFor {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            name_idx: name_idx,
+            start_expr: start_expr,
+            end_expr: end_expr,
+            inclusive: inclusive,
+            body: body
+        };
+    }
+
+    fn ast_for_pack(stmt: AstFor) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_FOR);
+        vec_push(node, stmt.start);
+        vec_push(node, stmt.end);
+        vec_push(node, stmt.name_idx);
+        vec_push(node, stmt.start_expr);
+        vec_push(node, stmt.end_expr);
+        vec_push(node, stmt.inclusive);
+        vec_push(node, stmt.body);
+        return node;
+    }
+
+    fn ast_for_unpack(node: Vec<i64>) -> AstFor {
+        let name_idx: i64 = 0;
+        let start_expr: i64 = 0;
+        let end_expr: i64 = 0;
+        let inclusive: i64 = 0;
+        let body: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            name_idx = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            start_expr = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 2 {
+            end_expr = vec_get(node, AST_NODE_DATA_START + 2);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 3 {
+            inclusive = vec_get(node, AST_NODE_DATA_START + 3);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 4 {
+            body = vec_get(node, AST_NODE_DATA_START + 4);
+        }
+        return AstFor {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            name_idx: name_idx,
+            start_expr: start_expr,
+            end_expr: end_expr,
+            inclusive: inclusive,
+            body: body
+        };
+    }
+
     fn ast_for_ref(name_idx: i64, start_expr_ref: AstExprRef, end_expr_ref: AstExprRef, inclusive: i64, body_ref: AstBlockRef) -> AstStmtRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_FOR);
-        ast_node_ref_push(node_ref, name_idx);
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(start_expr_ref));
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(end_expr_ref));
-        ast_node_ref_push(node_ref, inclusive);
-        ast_node_ref_push(node_ref, ast_block_ref_handle(body_ref));
-        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
+        let rec: AstFor = ast_for_record(name_idx, ast_expr_ref_handle(start_expr_ref), ast_expr_ref_handle(end_expr_ref), inclusive, ast_block_ref_handle(body_ref));
+        return ast_stmt_ref_from_handle(ast_for_pack(rec) as i64);
     }
 
     fn ast_for(name_idx: i64, start_expr: Vec<i64>, end_expr: Vec<i64>, inclusive: i64, body: Vec<i64>) -> Vec<i64> {
@@ -2502,10 +2578,38 @@
         return ast_stmt_node_from_ref(ast_while_ref(ast_expr_ref_from_node(cond), ast_block_ref_from_node(body)));
     }
 
+    fn ast_loop_record(body: i64) -> AstLoop {
+        return AstLoop {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            body: body
+        };
+    }
+
+    fn ast_loop_pack(stmt: AstLoop) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_LOOP);
+        vec_push(node, stmt.start);
+        vec_push(node, stmt.end);
+        vec_push(node, stmt.body);
+        return node;
+    }
+
+    fn ast_loop_unpack(node: Vec<i64>) -> AstLoop {
+        let body: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            body = vec_get(node, AST_NODE_DATA_START);
+        }
+        return AstLoop {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            body: body
+        };
+    }
+
     fn ast_loop_ref(body_ref: AstBlockRef) -> AstStmtRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_LOOP);
-        ast_node_ref_push(node_ref, ast_block_ref_handle(body_ref));
-        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
+        let rec: AstLoop = ast_loop_record(ast_block_ref_handle(body_ref));
+        return ast_stmt_ref_from_handle(ast_loop_pack(rec) as i64);
     }
 
     fn ast_loop(body: Vec<i64>) -> Vec<i64> {
