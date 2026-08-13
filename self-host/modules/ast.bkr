@@ -133,6 +133,14 @@
         expr: i64
     }
 
+    struct AstTernary {
+        start: i64,
+        end: i64,
+        cond: i64,
+        then_expr: i64,
+        else_expr: i64
+    }
+
     struct AstExprRef {
         handle: i64,
     }
@@ -1308,6 +1316,10 @@
         return ast_expr_stmt_unpack(ast_stmt_node_from_ref(stmt_ref));
     }
 
+    fn ast_expr_ref_ternary(expr_ref: AstExprRef) -> AstTernary {
+        return ast_ternary_unpack(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_if_cond(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 1);
     }
@@ -2251,12 +2263,52 @@
         return ast_expr_node_from_ref(ast_binary_ref(op, ast_expr_ref_from_node(left), ast_expr_ref_from_node(right)));
     }
 
+    fn ast_ternary_record(cond: i64, then_expr: i64, else_expr: i64) -> AstTernary {
+        return AstTernary {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            cond: cond,
+            then_expr: then_expr,
+            else_expr: else_expr
+        };
+    }
+
+    fn ast_ternary_pack(expr: AstTernary) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_TERNARY);
+        vec_push(node, expr.start);
+        vec_push(node, expr.end);
+        vec_push(node, expr.cond);
+        vec_push(node, expr.then_expr);
+        vec_push(node, expr.else_expr);
+        return node;
+    }
+
+    fn ast_ternary_unpack(node: Vec<i64>) -> AstTernary {
+        let cond: i64 = 0;
+        let then_expr: i64 = 0;
+        let else_expr: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            cond = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            then_expr = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 2 {
+            else_expr = vec_get(node, AST_NODE_DATA_START + 2);
+        }
+        return AstTernary {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            cond: cond,
+            then_expr: then_expr,
+            else_expr: else_expr
+        };
+    }
+
     fn ast_ternary_ref(cond_ref: AstExprRef, then_expr_ref: AstExprRef, else_expr_ref: AstExprRef) -> AstExprRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_TERNARY);
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(cond_ref));
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(then_expr_ref));
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(else_expr_ref));
-        return ast_expr_ref_from_handle(ast_node_ref_handle(node_ref));
+        let rec: AstTernary = ast_ternary_record(ast_expr_ref_handle(cond_ref), ast_expr_ref_handle(then_expr_ref), ast_expr_ref_handle(else_expr_ref));
+        return ast_expr_ref_from_handle(ast_ternary_pack(rec) as i64);
     }
 
     fn ast_ternary(cond: Vec<i64>, then_expr: Vec<i64>, else_expr: Vec<i64>) -> Vec<i64> {

@@ -88,6 +88,7 @@ $expectedResults = @{
     "106_ast_if_struct" = 42
     "107_ast_for_struct" = 42
     "108_ast_assign_struct" = 42
+    "109_ast_ternary_struct" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -272,7 +273,8 @@ if (-not $JitOnly) {
         "tests\105_ast_let_struct.bkr",
         "tests\106_ast_if_struct.bkr",
         "tests\107_ast_for_struct.bkr",
-        "tests\108_ast_assign_struct.bkr"
+        "tests\108_ast_assign_struct.bkr",
+        "tests\109_ast_ternary_struct.bkr"
     )
 
     $subsetOk = $true
