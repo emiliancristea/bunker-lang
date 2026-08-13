@@ -89,6 +89,21 @@
         expr: i64
     }
 
+    struct AstIf {
+        start: i64,
+        end: i64,
+        cond: i64,
+        then_block: i64,
+        else_block: i64
+    }
+
+    struct AstWhile {
+        start: i64,
+        end: i64,
+        cond: i64,
+        body: i64
+    }
+
     struct AstExprRef {
         handle: i64,
     }
@@ -1240,6 +1255,14 @@
         return ast_return_expr_handle(ast_stmt_node_from_ref(stmt_ref));
     }
 
+    fn ast_stmt_ref_if(stmt_ref: AstStmtRef) -> AstIf {
+        return ast_if_unpack(ast_stmt_node_from_ref(stmt_ref));
+    }
+
+    fn ast_stmt_ref_while(stmt_ref: AstStmtRef) -> AstWhile {
+        return ast_while_unpack(ast_stmt_node_from_ref(stmt_ref));
+    }
+
     fn ast_if_cond(node: Vec<i64>) -> Vec<i64> {
         return ast_field_node(node, 1);
     }
@@ -2368,12 +2391,52 @@
         return ast_block_node_from_ref(ast_block_with_ref(ast_stmt_ref_from_node(stmt)));
     }
 
+    fn ast_if_record(cond: i64, then_block: i64, else_block: i64) -> AstIf {
+        return AstIf {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            cond: cond,
+            then_block: then_block,
+            else_block: else_block
+        };
+    }
+
+    fn ast_if_pack(stmt: AstIf) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_IF);
+        vec_push(node, stmt.start);
+        vec_push(node, stmt.end);
+        vec_push(node, stmt.cond);
+        vec_push(node, stmt.then_block);
+        vec_push(node, stmt.else_block);
+        return node;
+    }
+
+    fn ast_if_unpack(node: Vec<i64>) -> AstIf {
+        let cond: i64 = 0;
+        let then_block: i64 = 0;
+        let else_block: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            cond = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            then_block = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 2 {
+            else_block = vec_get(node, AST_NODE_DATA_START + 2);
+        }
+        return AstIf {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            cond: cond,
+            then_block: then_block,
+            else_block: else_block
+        };
+    }
+
     fn ast_if_ref(cond_ref: AstExprRef, then_block_ref: AstBlockRef, else_block: i64) -> AstStmtRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_IF);
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(cond_ref));
-        ast_node_ref_push(node_ref, ast_block_ref_handle(then_block_ref));
-        ast_node_ref_push(node_ref, else_block);
-        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
+        let rec: AstIf = ast_if_record(ast_expr_ref_handle(cond_ref), ast_block_ref_handle(then_block_ref), else_block);
+        return ast_stmt_ref_from_handle(ast_if_pack(rec) as i64);
     }
 
     fn ast_if(cond: Vec<i64>, then_block: Vec<i64>, else_block: i64) -> Vec<i64> {
@@ -2394,11 +2457,45 @@
         return ast_stmt_node_from_ref(ast_for_ref(name_idx, ast_expr_ref_from_node(start_expr), ast_expr_ref_from_node(end_expr), inclusive, ast_block_ref_from_node(body)));
     }
 
+    fn ast_while_record(cond: i64, body: i64) -> AstWhile {
+        return AstWhile {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            cond: cond,
+            body: body
+        };
+    }
+
+    fn ast_while_pack(stmt: AstWhile) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_WHILE);
+        vec_push(node, stmt.start);
+        vec_push(node, stmt.end);
+        vec_push(node, stmt.cond);
+        vec_push(node, stmt.body);
+        return node;
+    }
+
+    fn ast_while_unpack(node: Vec<i64>) -> AstWhile {
+        let cond: i64 = 0;
+        let body: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            cond = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            body = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        return AstWhile {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            cond: cond,
+            body: body
+        };
+    }
+
     fn ast_while_ref(cond_ref: AstExprRef, body_ref: AstBlockRef) -> AstStmtRef {
-        let node_ref: AstNodeRef = ast_node_ref_new(NODE_WHILE);
-        ast_node_ref_push(node_ref, ast_expr_ref_handle(cond_ref));
-        ast_node_ref_push(node_ref, ast_block_ref_handle(body_ref));
-        return ast_stmt_ref_from_handle(ast_node_ref_handle(node_ref));
+        let rec: AstWhile = ast_while_record(ast_expr_ref_handle(cond_ref), ast_block_ref_handle(body_ref));
+        return ast_stmt_ref_from_handle(ast_while_pack(rec) as i64);
     }
 
     fn ast_while(cond: Vec<i64>, body: Vec<i64>) -> Vec<i64> {
