@@ -256,7 +256,7 @@ These are the next concrete PR-sized slices.
 | Q-192 | DONE | Back AST node tags with `enum NodeKind`. | `self-host/modules/constants.bkr` declares `enum NodeKind` and defines `NODE_*` as `NodeKind.*` aliases; CI rejects a return to raw `NODE_FN = 2`. |
 | Q-193 | DONE | Back lexer tags with `enum TokenKind`. | `TOK_*` constants are `TokenKind` variant aliases; CI rejects a return to raw `TOK_FN = 23`. |
 | Q-194 | DONE | Back pattern and type tags with enums. | `PAT_*` comes from `enum PatternKind` and `TYPE_*` from `enum TypeKind`; CI rejects raw `PAT_INT = 1` / `TYPE_I32 = 0`. |
-| Q-195 | DONE | Type AST kind APIs with `NodeKind`. | Kind-model name/category/predicate helpers and typed AST constructor/kind readers take or return `NodeKind`; `tests/94_node_kind_typed_api.bkr` proves param/return/local use; CI rejects a return to `kind: i64`. |
+| Q-195 | DONE | Type AST kind APIs with `NodeKind`. | Kind-model name/category/predicate helpers and typed AST constructor/kind readers take or return `NodeKind`; integer builtins accept unit enums; `tests/94_node_kind_typed_api.bkr` proves param/return/local/int_to_string use; CI rejects a return to `kind: i64`. |
 
 ## Language Core
 

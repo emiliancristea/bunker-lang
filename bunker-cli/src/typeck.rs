@@ -1430,7 +1430,7 @@ impl TypeChecker {
         match rule {
             BuiltinArgRule::Any => true,
             BuiltinArgRule::Str => matches!(ty, Type::Str),
-            BuiltinArgRule::Integer => self.is_integer(ty),
+            BuiltinArgRule::Integer => self.is_integer(ty) || self.is_unit_enum(ty),
             BuiltinArgRule::StrOrArray => matches!(ty, Type::Str | Type::Array(_, _)),
         }
     }
