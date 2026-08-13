@@ -221,6 +221,20 @@ jobs:
           ! grep -q 'fn ast_span_start(span: Vec<i64>)' "$ast"
           ! grep -q 'fn parser_error_span_ref(p: ParserStateRef) -> Vec<i64>' "$parser"
 
+      - name: Require AstPattern struct pattern records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstPattern {' "$ast"
+          grep -q 'fn ast_pattern_record(kind: PatternKind, value: i64) -> AstPattern' "$ast"
+          grep -q 'fn ast_pattern_pack(pattern: AstPattern) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_pattern_unpack(node: Vec<i64>) -> AstPattern' "$ast"
+          grep -q 'fn ast_pattern_ref_record(pattern_ref: AstPatternRef) -> AstPattern' "$ast"
+          grep -q 'let pattern: AstPattern = ast_pattern_record2(kind, value, aux);' "$ast"
+          grep -q 'let pattern: AstPattern = ast_pattern_ref_record(pattern_ref);' "$ast"
+          ! grep -q 'vec_push(pattern, kind);' "$ast"
+
       - name: Require recursive self-host import expansion
         shell: bash
         run: |
@@ -1320,6 +1334,18 @@ jobs:
           grep -q "int main(void)" /tmp/97_ast_span_struct.c
           grep -q "make_span" /tmp/97_ast_span_struct.c
           grep -q "bkr_i64" /tmp/97_ast_span_struct.c
+
+      - name: Compile AstPattern struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/98_ast_pattern_struct.bkr \
+            -o /tmp/98_ast_pattern_struct.c
+          test -s /tmp/98_ast_pattern_struct.c
+          ! grep -q "Parse error at token" /tmp/98_ast_pattern_struct.c
+          grep -q "int main(void)" /tmp/98_ast_pattern_struct.c
+          grep -q "make_int" /tmp/98_ast_pattern_struct.c
+          grep -q "bkr_i64" /tmp/98_ast_pattern_struct.c
 
       - name: Compile pattern and type kind enum fixture through self-host compiler
         timeout-minutes: 2
