@@ -429,6 +429,8 @@ fn build_file(
         std::process::exit(1);
     }
 
+    typeck::lower_unit_enums(&mut ast);
+
     // Code generation
     if kernel_count > 0 || shell_count > 0 {
         println!("\n{}", "Generating code...".cyan().bold());
@@ -831,6 +833,7 @@ fn build_ast_from_source_for_run(file_path: &str, source: &str) -> Result<ast::F
     let mut ast = build_ast(file_pair)
         .map_err(|err| anyhow::anyhow!("AST build error in {}: {}", file_path, err))?;
     let _comptime_stats = comptime::fold_comptime_calls(&mut ast);
+    typeck::lower_unit_enums(&mut ast);
     Ok(ast)
 }
 
@@ -1143,6 +1146,8 @@ fn run_file(
         }
         std::process::exit(1);
     }
+
+    typeck::lower_unit_enums(&mut ast);
 
     // Prefer Kernel entrypoint if present; otherwise, fall back to a Shell simulation.
     // Supported main() return types: i32, i64, f64, bool

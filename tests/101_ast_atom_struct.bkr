@@ -1,0 +1,45 @@
+// Test 101: AstAtom as a real compiler atomic-expression record
+// Purpose: Ident/literal kind/payload/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstAtomStruct {
+    enum NodeKind {
+        Unused0,
+        Ident,
+        IntLit
+    }
+
+    struct AstAtom {
+        kind: NodeKind,
+        start: i64,
+        end: i64,
+        payload: i64
+    }
+
+    fn make_int(value: i64) -> AstAtom {
+        return AstAtom {
+            kind: NodeKind.IntLit,
+            start: 0,
+            end: 2,
+            payload: value
+        };
+    }
+
+    fn atom_payload(atom: AstAtom) -> i64 {
+        return atom.payload;
+    }
+
+    fn main() -> i32 {
+        let atom: AstAtom = make_int(41);
+        if atom.kind == NodeKind.IntLit {
+            if atom.start == 0 {
+                if atom.end == 2 {
+                    if atom_payload(make_int(41)) == 41 {
+                        return 42;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

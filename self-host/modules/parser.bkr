@@ -2,80 +2,12 @@
     // PARSER
     // ========================================
 
-    fn token_name(tok: i64) -> str {
-        if tok == TOK_EOF { return "EOF"; }
-        if tok == TOK_IDENT { return "identifier"; }
-        if tok == TOK_INT { return "integer"; }
-        if tok == TOK_STR { return "string"; }
-        if tok == TOK_FLOAT { return "float"; }
-        if tok == TOK_TRUE { return "true"; }
-        if tok == TOK_FALSE { return "false"; }
-        if tok == TOK_KERNEL { return "kernel"; }
-        if tok == TOK_STRUCT { return "struct"; }
-        if tok == TOK_FN { return "fn"; }
-        if tok == TOK_LET { return "let"; }
-        if tok == TOK_IF { return "if"; }
-        if tok == TOK_ELSE { return "else"; }
-        if tok == TOK_FOR { return "for"; }
-        if tok == TOK_IN { return "in"; }
-        if tok == TOK_WHILE { return "while"; }
-        if tok == TOK_BREAK { return "break"; }
-        if tok == TOK_CONTINUE { return "continue"; }
-        if tok == TOK_LOOP { return "loop"; }
-        if tok == TOK_RETURN { return "return"; }
-        if tok == TOK_MATCH { return "match"; }
-        if tok == TOK_CONST { return "const"; }
-        if tok == TOK_I32 { return "i32"; }
-        if tok == TOK_I64 { return "i64"; }
-        if tok == TOK_F64 { return "f64"; }
-        if tok == TOK_BOOL { return "bool"; }
-        if tok == TOK_STR_TYPE { return "str"; }
-        if tok == TOK_PLUS { return "+"; }
-        if tok == TOK_MINUS { return "-"; }
-        if tok == TOK_STAR { return "*"; }
-        if tok == TOK_SLASH { return "/"; }
-        if tok == TOK_PERCENT { return "%"; }
-        if tok == TOK_EQ { return "=="; }
-        if tok == TOK_NE { return "!="; }
-        if tok == TOK_LT { return "<"; }
-        if tok == TOK_GT { return ">"; }
-        if tok == TOK_LE { return "<="; }
-        if tok == TOK_GE { return ">="; }
-        if tok == TOK_AND { return "&&"; }
-        if tok == TOK_OR { return "||"; }
-        if tok == TOK_NOT { return "!"; }
-        if tok == TOK_BIT_AND { return "&"; }
-        if tok == TOK_BIT_OR { return "|"; }
-        if tok == TOK_BIT_XOR { return "^"; }
-        if tok == TOK_SHL { return "<<"; }
-        if tok == TOK_SHR { return ">>"; }
-        if tok == TOK_ASSIGN { return "="; }
-        if tok == TOK_ARROW { return "->"; }
-        if tok == TOK_FAT_ARROW { return "=>"; }
-        if tok == TOK_DOT_DOT { return ".."; }
-        if tok == TOK_DOT_DOT_EQ { return "..="; }
-        if tok == TOK_DOT { return "."; }
-        if tok == TOK_LPAREN { return "("; }
-        if tok == TOK_RPAREN { return ")"; }
-        if tok == TOK_LBRACE { return "{"; }
-        if tok == TOK_RBRACE { return "}"; }
-        if tok == TOK_LBRACKET { return "["; }
-        if tok == TOK_RBRACKET { return "]"; }
-        if tok == TOK_COMMA { return ","; }
-        if tok == TOK_SEMICOLON { return ";"; }
-        if tok == TOK_COLON { return ":"; }
-        if tok == TOK_QUESTION { return "?"; }
-        return "token " + int_to_string(tok);
+    fn token_name(tok: TokenKind) -> str {
+        return token_kind_name(tok);
     }
 
-    fn is_name_token(tok: i64) -> bool {
-        return tok == TOK_IDENT || tok == TOK_KERNEL || tok == TOK_STRUCT ||
-               tok == TOK_FN || tok == TOK_LET ||
-               tok == TOK_IF || tok == TOK_ELSE || tok == TOK_FOR || tok == TOK_IN ||
-               tok == TOK_WHILE || tok == TOK_BREAK || tok == TOK_CONTINUE ||
-               tok == TOK_LOOP || tok == TOK_RETURN || tok == TOK_MATCH || tok == TOK_CONST ||
-               tok == TOK_I32 || tok == TOK_I64 || tok == TOK_F64 || tok == TOK_BOOL ||
-               tok == TOK_STR_TYPE;
+    fn is_name_token(tok: TokenKind) -> bool {
+        return token_is_name_kind(tok);
     }
 
     fn parser_token_end_for_pos(p: Vec<i64>, pos: i64) -> i64 {
@@ -148,7 +80,7 @@
         return end;
     }
 
-    fn parser_span_from_start(p: ParserStateRef, start: i64) -> Vec<i64> {
+    fn parser_span_from_start(p: ParserStateRef, start: i64) -> AstSpan {
         return ast_span(start, parser_end_for_span(p, start));
     }
 
@@ -239,11 +171,11 @@
         return ast_node_list_from_ref(nodes_ref);
     }
 
-    fn parser_error_span(p: Vec<i64>) -> Vec<i64> {
+    fn parser_error_span(p: Vec<i64>) -> AstSpan {
         return parser_error_span_ref(parser_state_ref_from_state(p));
     }
 
-    fn parser_error_span_ref(p: ParserStateRef) -> Vec<i64> {
+    fn parser_error_span_ref(p: ParserStateRef) -> AstSpan {
         let pos = parser_error_position_ref(p);
         return ast_span(parser_token_start_for_pos_ref(p, pos), parser_token_end_for_pos_ref(p, pos));
     }
@@ -376,6 +308,23 @@
             let name_idx = parser_peek_value_ref(p);
             let raw_name = parser_get_name_ref(p, name_idx);
             parser_advance_ref(p);
+
+            if parser_peek_ref(p) == TOK_DOT {
+                parser_advance_ref(p);
+                let variant_idx = parser_expect_name(p);
+                let bind_idx: i64 = -1;
+                let bind2_idx: i64 = -1;
+                if parser_peek_ref(p) == TOK_LPAREN {
+                    parser_advance_ref(p);
+                    bind_idx = parser_expect_name(p);
+                    if parser_peek_ref(p) == TOK_COMMA {
+                        parser_advance_ref(p);
+                        bind2_idx = parser_expect_name(p);
+                    }
+                    parser_expect_ref(p, TOK_RPAREN);
+                }
+                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new4(PAT_ENUM_VARIANT, name_idx, variant_idx, bind_idx, bind2_idx), start);
+            }
 
             if raw_name == "_" {
                 return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_WILDCARD, 0), start);
@@ -594,6 +543,33 @@
             let field_ref: AstExprRef = ast_field_access_ref(base_ref, field_name);
             base_ref = parser_set_expr_ref_span(field_ref, start, parser_previous_token_end(p));
         }
+        if parser_peek_ref(p) == TOK_LPAREN {
+            let start = ast_expr_ref_span_start(base_ref);
+            parser_advance_ref(p);
+            if parser_peek_ref(p) != TOK_RPAREN {
+                let first_ref: AstExprRef = parse_expr_ref(p);
+                if parser_peek_ref(p) == TOK_COMMA {
+                    parser_advance_ref(p);
+                    let second_ref: AstExprRef = parse_expr_ref(p);
+                    parser_expect_ref(p, TOK_RPAREN);
+                    let twenty_ref: AstExprRef = ast_int_lit_ref(20);
+                    let eight_ref: AstExprRef = ast_int_lit_ref(8);
+                    let left_shift_ref: AstExprRef = ast_binary_ref(TOK_SHL, first_ref, twenty_ref);
+                    let right_shift_ref: AstExprRef = ast_binary_ref(TOK_SHL, second_ref, eight_ref);
+                    let fields_ref: AstExprRef = ast_binary_ref(TOK_BIT_OR, left_shift_ref, right_shift_ref);
+                    let pack_ref: AstExprRef = ast_binary_ref(TOK_BIT_OR, fields_ref, base_ref);
+                    base_ref = parser_set_expr_ref_span(pack_ref, start, parser_previous_token_end(p));
+                } else {
+                    parser_expect_ref(p, TOK_RPAREN);
+                    let eight_ref: AstExprRef = ast_int_lit_ref(8);
+                    let shift_ref: AstExprRef = ast_binary_ref(TOK_SHL, first_ref, eight_ref);
+                    let pack_ref: AstExprRef = ast_binary_ref(TOK_BIT_OR, shift_ref, base_ref);
+                    base_ref = parser_set_expr_ref_span(pack_ref, start, parser_previous_token_end(p));
+                }
+            } else {
+                parser_advance_ref(p);
+            }
+        }
         return base_ref;
     }
 
@@ -787,13 +763,13 @@
         let type_node: i64 = ast_optional_none();
         if parser_peek_ref(p) == TOK_COLON {
             parser_advance_ref(p);
-            type_node = ast_type_ref_handle(parse_type_ref(p));
+            type_node = ast_type_ref_to_optional_handle(parse_type_ref(p));
         }
 
         let init: i64 = ast_optional_none();
         if parser_peek_ref(p) == TOK_ASSIGN {
             parser_advance_ref(p);
-            init = ast_expr_ref_handle(parse_expr_ref(p));
+            init = ast_expr_ref_to_optional_handle(parse_expr_ref(p));
         }
         parser_expect_ref(p, TOK_SEMICOLON);
 
@@ -810,7 +786,7 @@
         parser_advance_ref(p);
         let expr: i64 = ast_optional_none();
         if parser_peek_ref(p) != TOK_SEMICOLON {
-            expr = ast_expr_ref_handle(parse_expr_ref(p));
+            expr = ast_expr_ref_to_optional_handle(parse_expr_ref(p));
         }
         parser_expect_ref(p, TOK_SEMICOLON);
         let return_ref: AstStmtRef = ast_return_ref(expr);
@@ -887,9 +863,9 @@
             parser_advance_ref(p);
             if parser_peek_ref(p) == TOK_IF {
                 let nested_if_ref: AstStmtRef = parse_if_stmt_ref(p);
-                else_block = ast_block_ref_handle(ast_block_with_ref(nested_if_ref));
+                else_block = ast_block_ref_to_optional_handle(ast_block_with_ref(nested_if_ref));
             } else {
-                else_block = ast_block_ref_handle(parse_block_ref(p));
+                else_block = ast_block_ref_to_optional_handle(parse_block_ref(p));
             }
         }
         let if_ref: AstStmtRef = ast_if_ref(cond_ref, then_block_ref, else_block);
@@ -1006,7 +982,7 @@
         let ret_type: i64 = ast_optional_none();
         if parser_peek_ref(p) == TOK_ARROW {
             parser_advance_ref(p);
-            ret_type = ast_type_ref_handle(parse_type_ref(p));
+            ret_type = ast_type_ref_to_optional_handle(parse_type_ref(p));
         }
 
         let body_ref: AstBlockRef = parse_block_ref(p);
@@ -1027,19 +1003,58 @@
         let type_node: i64 = ast_optional_none();
         if parser_peek_ref(p) == TOK_COLON {
             parser_advance_ref(p);
-            type_node = ast_type_ref_handle(parse_type_ref(p));
+            type_node = ast_type_ref_to_optional_handle(parse_type_ref(p));
         }
 
         let value: i64 = ast_optional_none();
         if parser_peek_ref(p) == TOK_ASSIGN {
             parser_advance_ref(p);
-            value = ast_expr_ref_handle(parse_expr_ref(p));
+            value = ast_expr_ref_to_optional_handle(parse_expr_ref(p));
         }
 
         parser_expect_ref(p, TOK_SEMICOLON);
 
         let const_ref: AstItemRef = ast_const_ref(name_idx, type_node, value);
         return parser_set_item_ref_span_from_start(p, const_ref, start);
+    }
+
+    fn parse_enum(p: ParserStateRef) -> Vec<i64> {
+        return parser_item_ref_to_compat_node(parse_enum_ref(p));
+    }
+
+    fn parse_enum_ref(p: ParserStateRef) -> AstItemRef {
+        let start = parser_current_token_start(p);
+        parser_expect_ref(p, TOK_ENUM);
+        let name_idx = parser_expect_name(p);
+        parser_expect_ref(p, TOK_LBRACE);
+
+        let variants: Vec<i64> = vec_new();
+        let variants_ref: AstI64ListRef = ast_i64_list_ref_from_list(variants);
+        let payloads: Vec<i64> = vec_new();
+        let payloads_ref: AstI64ListRef = ast_i64_list_ref_from_list(payloads);
+        while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
+            ast_i64_list_append_ref(variants_ref, parser_expect_name(p));
+            let payload: i64 = ast_optional_none();
+            if parser_peek_ref(p) == TOK_LPAREN {
+                parser_advance_ref(p);
+                let fields: Vec<i64> = vec_new();
+                let fields_ref: AstI64ListRef = ast_i64_list_ref_from_list(fields);
+                ast_i64_list_append_ref(fields_ref, ast_type_ref_to_optional_handle(parse_type_ref(p)));
+                while parser_peek_ref(p) == TOK_COMMA {
+                    parser_advance_ref(p);
+                    ast_i64_list_append_ref(fields_ref, ast_type_ref_to_optional_handle(parse_type_ref(p)));
+                }
+                parser_expect_ref(p, TOK_RPAREN);
+                payload = ast_i64_list_ref_handle(fields_ref);
+            }
+            ast_i64_list_append_ref(payloads_ref, payload);
+            if parser_peek_ref(p) == TOK_COMMA {
+                parser_advance_ref(p);
+            }
+        }
+
+        parser_expect_ref(p, TOK_RBRACE);
+        return parser_set_item_ref_span_from_start(p, ast_enum_ref(name_idx, variants_ref, payloads_ref), start);
     }
 
     fn parse_struct(p: ParserStateRef) -> Vec<i64> {
@@ -1100,6 +1115,8 @@
                 ast_node_list_append_item_ref(items_ref, parse_const_ref(p));
             } else if tok == TOK_STRUCT {
                 ast_node_list_append_item_ref(items_ref, parse_struct_ref(p));
+            } else if tok == TOK_ENUM {
+                ast_node_list_append_item_ref(items_ref, parse_enum_ref(p));
             } else {
                 parser_advance_ref(p);  // skip unknown
             }

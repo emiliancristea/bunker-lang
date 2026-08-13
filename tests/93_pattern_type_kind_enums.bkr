@@ -1,0 +1,28 @@
+// Test 93: Pattern and type kind enums as integer tags
+// Purpose: PatternKind/TypeKind variants can seed i64 compiler constants.
+// Expected: Result: 42
+
+kernel PatternTypeKindEnums {
+    enum PatternKind {
+        Unused0,
+        Int,
+        Bool,
+    }
+
+    enum TypeKind {
+        I32,
+        I64,
+    }
+
+    const PAT_INT: i64 = PatternKind.Int;
+    const TYPE_I64: i64 = TypeKind.I64;
+
+    fn main() -> i32 {
+        if PAT_INT == PatternKind.Int {
+            if TYPE_I64 == TypeKind.I64 {
+                return 42;
+            }
+        }
+        return 0;
+    }
+}

@@ -17,7 +17,7 @@ This repo currently contains a single Rust crate (`bunker-cli`) implementing the
 5. **Execution (bootstrap)**:
    - Kernel JIT runner for `fn main() -> i32` (`bunker-cli/src/jit.rs`).
    - Shell VM (`bunker-cli/src/shell_runtime.rs`) and View runtime (`bunker-cli/src/view_runtime.rs`).
-6. **CLI**: `bunker-cli/src/main.rs` wires `check`, `build`, `parse`, `run`.
+6. **CLI**: `bunker-cli/src/main.rs` wires `check`, `parse`, `build`, `run`, `self-host-check`, and `self-host-compile`. Local policy allows only `check`, `parse`, and `self-host-check`; `build`, `run`, and `self-host-compile` are CI-only.
 
 ## Compiler Pipeline (Intended Evolution)
 
@@ -46,9 +46,9 @@ To run Shell and View, the project includes a small runtime implementation (Rust
 
 ## Current Test Coverage
 
-- **Total Tests:** 92 passing
-- **JIT-Enabled:** 57 tests (validated by `run_tests.ps1`)
-- **Negative Tests:** 16 tests (type errors, move errors)
+- **Total Tests:** 98 passing
+- **JIT-Enabled:** 61 tests (validated by `run_tests.ps1`)
+- **Negative Tests:** 18 tests (type errors, move errors)
 - **Shell-Bearing Files:** 14 tests
 - **View-Bearing Files:** 7 tests
 

@@ -1,0 +1,45 @@
+// Test 115: AstKernel as a real compiler kernel record
+// Purpose: Kernel name/items/entry/names/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstKernelStruct {
+    struct AstKernel {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        items: i64,
+        entry_idx: i64,
+        names: i64
+    }
+
+    fn make_kernel(name_idx: i64, items: i64, entry_idx: i64) -> AstKernel {
+        return AstKernel {
+            start: 0,
+            end: 8,
+            name_idx: name_idx,
+            items: items,
+            entry_idx: entry_idx,
+            names: 0
+        };
+    }
+
+    fn kernel_entry(item: AstKernel) -> i64 {
+        return item.entry_idx;
+    }
+
+    fn main() -> i32 {
+        let item: AstKernel = make_kernel(1, 20, 2);
+        if item.start == 0 {
+            if item.end == 8 {
+                if item.name_idx == 1 {
+                    if kernel_entry(make_kernel(3, 4, 21)) == 21 {
+                        if item.items == 20 {
+                            return 42;
+                        }
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

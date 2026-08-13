@@ -15,7 +15,7 @@ view_block   = { "view" ~ identifier ~ "{" ~ view_item* ~ "}" }
 // KERNEL LAYER
 // ====================
 
-kernel_item = { function | struct_def | const_def | comptime_fn }
+kernel_item = { function | struct_def | enum_def | const_def | comptime_fn }
 
 function = { 
     attribute* ~ 
@@ -32,6 +32,10 @@ comptime_fn = {
 
 struct_def = { "struct" ~ identifier ~ "{" ~ struct_field* ~ "}" }
 struct_field = { identifier ~ ":" ~ type_expr ~ ","? }
+
+enum_def = { "enum" ~ identifier ~ "{" ~ enum_variant_list? ~ "}" }
+enum_variant_list = { enum_variant ~ ("," ~ enum_variant)* ~ ","? }
+enum_variant = { identifier ~ ("(" ~ type_expr ~ ("," ~ type_expr)* ~ ")")? }
 
 const_def = { "const" ~ identifier ~ ":" ~ type_expr ~ "=" ~ expr ~ ";" }
 
@@ -200,9 +204,11 @@ pattern = {
     "None" |
     "true" |
     "false" |
+    enum_variant_pattern |
     literal |
     identifier
 }
+enum_variant_pattern = { identifier ~ "." ~ identifier ~ ("(" ~ identifier ~ ("," ~ identifier)* ~ ")")? }
 
 // ====================
 // TYPES

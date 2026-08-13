@@ -1,0 +1,19 @@
+// Test 118: Enum variant payload construction
+// Purpose: Construct a single-type payload variant as (payload << 8) | tag.
+// Expected: Result: 42
+
+kernel EnumPayloadCtor {
+    enum Opt {
+        Some(i32),
+        None,
+    }
+
+    fn main() -> i32 {
+        let a: Opt = Opt.Some(41);
+        let b: Opt = Opt.None;
+        if a != b {
+            return 42;
+        }
+        return 0;
+    }
+}

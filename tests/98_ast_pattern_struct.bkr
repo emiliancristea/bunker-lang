@@ -1,0 +1,47 @@
+// Test 98: AstPattern as a real compiler pattern record
+// Purpose: Pattern kind/value/aux/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstPatternStruct {
+    enum PatternKind {
+        Unused0,
+        Int,
+        Bind,
+    }
+
+    struct AstPattern {
+        kind: PatternKind,
+        start: i64,
+        end: i64,
+        value: i64,
+        aux: i64,
+    }
+
+    fn make_int(value: i64) -> AstPattern {
+        return AstPattern {
+            kind: PatternKind.Int,
+            start: 0,
+            end: 2,
+            value: value,
+            aux: 0
+        };
+    }
+
+    fn pattern_value(pattern: AstPattern) -> i64 {
+        return pattern.value;
+    }
+
+    fn main() -> i32 {
+        let pattern: AstPattern = make_int(41);
+        if pattern.kind == PatternKind.Int {
+            if pattern.start == 0 {
+                if pattern.end == 2 {
+                    if pattern_value(make_int(41)) == 41 {
+                        return 42;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

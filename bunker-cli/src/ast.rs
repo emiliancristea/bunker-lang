@@ -19,6 +19,7 @@ pub struct Kernel {
 pub enum KernelItem {
     Function(Function),
     Struct(StructDef),
+    Enum(EnumDef),
     Const(ConstDef),
     ComptimeFn(Function),
 }
@@ -42,6 +43,27 @@ pub struct StructDef {
 pub struct StructField {
     pub name: String,
     pub ty: Type,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnumVariantDecl {
+    pub name: String,
+    pub payloads: Vec<Type>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnumDef {
+    pub name: String,
+    pub variants: Vec<EnumVariantDecl>,
+}
+
+impl EnumDef {
+    pub fn variant_names(&self) -> Vec<String> {
+        self.variants
+            .iter()
+            .map(|variant| variant.name.clone())
+            .collect()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -197,6 +219,15 @@ pub enum Pattern {
     Bool(bool),
     Literal(Literal),
     Ident(String),
+    EnumVariant {
+        enum_name: String,
+        variant: String,
+        bindings: Vec<String>,
+    },
+    EnumPayload {
+        tag: i64,
+        bindings: Vec<String>,
+    },
 }
 
 // ====================

@@ -1,0 +1,39 @@
+// Test 104: AstIndex as a real compiler index-expression record
+// Purpose: Index base/index/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstIndexStruct {
+    struct AstIndex {
+        start: i64,
+        end: i64,
+        base: i64,
+        index: i64
+    }
+
+    fn make_index(base: i64, index: i64) -> AstIndex {
+        return AstIndex {
+            start: 0,
+            end: 4,
+            base: base,
+            index: index
+        };
+    }
+
+    fn index_sum(idx: AstIndex) -> i64 {
+        return idx.base + idx.index;
+    }
+
+    fn main() -> i32 {
+        let idx: AstIndex = make_index(10, 31);
+        if idx.start == 0 {
+            if idx.end == 4 {
+                if idx.base == 10 {
+                    if index_sum(make_index(20, 22)) == 42 {
+                        return 42;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

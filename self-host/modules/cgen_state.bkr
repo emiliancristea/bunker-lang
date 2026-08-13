@@ -9,7 +9,7 @@
     // Layout:
     // [output_lines, indent, kernel_name, names, local_names, local_types,
     //  fn_names, fn_types, global_names, global_types,
-    //  array_names, array_lengths, array_elem_types]
+    //  array_names, array_lengths, array_elem_types, kernel_handle]
 
     struct CgenStateRef {
         handle: i64,
@@ -44,7 +44,26 @@
         vec_push(state, array_names as i64);
         vec_push(state, array_lengths as i64);
         vec_push(state, array_elem_types as i64);
+        vec_push(state, 0);
         return cgen_state_ref_from_state(state);
+    }
+
+    fn cgen_attach_kernel_handle(state_ref: CgenStateRef, kernel_handle: i64) -> CgenStateRef {
+        let state: Vec<i64> = cgen_state_from_ref(state_ref);
+        if vec_len(state) < 14 {
+            vec_push(state, kernel_handle);
+        } else {
+            vec_set(state, 13, kernel_handle);
+        }
+        return state_ref;
+    }
+
+    fn cgen_kernel_handle(state_ref: CgenStateRef) -> i64 {
+        let state: Vec<i64> = cgen_state_from_ref(state_ref);
+        if vec_len(state) < 14 {
+            return 0;
+        }
+        return vec_get(state, 13);
     }
 
     fn cgen_state_ref_from_state(state: Vec<i64>) -> CgenStateRef {

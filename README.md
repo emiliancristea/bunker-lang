@@ -147,7 +147,7 @@ bunker-lang/
 │   │   ├── codegen.rs        # Cranelift AOT compilation
 │   │   └── shell_runtime.rs  # Agent VM runtime
 │   └── Cargo.toml
-├── tests/                # 92 acceptance tests
+├── tests/                # 98 acceptance tests
 ├── docs/
 │   ├── VISION.md         # Language design philosophy
 │   └── ARCHITECTURE.md   # Compiler pipeline design
@@ -271,9 +271,30 @@ view MyView {
 - [x] Contracts: `#[requires]`/`#[ensures]` with lightweight verification
 - [x] Bootstrap stdlib builtins: file I/O, string methods, `Vec`, `Result`, `HashMap`
 - [x] AI diagnostic envelope: schema version, source excerpts, structured suggestions, prompt-ready repair context
-- [x] Self-host readiness command (`self-host-check`) for Bunker-written compiler sources; 8/8 current sources pass checks
-- [x] Self-host compile wrapper (`self-host-compile`) that runs `self-host/bkrc.bkr` on real `.bkr` input and emits C
-- [x] **92 tests passing** (including 16 negative `*_BAD` tests)
+- [x] Self-host readiness command (`self-host-check`) for top-level `self-host/*.bkr` sources; 8/8 of those files pass (this command does not enumerate `self-host/modules/`)
+- [x] Self-host compile wrapper (`self-host-compile`) that runs modular `self-host/bkrc.bkr` on real `.bkr` input and emits C
+- [x] Stage1/stage2 self-compilation for the supported bootstrap subset (CI-certified on `main`)
+- [x] **126 tests passing** (including 18 negative `*_BAD` tests; 89 JIT-validated)
+- [x] Kernel unit enums (`enum Color { Red, Green }`, `Color.Red`, exhaustive match)
+- [x] Self-host unit-enum match exhaustiveness (`non_exhaustive_match` / `BKR_SELF_EXHAUSTIVENESS`)
+- [x] Enum variant payload declarations (`enum Opt { Some(i32), None }`)
+- [x] Enum variant payload construction (`Opt.Some(41)` packs as `(payload << 8) | tag`)
+- [x] Enum variant payload match bindings (`Opt.Some(x)` extracts `value >> 8`)
+- [x] Multi-field enum payload declarations (`enum Pair { Both(i32, i32), Empty }`)
+- [x] Multi-field enum payload construction (`Pair.Both(1, 2)` packs as `(a << 20) | (b << 8) | tag`)
+- [x] Multi-field enum payload match bindings (`Pair.Both(x, y)` extracts `value >> 20` and `(value >> 8) & 4095`)
+- [x] Self-host AST kind APIs typed with `enum NodeKind`
+- [x] Self-host lexer token APIs typed with `enum TokenKind`
+- [x] Self-host pattern/type kind APIs typed with `enum PatternKind` / `enum TypeKind`
+- [x] Self-host spans are `struct AstSpan`, not `Vec<i64>`
+- [x] Self-host patterns are `struct AstPattern` records packed at the handle boundary
+- [x] Self-host types are `struct AstType` records packed at the handle boundary
+- [x] Self-host ident/literal expressions are `struct AstAtom` records packed at the handle boundary
+- [x] Self-host binary/unary expressions are `struct AstBinary` / `struct AstUnary` records
+- [x] Self-host call expressions are `struct AstCall` records packed at the handle boundary
+- [x] Self-host index/field-access expressions are `struct AstIndex` / `struct AstFieldAccess` records
+- [x] Self-host let/return statements are `struct AstLet` / `struct AstReturn` records
+- [x] Self-host break/continue/block nodes are `struct AstBreak` / `struct AstContinue` / `struct AstBlock` records
 
 ### In Progress 🚧
 - [x] Z3 SMT verification integration (`--smt` flag, requires Z3 installation) ✅
@@ -290,7 +311,7 @@ view MyView {
 - [ ] Embedded profile (`--profile=metal`)
 - [ ] Language server (LSP)
 - [ ] Package manager
-- [ ] Self-hosting compiler (prototype can emit C for a bootstrap subset; not self-compiling yet)
+- [ ] Primary self-hosted compiler (stage1/stage2 works for the bootstrap subset; Rust is still the production path)
 
 ## Why Not Existing Languages?
 

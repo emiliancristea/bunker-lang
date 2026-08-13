@@ -1,0 +1,62 @@
+// Test 113: AstConst as a real compiler const-item record
+// Purpose: Const/field name/type/value/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstConstStruct {
+    struct AstConst {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        type_handle: i64,
+        value: i64
+    }
+
+    struct AstFieldDecl {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        type_handle: i64
+    }
+
+    fn make_const(name_idx: i64, value: i64) -> AstConst {
+        return AstConst {
+            start: 0,
+            end: 6,
+            name_idx: name_idx,
+            type_handle: 0,
+            value: value
+        };
+    }
+
+    fn make_field(name_idx: i64, type_handle: i64) -> AstFieldDecl {
+        return AstFieldDecl {
+            start: 1,
+            end: 4,
+            name_idx: name_idx,
+            type_handle: type_handle
+        };
+    }
+
+    fn const_value(item: AstConst) -> i64 {
+        return item.value;
+    }
+
+    fn field_name(field: AstFieldDecl) -> i64 {
+        return field.name_idx;
+    }
+
+    fn main() -> i32 {
+        let item: AstConst = make_const(1, 20);
+        let field: AstFieldDecl = make_field(3, 7);
+        if item.start == 0 {
+            if const_value(make_const(2, 21)) == 21 {
+                if field.type_handle == 7 {
+                    if field_name(make_field(21, 0)) == 21 {
+                        return 42;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

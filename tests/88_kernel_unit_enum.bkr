@@ -1,0 +1,33 @@
+// Test 88: Kernel unit enums
+// Purpose: Parse, construct, pass, compare, and exhaustively match unit enums.
+// Expected: Result: 42
+
+kernel UnitEnumTest {
+    enum Color {
+        Red,
+        Green,
+        Blue,
+    }
+
+    fn score(color: Color) -> i32 {
+        return match color {
+            Color.Red => 10;
+            Color.Green => 20;
+            Color.Blue => 12;
+        };
+    }
+
+    fn main() -> i32 {
+        let first: Color = Color.Red;
+        let second = Color.Green;
+        let third = Color.Blue;
+
+        let copied = first;
+        let same = first == copied;
+        let result = score(first) + score(second) + score(third);
+        if same {
+            return result;
+        }
+        return 0;
+    }
+}

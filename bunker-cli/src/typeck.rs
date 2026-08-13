@@ -23,6 +23,10 @@ pub struct TypeChecker {
     functions: HashMap<String, (Vec<Type>, Option<Type>)>,
     // Struct definitions: name -> fields
     structs: HashMap<String, Vec<(String, Type)>>,
+    // Unit enum definitions: name -> variant names in declaration order
+    enums: HashMap<String, Vec<String>>,
+    // Parallel payload types for each enum variant; None means a unit variant.
+    enum_payloads: HashMap<String, Vec<Vec<Type>>>,
     // Errors collected during type checking
     errors: Vec<TypeError>,
     // Current function return type (for checking return statements)
@@ -39,6 +43,8 @@ impl TypeChecker {
             variables: HashMap::new(),
             functions: HashMap::new(),
             structs: HashMap::new(),
+            enums: HashMap::new(),
+            enum_payloads: HashMap::new(),
             errors: Vec::new(),
             current_return_type: None,
             moved_vars: HashSet::new(),
@@ -68,7 +74,47 @@ impl TypeChecker {
                         .iter()
                         .map(|f| (f.name.clone(), f.ty.clone()))
                         .collect();
+                    if self.enums.contains_key(&s.name) {
+                        self.errors.push(TypeError {
+                            message: format!("Name '{}' is already declared as an enum", s.name),
+                            location: s.name.clone(),
+                        });
+                    }
                     self.structs.insert(s.name.clone(), fields);
+                }
+                ast::KernelItem::Enum(e) => {
+                    if self.structs.contains_key(&e.name) {
+                        self.errors.push(TypeError {
+                            message: format!("Name '{}' is already declared as a struct", e.name),
+                            location: e.name.clone(),
+                        });
+                    }
+                    if e.variants.is_empty() {
+                        self.errors.push(TypeError {
+                            message: format!("Enum '{}' must declare at least one variant", e.name),
+                            location: e.name.clone(),
+                        });
+                    }
+                    let mut seen = HashSet::new();
+                    for variant in &e.variants {
+                        if !seen.insert(variant.name.clone()) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Duplicate variant '{}' in enum '{}'",
+                                    variant.name, e.name
+                                ),
+                                location: e.name.clone(),
+                            });
+                        }
+                    }
+                    self.enums.insert(e.name.clone(), e.variant_names());
+                    self.enum_payloads.insert(
+                        e.name.clone(),
+                        e.variants
+                            .iter()
+                            .map(|variant| variant.payloads.clone())
+                            .collect(),
+                    );
                 }
                 ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f) => {
                     let param_types: Vec<Type> = f.params.iter().map(|p| p.ty.clone()).collect();
@@ -81,10 +127,25 @@ impl TypeChecker {
             }
         }
 
-        // Second pass: type check function bodies
+        // Second pass: type check constants and function bodies
         for item in &kernel.items {
-            if let ast::KernelItem::Function(f) = item {
-                self.check_function(f)?;
+            match item {
+                ast::KernelItem::Const(c) => {
+                    let actual = self.infer_expr(&c.value, &c.name)?;
+                    if !self.types_compatible(&c.ty, &actual) {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Constant '{}' type mismatch: expected {:?}, got {:?}",
+                                c.name, c.ty, actual
+                            ),
+                            location: c.name.clone(),
+                        });
+                    }
+                }
+                ast::KernelItem::Function(f) => {
+                    self.check_function(f)?;
+                }
+                _ => {}
             }
         }
 
@@ -285,6 +346,27 @@ impl TypeChecker {
                 let ty = self.infer_expr(expr, context)?;
                 Ok(Some(ty))
             }
+            Stmt::Match { expr, arms } => {
+                let expr_ty = self.infer_expr(expr, context)?;
+                for arm in arms {
+                    self.check_pattern_type(&arm.pattern, &expr_ty, context);
+                    let saved = self.variables.clone();
+                    let saved_moved = self.moved_vars.clone();
+                    self.bind_pattern(&arm.pattern, &expr_ty);
+                    match &arm.body {
+                        ast::MatchBody::Expr(body_expr) => {
+                            self.infer_expr(body_expr, context)?;
+                        }
+                        ast::MatchBody::Block(block) => {
+                            self.check_block(block, context)?;
+                        }
+                    }
+                    self.variables = saved;
+                    self.moved_vars = saved_moved;
+                }
+                self.check_enum_match(&expr_ty, arms, context);
+                Ok(None)
+            }
             _ => Ok(None),
         }
     }
@@ -322,6 +404,15 @@ impl TypeChecker {
 
                 if let Some(ty) = self.variables.get(name) {
                     Ok(ty.clone())
+                } else if self.enums.contains_key(name) {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Cannot use enum type '{}' as a value; construct a variant like '{}.Variant'",
+                            name, name
+                        ),
+                        location: context.to_string(),
+                    });
+                    Ok(Type::Named(name.clone()))
                 } else {
                     self.errors.push(TypeError {
                         message: format!("Undefined variable: {}", name),
@@ -340,6 +431,14 @@ impl TypeChecker {
                 self.unary_result_type(*op, &ty, context)
             }
             Expr::Call { func, args } => {
+                if let Expr::Field { expr, field } = func.as_ref() {
+                    if let Expr::Ident(type_name) = expr.as_ref() {
+                        if self.enums.contains_key(type_name) {
+                            return self
+                                .check_enum_payload_constructor(type_name, field, args, context);
+                        }
+                    }
+                }
                 if let Expr::Ident(name) = func.as_ref() {
                     if let Some(ty) = self.check_builtin_call(name, args, context, expected)? {
                         return Ok(ty);
@@ -411,6 +510,28 @@ impl TypeChecker {
                 }
             }
             Expr::Field { expr, field } => {
+                if let Expr::Ident(type_name) = expr.as_ref() {
+                    if let Some(variants) = self.enums.get(type_name) {
+                        if variants.iter().any(|variant| variant == field) {
+                            if self.enum_variant_has_payload(type_name, field) {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Variant {}.{} expects a payload",
+                                        type_name, field
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                            return Ok(Type::Named(type_name.clone()));
+                        }
+                        self.errors.push(TypeError {
+                            message: format!("Unknown variant '{}' on enum {}", field, type_name),
+                            location: context.to_string(),
+                        });
+                        return Ok(Type::Named(type_name.clone()));
+                    }
+                }
+
                 let expr_ty = self.infer_expr(expr, context)?;
                 // Auto-dereference references
                 let base_ty = match &expr_ty {
@@ -418,6 +539,16 @@ impl TypeChecker {
                     other => other.clone(),
                 };
                 match &base_ty {
+                    Type::Named(struct_name) if self.enums.contains_key(struct_name) => {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Cannot access field '{}' on enum value {}",
+                                field, struct_name
+                            ),
+                            location: context.to_string(),
+                        });
+                        Ok(Type::I32)
+                    }
                     Type::Named(struct_name) => {
                         if let Some(fields) = self.structs.get(struct_name) {
                             if let Some((_, field_ty)) = fields.iter().find(|(n, _)| n == field) {
@@ -547,6 +678,7 @@ impl TypeChecker {
                 for arm in arms {
                     self.check_pattern_type(&arm.pattern, &expr_ty, context);
                 }
+                self.check_enum_match(&expr_ty, arms, context);
 
                 // Infer result type from first arm
                 if let Some(first_arm) = arms.first() {
@@ -555,17 +687,7 @@ impl TypeChecker {
                             let saved = self.variables.clone();
                             let saved_moved = self.moved_vars.clone();
                             // Bind pattern variable
-                            match &first_arm.pattern {
-                                ast::Pattern::Ident(name) if name != "_" => {
-                                    self.variables.insert(name.clone(), expr_ty.clone());
-                                }
-                                ast::Pattern::Some(name) if name != "_" => {
-                                    if let Type::Option(inner) = &expr_ty {
-                                        self.variables.insert(name.clone(), inner.as_ref().clone());
-                                    }
-                                }
-                                _ => {}
-                            }
+                            self.bind_pattern(&first_arm.pattern, &expr_ty);
                             let result = self.infer_expr(e, context)?;
                             self.variables = saved;
                             self.moved_vars = saved_moved;
@@ -1254,21 +1376,207 @@ impl TypeChecker {
     /// Check if a type is implicitly copyable (primitives).
     /// Non-copy types (structs, arrays, strings) require explicit `copy` to avoid moving.
     fn is_copy_type(&self, ty: &Type) -> bool {
-        matches!(
-            ty,
-            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool
-        )
+        match ty {
+            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool => true,
+            Type::Named(name) => self.enums.contains_key(name),
+            _ => false,
+        }
+    }
+
+    fn check_enum_match(&mut self, expr_ty: &Type, arms: &[ast::MatchArm], context: &str) {
+        let Type::Named(enum_name) = expr_ty else {
+            return;
+        };
+        let Some(variants) = self.enums.get(enum_name).cloned() else {
+            return;
+        };
+
+        let mut seen = HashSet::new();
+        let mut has_wildcard = false;
+        for arm in arms {
+            match &arm.pattern {
+                ast::Pattern::EnumVariant {
+                    enum_name: pat_enum,
+                    variant,
+                    bindings: _,
+                } => {
+                    if pat_enum != enum_name {
+                        continue;
+                    }
+                    if !seen.insert(variant.clone()) {
+                        self.errors.push(TypeError {
+                            message: format!("Duplicate match pattern '{}.{}'", pat_enum, variant),
+                            location: context.to_string(),
+                        });
+                    }
+                }
+                ast::Pattern::Ident(_) => {
+                    has_wildcard = true;
+                }
+                _ => {}
+            }
+        }
+
+        if has_wildcard {
+            return;
+        }
+
+        let missing: Vec<String> = variants
+            .iter()
+            .filter(|variant| !seen.contains(*variant))
+            .map(|variant| format!("{}.{}", enum_name, variant))
+            .collect();
+        if !missing.is_empty() {
+            self.errors.push(TypeError {
+                message: format!(
+                    "Non-exhaustive match on enum '{}'; missing {}",
+                    enum_name,
+                    missing.join(", ")
+                ),
+                location: context.to_string(),
+            });
+        }
     }
 
     fn is_integer(&self, ty: &Type) -> bool {
         matches!(ty, Type::I32 | Type::I64)
     }
 
+    fn enum_variant_payloads(&self, enum_name: &str, variant: &str) -> Option<&[Type]> {
+        let names = self.enums.get(enum_name)?;
+        let index = names.iter().position(|name| name == variant)?;
+        self.enum_payloads
+            .get(enum_name)?
+            .get(index)
+            .map(|types| types.as_slice())
+    }
+
+    fn enum_variant_has_payload(&self, enum_name: &str, variant: &str) -> bool {
+        self.enum_variant_payloads(enum_name, variant)
+            .is_some_and(|types| !types.is_empty())
+    }
+
+    fn bind_pattern(&mut self, pattern: &ast::Pattern, expr_ty: &Type) {
+        match pattern {
+            ast::Pattern::Ident(name) if name != "_" => {
+                self.variables.insert(name.clone(), expr_ty.clone());
+            }
+            ast::Pattern::Some(name) if name != "_" => {
+                if let Type::Option(inner) = expr_ty {
+                    self.variables.insert(name.clone(), inner.as_ref().clone());
+                }
+            }
+            ast::Pattern::EnumVariant {
+                enum_name,
+                variant,
+                bindings,
+            } => {
+                let types = self
+                    .enum_variant_payloads(enum_name, variant)
+                    .map(|types| types.to_vec())
+                    .unwrap_or_default();
+                for (name, payload) in bindings.iter().zip(types.iter()) {
+                    if name != "_" {
+                        self.variables.insert(name.clone(), payload.clone());
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn check_enum_payload_constructor(
+        &mut self,
+        enum_name: &str,
+        variant: &str,
+        args: &[Expr],
+        context: &str,
+    ) -> Result<Type> {
+        let named = Type::Named(enum_name.to_string());
+        let payloads = self
+            .enum_variant_payloads(enum_name, variant)
+            .map(|types| types.to_vec());
+        match payloads.as_deref() {
+            None => {
+                self.errors.push(TypeError {
+                    message: format!("Unknown variant '{}' on enum {}", variant, enum_name),
+                    location: context.to_string(),
+                });
+                Ok(named)
+            }
+            Some([]) => {
+                if !args.is_empty() {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Unit variant {}.{} does not take a payload",
+                            enum_name, variant
+                        ),
+                        location: context.to_string(),
+                    });
+                }
+                Ok(named)
+            }
+            Some(types) if types.len() == 1 || types.len() == 2 => {
+                if args.len() != types.len() {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Variant {}.{} expects {} payload argument{}, got {}",
+                            enum_name,
+                            variant,
+                            types.len(),
+                            if types.len() == 1 { "" } else { "s" },
+                            args.len()
+                        ),
+                        location: context.to_string(),
+                    });
+                } else {
+                    for (index, expected) in types.iter().enumerate() {
+                        let expected = expected.clone();
+                        let actual = self.infer_expr(&args[index], context)?;
+                        if !self.types_compatible(&expected, &actual) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Payload type mismatch for {}.{} argument {}: expected {:?}, got {:?}",
+                                    enum_name,
+                                    variant,
+                                    index + 1,
+                                    expected,
+                                    actual
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(named)
+            }
+            Some(types) => {
+                self.errors.push(TypeError {
+                    message: format!(
+                        "Multi-field payload construction for {}.{} is not supported yet ({} fields)",
+                        enum_name,
+                        variant,
+                        types.len()
+                    ),
+                    location: context.to_string(),
+                });
+                Ok(named)
+            }
+        }
+    }
+
+    fn is_unit_enum(&self, ty: &Type) -> bool {
+        match ty {
+            Type::Named(name) => self.enums.contains_key(name),
+            _ => false,
+        }
+    }
+
     fn matches_builtin_arg_rule(&self, rule: BuiltinArgRule, ty: &Type) -> bool {
         match rule {
             BuiltinArgRule::Any => true,
             BuiltinArgRule::Str => matches!(ty, Type::Str),
-            BuiltinArgRule::Integer => self.is_integer(ty),
+            BuiltinArgRule::Integer => self.is_integer(ty) || self.is_unit_enum(ty),
             BuiltinArgRule::StrOrArray => matches!(ty, Type::Str | Type::Array(_, _)),
         }
     }
@@ -1344,6 +1652,76 @@ impl TypeChecker {
             ast::Pattern::Ident(_) => {
                 // Identifier patterns (including wildcard "_") match any type
             }
+            ast::Pattern::EnumVariant {
+                enum_name,
+                variant,
+                bindings,
+            } => match expr_ty {
+                Type::Named(name) if name == enum_name => {
+                    if let Some(variants) = self.enums.get(enum_name) {
+                        if !variants.iter().any(|item| item == variant) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Unknown variant '{}' on enum {}",
+                                    variant, enum_name
+                                ),
+                                location: context.to_string(),
+                            });
+                        } else {
+                            let expected = self
+                                .enum_variant_payloads(enum_name, variant)
+                                .map(|types| types.len())
+                                .unwrap_or(0);
+                            if bindings.len() != expected {
+                                if expected == 0 {
+                                    self.errors.push(TypeError {
+                                        message: format!(
+                                            "Unit variant {}.{} does not take a payload binding",
+                                            enum_name, variant
+                                        ),
+                                        location: context.to_string(),
+                                    });
+                                } else {
+                                    self.errors.push(TypeError {
+                                        message: format!(
+                                            "Variant {}.{} expects {} payload binding{}, got {}",
+                                            enum_name,
+                                            variant,
+                                            expected,
+                                            if expected == 1 { "" } else { "s" },
+                                            bindings.len()
+                                        ),
+                                        location: context.to_string(),
+                                    });
+                                }
+                            }
+                        }
+                    } else {
+                        self.errors.push(TypeError {
+                            message: format!("Unknown enum '{}'", enum_name),
+                            location: context.to_string(),
+                        });
+                    }
+                }
+                Type::Named(name) => {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Pattern '{}.{}' cannot match enum {}",
+                            enum_name, variant, name
+                        ),
+                        location: context.to_string(),
+                    });
+                }
+                other => {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Enum pattern '{}.{}' cannot match expression of type {:?}",
+                            enum_name, variant, other
+                        ),
+                        location: context.to_string(),
+                    });
+                }
+            },
             ast::Pattern::Bool(b) => {
                 if *expr_ty != Type::Bool {
                     self.errors.push(TypeError {
@@ -1355,11 +1733,18 @@ impl TypeChecker {
                     });
                 }
             }
+            ast::Pattern::EnumPayload { .. } => {}
         }
     }
 
     fn types_compatible(&self, expected: &Type, actual: &Type) -> bool {
         if expected == actual {
+            return true;
+        }
+        // Unit enums lower to integer tags.
+        if (self.is_integer(expected) && self.is_unit_enum(actual))
+            || (self.is_unit_enum(expected) && self.is_integer(actual))
+        {
             return true;
         }
         // Allow numeric coercions
@@ -1387,6 +1772,251 @@ impl TypeChecker {
             return self.types_compatible(key1, key2) && self.types_compatible(value1, value2);
         }
         false
+    }
+}
+
+fn collect_unit_enums(file: &ast::File) -> HashMap<String, Vec<String>> {
+    let mut enums = HashMap::new();
+    for kernel in &file.kernels {
+        for item in &kernel.items {
+            if let ast::KernelItem::Enum(def) = item {
+                enums.insert(def.name.clone(), def.variant_names());
+            }
+        }
+    }
+    enums
+}
+
+fn unit_enum_tag(
+    enums: &HashMap<String, Vec<String>>,
+    enum_name: &str,
+    variant: &str,
+) -> Option<i64> {
+    enums.get(enum_name).and_then(|variants| {
+        variants
+            .iter()
+            .position(|item| item == variant)
+            .map(|index| index as i64)
+    })
+}
+
+fn lower_pattern(pattern: &mut ast::Pattern, enums: &HashMap<String, Vec<String>>) {
+    let ast::Pattern::EnumVariant {
+        enum_name,
+        variant,
+        bindings,
+    } = pattern.clone()
+    else {
+        return;
+    };
+    if let Some(tag) = unit_enum_tag(enums, &enum_name, &variant) {
+        if bindings.is_empty() {
+            *pattern = ast::Pattern::Literal(Literal::Int(tag));
+        } else {
+            *pattern = ast::Pattern::EnumPayload { tag, bindings };
+        }
+    }
+}
+
+fn pack_enum_payload(value: Expr, shift: i64, rest: Expr) -> Expr {
+    Expr::Binary {
+        op: BinaryOp::BitOr,
+        left: Box::new(Expr::Binary {
+            op: BinaryOp::Shl,
+            left: Box::new(value),
+            right: Box::new(Expr::Literal(Literal::Int(shift))),
+        }),
+        right: Box::new(rest),
+    }
+}
+
+fn lower_expr(expr: &mut Expr, enums: &HashMap<String, Vec<String>>) {
+    match expr {
+        Expr::Field {
+            expr: object,
+            field,
+        } => {
+            if let Expr::Ident(type_name) = object.as_ref() {
+                if let Some(tag) = unit_enum_tag(enums, type_name, field) {
+                    *expr = Expr::Literal(Literal::Int(tag));
+                    return;
+                }
+            }
+            lower_expr(object, enums);
+        }
+        Expr::Binary { left, right, .. } => {
+            lower_expr(left, enums);
+            lower_expr(right, enums);
+        }
+        Expr::Unary { expr: inner, .. } => lower_expr(inner, enums),
+        Expr::Call { func, args } => {
+            // Pack payload constructors as (payload << 8) | tag.
+            // Pack two-field payload constructors as (a << 20) | (b << 8) | tag.
+            if let Expr::Field {
+                expr: object,
+                field,
+            } = func.as_ref()
+            {
+                if let Expr::Ident(type_name) = object.as_ref() {
+                    if let Some(tag) = unit_enum_tag(enums, type_name, field) {
+                        if args.len() == 1 {
+                            let mut payload = args[0].clone();
+                            lower_expr(&mut payload, enums);
+                            *expr = pack_enum_payload(payload, 8, Expr::Literal(Literal::Int(tag)));
+                            return;
+                        }
+                        if args.len() == 2 {
+                            let mut first = args[0].clone();
+                            let mut second = args[1].clone();
+                            lower_expr(&mut first, enums);
+                            lower_expr(&mut second, enums);
+                            *expr = pack_enum_payload(
+                                first,
+                                20,
+                                pack_enum_payload(second, 8, Expr::Literal(Literal::Int(tag))),
+                            );
+                            return;
+                        }
+                    }
+                }
+            }
+            lower_expr(func, enums);
+            for arg in args {
+                lower_expr(arg, enums);
+            }
+        }
+        Expr::Index { expr: inner, index } => {
+            lower_expr(inner, enums);
+            lower_expr(index, enums);
+        }
+        Expr::Use { args, .. } => {
+            for (_, value) in args {
+                lower_expr(value, enums);
+            }
+        }
+        Expr::Send { message, args, .. } => {
+            lower_expr(message, enums);
+            for (_, value) in args {
+                lower_expr(value, enums);
+            }
+        }
+        Expr::Lambda { body, .. } => lower_expr(body, enums),
+        Expr::If {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
+            lower_expr(condition, enums);
+            lower_expr(then_expr, enums);
+            lower_expr(else_expr, enums);
+        }
+        Expr::Match {
+            expr: scrutinee,
+            arms,
+        } => {
+            lower_expr(scrutinee, enums);
+            for arm in arms {
+                lower_pattern(&mut arm.pattern, enums);
+                match &mut arm.body {
+                    ast::MatchBody::Expr(body) => lower_expr(body, enums),
+                    ast::MatchBody::Block(block) => lower_block(block, enums),
+                }
+            }
+        }
+        Expr::Block(block) => lower_block(block, enums),
+        Expr::Some(inner) => lower_expr(inner, enums),
+        Expr::Array(elements) => {
+            for element in elements {
+                lower_expr(element, enums);
+            }
+        }
+        Expr::Struct { fields, .. } => {
+            for (_, value) in fields {
+                lower_expr(value, enums);
+            }
+        }
+        Expr::Copy(inner) => lower_expr(inner, enums),
+        Expr::Range { start, end, .. } => {
+            lower_expr(start, enums);
+            lower_expr(end, enums);
+        }
+        Expr::Cast { expr: inner, .. } => lower_expr(inner, enums),
+        Expr::Literal(_) | Expr::Ident(_) | Expr::None => {}
+    }
+}
+
+fn lower_stmt(stmt: &mut Stmt, enums: &HashMap<String, Vec<String>>) {
+    match stmt {
+        Stmt::Let { value, .. } => lower_expr(value, enums),
+        Stmt::Assign { target, value } => {
+            lower_expr(target, enums);
+            lower_expr(value, enums);
+        }
+        Stmt::Return(Some(value)) => lower_expr(value, enums),
+        Stmt::Return(None) | Stmt::Break | Stmt::Continue => {}
+        Stmt::If {
+            condition,
+            then_block,
+            else_block,
+        } => {
+            lower_expr(condition, enums);
+            lower_block(then_block, enums);
+            if let Some(block) = else_block {
+                lower_block(block, enums);
+            }
+        }
+        Stmt::For { iter, body, .. } => {
+            lower_expr(iter, enums);
+            lower_block(body, enums);
+        }
+        Stmt::While { condition, body } => {
+            lower_expr(condition, enums);
+            lower_block(body, enums);
+        }
+        Stmt::Loop(body) | Stmt::Defer(body) => lower_block(body, enums),
+        Stmt::Match { expr, arms } => {
+            lower_expr(expr, enums);
+            for arm in arms {
+                lower_pattern(&mut arm.pattern, enums);
+                match &mut arm.body {
+                    ast::MatchBody::Expr(body) => lower_expr(body, enums),
+                    ast::MatchBody::Block(block) => lower_block(block, enums),
+                }
+            }
+        }
+        Stmt::Send { message, args, .. } => {
+            lower_expr(message, enums);
+            for (_, value) in args {
+                lower_expr(value, enums);
+            }
+        }
+        Stmt::Expr(expr) => lower_expr(expr, enums),
+    }
+}
+
+fn lower_block(block: &mut ast::Block, enums: &HashMap<String, Vec<String>>) {
+    for stmt in &mut block.statements {
+        lower_stmt(stmt, enums);
+    }
+}
+
+/// Replace unit-enum constructors and patterns with integer tags for codegen/JIT.
+pub fn lower_unit_enums(file: &mut ast::File) {
+    let enums = collect_unit_enums(file);
+    if enums.is_empty() {
+        return;
+    }
+
+    for kernel in &mut file.kernels {
+        for item in &mut kernel.items {
+            match item {
+                ast::KernelItem::Function(func) | ast::KernelItem::ComptimeFn(func) => {
+                    lower_block(&mut func.body, &enums);
+                }
+                ast::KernelItem::Const(def) => lower_expr(&mut def.value, &enums),
+                ast::KernelItem::Struct(_) | ast::KernelItem::Enum(_) => {}
+            }
+        }
     }
 }
 

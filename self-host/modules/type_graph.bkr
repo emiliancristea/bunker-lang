@@ -25,7 +25,6 @@
 
     fn type_graph_type_ref_json(names: Vec<str>, type_ref: AstTypeRef, source: str) -> str {
         let comma = ",";
-        let type_node: i64 = ast_type_ref_handle(type_ref);
         let kind: i64 = ast_type_ref_kind_value(type_ref);
         let result = "{" +
             json_field_str("type_kind", ast_type_kind_name(kind)) + comma +
@@ -36,11 +35,11 @@
 
         if kind == TYPE_STRUCT {
             result = result + comma +
-                json_field_str("struct_name", ast_report_name(names, ast_type_struct_name_idx_value(type_node)));
+                json_field_str("struct_name", ast_report_name(names, ast_type_ref_struct_name_idx_value(type_ref)));
         } else if kind == TYPE_ARRAY {
             result = result + comma +
-                json_field_str("element_type_kind", ast_type_kind_name(ast_type_array_elem_kind_value(type_node))) + comma +
-                json_field_i64("array_len", ast_type_array_len_value(type_node));
+                json_field_str("element_type_kind", ast_type_kind_name(ast_type_ref_array_elem_kind_value(type_ref))) + comma +
+                json_field_i64("array_len", ast_type_ref_array_len_value(type_ref));
         }
 
         return result + "}";
@@ -67,7 +66,7 @@
 
     fn type_graph_effective_kind_ref(state: CgenStateRef, type_node: i64, expr_value: i64) -> i64 {
         if ast_optional_is_some(type_node) {
-            return ast_type_kind_value(type_node);
+            return ast_type_ref_kind_value(ast_type_ref_from_handle(type_node));
         }
         if ast_optional_is_some(expr_value) {
             return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(expr_value));
@@ -83,11 +82,10 @@
     }
 
     fn type_graph_maybe_add_array_type_ref(state: CgenStateRef, name_idx: i64, type_ref: AstTypeRef) -> CgenStateRef {
-        let type_node: i64 = ast_type_ref_handle(type_ref);
         if ast_type_ref_kind_value(type_ref) == TYPE_ARRAY {
             cgen_add_array_type_ref(state, name_idx,
-                ast_type_array_elem_kind_value(type_node),
-                ast_type_array_len_value(type_node));
+                ast_type_ref_array_elem_kind_value(type_ref),
+                ast_type_ref_array_len_value(type_ref));
         }
         return state;
     }
@@ -99,6 +97,7 @@
     fn type_graph_seed_state_ref(kernel_ref: AstNodeRef) -> CgenStateRef {
         let names = ast_kernel_ref_names(kernel_ref);
         let state: CgenStateRef = cgen_new_ref(ast_report_name(names, ast_node_ref_name_idx(kernel_ref)), names);
+        cgen_attach_kernel_handle(state, ast_node_ref_handle(kernel_ref));
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         let i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
@@ -108,7 +107,7 @@
                 let ret_type: i64 = ast_fn_ref_return_type_handle(item_ref);
                 let ret_kind: i64 = TYPE_VOID;
                 if ast_optional_is_some(ret_type) {
-                    ret_kind = ast_type_kind_value(ret_type);
+                    ret_kind = ast_type_ref_kind_value(ast_type_ref_from_handle(ret_type));
                 }
                 cgen_add_fn_type_ref(state, ast_fn_ref_name_idx(item_ref), ret_kind);
             } else if kind == NODE_CONST {
@@ -393,7 +392,7 @@
             let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
             let param_type: i64 = ast_param_ref_type_handle(param_ref);
             let param_name_idx: i64 = ast_param_ref_name_idx(param_ref);
-            cgen_add_local_type_ref(state, param_name_idx, ast_type_kind_value(param_type));
+            cgen_add_local_type_ref(state, param_name_idx, ast_type_ref_kind_value(ast_type_ref_from_handle(param_type)));
             if ast_optional_is_some(param_type) {
                 type_graph_maybe_add_array_type_ref(state, param_name_idx, ast_type_ref_from_handle(param_type));
             }
@@ -446,23 +445,33 @@
     fn self_host_type_graph_json(kernel: Vec<i64>) -> str {
         let comma = ",";
         let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
-        let state: CgenStateRef = type_graph_seed_state_ref(kernel_ref);
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let full_walk: bool = ast_report_full_walk(kernel_ref);
+        let structs_json: str = "[]";
+        let constants_json: str = "[]";
+        let functions_json: str = "[]";
+        if full_walk {
+            let state: CgenStateRef = type_graph_seed_state_ref(kernel_ref);
+            structs_json = type_graph_structs_ref_json(kernel_ref);
+            constants_json = type_graph_consts_ref_json(kernel_ref, state);
+            functions_json = type_graph_functions_ref_json(kernel_ref);
+        }
         return "{" +
             json_field_str("schema_version", "bunker.self_host.type_graph.v1") + comma +
             json_field_str("representation", "bootstrap_codegen_inference") + comma +
             json_field_bool("complete", false) + comma +
-            json_field_bool("declared_types", true) + comma +
-            json_field_bool("local_inference", true) + comma +
-            json_field_str("known_limits", "Derived from declarations plus bootstrap C codegen inference; no real Bunker typechecker, generic graph, trait constraints, exhaustiveness graph, or cross-module type graph yet.") + comma +
+            json_field_bool("declared_types", full_walk) + comma +
+            json_field_bool("local_inference", full_walk) + comma +
+            json_field_bool("truncated", !full_walk) + comma +
+            json_field_str("known_limits", "Derived from declarations plus bootstrap C codegen inference; no real Bunker typechecker, generic graph, trait constraints, exhaustiveness graph, or cross-module type graph yet. Detail arrays are omitted when interned names exceed AST_REPORT_FULL_WALK_NAME_LIMIT.") + comma +
             json_field_raw("summary", "{" +
                 json_field_i64("function_count", ast_report_count_kind_ref(items_ref, NODE_FN)) + comma +
                 json_field_i64("struct_count", ast_report_count_kind_ref(items_ref, NODE_STRUCT)) + comma +
                 json_field_i64("const_count", ast_report_count_kind_ref(items_ref, NODE_CONST)) +
                 "}") + comma +
-            json_field_raw("structs", type_graph_structs_ref_json(kernel_ref)) + comma +
-            json_field_raw("constants", type_graph_consts_ref_json(kernel_ref, state)) + comma +
-            json_field_raw("functions", type_graph_functions_ref_json(kernel_ref)) +
+            json_field_raw("structs", structs_json) + comma +
+            json_field_raw("constants", constants_json) + comma +
+            json_field_raw("functions", functions_json) +
             "}";
     }
 

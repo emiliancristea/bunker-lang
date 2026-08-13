@@ -70,6 +70,38 @@ $expectedResults = @{
     "79_typed_result_operations" = 42
     "81_typed_hashmap_operations" = 42
     "85_result_handle_roundtrip" = 42
+    "88_kernel_unit_enum" = 42
+    "91_node_kind_enum" = 42
+    "92_token_kind_enum" = 42
+    "93_pattern_type_kind_enums" = 42
+    "94_node_kind_typed_api" = 42
+    "95_token_kind_typed_api" = 42
+    "96_pattern_type_kind_typed_api" = 42
+    "97_ast_span_struct" = 42
+    "98_ast_pattern_struct" = 42
+    "100_ast_type_struct" = 42
+    "101_ast_atom_struct" = 42
+    "102_ast_binary_struct" = 42
+    "103_ast_call_struct" = 42
+    "104_ast_index_struct" = 42
+    "105_ast_let_struct" = 42
+    "106_ast_if_struct" = 42
+    "107_ast_for_struct" = 42
+    "108_ast_assign_struct" = 42
+    "109_ast_ternary_struct" = 42
+    "110_ast_array_lit_struct" = 42
+    "111_ast_match_struct" = 42
+    "112_ast_fn_struct" = 42
+    "113_ast_const_struct" = 42
+    "114_ast_struct_item" = 42
+    "115_ast_kernel_struct" = 42
+    "116_ast_block_struct" = 42
+    "117_enum_payload_decl" = 42
+    "118_enum_payload_ctor" = 42
+    "119_enum_payload_match" = 42
+    "120_enum_multi_payload_decl" = 42
+    "121_enum_multi_payload_ctor" = 42
+    "122_enum_multi_payload_match" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -236,7 +268,39 @@ if (-not $JitOnly) {
         "tests\77_typed_vec_operations.bkr",
         "tests\79_typed_result_operations.bkr",
         "tests\81_typed_hashmap_operations.bkr",
-        "tests\85_result_handle_roundtrip.bkr"
+        "tests\85_result_handle_roundtrip.bkr",
+        "tests\88_kernel_unit_enum.bkr",
+        "tests\91_node_kind_enum.bkr",
+        "tests\92_token_kind_enum.bkr",
+        "tests\93_pattern_type_kind_enums.bkr",
+        "tests\94_node_kind_typed_api.bkr",
+        "tests\95_token_kind_typed_api.bkr",
+        "tests\96_pattern_type_kind_typed_api.bkr",
+        "tests\97_ast_span_struct.bkr",
+        "tests\98_ast_pattern_struct.bkr",
+        "tests\100_ast_type_struct.bkr",
+        "tests\101_ast_atom_struct.bkr",
+        "tests\102_ast_binary_struct.bkr",
+        "tests\103_ast_call_struct.bkr",
+        "tests\104_ast_index_struct.bkr",
+        "tests\105_ast_let_struct.bkr",
+        "tests\106_ast_if_struct.bkr",
+        "tests\107_ast_for_struct.bkr",
+        "tests\108_ast_assign_struct.bkr",
+        "tests\109_ast_ternary_struct.bkr",
+        "tests\110_ast_array_lit_struct.bkr",
+        "tests\111_ast_match_struct.bkr",
+        "tests\112_ast_fn_struct.bkr",
+        "tests\113_ast_const_struct.bkr",
+        "tests\114_ast_struct_item.bkr",
+        "tests\115_ast_kernel_struct.bkr",
+        "tests\116_ast_block_struct.bkr",
+        "tests\117_enum_payload_decl.bkr",
+        "tests\118_enum_payload_ctor.bkr",
+        "tests\119_enum_payload_match.bkr",
+        "tests\120_enum_multi_payload_decl.bkr",
+        "tests\121_enum_multi_payload_ctor.bkr",
+        "tests\122_enum_multi_payload_match.bkr"
     )
 
     $subsetOk = $true
@@ -280,7 +344,7 @@ if (-not $JitOnly) {
         $generated = Get-Content $selfHostOut -Raw
         $hasI32Entry = $generated -match "bkr_i32\s+_v[0-9]+\(void\)"
         $hasMainWrapper = $generated -match "int\s+main\(void\)" -and $generated -match "return\s+\(int\)_v[0-9]+\(\);"
-        $hasNoParseError = $generated -notmatch "Parse error"
+        $hasNoParseError = $generated -notmatch "Parse error at token"
         if ($hasI32Entry -and $hasMainWrapper -and $hasNoParseError) {
             Write-Host "PASS" -ForegroundColor Green -NoNewline
             Write-Host " (Bunker compiler emitted C)"

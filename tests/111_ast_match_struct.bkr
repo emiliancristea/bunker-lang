@@ -1,0 +1,43 @@
+// Test 111: AstMatch as a real compiler match-expression record
+// Purpose: Match scrutinee/patterns/bodies/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstMatchStruct {
+    struct AstMatch {
+        start: i64,
+        end: i64,
+        scrutinee: i64,
+        patterns: i64,
+        bodies: i64
+    }
+
+    fn make_match(scrutinee: i64, patterns: i64, bodies: i64) -> AstMatch {
+        return AstMatch {
+            start: 0,
+            end: 9,
+            scrutinee: scrutinee,
+            patterns: patterns,
+            bodies: bodies
+        };
+    }
+
+    fn match_bodies(expr: AstMatch) -> i64 {
+        return expr.bodies;
+    }
+
+    fn main() -> i32 {
+        let expr: AstMatch = make_match(1, 2, 20);
+        if expr.start == 0 {
+            if expr.end == 9 {
+                if expr.scrutinee == 1 {
+                    if match_bodies(make_match(3, 4, 21)) == 21 {
+                        if expr.patterns == 2 {
+                            return 42;
+                        }
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

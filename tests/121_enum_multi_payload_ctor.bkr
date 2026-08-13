@@ -1,0 +1,25 @@
+// Test 121: Multi-field enum variant payload construction
+// Purpose: Construct Pair.Both(1, 2) as (a << 20) | (b << 8) | tag.
+// Expected: Result: 42
+
+kernel EnumMultiPayloadCtor {
+    enum Pair {
+        Both(i32, i32),
+        Empty,
+    }
+
+    fn main() -> i32 {
+        let a: Pair = Pair.Both(1, 2);
+        let swapped: Pair = Pair.Both(2, 1);
+        let same_first: Pair = Pair.Both(1, 4);
+        let empty: Pair = Pair.Empty;
+        if a != swapped {
+            if a != same_first {
+                if a != empty {
+                    return 42;
+                }
+            }
+        }
+        return 0;
+    }
+}

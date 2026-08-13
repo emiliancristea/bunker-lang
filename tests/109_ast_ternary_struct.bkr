@@ -1,0 +1,43 @@
+// Test 109: AstTernary as a real compiler ternary-expression record
+// Purpose: Ternary cond/then/else/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstTernaryStruct {
+    struct AstTernary {
+        start: i64,
+        end: i64,
+        cond: i64,
+        then_expr: i64,
+        else_expr: i64
+    }
+
+    fn make_ternary(cond: i64, then_expr: i64, else_expr: i64) -> AstTernary {
+        return AstTernary {
+            start: 0,
+            end: 7,
+            cond: cond,
+            then_expr: then_expr,
+            else_expr: else_expr
+        };
+    }
+
+    fn ternary_then(expr: AstTernary) -> i64 {
+        return expr.then_expr;
+    }
+
+    fn main() -> i32 {
+        let expr: AstTernary = make_ternary(1, 20, 2);
+        if expr.start == 0 {
+            if expr.end == 7 {
+                if expr.cond == 1 {
+                    if ternary_then(make_ternary(0, 21, 3)) == 21 {
+                        if expr.else_expr == 2 {
+                            return 42;
+                        }
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

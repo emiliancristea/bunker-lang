@@ -2756,6 +2756,16 @@ fn compile_stmt_inline(
                             local_types.insert(name.clone(), inner.as_ref().clone());
                         }
                     }
+                    ast::Pattern::EnumPayload { bindings, .. } => {
+                        bind_enum_payload_fields(
+                            builder,
+                            match_val,
+                            bindings,
+                            var_index,
+                            &mut local_vars,
+                            &mut local_types,
+                        );
+                    }
                     _ => {}
                 }
 
@@ -3031,6 +3041,82 @@ fn compile_block_value(
     Ok(last_val)
 }
 
+fn bind_enum_payload_fields(
+    builder: &mut FunctionBuilder,
+    match_val: Value,
+    bindings: &[String],
+    var_index: &mut u32,
+    local_vars: &mut HashMap<String, Variable>,
+    local_types: &mut HashMap<String, ast::Type>,
+) {
+    if bindings.is_empty() {
+        return;
+    }
+    let val = cast_value(builder, match_val, types::I64);
+    if bindings.len() == 1 {
+        bind_shifted_payload(
+            builder,
+            val,
+            &bindings[0],
+            8,
+            None,
+            var_index,
+            local_vars,
+            local_types,
+        );
+        return;
+    }
+    if bindings.len() == 2 {
+        bind_shifted_payload(
+            builder,
+            val,
+            &bindings[0],
+            20,
+            None,
+            var_index,
+            local_vars,
+            local_types,
+        );
+        bind_shifted_payload(
+            builder,
+            val,
+            &bindings[1],
+            8,
+            Some(4095),
+            var_index,
+            local_vars,
+            local_types,
+        );
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn bind_shifted_payload(
+    builder: &mut FunctionBuilder,
+    val: Value,
+    name: &str,
+    shift: i64,
+    mask: Option<i64>,
+    var_index: &mut u32,
+    local_vars: &mut HashMap<String, Variable>,
+    local_types: &mut HashMap<String, ast::Type>,
+) {
+    if name == "_" {
+        return;
+    }
+    let var = Variable::new(*var_index as usize);
+    *var_index += 1;
+    builder.declare_var(var, types::I64);
+    let shift_val = builder.ins().iconst(types::I64, shift);
+    let mut extracted = builder.ins().ushr(val, shift_val);
+    if let Some(bits) = mask {
+        extracted = builder.ins().band_imm(extracted, bits);
+    }
+    builder.def_var(var, extracted);
+    local_vars.insert(name.to_string(), var);
+    local_types.insert(name.to_string(), ast::Type::I64);
+}
+
 fn pattern_is_wildcard(pattern: &ast::Pattern) -> bool {
     matches!(pattern, ast::Pattern::Ident(_))
 }
@@ -3092,6 +3178,18 @@ fn compile_pattern_cond(
         ast::Pattern::None => {
             let val = cast_value(builder, value, types::I64);
             Ok(builder.ins().icmp_imm(IntCC::Equal, val, 0))
+        }
+        ast::Pattern::EnumVariant {
+            enum_name, variant, ..
+        } => Err(anyhow!(
+            "Enum variant pattern '{}.{}' must be lowered before JIT",
+            enum_name,
+            variant
+        )),
+        ast::Pattern::EnumPayload { tag, .. } => {
+            let val = cast_value(builder, value, types::I64);
+            let masked = builder.ins().band_imm(val, 255);
+            Ok(builder.ins().icmp_imm(IntCC::Equal, masked, *tag))
         }
     }
 }
@@ -3774,6 +3872,16 @@ fn compile_expr_inline(
                             local_vars.insert(name.clone(), var);
                             local_types.insert(name.clone(), inner.as_ref().clone());
                         }
+                    }
+                    ast::Pattern::EnumPayload { bindings, .. } => {
+                        bind_enum_payload_fields(
+                            builder,
+                            match_val,
+                            bindings,
+                            var_index,
+                            &mut local_vars,
+                            &mut local_types,
+                        );
                     }
                     _ => {}
                 }

@@ -18,14 +18,100 @@
         return substring(trimmed_line, 8, len(trimmed_line) - 2);
     }
 
-    fn append_expanded_line(output: str, line: str) -> str {
+    fn import_path_has_backslash(import_path: str) -> bool {
+        let i: i64 = 0;
+        while i < len(import_path) {
+            if char_code_at(import_path, i) == 92 {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn import_path_is_absolute(import_path: str) -> bool {
+        if len(import_path) <= 0 { return false; }
+        if char_code_at(import_path, 0) == 47 { return true; }
+        if char_code_at(import_path, 0) == 92 { return true; }
+        if len(import_path) >= 2 && char_code_at(import_path, 1) == 58 { return true; }
+        return false;
+    }
+
+    fn import_path_has_parent_segment(import_path: str) -> bool {
+        if import_path == ".." { return true; }
+        if starts_with(import_path, "../") { return true; }
+        if ends_with(import_path, "/..") { return true; }
+        if contains(import_path, "/../") { return true; }
+        return false;
+    }
+
+    fn import_path_has_empty_segment(import_path: str) -> bool {
+        if starts_with(import_path, "./") { return true; }
+        if ends_with(import_path, "/") { return true; }
+        if contains(import_path, "//") { return true; }
+        return false;
+    }
+
+    fn import_path_is_valid(import_path: str) -> bool {
+        if len(import_path) <= 0 { return false; }
+        if import_path_is_absolute(import_path) { return false; }
+        if import_path_has_backslash(import_path) { return false; }
+        if contains(import_path, ":") { return false; }
+        if import_path_has_parent_segment(import_path) { return false; }
+        if import_path_has_empty_segment(import_path) { return false; }
+        return true;
+    }
+
+    fn resolve_import_path(base_dir: str, import_path: str) -> str {
+        if len(base_dir) <= 0 {
+            return import_path;
+        }
+        return base_dir + "/" + import_path;
+    }
+
+    fn import_path_dir(resolved_path: str) -> str {
+        let last_slash: i64 = -1;
+        let i: i64 = 0;
+        while i < len(resolved_path) {
+            if char_code_at(resolved_path, i) == 47 {
+                last_slash = i;
+            }
+            i = i + 1;
+        }
+        if last_slash < 0 {
+            return "";
+        }
+        return substring(resolved_path, 0, last_slash);
+    }
+
+    fn import_seen_contains(seen: Vec<str>, import_path: str) -> bool {
+        let i: i64 = 0;
+        while i < vec_len(seen) {
+            if vec_get(seen, i) == import_path {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn append_expanded_line_with_seen(output: str, line: str, seen: Vec<str>, base_dir: str) -> str {
         if is_import_line(line) {
             let import_path = import_path_from_line(line);
-            if !file_exists(import_path) {
-                return output + "// Missing import: " + import_path + from_char_code(10);
+            if !import_path_is_valid(import_path) {
+                return output + "// Invalid import path: " + import_path + from_char_code(10);
             }
-            let imported = read_file(import_path);
-            let result = output + imported;
+            let resolved_path = resolve_import_path(base_dir, import_path);
+            if !file_exists(resolved_path) {
+                return output + "// Missing import: " + resolved_path + from_char_code(10);
+            }
+            if import_seen_contains(seen, resolved_path) {
+                return output;
+            }
+            vec_push(seen, resolved_path);
+            let imported = read_file(resolved_path);
+            let expanded_import = expand_imports_with_seen(imported, seen, import_path_dir(resolved_path));
+            let result = output + expanded_import;
             if len(result) > 0 && char_code_at(result, len(result) - 1) != 10 {
                 result = result + from_char_code(10);
             }
@@ -34,7 +120,7 @@
         return output + line + from_char_code(10);
     }
 
-    fn expand_imports(source: str) -> str {
+    fn expand_imports_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
         let output = "";
         let start: i64 = 0;
         let pos: i64 = 0;
@@ -42,7 +128,7 @@
 
         while pos < source_len {
             if char_code_at(source, pos) == 10 {
-                output = append_expanded_line(output, substring(source, start, pos));
+                output = append_expanded_line_with_seen(output, substring(source, start, pos), seen, base_dir);
                 pos = pos + 1;
                 start = pos;
             } else {
@@ -51,30 +137,48 @@
         }
 
         if start < source_len {
-            output = append_expanded_line(output, substring(source, start, source_len));
+            output = append_expanded_line_with_seen(output, substring(source, start, source_len), seen, base_dir);
         }
 
         return output;
     }
 
-    fn missing_import_in_line(line: str) -> str {
+    fn expand_imports(source: str) -> str {
+        return expand_imports_from_base(source, "");
+    }
+
+    fn expand_imports_from_base(source: str, base_dir: str) -> str {
+        let seen: Vec<str> = vec_new();
+        return expand_imports_with_seen(source, seen, base_dir);
+    }
+
+    fn missing_import_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> str {
         if is_import_line(line) {
             let import_path = import_path_from_line(line);
-            if !file_exists(import_path) {
-                return import_path;
+            if !import_path_is_valid(import_path) {
+                return "";
             }
+            let resolved_path = resolve_import_path(base_dir, import_path);
+            if !file_exists(resolved_path) {
+                return resolved_path;
+            }
+            if import_seen_contains(seen, resolved_path) {
+                return "";
+            }
+            vec_push(seen, resolved_path);
+            return first_missing_import_path_with_seen(read_file(resolved_path), seen, import_path_dir(resolved_path));
         }
         return "";
     }
 
-    fn first_missing_import_path(source: str) -> str {
+    fn first_missing_import_path_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
         let start: i64 = 0;
         let pos: i64 = 0;
         let source_len = len(source);
 
         while pos < source_len {
             if char_code_at(source, pos) == 10 {
-                let missing = missing_import_in_line(substring(source, start, pos));
+                let missing = missing_import_in_line_with_seen(substring(source, start, pos), seen, base_dir);
                 if len(missing) > 0 {
                     return missing;
                 }
@@ -86,10 +190,287 @@
         }
 
         if start < source_len {
-            return missing_import_in_line(substring(source, start, source_len));
+            return missing_import_in_line_with_seen(substring(source, start, source_len), seen, base_dir);
         }
 
         return "";
+    }
+
+    fn first_missing_import_path(source: str) -> str {
+        return first_missing_import_path_from_base(source, "");
+    }
+
+    fn first_missing_import_path_from_base(source: str, base_dir: str) -> str {
+        let seen: Vec<str> = vec_new();
+        return first_missing_import_path_with_seen(source, seen, base_dir);
+    }
+
+    fn invalid_import_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> str {
+        if is_import_line(line) {
+            let import_path = import_path_from_line(line);
+            if !import_path_is_valid(import_path) {
+                return import_path;
+            }
+            let resolved_path = resolve_import_path(base_dir, import_path);
+            if !file_exists(resolved_path) {
+                return "";
+            }
+            if import_seen_contains(seen, resolved_path) {
+                return "";
+            }
+            vec_push(seen, resolved_path);
+            return first_invalid_import_path_with_seen(read_file(resolved_path), seen, import_path_dir(resolved_path));
+        }
+        return "";
+    }
+
+    fn first_invalid_import_path_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
+        let start: i64 = 0;
+        let pos: i64 = 0;
+        let source_len = len(source);
+
+        while pos < source_len {
+            if char_code_at(source, pos) == 10 {
+                let invalid = invalid_import_in_line_with_seen(substring(source, start, pos), seen, base_dir);
+                if len(invalid) > 0 {
+                    return invalid;
+                }
+                pos = pos + 1;
+                start = pos;
+            } else {
+                pos = pos + 1;
+            }
+        }
+
+        if start < source_len {
+            return invalid_import_in_line_with_seen(substring(source, start, source_len), seen, base_dir);
+        }
+
+        return "";
+    }
+
+    fn first_invalid_import_path(source: str) -> str {
+        return first_invalid_import_path_from_base(source, "");
+    }
+
+    fn first_invalid_import_path_from_base(source: str, base_dir: str) -> str {
+        let seen: Vec<str> = vec_new();
+        return first_invalid_import_path_with_seen(source, seen, base_dir);
+    }
+
+    fn import_count_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> i64 {
+        if is_import_line(line) {
+            let import_path = import_path_from_line(line);
+            if !import_path_is_valid(import_path) {
+                return 0;
+            }
+            let resolved_path = resolve_import_path(base_dir, import_path);
+            if !file_exists(resolved_path) {
+                return 0;
+            }
+            if import_seen_contains(seen, resolved_path) {
+                return 0;
+            }
+            vec_push(seen, resolved_path);
+            return 1 + import_count_with_seen(read_file(resolved_path), seen, import_path_dir(resolved_path));
+        }
+        return 0;
+    }
+
+    fn import_count_with_seen(source: str, seen: Vec<str>, base_dir: str) -> i64 {
+        let count: i64 = 0;
+        let start: i64 = 0;
+        let pos: i64 = 0;
+        let source_len = len(source);
+
+        while pos < source_len {
+            if char_code_at(source, pos) == 10 {
+                count = count + import_count_in_line_with_seen(substring(source, start, pos), seen, base_dir);
+                pos = pos + 1;
+                start = pos;
+            } else {
+                pos = pos + 1;
+            }
+        }
+
+        if start < source_len {
+            count = count + import_count_in_line_with_seen(substring(source, start, source_len), seen, base_dir);
+        }
+
+        return count;
+    }
+
+    fn unique_import_count(source: str) -> i64 {
+        return unique_import_count_from_base(source, "");
+    }
+
+    fn unique_import_count_from_base(source: str, base_dir: str) -> i64 {
+        let seen: Vec<str> = vec_new();
+        return import_count_with_seen(source, seen, base_dir);
+    }
+
+    fn import_graph_json_array_append(result: str, item: str) -> str {
+        if len(result) > 1 {
+            return result + "," + item;
+        }
+        return result + item;
+    }
+
+    fn import_graph_json_array_append_items(result: str, items: str) -> str {
+        if len(items) <= 2 {
+            return result;
+        }
+        let inner = substring(items, 1, len(items) - 1);
+        if len(result) > 1 {
+            return result + "," + inner;
+        }
+        return result + inner;
+    }
+
+    fn import_paths_json_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> str {
+        let result = "[";
+        if is_import_line(line) {
+            let import_path = import_path_from_line(line);
+            if !import_path_is_valid(import_path) {
+                return result + "]";
+            }
+            let resolved_path = resolve_import_path(base_dir, import_path);
+            if !file_exists(resolved_path) {
+                return result + "]";
+            }
+            if import_seen_contains(seen, resolved_path) {
+                return result + "]";
+            }
+            vec_push(seen, resolved_path);
+            result = import_graph_json_array_append(result, json_escape_string(resolved_path));
+            result = import_graph_json_array_append_items(result, import_paths_json_with_seen(read_file(resolved_path), seen, import_path_dir(resolved_path)));
+        }
+        return result + "]";
+    }
+
+    fn import_paths_json_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
+        let result = "[";
+        let start: i64 = 0;
+        let pos: i64 = 0;
+        let source_len = len(source);
+
+        while pos < source_len {
+            if char_code_at(source, pos) == 10 {
+                result = import_graph_json_array_append_items(result, import_paths_json_in_line_with_seen(substring(source, start, pos), seen, base_dir));
+                pos = pos + 1;
+                start = pos;
+            } else {
+                pos = pos + 1;
+            }
+        }
+
+        if start < source_len {
+            result = import_graph_json_array_append_items(result, import_paths_json_in_line_with_seen(substring(source, start, source_len), seen, base_dir));
+        }
+
+        return result + "]";
+    }
+
+    fn unique_import_paths_json(source: str) -> str {
+        return unique_import_paths_json_from_base(source, "");
+    }
+
+    fn unique_import_paths_json_from_base(source: str, base_dir: str) -> str {
+        let seen: Vec<str> = vec_new();
+        return import_paths_json_with_seen(source, seen, base_dir);
+    }
+
+    fn import_edge_json(from_base: str, requested: str, resolved: str, status: str) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("from_base", from_base) + comma +
+            json_field_str("requested", requested) + comma +
+            json_field_str("resolved", resolved) + comma +
+            json_field_str("status", status) +
+            "}";
+    }
+
+    fn import_edges_json_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> str {
+        let result = "[";
+        if is_import_line(line) {
+            let import_path = import_path_from_line(line);
+            if !import_path_is_valid(import_path) {
+                return import_graph_json_array_append(result,
+                    import_edge_json(base_dir, import_path, "", "invalid")) + "]";
+            }
+            let resolved_path = resolve_import_path(base_dir, import_path);
+            if !file_exists(resolved_path) {
+                return import_graph_json_array_append(result,
+                    import_edge_json(base_dir, import_path, resolved_path, "missing")) + "]";
+            }
+            if import_seen_contains(seen, resolved_path) {
+                return import_graph_json_array_append(result,
+                    import_edge_json(base_dir, import_path, resolved_path, "duplicate")) + "]";
+            }
+            vec_push(seen, resolved_path);
+            result = import_graph_json_array_append(result,
+                import_edge_json(base_dir, import_path, resolved_path, "ok"));
+            result = import_graph_json_array_append_items(result,
+                import_edges_json_with_seen(read_file(resolved_path), seen, import_path_dir(resolved_path)));
+        }
+        return result + "]";
+    }
+
+    fn import_edges_json_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
+        let result = "[";
+        let start: i64 = 0;
+        let pos: i64 = 0;
+        let source_len = len(source);
+
+        while pos < source_len {
+            if char_code_at(source, pos) == 10 {
+                result = import_graph_json_array_append_items(result,
+                    import_edges_json_in_line_with_seen(substring(source, start, pos), seen, base_dir));
+                pos = pos + 1;
+                start = pos;
+            } else {
+                pos = pos + 1;
+            }
+        }
+
+        if start < source_len {
+            result = import_graph_json_array_append_items(result,
+                import_edges_json_in_line_with_seen(substring(source, start, source_len), seen, base_dir));
+        }
+
+        return result + "]";
+    }
+
+    fn import_edges_json_from_base(source: str, base_dir: str) -> str {
+        let seen: Vec<str> = vec_new();
+        return import_edges_json_with_seen(source, seen, base_dir);
+    }
+
+    fn import_edge_status_count_in_json(edges_json: str, status: str) -> i64 {
+        let quote = from_char_code(34);
+        let needle = quote + "status" + quote + ":" + json_escape_string(status);
+        let count: i64 = 0;
+        let i: i64 = 0;
+        while i + len(needle) <= len(edges_json) {
+            if substring(edges_json, i, i + len(needle)) == needle {
+                count = count + 1;
+                i = i + len(needle);
+            } else {
+                i = i + 1;
+            }
+        }
+        return count;
+    }
+
+    fn import_edge_status_count_from_base(source: str, base_dir: str, status: str) -> i64 {
+        return import_edge_status_count_in_json(import_edges_json_from_base(source, base_dir), status);
+    }
+
+    fn import_edge_count_from_base(source: str, base_dir: str) -> i64 {
+        return import_edge_status_count_from_base(source, base_dir, "ok") +
+            import_edge_status_count_from_base(source, base_dir, "missing") +
+            import_edge_status_count_from_base(source, base_dir, "invalid") +
+            import_edge_status_count_from_base(source, base_dir, "duplicate");
     }
 
     fn source_line_at(source: str, offset: i64) -> i64 {
@@ -120,24 +501,136 @@
         return column;
     }
 
+    fn source_line_excerpt_at(source: str, offset: i64) -> str {
+        let source_len = len(source);
+        if source_len <= 0 {
+            return "";
+        }
+
+        let safe_offset = offset;
+        if safe_offset < 0 {
+            safe_offset = 0;
+        }
+        if safe_offset >= source_len {
+            safe_offset = source_len - 1;
+        }
+
+        let start = safe_offset;
+        while start > 0 && char_code_at(source, start - 1) != 10 {
+            start = start - 1;
+        }
+
+        let end = safe_offset;
+        while end < source_len && char_code_at(source, end) != 10 {
+            end = end + 1;
+        }
+
+        return substring(source, start, end);
+    }
+
     fn self_host_diagnostic_json(category: str, code: str, message: str,
                                  source_start: i64, source_end: i64,
                                  source_line: i64, source_column: i64,
+                                 source_excerpt: str,
                                  expected: str, actual: str, repair_hint: str) -> str {
+        return self_host_diagnostic_json_with_edits(category, code, message,
+            source_start, source_end, source_line, source_column, source_excerpt,
+            expected, actual, repair_hint, false, diagnostic_no_edits_json());
+    }
+
+    fn self_host_diagnostic_json_with_edits(category: str, code: str, message: str,
+                                            source_start: i64, source_end: i64,
+                                            source_line: i64, source_column: i64,
+                                            source_excerpt: str,
+                                            expected: str, actual: str, repair_hint: str,
+                                            safe_edit_available: bool,
+                                            suggested_edits: str) -> str {
         let comma = ",";
         return "{" +
             json_field_str("schema_version", "bunker.self_host.diagnostic.v1") + comma +
+            json_field_str("phase", category) + comma +
             json_field_str("category", category) + comma +
             json_field_str("error_code", code) + comma +
+            json_field_str("rule_id", code) + comma +
+            json_field_str("severity", "error") + comma +
             json_field_str("message", message) + comma +
             json_field_i64("source_start", source_start) + comma +
             json_field_i64("source_end", source_end) + comma +
             json_field_i64("source_line", source_line) + comma +
             json_field_i64("source_column", source_column) + comma +
+            json_field_str("source_excerpt", source_excerpt) + comma +
             json_field_str("expected", expected) + comma +
             json_field_str("actual", actual) + comma +
+            json_field_str("suggested_action", repair_hint) + comma +
+            json_field_str("fix_applicability", "manual_review") + comma +
+            json_field_str("fix_confidence", "medium") + comma +
+            json_field_bool("safe_edit_available", safe_edit_available) + comma +
+            json_field_raw("suggested_edits", suggested_edits) + comma +
             json_field_str("repair_hint", repair_hint) +
             "}";
+    }
+
+    fn parse_insert_text_for_expected_token(expected_token: TokenKind) -> str {
+        if expected_token == TOK_SEMICOLON { return ";"; }
+        if expected_token == TOK_RPAREN { return ")"; }
+        if expected_token == TOK_RBRACE { return "}"; }
+        if expected_token == TOK_RBRACKET { return "]"; }
+        if expected_token == TOK_COMMA { return ","; }
+        if expected_token == TOK_COLON { return ":"; }
+        return "";
+    }
+
+    fn self_host_diagnostic_code_json(code: str, phase: str, category: str, description: str) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("code", code) + comma +
+            json_field_str("phase", phase) + comma +
+            json_field_str("category", category) + comma +
+            json_field_str("description", description) +
+            "}";
+    }
+
+    fn self_host_diagnostic_codes_json() -> str {
+        let result = "[";
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_PARSE", "parse", "syntax", "Parse error with expected and actual token details."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_IMPORT_PATH", "import", "module", "Invalid normalized relative import path."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_IMPORT", "import", "module", "Missing imported module."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_DUPLICATE_SYMBOL", "resolver", "name_resolution", "Duplicate declaration in a scope."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_UNRESOLVED_SYMBOL", "resolver", "name_resolution", "Unresolved identifier, function, type, struct literal, or field reference."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_TYPE_MISMATCH", "typecheck", "type_system", "Expected/found type mismatch."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_ARITY_MISMATCH", "typecheck", "type_system", "Function call argument count mismatch."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_ASSIGNMENT_TARGET", "typecheck", "type_system", "Invalid non-assignable assignment target."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_CONTROL_FLOW", "typecheck", "control_flow", "Invalid break or continue outside a loop."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_RETURN_PATH", "typecheck", "control_flow", "Non-void function can fall through without returning a value."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_UNREACHABLE_CODE", "typecheck", "control_flow", "Statement cannot execute because a previous statement terminates control flow."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_MATCH_PATTERN", "typecheck", "pattern_matching", "Duplicate or unreachable match pattern."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_EXHAUSTIVENESS", "typecheck", "pattern_matching", "Non-exhaustive match for a known finite scrutinee."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_STRUCT_LITERAL", "typecheck", "data_model", "Invalid struct literal shape such as duplicate or missing fields."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_CONST_ASSIGNMENT", "typecheck", "control_flow", "Assignment attempts to modify a top-level constant."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_AMBIGUOUS_TYPE", "typecheck", "type_system", "Expression requires a type annotation or contextual type."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_VOID_VALUE", "typecheck", "type_system", "Void expression is used where a value is required."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_ENTRY_POINT", "typecheck", "program_structure", "Kernel entry function is missing."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_CALL_TARGET", "typecheck", "type_system", "Known non-function symbol is used as a call target."));
+        return result + "]";
     }
 
     fn self_host_capability_json() -> str {
@@ -145,9 +638,24 @@
         return "{" +
             json_field_str("schema_version", "bunker.self_host.capability.v1") + comma +
             json_field_str("compiler", "bkrc-self-host-bootstrap") + comma +
+            json_field_str("agent_contract_version", "bunker.agent.diagnostics.v1") + comma +
+            json_field_str("self_hosting_stage", "bootstrap-self-hosted-reports") + comma +
+            json_field_bool("ai_agent_native_diagnostics", true) + comma +
+            json_field_bool("production_language_ready", false) + comma +
+            json_field_bool("requires_ci_validation", true) + comma +
             json_field_bool("source_byte_spans", true) + comma +
+            json_field_bool("source_excerpts", true) + comma +
+            json_field_bool("structured_repair_metadata", true) + comma +
             json_field_bool("structured_parse_diagnostics", true) + comma +
+            json_field_bool("diagnostic_code_registry", true) + comma +
+            json_field_bool("diagnostic_phase_field", true) + comma +
+            json_field_bool("diagnostic_rule_ids", true) + comma +
+            json_field_bool("diagnostic_severity", true) + comma +
+            json_field_bool("diagnostic_severity_counts", true) + comma +
+            json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("import_expansion", true) + comma +
+            json_field_bool("import_graph_report", true) + comma +
+            json_field_bool("import_duplicate_or_cycle_summary", true) + comma +
             json_field_bool("stage1_stage2_ci_gate", true) + comma +
             json_field_bool("type_graph_report", true) + comma +
             json_field_bool("symbol_table_report", true) + comma +
@@ -158,9 +666,10 @@
             json_field_bool("real_generics", false) + comma +
             json_field_bool("user_defined_adts", false) + comma +
             json_field_bool("multi_error_recovery", false) + comma +
+            json_field_raw("diagnostic_codes", self_host_diagnostic_codes_json()) + comma +
             json_field_str("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec handles, HashMap handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals") + comma +
-            json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, bootstrap name resolver and typecheck reports only, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
-            json_field_str("agent_guidance", "Use BUNKER_DIAGNOSTIC_JSON for repair tasks. Treat BUNKER_CAPABILITY_JSON as the current compiler surface before generating Bunker code.") +
+            json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, bootstrap string-path import graph with import path policy and importer-directory resolution but no filesystem canonicalization or visibility, bootstrap name resolver and typecheck reports only, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
+            json_field_str("agent_guidance", "Use BUNKER_CAPABILITY_JSON before generating Bunker code. Use BUNKER_DIAGNOSTIC_JSON, BUNKER_RESOLVER_JSON, and BUNKER_TYPECHECK_JSON for repair tasks. Treat production_language_ready=false as requiring CI validation before release.") +
             "}";
     }
 
@@ -169,11 +678,63 @@
             "*/" + from_char_code(10);
     }
 
+    fn self_host_import_graph_json(source: str) -> str {
+        return self_host_import_graph_json_with_base_dir(source, "");
+    }
+
+    fn self_host_import_graph_json_with_base_dir(source: str, base_dir: str) -> str {
+        let comma = ",";
+        let invalid_import = first_invalid_import_path_from_base(source, base_dir);
+        let missing_import = first_missing_import_path_from_base(source, base_dir);
+        return "{" +
+            json_field_str("schema_version", "bunker.self_host.import_graph.v1") + comma +
+            json_field_str("root_base_dir", base_dir) + comma +
+            json_field_str("path_policy", "normalized_relative_forward_slash") + comma +
+            json_field_bool("base_directory_resolution", true) + comma +
+            json_field_bool("recursive_expansion", true) + comma +
+            json_field_bool("duplicate_suppression", true) + comma +
+            json_field_bool("cycle_safe_expansion", true) + comma +
+            json_field_i64("unique_import_count", unique_import_count_from_base(source, base_dir)) + comma +
+            json_field_i64("edge_count", import_edge_count_from_base(source, base_dir)) + comma +
+            json_field_i64("ok_edge_count", import_edge_status_count_from_base(source, base_dir, "ok")) + comma +
+            json_field_i64("missing_edge_count", import_edge_status_count_from_base(source, base_dir, "missing")) + comma +
+            json_field_i64("invalid_edge_count", import_edge_status_count_from_base(source, base_dir, "invalid")) + comma +
+            json_field_i64("duplicate_edge_count", import_edge_status_count_from_base(source, base_dir, "duplicate")) + comma +
+            json_field_i64("duplicate_or_cycle_edge_count", import_edge_status_count_from_base(source, base_dir, "duplicate")) + comma +
+            json_field_raw("imports", unique_import_paths_json_from_base(source, base_dir)) + comma +
+            json_field_raw("edges", import_edges_json_from_base(source, base_dir)) + comma +
+            json_field_bool("has_duplicate_or_cycle_import", import_edge_status_count_from_base(source, base_dir, "duplicate") > 0) + comma +
+            json_field_bool("has_invalid_import", len(invalid_import) > 0) + comma +
+            json_field_str("invalid_import", invalid_import) + comma +
+            json_field_bool("has_missing_import", len(missing_import) > 0) + comma +
+            json_field_str("missing_import", missing_import) +
+            "}";
+    }
+
+    fn build_import_graph_report_comment(source: str) -> str {
+        return build_import_graph_report_comment_with_base_dir(source, "");
+    }
+
+    fn build_import_graph_report_comment_with_base_dir(source: str, base_dir: str) -> str {
+        return "/* BUNKER_IMPORT_GRAPH_JSON: " + self_host_import_graph_json_with_base_dir(source, base_dir) + from_char_code(10) +
+            "*/" + from_char_code(10);
+    }
+
+    fn build_import_path_diagnostic(invalid_import: str) -> str {
+        let repair_hint = "Use a normalized relative import path such as modules/example.bkr. Do not use empty paths, absolute paths, drive prefixes, backslashes, parent traversal, leading ./, trailing /, or // segments.";
+        let message = "Import error: invalid import path " + invalid_import;
+        let json = self_host_diagnostic_json("import", "BKR_SELF_IMPORT_PATH", message,
+            0, 0, 1, 1, "", "normalized relative forward-slash import path", invalid_import, repair_hint);
+        return "/* " + message + ". AI repair hint: " + repair_hint + from_char_code(10) +
+            "BUNKER_DIAGNOSTIC_JSON: " + json + from_char_code(10) +
+            "*/";
+    }
+
     fn build_import_diagnostic(missing_import: str) -> str {
         let repair_hint = "Copy the imported Bunker module next to self_host_input.bkr or pre-expand imports before running bkrc.";
         let message = "Import error: missing module " + missing_import;
         let json = self_host_diagnostic_json("import", "BKR_SELF_IMPORT", message,
-            0, 0, 1, 1, "existing imported module", missing_import, repair_hint);
+            0, 0, 1, 1, "", "existing imported module", missing_import, repair_hint);
         return "/* " + message + ". AI repair hint: " + repair_hint + from_char_code(10) +
             "BUNKER_DIAGNOSTIC_JSON: " + json + from_char_code(10) +
             "*/";
@@ -182,16 +743,25 @@
     fn build_parse_diagnostic(source: str, p: ParserStateRef) -> str {
         let expected = token_name(parser_error_expected_ref(p));
         let actual = token_name(parser_error_actual_ref(p));
-        let error_span = parser_error_span_ref(p);
-        let source_start = ast_span_start(error_span);
-        let source_end = ast_span_end(error_span);
+        let error_span: AstSpan = parser_error_span_ref(p);
+        let source_start = error_span.start;
+        let source_end = error_span.end;
         let source_line = source_line_at(source, source_start);
         let source_column = source_column_at(source, source_start);
+        let source_excerpt = source_line_excerpt_at(source, source_start);
         let repair_hint = "Inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, match expressions, Option<T> via Some/None, Result<T,E> via result_* builtins, Vec<T> and HashMap<i32,V> runtime handles, for-in ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary expressions, bitwise operators, and basic expressions.";
         let message = "Parse error at token " + int_to_string(parser_error_position_ref(p)) +
             ": expected " + expected + ", got " + actual;
-        let json = self_host_diagnostic_json("parse", "BKR_SELF_PARSE", message,
-            source_start, source_end, source_line, source_column, expected, actual, repair_hint);
+        let insert_text = parse_insert_text_for_expected_token(parser_error_expected_ref(p));
+        let suggested_edits = diagnostic_no_edits_json();
+        let safe_edit_available = false;
+        if len(insert_text) > 0 {
+            suggested_edits = diagnostic_single_edit_json(diagnostic_text_edit_json("insert_text",
+                source_start, source_start, insert_text, "manual_review", "medium"));
+        }
+        let json = self_host_diagnostic_json_with_edits("parse", "BKR_SELF_PARSE", message,
+            source_start, source_end, source_line, source_column, source_excerpt, expected, actual, repair_hint,
+            safe_edit_available, suggested_edits);
         return "/* " + message + ". AI repair hint: " + repair_hint + from_char_code(10) +
             "BUNKER_DIAGNOSTIC_JSON: " + json + from_char_code(10) +
             "*/";
@@ -214,16 +784,27 @@
     }
 
     fn compile_to_c(source: str) -> str {
+        return compile_to_c_with_base_dir(source, "");
+    }
+
+    fn compile_to_c_with_base_dir(source: str, root_base_dir: str) -> str {
         self_host_trace_phase("compile_to_c:begin");
         let capability_report = build_capability_report_comment();
         self_host_trace_phase("compile_to_c:capability_report");
-        let missing_import = first_missing_import_path(source);
+        let import_graph_report = build_import_graph_report_comment_with_base_dir(source, root_base_dir);
+        self_host_trace_phase("compile_to_c:import_graph_report");
+        let invalid_import = first_invalid_import_path_from_base(source, root_base_dir);
+        if len(invalid_import) > 0 {
+            self_host_trace_phase("compile_to_c:invalid_import");
+            return capability_report + import_graph_report + build_import_path_diagnostic(invalid_import) + from_char_code(10);
+        }
+        let missing_import = first_missing_import_path_from_base(source, root_base_dir);
         if len(missing_import) > 0 {
             self_host_trace_phase("compile_to_c:missing_import");
-            return capability_report + build_import_diagnostic(missing_import) + from_char_code(10);
+            return capability_report + import_graph_report + build_import_diagnostic(missing_import) + from_char_code(10);
         }
 
-        let expanded_source = expand_imports(source);
+        let expanded_source = expand_imports_from_base(source, root_base_dir);
         self_host_trace_phase("compile_to_c:imports_expanded");
         let lex_result: LexerResultRef = tokenize_ref(expanded_source);
         self_host_trace_phase("compile_to_c:tokenized");
@@ -234,7 +815,7 @@
 
         if parser_has_error_ref(p) {
             self_host_trace_phase("compile_to_c:parse_error");
-            return capability_report + build_parse_diagnostic(expanded_source, p) + from_char_code(10);
+            return capability_report + import_graph_report + build_parse_diagnostic(expanded_source, p) + from_char_code(10);
         }
 
         let ast_report = build_ast_report_comment(expanded_source, ast);
@@ -245,12 +826,13 @@
         self_host_trace_phase("compile_to_c:symbol_table_report");
         let resolver_report = build_resolver_report_comment(ast);
         self_host_trace_phase("compile_to_c:resolver_report");
+        self_host_trace_phase("compile_to_c:typecheck_begin");
         let typecheck_report = build_typecheck_report_comment(ast);
         self_host_trace_phase("compile_to_c:typecheck_report");
         let c_program = gen_c_program(ast);
         self_host_trace_phase("compile_to_c:c_program");
 
-        return capability_report + ast_report +
+        return capability_report + import_graph_report + ast_report +
             type_graph_report +
             symbol_table_report +
             resolver_report +
@@ -270,7 +852,7 @@
         }
 
         let source = read_file(input_path);
-        let c_code = compile_to_c(source);
+        let c_code = compile_to_c_with_base_dir(source, import_path_dir(input_path));
         let wrote = write_file(output_path, c_code);
         if !wrote {
             return 1;

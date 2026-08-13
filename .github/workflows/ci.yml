@@ -98,6 +98,525 @@ jobs:
             exit 1
           fi
 
+      - name: Require NodeKind enum-backed AST tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          constants='self-host/modules/constants.bkr'
+          grep -q 'enum NodeKind {' "$constants"
+          grep -q 'const NODE_FN: i64 = NodeKind.Fn;' "$constants"
+          grep -q 'const NODE_ENUM: i64 = NodeKind.Enum;' "$constants"
+          ! grep -q 'const NODE_FN: i64 = 2;' "$constants"
+
+      - name: Require TokenKind enum-backed lexer tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          constants='self-host/modules/constants.bkr'
+          grep -q 'enum TokenKind {' "$constants"
+          grep -q 'const TOK_EOF: i64 = TokenKind.Eof;' "$constants"
+          grep -q 'const TOK_FN: i64 = TokenKind.Fn;' "$constants"
+          grep -q 'const TOK_FAT_ARROW: i64 = TokenKind.FatArrow;' "$constants"
+          ! grep -q 'const TOK_FN: i64 = 23;' "$constants"
+
+      - name: Require PatternKind and TypeKind enum-backed tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          constants='self-host/modules/constants.bkr'
+          grep -q 'enum PatternKind {' "$constants"
+          grep -q 'const PAT_INT: i64 = PatternKind.Int;' "$constants"
+          grep -q 'const PAT_ENUM_VARIANT: i64 = PatternKind.EnumVariant;' "$constants"
+          grep -q 'enum TypeKind {' "$constants"
+          grep -q 'const TYPE_I32: i64 = TypeKind.I32;' "$constants"
+          grep -q 'const TYPE_STRUCT: i64 = TypeKind.Struct;' "$constants"
+          grep -q 'const TYPE_UNKNOWN: i64 = 99;' "$constants"
+          ! grep -q 'const PAT_INT: i64 = 1;' "$constants"
+          ! grep -q 'const TYPE_I32: i64 = 0;' "$constants"
+
+      - name: Require NodeKind-typed AST kind APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          kind_model='self-host/modules/kind_model.bkr'
+          ast='self-host/modules/ast.bkr'
+          grep -q 'fn ast_node_kind_name(kind: NodeKind) -> str' "$kind_model"
+          grep -q 'fn ast_node_category_kind(kind: NodeKind) -> i64' "$kind_model"
+          grep -q 'fn ast_is_item_kind(kind: NodeKind) -> bool' "$kind_model"
+          grep -q 'fn ast_node_ref_new(kind: NodeKind) -> AstNodeRef' "$ast"
+          grep -q 'fn ast_node_kind(node: Vec<i64>) -> NodeKind' "$ast"
+          grep -q 'fn ast_node_ref_kind(node_ref: AstNodeRef) -> NodeKind' "$ast"
+          grep -q 'fn ast_expr_ref_kind(expr_ref: AstExprRef) -> NodeKind' "$ast"
+          grep -q 'fn ast_stmt_ref_kind(stmt_ref: AstStmtRef) -> NodeKind' "$ast"
+          grep -q 'fn ast_item_ref_kind(item_ref: AstItemRef) -> NodeKind' "$ast"
+          ! grep -q 'fn ast_node_kind_name(kind: i64)' "$kind_model"
+          ! grep -q 'fn ast_node_ref_kind(node_ref: AstNodeRef) -> i64' "$ast"
+
+      - name: Require TokenKind-typed lexer APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          kind_model='self-host/modules/kind_model.bkr'
+          parser='self-host/modules/parser.bkr'
+          parser_state='self-host/modules/parser_state.bkr'
+          lexer='self-host/modules/lexer.bkr'
+          grep -q 'fn token_kind_name(kind: TokenKind) -> str' "$kind_model"
+          grep -q 'fn token_is_name_kind(kind: TokenKind) -> bool' "$kind_model"
+          grep -q 'fn token_name(tok: TokenKind) -> str' "$parser"
+          grep -q 'fn is_name_token(tok: TokenKind) -> bool' "$parser"
+          grep -q 'fn parser_peek_ref(p_ref: ParserStateRef) -> TokenKind' "$parser_state"
+          grep -q 'fn parser_expect_ref(p_ref: ParserStateRef, expected: TokenKind) -> bool' "$parser_state"
+          grep -q 'fn parser_error_expected_ref(p_ref: ParserStateRef) -> TokenKind' "$parser_state"
+          grep -q 'fn parse_insert_text_for_expected_token(expected_token: TokenKind) -> str' 'self-host/modules/driver.bkr'
+          grep -q 'let tok_type: TokenKind =' "$lexer"
+          ! grep -q 'fn token_kind_name(kind: i64)' "$kind_model"
+          ! grep -q 'fn token_name(tok: i64)' "$parser"
+          ! grep -q 'fn parser_peek_ref(p_ref: ParserStateRef) -> i64' "$parser_state"
+          ! grep -q 'fn parse_insert_text_for_expected_token(expected_token: i64)' 'self-host/modules/driver.bkr'
+
+      - name: Require PatternKind and TypeKind typed APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          kind_model='self-host/modules/kind_model.bkr'
+          ast='self-host/modules/ast.bkr'
+          typecheck='self-host/modules/typecheck.bkr'
+          c_codegen='self-host/modules/c_codegen.bkr'
+          grep -q 'fn ast_type_kind_name(kind: TypeKind) -> str' "$kind_model"
+          grep -q 'fn ast_pattern_kind_name(kind: PatternKind) -> str' "$kind_model"
+          grep -q 'fn ast_pattern_ref_new(kind: PatternKind, value: i64) -> AstPatternRef' "$ast"
+          grep -q 'fn ast_pattern_ref_kind(pattern_ref: AstPatternRef) -> PatternKind' "$ast"
+          grep -q 'fn ast_pattern_kind(pattern: Vec<i64>) -> PatternKind' "$ast"
+          grep -q 'fn ast_type_ref(kind: TypeKind) -> AstTypeRef' "$ast"
+          grep -q 'fn ast_type_ref_kind_value(type_ref: AstTypeRef) -> TypeKind' "$ast"
+          grep -q 'fn ast_type_kind_value(type_node: i64) -> TypeKind' "$ast"
+          grep -q 'fn typecheck_is_integer_kind(kind: TypeKind) -> bool' "$typecheck"
+          grep -q 'fn type_to_c(kind: TypeKind) -> str' "$c_codegen"
+          grep -q 'const TYPE_UNKNOWN: i64 = 99;' 'self-host/modules/constants.bkr'
+          ! grep -q 'fn ast_type_kind_name(kind: i64)' "$kind_model"
+          ! grep -q 'fn ast_pattern_kind_name(kind: i64)' "$kind_model"
+          ! grep -q 'fn ast_pattern_ref_kind(pattern_ref: AstPatternRef) -> i64' "$ast"
+          ! grep -q 'fn ast_type_ref_kind_value(type_ref: AstTypeRef) -> i64' "$ast"
+          ! grep -q 'fn typecheck_is_integer_kind(kind: i64)' "$typecheck"
+          ! grep -q 'fn type_to_c(kind: i64)' "$c_codegen"
+
+      - name: Require AstSpan struct span APIs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          parser='self-host/modules/parser.bkr'
+          driver='self-host/modules/driver.bkr'
+          grep -q 'struct AstSpan {' "$ast"
+          grep -q 'fn ast_span(start: i64, end: i64) -> AstSpan' "$ast"
+          grep -q 'fn ast_span_unknown() -> AstSpan' "$ast"
+          grep -q 'fn ast_span_start(span: AstSpan) -> i64' "$ast"
+          grep -q 'fn ast_span_end(span: AstSpan) -> i64' "$ast"
+          grep -q 'fn ast_span_is_known(span: AstSpan) -> bool' "$ast"
+          grep -q 'fn ast_node_span(node: Vec<i64>) -> AstSpan' "$ast"
+          grep -q 'fn parser_error_span_ref(p: ParserStateRef) -> AstSpan' "$parser"
+          grep -q 'let error_span: AstSpan = parser_error_span_ref(p);' "$driver"
+          grep -q 'let source_start = error_span.start;' "$driver"
+          ! grep -q 'fn ast_span(start: i64, end: i64) -> Vec<i64>' "$ast"
+          ! grep -q 'fn ast_span_start(span: Vec<i64>)' "$ast"
+          ! grep -q 'fn parser_error_span_ref(p: ParserStateRef) -> Vec<i64>' "$parser"
+
+      - name: Require AstPattern struct pattern records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstPattern {' "$ast"
+          grep -q 'fn ast_pattern_record(kind: PatternKind, value: i64) -> AstPattern' "$ast"
+          grep -q 'fn ast_pattern_pack(pattern: AstPattern) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_pattern_unpack(node: Vec<i64>) -> AstPattern' "$ast"
+          grep -q 'fn ast_pattern_ref_record(pattern_ref: AstPatternRef) -> AstPattern' "$ast"
+          grep -q 'let pattern: AstPattern = ast_pattern_record2(kind, value, aux);' "$ast"
+          grep -q 'let pattern: AstPattern = ast_pattern_ref_record(pattern_ref);' "$ast"
+          ! grep -q 'vec_push(pattern, kind);' "$ast"
+
+      - name: Require AstType struct type records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstType {' "$ast"
+          grep -q 'fn ast_type_record(kind: TypeKind) -> AstType' "$ast"
+          grep -q 'fn ast_type_pack(type_rec: AstType) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_type_unpack(node: Vec<i64>) -> AstType' "$ast"
+          grep -q 'fn ast_type_ref_record(type_ref: AstTypeRef) -> AstType' "$ast"
+          grep -q 'let rec: AstType = ast_type_record(kind);' "$ast"
+          grep -q 'let rec: AstType = ast_type_ref_record(type_ref);' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_TYPE)' "$ast"
+
+      - name: Require AstAtom struct atomic expression records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstAtom {' "$ast"
+          grep -q 'fn ast_atom_record(kind: NodeKind, payload: i64) -> AstAtom' "$ast"
+          grep -q 'fn ast_atom_pack(atom: AstAtom) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_atom_unpack(node: Vec<i64>) -> AstAtom' "$ast"
+          grep -q 'fn ast_expr_ref_atom(expr_ref: AstExprRef) -> AstAtom' "$ast"
+          grep -q 'let rec: AstAtom = ast_atom_record(kind, payload);' "$ast"
+          grep -q 'return ast_atom_expr_ref(NodeKind.IntLit, value);' "$ast"
+          grep -q 'return ast_atom_expr_ref(NodeKind.Ident, name_idx);' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_INT_LIT)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_IDENT)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_BOOL_LIT)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_STR_LIT)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_FLOAT_LIT)' "$ast"
+
+      - name: Require AstBinary and AstUnary struct operator records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstBinary {' "$ast"
+          grep -q 'struct AstUnary {' "$ast"
+          grep -q 'fn ast_binary_record(op: TokenKind, left: i64, right: i64) -> AstBinary' "$ast"
+          grep -q 'fn ast_binary_pack(binary: AstBinary) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_binary_unpack(node: Vec<i64>) -> AstBinary' "$ast"
+          grep -q 'fn ast_expr_ref_binary(expr_ref: AstExprRef) -> AstBinary' "$ast"
+          grep -q 'fn ast_binary_ref(op: TokenKind, left_ref: AstExprRef, right_ref: AstExprRef) -> AstExprRef' "$ast"
+          grep -q 'fn ast_unary_ref(op: TokenKind, operand_ref: AstExprRef) -> AstExprRef' "$ast"
+          grep -q 'fn ast_binary_ref_op(expr_ref: AstExprRef) -> TokenKind' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_BINARY)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_UNARY)' "$ast"
+          ! grep -q 'fn ast_binary_ref(op: i64' "$ast"
+          ! grep -q 'fn ast_binary_ref_op(expr_ref: AstExprRef) -> i64' "$ast"
+
+      - name: Require AstCall struct call records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstCall {' "$ast"
+          grep -q 'fn ast_call_record(name_idx: i64, args: i64) -> AstCall' "$ast"
+          grep -q 'fn ast_call_pack(call: AstCall) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_call_unpack(node: Vec<i64>) -> AstCall' "$ast"
+          grep -q 'fn ast_expr_ref_call(expr_ref: AstExprRef) -> AstCall' "$ast"
+          grep -q 'let rec: AstCall = ast_call_record(name_idx, ast_node_list_ref_handle(args_ref));' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_CALL)' "$ast"
+
+      - name: Require AstIndex and AstFieldAccess struct records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstIndex {' "$ast"
+          grep -q 'struct AstFieldAccess {' "$ast"
+          grep -q 'fn ast_index_record(base: i64, index: i64) -> AstIndex' "$ast"
+          grep -q 'fn ast_index_pack(idx: AstIndex) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_index_unpack(node: Vec<i64>) -> AstIndex' "$ast"
+          grep -q 'fn ast_expr_ref_index(expr_ref: AstExprRef) -> AstIndex' "$ast"
+          grep -q 'fn ast_field_access_record(base: i64, name_idx: i64) -> AstFieldAccess' "$ast"
+          grep -q 'fn ast_expr_ref_field_access(expr_ref: AstExprRef) -> AstFieldAccess' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_INDEX)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_FIELD_ACCESS)' "$ast"
+
+      - name: Require AstLet and AstReturn struct statement records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstLet {' "$ast"
+          grep -q 'struct AstReturn {' "$ast"
+          grep -q 'fn ast_let_record(name_idx: i64, type_handle: i64, init: i64) -> AstLet' "$ast"
+          grep -q 'fn ast_let_pack(stmt: AstLet) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_let_unpack(node: Vec<i64>) -> AstLet' "$ast"
+          grep -q 'fn ast_stmt_ref_let(stmt_ref: AstStmtRef) -> AstLet' "$ast"
+          grep -q 'fn ast_return_record(expr: i64) -> AstReturn' "$ast"
+          grep -q 'fn ast_stmt_ref_return(stmt_ref: AstStmtRef) -> AstReturn' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_LET)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_RETURN)' "$ast"
+
+      - name: Require AstIf and AstWhile struct statement records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstIf {' "$ast"
+          grep -q 'struct AstWhile {' "$ast"
+          grep -q 'fn ast_if_record(cond: i64, then_block: i64, else_block: i64) -> AstIf' "$ast"
+          grep -q 'fn ast_if_pack(stmt: AstIf) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_if_unpack(node: Vec<i64>) -> AstIf' "$ast"
+          grep -q 'fn ast_stmt_ref_if(stmt_ref: AstStmtRef) -> AstIf' "$ast"
+          grep -q 'fn ast_while_record(cond: i64, body: i64) -> AstWhile' "$ast"
+          grep -q 'fn ast_stmt_ref_while(stmt_ref: AstStmtRef) -> AstWhile' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_IF)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_WHILE)' "$ast"
+
+      - name: Require AstFor and AstLoop struct statement records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstFor {' "$ast"
+          grep -q 'struct AstLoop {' "$ast"
+          grep -q 'fn ast_for_record(name_idx: i64, start_expr: i64, end_expr: i64, inclusive: i64, body: i64) -> AstFor' "$ast"
+          grep -q 'fn ast_for_pack(stmt: AstFor) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_for_unpack(node: Vec<i64>) -> AstFor' "$ast"
+          grep -q 'fn ast_stmt_ref_for(stmt_ref: AstStmtRef) -> AstFor' "$ast"
+          grep -q 'fn ast_loop_record(body: i64) -> AstLoop' "$ast"
+          grep -q 'fn ast_stmt_ref_loop(stmt_ref: AstStmtRef) -> AstLoop' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_FOR)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_LOOP)' "$ast"
+
+      - name: Require AstAssign and AstExprStmt struct statement records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstAssign {' "$ast"
+          grep -q 'struct AstExprStmt {' "$ast"
+          grep -q 'fn ast_assign_record(target: i64, value: i64) -> AstAssign' "$ast"
+          grep -q 'fn ast_assign_pack(stmt: AstAssign) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_assign_unpack(node: Vec<i64>) -> AstAssign' "$ast"
+          grep -q 'fn ast_stmt_ref_assign(stmt_ref: AstStmtRef) -> AstAssign' "$ast"
+          grep -q 'fn ast_expr_stmt_record(expr: i64) -> AstExprStmt' "$ast"
+          grep -q 'fn ast_stmt_ref_expr_stmt(stmt_ref: AstStmtRef) -> AstExprStmt' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_ASSIGN)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_EXPR_STMT)' "$ast"
+
+      - name: Require AstTernary struct expression records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstTernary {' "$ast"
+          grep -q 'fn ast_ternary_record(cond: i64, then_expr: i64, else_expr: i64) -> AstTernary' "$ast"
+          grep -q 'fn ast_ternary_pack(expr: AstTernary) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_ternary_unpack(node: Vec<i64>) -> AstTernary' "$ast"
+          grep -q 'fn ast_expr_ref_ternary(expr_ref: AstExprRef) -> AstTernary' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_TERNARY)' "$ast"
+
+      - name: Require AstArrayLit and AstStructLit struct records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstArrayLit {' "$ast"
+          grep -q 'struct AstStructLit {' "$ast"
+          grep -q 'fn ast_array_lit_record(elements: i64) -> AstArrayLit' "$ast"
+          grep -q 'fn ast_array_lit_pack(expr: AstArrayLit) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_array_lit_unpack(node: Vec<i64>) -> AstArrayLit' "$ast"
+          grep -q 'fn ast_expr_ref_array_lit(expr_ref: AstExprRef) -> AstArrayLit' "$ast"
+          grep -q 'fn ast_struct_lit_record(name_idx: i64, field_names: i64, field_values: i64) -> AstStructLit' "$ast"
+          grep -q 'fn ast_expr_ref_struct_lit(expr_ref: AstExprRef) -> AstStructLit' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_ARRAY_LIT)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_STRUCT_LIT)' "$ast"
+
+      - name: Require AstMatch struct expression records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstMatch {' "$ast"
+          grep -q 'fn ast_match_record(scrutinee: i64, patterns: i64, bodies: i64) -> AstMatch' "$ast"
+          grep -q 'fn ast_match_pack(expr: AstMatch) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_match_unpack(node: Vec<i64>) -> AstMatch' "$ast"
+          grep -q 'fn ast_expr_ref_match(expr_ref: AstExprRef) -> AstMatch' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_MATCH)' "$ast"
+
+      - name: Require AstParam and AstFn struct item records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstParam {' "$ast"
+          grep -q 'struct AstFn {' "$ast"
+          grep -q 'fn ast_param_record(name_idx: i64, type_handle: i64) -> AstParam' "$ast"
+          grep -q 'fn ast_param_pack(param: AstParam) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_param_unpack(node: Vec<i64>) -> AstParam' "$ast"
+          grep -q 'fn ast_node_ref_param(node_ref: AstNodeRef) -> AstParam' "$ast"
+          grep -q 'fn ast_fn_record(name_idx: i64, params: i64, return_type: i64, body: i64) -> AstFn' "$ast"
+          grep -q 'fn ast_item_ref_fn(item_ref: AstItemRef) -> AstFn' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_PARAM)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_FN)' "$ast"
+
+      - name: Require AstConst and AstFieldDecl struct item records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstConst {' "$ast"
+          grep -q 'struct AstFieldDecl {' "$ast"
+          grep -q 'fn ast_const_record(name_idx: i64, type_handle: i64, value: i64) -> AstConst' "$ast"
+          grep -q 'fn ast_const_pack(item: AstConst) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_const_unpack(node: Vec<i64>) -> AstConst' "$ast"
+          grep -q 'fn ast_item_ref_const(item_ref: AstItemRef) -> AstConst' "$ast"
+          grep -q 'fn ast_field_decl_record(name_idx: i64, type_handle: i64) -> AstFieldDecl' "$ast"
+          grep -q 'fn ast_node_ref_field_decl(node_ref: AstNodeRef) -> AstFieldDecl' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_CONST)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_FIELD)' "$ast"
+
+      - name: Require AstStruct and AstEnum struct item records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstStruct {' "$ast"
+          grep -q 'struct AstEnum {' "$ast"
+          grep -q 'fn ast_struct_record(name_idx: i64, fields: i64) -> AstStruct' "$ast"
+          grep -q 'fn ast_struct_pack(item: AstStruct) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_struct_unpack(node: Vec<i64>) -> AstStruct' "$ast"
+          grep -q 'fn ast_item_ref_struct(item_ref: AstItemRef) -> AstStruct' "$ast"
+          grep -q 'fn ast_enum_record(name_idx: i64, variants: i64, payloads: i64) -> AstEnum' "$ast"
+          grep -q 'fn ast_enum_ref_payloads_ref(item_ref: AstItemRef) -> AstI64ListRef' "$ast"
+          grep -q 'fn ast_enum_ref_payload_count(item_ref: AstItemRef) -> i64' "$ast"
+          grep -q 'fn ast_item_ref_enum(item_ref: AstItemRef) -> AstEnum' "$ast"
+          grep -q 'ast_i64_list_append_ref(fields_ref, ast_type_ref_to_optional_handle(parse_type_ref(p)));' self-host/modules/parser.bkr
+          grep -qF 'enum_variant = { identifier ~ ("(" ~ type_expr ~ ("," ~ type_expr)* ~ ")")? }' bunker-cli/src/grammar/bunker.pest
+          grep -q 'fn ast_enum_ref_payload_arity_sum(item_ref: AstItemRef) -> i64' self-host/modules/ast.bkr
+          ! grep -q 'ast_node_ref_new(NODE_STRUCT)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_ENUM)' "$ast"
+
+      - name: Require AstKernel struct root records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstKernel {' "$ast"
+          grep -q 'fn ast_kernel_record(name_idx: i64, items: i64, entry_idx: i64, names: i64) -> AstKernel' "$ast"
+          grep -q 'fn ast_kernel_pack(kernel: AstKernel) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_kernel_unpack(node: Vec<i64>) -> AstKernel' "$ast"
+          grep -q 'fn ast_node_ref_kernel(node_ref: AstNodeRef) -> AstKernel' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_KERNEL)' "$ast"
+
+      - name: Require AstBreak, AstContinue, and AstBlock records
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast='self-host/modules/ast.bkr'
+          grep -q 'struct AstBreak {' "$ast"
+          grep -q 'struct AstContinue {' "$ast"
+          grep -q 'struct AstBlock {' "$ast"
+          grep -q 'fn ast_break_record() -> AstBreak' "$ast"
+          grep -q 'fn ast_break_pack(stmt: AstBreak) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_break_unpack(node: Vec<i64>) -> AstBreak' "$ast"
+          grep -q 'fn ast_stmt_ref_break(stmt_ref: AstStmtRef) -> AstBreak' "$ast"
+          grep -q 'fn ast_continue_record() -> AstContinue' "$ast"
+          grep -q 'fn ast_stmt_ref_continue(stmt_ref: AstStmtRef) -> AstContinue' "$ast"
+          grep -q 'fn ast_block_record() -> AstBlock' "$ast"
+          grep -q 'fn ast_block_pack(block: AstBlock) -> Vec<i64>' "$ast"
+          grep -q 'fn ast_block_unpack(node: Vec<i64>) -> AstBlock' "$ast"
+          grep -q 'fn ast_block_ref_record(block_ref: AstBlockRef) -> AstBlock' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_BREAK)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_CONTINUE)' "$ast"
+          ! grep -q 'ast_node_ref_new(NODE_BLOCK)' "$ast"
+
+      - name: Require recursive self-host import expansion
+        shell: bash
+        run: |
+          set -euo pipefail
+          driver='self-host/modules/driver.bkr'
+          grep -q 'fn import_seen_contains(seen: Vec<str>, import_path: str) -> bool' "$driver"
+          grep -q 'fn expand_imports_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str' "$driver"
+          grep -q 'fn first_missing_import_path_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str' "$driver"
+          grep -q 'let expanded_import = expand_imports_with_seen(imported, seen, import_path_dir(resolved_path));' "$driver"
+          grep -q 'return first_missing_import_path_with_seen(read_file(resolved_path), seen, import_path_dir(resolved_path));' "$driver"
+
+      - name: Require self-host import graph report
+        shell: bash
+        run: |
+          set -euo pipefail
+          driver='self-host/modules/driver.bkr'
+          grep -q 'fn self_host_import_graph_json(source: str) -> str' "$driver"
+          grep -q 'fn self_host_import_graph_json_with_base_dir(source: str, base_dir: str) -> str' "$driver"
+          grep -q 'BUNKER_IMPORT_GRAPH_JSON' "$driver"
+          grep -q 'json_field_str("root_base_dir", base_dir)' "$driver"
+          grep -q 'json_field_i64("unique_import_count", unique_import_count_from_base(source, base_dir))' "$driver"
+          grep -q 'fn import_edge_status_count_in_json(edges_json: str, status: str) -> i64' "$driver"
+          grep -q 'fn import_edge_count_from_base(source: str, base_dir: str) -> i64' "$driver"
+          grep -q 'json_field_i64("edge_count", import_edge_count_from_base(source, base_dir))' "$driver"
+          grep -q 'json_field_i64("ok_edge_count", import_edge_status_count_from_base(source, base_dir, "ok"))' "$driver"
+          grep -q 'json_field_i64("missing_edge_count", import_edge_status_count_from_base(source, base_dir, "missing"))' "$driver"
+          grep -q 'json_field_i64("invalid_edge_count", import_edge_status_count_from_base(source, base_dir, "invalid"))' "$driver"
+          grep -q 'json_field_i64("duplicate_edge_count", import_edge_status_count_from_base(source, base_dir, "duplicate"))' "$driver"
+          grep -q 'json_field_raw("imports", unique_import_paths_json_from_base(source, base_dir))' "$driver"
+          grep -q 'json_field_raw("edges", import_edges_json_from_base(source, base_dir))' "$driver"
+          grep -q 'fn import_edge_json(from_base: str, requested: str, resolved: str, status: str) -> str' "$driver"
+          grep -q 'json_field_bool("import_graph_report", true)' "$driver"
+          grep -q 'json_field_bool("import_duplicate_or_cycle_summary", true)' "$driver"
+          grep -q 'json_field_bool("cycle_safe_expansion", true)' "$driver"
+          grep -q 'json_field_i64("duplicate_or_cycle_edge_count", import_edge_status_count_from_base(source, base_dir, "duplicate"))' "$driver"
+          grep -q 'json_field_bool("has_duplicate_or_cycle_import", import_edge_status_count_from_base(source, base_dir, "duplicate") > 0)' "$driver"
+          grep -q 'capability_report + import_graph_report + ast_report' "$driver"
+
+      - name: Require diagnostic source excerpts
+        shell: bash
+        run: |
+          set -euo pipefail
+          driver='self-host/modules/driver.bkr'
+          grep -q 'fn source_line_excerpt_at(source: str, offset: i64) -> str' "$driver"
+          grep -q 'json_field_bool("source_excerpts", true)' "$driver"
+          grep -q 'json_field_str("source_excerpt", source_excerpt)' "$driver"
+          grep -q 'json_field_bool("structured_repair_metadata", true)' "$driver"
+          grep -q 'json_field_str("suggested_action", repair_hint)' "$driver"
+          grep -q 'json_field_str("fix_applicability", "manual_review")' "$driver"
+          grep -q 'json_field_str("fix_confidence", "medium")' "$driver"
+          grep -q 'fn self_host_diagnostic_codes_json() -> str' "$driver"
+          grep -q 'json_field_bool("diagnostic_code_registry", true)' "$driver"
+          grep -q 'json_field_str("agent_contract_version", "bunker.agent.diagnostics.v1")' "$driver"
+          grep -q 'json_field_str("self_hosting_stage", "bootstrap-self-hosted-reports")' "$driver"
+          grep -q 'json_field_bool("ai_agent_native_diagnostics", true)' "$driver"
+          grep -q 'json_field_bool("production_language_ready", false)' "$driver"
+          grep -q 'json_field_bool("requires_ci_validation", true)' "$driver"
+          grep -q 'json_field_bool("diagnostic_phase_field", true)' "$driver"
+          grep -q 'json_field_bool("diagnostic_rule_ids", true)' "$driver"
+          grep -q 'json_field_bool("diagnostic_severity", true)' "$driver"
+          grep -q 'json_field_bool("diagnostic_severity_counts", true)' "$driver"
+          grep -q 'json_field_str("phase", category)' "$driver"
+          grep -q 'json_field_str("rule_id", code)' "$driver"
+          grep -q 'json_field_str("severity", "error")' "$driver"
+          grep -q 'json_field_bool("suggested_edit_envelope", true)' "$driver"
+          grep -q 'fn diagnostic_text_edit_json(kind: str, source_start: i64, source_end: i64,' 'self-host/modules/report_support.bkr'
+          grep -q 'json_field_raw("suggested_edits", suggested_edits)' "$driver"
+          grep -q 'fn parse_insert_text_for_expected_token(expected_token: TokenKind) -> str' "$driver"
+          grep -q 'json_field_raw("diagnostic_codes", self_host_diagnostic_codes_json())' "$driver"
+          grep -q 'BKR_SELF_ASSIGNMENT_TARGET' "$driver"
+          grep -q 'BKR_SELF_CONTROL_FLOW' "$driver"
+          grep -q 'BKR_SELF_RETURN_PATH' "$driver"
+          grep -q 'BKR_SELF_UNREACHABLE_CODE' "$driver"
+          grep -q 'BKR_SELF_MATCH_PATTERN' "$driver"
+          grep -q 'BKR_SELF_EXHAUSTIVENESS' "$driver"
+          grep -q 'BKR_SELF_STRUCT_LITERAL' "$driver"
+          grep -q 'BKR_SELF_CONST_ASSIGNMENT' "$driver"
+          grep -q 'BKR_SELF_AMBIGUOUS_TYPE' "$driver"
+          grep -q 'BKR_SELF_VOID_VALUE' "$driver"
+          grep -q 'BKR_SELF_ENTRY_POINT' "$driver"
+          grep -q 'BKR_SELF_CALL_TARGET' "$driver"
+          grep -q 'let source_excerpt = source_line_excerpt_at(source, source_start);' "$driver"
+
+      - name: Require self-host import path policy
+        shell: bash
+        run: |
+          set -euo pipefail
+          driver='self-host/modules/driver.bkr'
+          grep -q 'fn import_path_is_valid(import_path: str) -> bool' "$driver"
+          grep -q 'fn first_invalid_import_path(source: str) -> str' "$driver"
+          grep -q 'fn build_import_path_diagnostic(invalid_import: str) -> str' "$driver"
+          grep -q 'BKR_SELF_IMPORT_PATH' "$driver"
+          grep -q 'json_field_str("path_policy", "normalized_relative_forward_slash")' "$driver"
+          grep -q 'json_field_bool("has_invalid_import", len(invalid_import) > 0)' "$driver"
+          grep -q 'compile_to_c:invalid_import' "$driver"
+
+      - name: Require importer-directory import resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          driver='self-host/modules/driver.bkr'
+          grep -q 'fn resolve_import_path(base_dir: str, import_path: str) -> str' "$driver"
+          grep -q 'fn import_path_dir(resolved_path: str) -> str' "$driver"
+          grep -q 'fn expand_imports_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str' "$driver"
+          grep -q 'resolve_import_path(base_dir, import_path)' "$driver"
+          grep -q 'import_path_dir(resolved_path)' "$driver"
+          grep -q 'json_field_bool("base_directory_resolution", true)' "$driver"
+          grep -q 'fn compile_to_c_with_base_dir(source: str, root_base_dir: str) -> str' "$driver"
+          grep -q 'expand_imports_from_base(source, root_base_dir)' "$driver"
+
       - name: Require parser start spans through typed AST refs
         shell: bash
         run: |
@@ -210,6 +729,15 @@ jobs:
           grep -n -E 'parse_type\(p\);|ast_type_ref_from_node\(parse_type\(' "$parser" > "$matches" || true
           if [ -s "$matches" ]; then
             echo "Parser type consumers must use parse_type_ref instead of raw parse_type nodes."
+            cat "$matches"
+            exit 1
+          fi
+          grep -q 'fn ast_type_ref_to_optional_handle(type_ref: AstTypeRef) -> i64' "$ast"
+          grep -q 'fn ast_expr_ref_to_optional_handle(expr_ref: AstExprRef) -> i64' "$ast"
+          grep -q 'fn ast_block_ref_to_optional_handle(block_ref: AstBlockRef) -> i64' "$ast"
+          grep -n -E 'ast_type_ref_handle\(parse_type_ref\(p\)\)|ast_expr_ref_handle\(parse_expr_ref\(p\)\)|ast_block_ref_handle\(ast_block_with_ref\(|ast_block_ref_handle\(parse_block_ref\(p\)\)' "$parser" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Parser optional AST fields must use typed optional-handle helpers."
             cat "$matches"
             exit 1
           fi
@@ -428,6 +956,36 @@ jobs:
             exit 1
           fi
 
+      - name: Require resolver related declarations
+        shell: bash
+        run: |
+          set -euo pipefail
+          resolver='self-host/modules/resolver.bkr'
+          grep -q 'json_field_raw("related_declarations", related_declarations)' "$resolver"
+          grep -q 'fn resolver_related_declaration_json(kind: str, name: str, node_ref: AstNodeRef) -> str' "$resolver"
+          grep -q 'fn resolver_known_functions_json_ref(kernel_ref: AstNodeRef, names: Vec<str>) -> str' "$resolver"
+          grep -q 'fn resolver_known_consts_json_ref(kernel_ref: AstNodeRef, names: Vec<str>) -> str' "$resolver"
+          grep -q 'fn resolver_known_structs_json_ref(kernel_ref: AstNodeRef, names: Vec<str>) -> str' "$resolver"
+          grep -q 'fn resolver_struct_fields_json_ref(kernel_ref: AstNodeRef, names: Vec<str>, struct_name_idx: i64) -> str' "$resolver"
+          grep -q 'resolver_related_declaration_json("function"' "$resolver"
+          grep -q 'resolver_related_declaration_json("field"' "$resolver"
+          grep -q 'json_field_bool("related_declarations", true)' "$resolver"
+          grep -q 'json_field_bool("structured_repair_metadata", true)' "$resolver"
+          grep -q 'json_field_str("suggested_action", repair_hint)' "$resolver"
+          grep -q 'json_field_str("fix_applicability", "manual_review")' "$resolver"
+          grep -q 'json_field_str("fix_confidence", "medium")' "$resolver"
+          grep -q 'json_field_bool("diagnostic_phase_field", true)' "$resolver"
+          grep -q 'json_field_str("phase", "resolver")' "$resolver"
+          grep -q 'json_field_str("rule_id", kind)' "$resolver"
+          grep -q 'json_field_bool("diagnostic_rule_ids", true)' "$resolver"
+          grep -q 'json_field_bool("diagnostic_severity", true)' "$resolver"
+          grep -q 'json_field_bool("diagnostic_severity_counts", true)' "$resolver"
+          grep -q 'json_field_i64("error_count", resolver_state_count(state))' "$resolver"
+          grep -q 'json_field_i64("warning_count", 0)' "$resolver"
+          grep -q 'json_field_str("severity", "error")' "$resolver"
+          grep -q 'json_field_bool("suggested_edit_envelope", true)' "$resolver"
+          grep -q 'json_field_raw("suggested_edits", diagnostic_no_edits_json())' "$resolver"
+
       - name: Require type-graph top-level AST refs
         shell: bash
         run: |
@@ -453,6 +1011,231 @@ jobs:
             cat "$matches"
             exit 1
           fi
+
+      - name: Require type-graph type detail refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          type_graph='self-host/modules/type_graph.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'ast_type_kind_value\(|ast_type_struct_name_idx_value\(|ast_type_array_elem_kind_value\(|ast_type_array_len_value\(' "$type_graph" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Type-graph type details must use typed AST type ref accessors."
+            cat "$matches"
+            exit 1
+          fi
+
+      - name: Require consumer type detail refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          matches="$(mktemp)"
+          for module in \
+            self-host/modules/c_codegen.bkr \
+            self-host/modules/resolver.bkr \
+            self-host/modules/symbol_table.bkr
+          do
+            grep -n -E 'ast_type_ref_handle\(|ast_type_kind_value\(|ast_type_struct_name_idx_value\(|ast_type_array_elem_kind_value\(|ast_type_array_len_value\(' "$module" >> "$matches" || true
+          done
+          if [ -s "$matches" ]; then
+            echo "Consumer modules must use typed AST type ref accessors instead of raw type handles/details."
+            cat "$matches"
+            exit 1
+          fi
+
+      - name: Require consumer node-ref upcasts
+        shell: bash
+        run: |
+          set -euo pipefail
+          matches="$(mktemp)"
+          for module in \
+            self-host/modules/c_codegen.bkr \
+            self-host/modules/resolver.bkr \
+            self-host/modules/symbol_table.bkr \
+            self-host/modules/typecheck.bkr
+          do
+            grep -n -E 'ast_expr_ref_from_handle\(ast_node_ref_handle\(|ast_block_ref_from_handle\(ast_node_ref_handle\(' "$module" >> "$matches" || true
+          done
+          if [ -s "$matches" ]; then
+            echo "Consumer modules must use typed node-ref upcast helpers."
+            cat "$matches"
+            exit 1
+          fi
+
+      - name: Require typecheck function lookup refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          typecheck='self-host/modules/typecheck.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'fn typecheck_find_function\(|typecheck_find_function_ref\(.*-> i64|ast_item_ref_from_handle\(fn_value\)|ast_item_ref_handle\(' "$typecheck" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "Typecheck function lookup must return and consume typed item refs."
+            cat "$matches"
+            exit 1
+          fi
+
+      - name: Require typecheck typed diagnostic context
+        shell: bash
+        run: |
+          set -euo pipefail
+          typecheck='self-host/modules/typecheck.bkr'
+          grep -q 'fn typecheck_diagnostic_ref_json_with_type_context' "$typecheck"
+          grep -q 'json_field_raw("expected_type", expected_type)' "$typecheck"
+          grep -q 'json_field_raw("found_type", found_type)' "$typecheck"
+          grep -q 'fn typecheck_append_count_mismatch_ref' "$typecheck"
+          grep -q 'BKR_SELF_ARITY_MISMATCH' "$typecheck"
+          grep -q 'call_argument_count_mismatch' "$typecheck"
+          grep -q 'json_field_bool("call_arity_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_builtin_expected_arity' "$typecheck"
+          grep -q 'builtin_argument_count_mismatch' "$typecheck"
+          grep -q 'json_field_bool("builtin_arity_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_builtin_expected_arg_kind' "$typecheck"
+          grep -q 'builtin_argument_type_mismatch' "$typecheck"
+          grep -q 'json_field_bool("builtin_argument_type_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_assignment_target_valid_ref' "$typecheck"
+          grep -q 'BKR_SELF_ASSIGNMENT_TARGET' "$typecheck"
+          grep -q 'invalid_assignment_target' "$typecheck"
+          grep -q 'json_field_bool("assignment_target_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_find_const_ref' "$typecheck"
+          grep -q 'const_assignment' "$typecheck"
+          grep -q 'BKR_SELF_CONST_ASSIGNMENT' "$typecheck"
+          grep -q 'json_field_bool("const_assignment_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_index_base_ref' "$typecheck"
+          grep -q 'index_base_type_mismatch' "$typecheck"
+          grep -q 'json_field_bool("index_base_type_checks", true)' "$typecheck"
+          grep -q 'index_type_mismatch' "$typecheck"
+          grep -q 'json_field_bool("index_type_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_binary_operands_ref' "$typecheck"
+          grep -q 'binary_operand_type_mismatch' "$typecheck"
+          grep -q 'json_field_bool("binary_operand_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_unary_operand_ref' "$typecheck"
+          grep -q 'unary_operand_type_mismatch' "$typecheck"
+          grep -q 'json_field_bool("unary_operand_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_field_access_base_ref' "$typecheck"
+          grep -q 'field_access_base_type_mismatch' "$typecheck"
+          grep -q 'json_field_bool("field_access_base_checks", true)' "$typecheck"
+          grep -q 'ternary_branch_type_mismatch' "$typecheck"
+          grep -q 'json_field_bool("ternary_branch_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_match_arm_types_ref' "$typecheck"
+          grep -q 'match_arm_type_mismatch' "$typecheck"
+          grep -q 'json_field_bool("match_arm_type_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_match_patterns_ref' "$typecheck"
+          grep -q 'match_pattern_type_mismatch' "$typecheck"
+          grep -q 'fn typecheck_diagnostic_span_json_with_type_context' "$typecheck"
+          grep -q 'json_field_bool("match_pattern_type_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_match_pattern_semantics_ref' "$typecheck"
+          grep -q 'duplicate_match_pattern' "$typecheck"
+          grep -q 'unreachable_match_pattern' "$typecheck"
+          grep -q 'ast_pattern_ref_kind(left_ref) == PAT_SOME' "$typecheck"
+          grep -q 'BKR_SELF_MATCH_PATTERN' "$typecheck"
+          grep -q 'json_field_bool("match_pattern_semantic_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_bool_match_exhaustiveness_ref' "$typecheck"
+          grep -q 'non_exhaustive_match' "$typecheck"
+          grep -q 'BKR_SELF_EXHAUSTIVENESS' "$typecheck"
+          grep -q 'json_field_bool("bool_match_exhaustiveness_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_option_match_exhaustiveness_ref' "$typecheck"
+          grep -q 'patterns covering Some and None' "$typecheck"
+          grep -q 'json_field_bool("option_match_exhaustiveness_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_enum_match_exhaustiveness_ref' "$typecheck"
+          grep -q 'patterns covering every declared unit-enum variant' "$typecheck"
+          grep -q 'json_field_bool("enum_match_exhaustiveness_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_bool_match_redundancy_ref' "$typecheck"
+          grep -q 'fn typecheck_check_option_match_redundancy_ref' "$typecheck"
+          grep -q 'fn typecheck_check_enum_match_redundancy_ref' "$typecheck"
+          grep -q 'previous bool patterns already cover true and false' "$typecheck"
+          grep -q 'previous Option patterns already cover Some and None' "$typecheck"
+          grep -q 'previous unit-enum patterns already cover every declared variant' "$typecheck"
+          grep -q 'json_field_bool("finite_match_redundancy_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_array_element_types_ref' "$typecheck"
+          grep -q 'array_element_type_mismatch' "$typecheck"
+          grep -q 'json_field_bool("array_element_type_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_scan_loop_control_stmt_ref' "$typecheck"
+          grep -q 'invalid_loop_control' "$typecheck"
+          grep -q 'BKR_SELF_CONTROL_FLOW' "$typecheck"
+          grep -q 'json_field_bool("loop_control_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_block_definitely_returns_ref' "$typecheck"
+          grep -q 'missing_return' "$typecheck"
+          grep -q 'BKR_SELF_RETURN_PATH' "$typecheck"
+          grep -q 'json_field_bool("return_path_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_scan_unreachable_block_ref' "$typecheck"
+          grep -q 'unreachable_statement' "$typecheck"
+          grep -q 'BKR_SELF_UNREACHABLE_CODE' "$typecheck"
+          grep -q 'json_field_bool("unreachable_code_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_struct_field_kind_ref' "$typecheck"
+          grep -q 'struct_field_type_mismatch' "$typecheck"
+          grep -q 'json_field_bool("struct_field_value_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_struct_literal_duplicate_fields_ref' "$typecheck"
+          grep -q 'duplicate_struct_literal_field' "$typecheck"
+          grep -q 'fn typecheck_check_struct_literal_missing_fields_ref' "$typecheck"
+          grep -q 'missing_struct_literal_field' "$typecheck"
+          grep -q 'BKR_SELF_STRUCT_LITERAL' "$typecheck"
+          grep -q 'json_field_bool("struct_field_shape_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_expr_ref_is_empty_array' "$typecheck"
+          grep -q 'ambiguous_empty_array' "$typecheck"
+          grep -q 'BKR_SELF_AMBIGUOUS_TYPE' "$typecheck"
+          grep -q 'json_field_bool("ambiguous_empty_array_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_expr_ref_is_none_literal' "$typecheck"
+          grep -q 'ambiguous_none' "$typecheck"
+          grep -q 'json_field_bool("ambiguous_none_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_expr_ref_is_result_constructor' "$typecheck"
+          grep -q 'ambiguous_result_constructor' "$typecheck"
+          grep -q 'json_field_bool("ambiguous_result_constructor_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_expr_ref_is_collection_constructor' "$typecheck"
+          grep -q 'ambiguous_collection_constructor' "$typecheck"
+          grep -q 'json_field_bool("ambiguous_collection_constructor_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_expr_handle_is_void_value' "$typecheck"
+          grep -q 'fn typecheck_check_void_value_ref' "$typecheck"
+          grep -q 'void_value_used' "$typecheck"
+          grep -q 'BKR_SELF_VOID_VALUE' "$typecheck"
+          grep -q 'json_field_bool("void_value_checks", true)' "$typecheck"
+          grep -q 'json_field_bool("compound_void_value_checks", true)' "$typecheck"
+          grep -q 'json_field_bool("full_value_context_void_checks", true)' "$typecheck"
+          grep -q 'call argument " + int_to_string' "$typecheck"
+          grep -q 'array element " + int_to_string' "$typecheck"
+          grep -q 'assignment value' "$typecheck"
+          grep -q 'return value' "$typecheck"
+          grep -q 'binary left operand' "$typecheck"
+          grep -q 'ternary then branch' "$typecheck"
+          grep -q 'fn typecheck_check_entry_point_ref' "$typecheck"
+          grep -q 'missing_entry_function' "$typecheck"
+          grep -q 'BKR_SELF_ENTRY_POINT' "$typecheck"
+          grep -q 'json_field_bool("entry_point_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_append_entry_signature_ref' "$typecheck"
+          grep -q 'invalid_entry_signature' "$typecheck"
+          grep -q 'json_field_bool("entry_signature_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_call_target_ref' "$typecheck"
+          grep -q 'invalid_call_target' "$typecheck"
+          grep -q 'BKR_SELF_CALL_TARGET' "$typecheck"
+          grep -q 'json_field_bool("call_target_checks", true)' "$typecheck"
+          grep -q 'type_graph_kind_json(expected_kind, "expected")' "$typecheck"
+          grep -q 'type_graph_kind_json(found_kind, "found")' "$typecheck"
+          grep -q 'json_field_bool("typed_diagnostic_context", true)' "$typecheck"
+          grep -q 'json_field_bool("structured_repair_metadata", true)' "$typecheck"
+          grep -q 'json_field_str("suggested_action", repair_hint)' "$typecheck"
+          grep -q 'json_field_str("fix_applicability", "manual_review")' "$typecheck"
+          grep -q 'json_field_str("fix_confidence", "medium")' "$typecheck"
+          grep -q 'json_field_bool("diagnostic_phase_field", true)' "$typecheck"
+          grep -q 'json_field_str("phase", "typecheck")' "$typecheck"
+          grep -q 'json_field_str("rule_id", kind)' "$typecheck"
+          grep -q 'json_field_bool("diagnostic_rule_ids", true)' "$typecheck"
+          grep -q 'json_field_bool("diagnostic_severity", true)' "$typecheck"
+          grep -q 'json_field_bool("diagnostic_severity_counts", true)' "$typecheck"
+          grep -q 'json_field_i64("error_count", resolver_state_count(state))' "$typecheck"
+          grep -q 'json_field_i64("warning_count", 0)' "$typecheck"
+          grep -q 'json_field_str("severity", "error")' "$typecheck"
+          grep -q 'json_field_bool("suggested_edit_envelope", true)' "$typecheck"
+          grep -q 'json_field_raw("suggested_edits", diagnostic_no_edits_json())' "$typecheck"
+
+      - name: Require large-AST report truncation
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'const AST_REPORT_FULL_WALK_NAME_LIMIT: i64 = 512' self-host/modules/constants.bkr
+          grep -q 'fn ast_report_full_walk(kernel_ref: AstNodeRef) -> bool' self-host/modules/report_support.bkr
+          grep -q 'let full_walk: bool = ast_report_full_walk(kernel_ref);' self-host/modules/symbol_table.bkr
+          grep -q 'let full_walk: bool = ast_report_full_walk(kernel_ref);' self-host/modules/type_graph.bkr
+          grep -q 'let full_walk: bool = ast_report_full_walk(kernel_ref);' self-host/modules/ast_report.bkr
 
       - name: Require symbol-table statement AST refs
         shell: bash
@@ -558,13 +1341,26 @@ jobs:
             exit 1
           fi
 
+      - name: Require AST report optional node refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast_report='self-host/modules/ast_report.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'ast_node_ref_from_handle\(' "$ast_report" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "AST report optional node serialization must use named AST optional-node ref helpers."
+            cat "$matches"
+            exit 1
+          fi
+
       - name: Require AST report expression refs
         shell: bash
         run: |
           set -euo pipefail
           ast_report='self-host/modules/ast_report.bkr'
           matches="$(mktemp)"
-          grep -n -E 'ast_name_idx\(|ast_call_name_idx\(|ast_call_args_ref\(|ast_binary_op\(|ast_binary_left\(|ast_binary_right\(|ast_unary_op\(|ast_unary_operand\(|ast_ternary_cond\(|ast_ternary_then\(|ast_ternary_else\(|ast_array_elements_ref\(|ast_index_base\(|ast_index_expr\(|ast_match_scrutinee\(|ast_match_patterns_ref\(|ast_match_bodies_ref\(|ast_field_base\(|ast_field_name_idx\(|ast_struct_lit_name_idx\(|ast_struct_lit_field_names_ref\(|ast_struct_lit_field_values_ref\(|ast_value\(' "$ast_report" > "$matches" || true
+          grep -n -E 'ast_expr_ref_from_handle\(ast_node_ref_handle\(node_ref\)\)|ast_name_idx\(|ast_call_name_idx\(|ast_call_args_ref\(|ast_binary_op\(|ast_binary_left\(|ast_binary_right\(|ast_unary_op\(|ast_unary_operand\(|ast_ternary_cond\(|ast_ternary_then\(|ast_ternary_else\(|ast_array_elements_ref\(|ast_index_base\(|ast_index_expr\(|ast_match_scrutinee\(|ast_match_patterns_ref\(|ast_match_bodies_ref\(|ast_field_base\(|ast_field_name_idx\(|ast_struct_lit_name_idx\(|ast_struct_lit_field_names_ref\(|ast_struct_lit_field_values_ref\(|ast_value\(' "$ast_report" > "$matches" || true
           if [ -s "$matches" ]; then
             echo "AST report expression paths must use typed AST ref accessors."
             cat "$matches"
@@ -662,15 +1458,28 @@ jobs:
             exit 1
           fi
 
-      - name: Require AST report assign refs
+      - name: Require AST report assign, for, and loop refs
         shell: bash
         run: |
           set -euo pipefail
           ast_report='self-host/modules/ast_report.bkr'
           matches="$(mktemp)"
-          grep -n -E 'ast_assign_target\(|ast_assign_value\(' "$ast_report" > "$matches" || true
+          grep -n -E 'ast_assign_target\(|ast_assign_value\(|ast_for_(name_idx|start|end|inclusive|body)\(|ast_loop_body\(' "$ast_report" > "$matches" || true
           if [ -s "$matches" ]; then
-            echo "AST report assign serialization must use typed AstStmtRef accessors."
+            echo "AST report assign/for/loop serialization must use typed AstStmtRef accessors."
+            cat "$matches"
+            exit 1
+          fi
+
+      - name: Require AST report const, struct, and field refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          ast_report='self-host/modules/ast_report.bkr'
+          matches="$(mktemp)"
+          grep -n -E 'ast_const_(name_idx|type_handle|value_handle)\(|ast_struct_(name_idx|fields_ref)\(|ast_field_decl_(name_idx|type_handle)\(' "$ast_report" > "$matches" || true
+          if [ -s "$matches" ]; then
+            echo "AST report const/struct/field serialization must use typed AstItemRef/AstNodeRef accessors."
             cat "$matches"
             exit 1
           fi
@@ -763,6 +1572,437 @@ jobs:
       - name: Check self-host compiler sources
         timeout-minutes: 2
         run: ./bunker-cli/target/release/bunker-cli self-host-check self-host
+
+      - name: Compile NodeKind-typed API fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/94_node_kind_typed_api.bkr \
+            -o /tmp/94_node_kind_typed_api.c
+          test -s /tmp/94_node_kind_typed_api.c
+          ! grep -q "Parse error at token" /tmp/94_node_kind_typed_api.c
+          grep -q "int main(void)" /tmp/94_node_kind_typed_api.c
+          grep -q "echo_kind" /tmp/94_node_kind_typed_api.c
+          grep -q "bkr_i64" /tmp/94_node_kind_typed_api.c
+
+      - name: Compile TokenKind-typed API fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/95_token_kind_typed_api.bkr \
+            -o /tmp/95_token_kind_typed_api.c
+          test -s /tmp/95_token_kind_typed_api.c
+          ! grep -q "Parse error at token" /tmp/95_token_kind_typed_api.c
+          grep -q "int main(void)" /tmp/95_token_kind_typed_api.c
+          grep -q "echo_kind" /tmp/95_token_kind_typed_api.c
+          grep -q "bkr_i64" /tmp/95_token_kind_typed_api.c
+
+      - name: Compile PatternKind and TypeKind typed API fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/96_pattern_type_kind_typed_api.bkr \
+            -o /tmp/96_pattern_type_kind_typed_api.c
+          test -s /tmp/96_pattern_type_kind_typed_api.c
+          ! grep -q "Parse error at token" /tmp/96_pattern_type_kind_typed_api.c
+          grep -q "int main(void)" /tmp/96_pattern_type_kind_typed_api.c
+          grep -q "echo_pattern" /tmp/96_pattern_type_kind_typed_api.c
+          grep -q "echo_type" /tmp/96_pattern_type_kind_typed_api.c
+          grep -q "bkr_i64" /tmp/96_pattern_type_kind_typed_api.c
+
+      - name: Compile AstSpan struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/97_ast_span_struct.bkr \
+            -o /tmp/97_ast_span_struct.c
+          test -s /tmp/97_ast_span_struct.c
+          ! grep -q "Parse error at token" /tmp/97_ast_span_struct.c
+          grep -q "int main(void)" /tmp/97_ast_span_struct.c
+          grep -q "make_span" /tmp/97_ast_span_struct.c
+          grep -q "bkr_i64" /tmp/97_ast_span_struct.c
+
+      - name: Compile AstPattern struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/98_ast_pattern_struct.bkr \
+            -o /tmp/98_ast_pattern_struct.c
+          test -s /tmp/98_ast_pattern_struct.c
+          ! grep -q "Parse error at token" /tmp/98_ast_pattern_struct.c
+          grep -q "int main(void)" /tmp/98_ast_pattern_struct.c
+          grep -q "make_int" /tmp/98_ast_pattern_struct.c
+          grep -q "bkr_i64" /tmp/98_ast_pattern_struct.c
+
+      - name: Compile AstType struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/100_ast_type_struct.bkr \
+            -o /tmp/100_ast_type_struct.c
+          test -s /tmp/100_ast_type_struct.c
+          ! grep -q "Parse error at token" /tmp/100_ast_type_struct.c
+          grep -q "int main(void)" /tmp/100_ast_type_struct.c
+          grep -q "make_i64" /tmp/100_ast_type_struct.c
+          grep -q "bkr_i64" /tmp/100_ast_type_struct.c
+
+      - name: Compile AstAtom struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/101_ast_atom_struct.bkr \
+            -o /tmp/101_ast_atom_struct.c
+          test -s /tmp/101_ast_atom_struct.c
+          ! grep -q "Parse error at token" /tmp/101_ast_atom_struct.c
+          grep -q "int main(void)" /tmp/101_ast_atom_struct.c
+          grep -q "make_int" /tmp/101_ast_atom_struct.c
+          grep -q "bkr_i64" /tmp/101_ast_atom_struct.c
+
+      - name: Compile AstBinary struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/102_ast_binary_struct.bkr \
+            -o /tmp/102_ast_binary_struct.c
+          test -s /tmp/102_ast_binary_struct.c
+          ! grep -q "Parse error at token" /tmp/102_ast_binary_struct.c
+          grep -q "int main(void)" /tmp/102_ast_binary_struct.c
+          grep -q "make_add" /tmp/102_ast_binary_struct.c
+          grep -q "bkr_i64" /tmp/102_ast_binary_struct.c
+
+      - name: Compile AstCall struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/103_ast_call_struct.bkr \
+            -o /tmp/103_ast_call_struct.c
+          test -s /tmp/103_ast_call_struct.c
+          ! grep -q "Parse error at token" /tmp/103_ast_call_struct.c
+          grep -q "int main(void)" /tmp/103_ast_call_struct.c
+          grep -q "make_call" /tmp/103_ast_call_struct.c
+          grep -q "bkr_i64" /tmp/103_ast_call_struct.c
+
+      - name: Compile AstIndex struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/104_ast_index_struct.bkr \
+            -o /tmp/104_ast_index_struct.c
+          test -s /tmp/104_ast_index_struct.c
+          ! grep -q "Parse error at token" /tmp/104_ast_index_struct.c
+          grep -q "int main(void)" /tmp/104_ast_index_struct.c
+          grep -q "make_index" /tmp/104_ast_index_struct.c
+          grep -q "bkr_i64" /tmp/104_ast_index_struct.c
+
+      - name: Compile AstLet struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/105_ast_let_struct.bkr \
+            -o /tmp/105_ast_let_struct.c
+          test -s /tmp/105_ast_let_struct.c
+          ! grep -q "Parse error at token" /tmp/105_ast_let_struct.c
+          grep -q "int main(void)" /tmp/105_ast_let_struct.c
+          grep -q "make_let" /tmp/105_ast_let_struct.c
+          grep -q "bkr_i64" /tmp/105_ast_let_struct.c
+
+      - name: Compile AstIf struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/106_ast_if_struct.bkr \
+            -o /tmp/106_ast_if_struct.c
+          test -s /tmp/106_ast_if_struct.c
+          ! grep -q "Parse error at token" /tmp/106_ast_if_struct.c
+          grep -q "int main(void)" /tmp/106_ast_if_struct.c
+          grep -q "make_if" /tmp/106_ast_if_struct.c
+          grep -q "bkr_i64" /tmp/106_ast_if_struct.c
+
+      - name: Compile AstFor struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/107_ast_for_struct.bkr \
+            -o /tmp/107_ast_for_struct.c
+          test -s /tmp/107_ast_for_struct.c
+          ! grep -q "Parse error at token" /tmp/107_ast_for_struct.c
+          grep -q "int main(void)" /tmp/107_ast_for_struct.c
+          grep -q "make_for" /tmp/107_ast_for_struct.c
+          grep -q "bkr_i64" /tmp/107_ast_for_struct.c
+
+      - name: Compile AstAssign struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/108_ast_assign_struct.bkr \
+            -o /tmp/108_ast_assign_struct.c
+          test -s /tmp/108_ast_assign_struct.c
+          ! grep -q "Parse error at token" /tmp/108_ast_assign_struct.c
+          grep -q "int main(void)" /tmp/108_ast_assign_struct.c
+          grep -q "make_assign" /tmp/108_ast_assign_struct.c
+          grep -q "bkr_i64" /tmp/108_ast_assign_struct.c
+
+      - name: Compile AstTernary struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/109_ast_ternary_struct.bkr \
+            -o /tmp/109_ast_ternary_struct.c
+          test -s /tmp/109_ast_ternary_struct.c
+          ! grep -q "Parse error at token" /tmp/109_ast_ternary_struct.c
+          grep -q "int main(void)" /tmp/109_ast_ternary_struct.c
+          grep -q "make_ternary" /tmp/109_ast_ternary_struct.c
+          grep -q "bkr_i64" /tmp/109_ast_ternary_struct.c
+
+      - name: Compile AstArrayLit struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/110_ast_array_lit_struct.bkr \
+            -o /tmp/110_ast_array_lit_struct.c
+          test -s /tmp/110_ast_array_lit_struct.c
+          ! grep -q "Parse error at token" /tmp/110_ast_array_lit_struct.c
+          grep -q "int main(void)" /tmp/110_ast_array_lit_struct.c
+          grep -q "make_array" /tmp/110_ast_array_lit_struct.c
+          grep -q "bkr_i64" /tmp/110_ast_array_lit_struct.c
+
+      - name: Compile AstMatch struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/111_ast_match_struct.bkr \
+            -o /tmp/111_ast_match_struct.c
+          test -s /tmp/111_ast_match_struct.c
+          ! grep -q "Parse error at token" /tmp/111_ast_match_struct.c
+          grep -q "int main(void)" /tmp/111_ast_match_struct.c
+          grep -q "make_match" /tmp/111_ast_match_struct.c
+          grep -q "bkr_i64" /tmp/111_ast_match_struct.c
+
+      - name: Compile AstFn struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/112_ast_fn_struct.bkr \
+            -o /tmp/112_ast_fn_struct.c
+          test -s /tmp/112_ast_fn_struct.c
+          ! grep -q "Parse error at token" /tmp/112_ast_fn_struct.c
+          grep -q "int main(void)" /tmp/112_ast_fn_struct.c
+          grep -q "make_fn" /tmp/112_ast_fn_struct.c
+          grep -q "bkr_i64" /tmp/112_ast_fn_struct.c
+
+      - name: Compile AstConst struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/113_ast_const_struct.bkr \
+            -o /tmp/113_ast_const_struct.c
+          test -s /tmp/113_ast_const_struct.c
+          ! grep -q "Parse error at token" /tmp/113_ast_const_struct.c
+          grep -q "int main(void)" /tmp/113_ast_const_struct.c
+          grep -q "make_const" /tmp/113_ast_const_struct.c
+          grep -q "bkr_i64" /tmp/113_ast_const_struct.c
+
+      - name: Compile AstStruct item fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/114_ast_struct_item.bkr \
+            -o /tmp/114_ast_struct_item.c
+          test -s /tmp/114_ast_struct_item.c
+          ! grep -q "Parse error at token" /tmp/114_ast_struct_item.c
+          grep -q "int main(void)" /tmp/114_ast_struct_item.c
+          grep -q "make_struct" /tmp/114_ast_struct_item.c
+          grep -q "bkr_i64" /tmp/114_ast_struct_item.c
+
+      - name: Compile AstKernel struct fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/115_ast_kernel_struct.bkr \
+            -o /tmp/115_ast_kernel_struct.c
+          test -s /tmp/115_ast_kernel_struct.c
+          ! grep -q "Parse error at token" /tmp/115_ast_kernel_struct.c
+          grep -q "int main(void)" /tmp/115_ast_kernel_struct.c
+          grep -q "make_kernel" /tmp/115_ast_kernel_struct.c
+          grep -q "bkr_i64" /tmp/115_ast_kernel_struct.c
+
+      - name: Compile pattern and type kind enum fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/93_pattern_type_kind_enums.bkr \
+            -o /tmp/93_pattern_type_kind_enums.c
+          test -s /tmp/93_pattern_type_kind_enums.c
+          ! grep -q "Parse error at token" /tmp/93_pattern_type_kind_enums.c
+          grep -q "int main(void)" /tmp/93_pattern_type_kind_enums.c
+          grep -q "PAT_INT" /tmp/93_pattern_type_kind_enums.c
+
+      - name: Compile token-kind enum fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/92_token_kind_enum.bkr \
+            -o /tmp/92_token_kind_enum.c
+          test -s /tmp/92_token_kind_enum.c
+          ! grep -q "Parse error at token" /tmp/92_token_kind_enum.c
+          grep -q "int main(void)" /tmp/92_token_kind_enum.c
+          grep -q "TOK_IDENT" /tmp/92_token_kind_enum.c
+
+      - name: Compile node-kind enum fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/91_node_kind_enum.bkr \
+            -o /tmp/91_node_kind_enum.c
+          test -s /tmp/91_node_kind_enum.c
+          ! grep -q "Parse error at token" /tmp/91_node_kind_enum.c
+          grep -q "int main(void)" /tmp/91_node_kind_enum.c
+          grep -q "NODE_FN" /tmp/91_node_kind_enum.c
+
+      - name: Compile unit enum fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/88_kernel_unit_enum.bkr \
+            -o /tmp/88_kernel_unit_enum.c
+          test -s /tmp/88_kernel_unit_enum.c
+          ! grep -q "Parse error at token" /tmp/88_kernel_unit_enum.c
+          grep -q "int main(void)" /tmp/88_kernel_unit_enum.c
+          grep -q "bkr_i64" /tmp/88_kernel_unit_enum.c
+          grep -q '"enum_count":1' /tmp/88_kernel_unit_enum.c
+          ! grep -q '"kind":"non_exhaustive_match"' /tmp/88_kernel_unit_enum.c
+
+      - name: Check self-host unit-enum exhaustiveness diagnostics
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/89_enum_nonexhaustive_BAD.bkr \
+            -o /tmp/89_enum_nonexhaustive_BAD.c
+          test -s /tmp/89_enum_nonexhaustive_BAD.c
+          ! grep -q "Parse error" /tmp/89_enum_nonexhaustive_BAD.c
+          grep -q "BUNKER_TYPECHECK_JSON" /tmp/89_enum_nonexhaustive_BAD.c
+          grep -q '"kind":"non_exhaustive_match"' /tmp/89_enum_nonexhaustive_BAD.c
+          grep -q "BKR_SELF_EXHAUSTIVENESS" /tmp/89_enum_nonexhaustive_BAD.c
+          grep -q "missing Color.Blue" /tmp/89_enum_nonexhaustive_BAD.c
+          grep -q '"enum_match_exhaustiveness_checks":true' /tmp/89_enum_nonexhaustive_BAD.c
+
+      - name: Compile enum payload declaration fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/117_enum_payload_decl.bkr \
+            -o /tmp/117_enum_payload_decl.c
+          test -s /tmp/117_enum_payload_decl.c
+          ! grep -q "Parse error" /tmp/117_enum_payload_decl.c
+          grep -q "int main(void)" /tmp/117_enum_payload_decl.c
+          grep -q '"enum_count":1' /tmp/117_enum_payload_decl.c
+          grep -q '"variant_count":2' /tmp/117_enum_payload_decl.c
+          grep -q '"payload_count":1' /tmp/117_enum_payload_decl.c
+
+      - name: Compile and run enum payload constructor fixture
+        timeout-minutes: 2
+        run: |
+          grep -q 'Pack payload constructors as (payload << 8) | tag' bunker-cli/src/typeck.rs
+          grep -q 'let eight_ref: AstExprRef = ast_int_lit_ref(8);' self-host/modules/parser.bkr
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/118_enum_payload_ctor.bkr \
+            -o /tmp/118_enum_payload_ctor.c
+          test -s /tmp/118_enum_payload_ctor.c
+          ! grep -q "Parse error" /tmp/118_enum_payload_ctor.c
+          grep -q " << " /tmp/118_enum_payload_ctor.c
+          grep -q " | " /tmp/118_enum_payload_ctor.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/118_enum_payload_ctor.c -o /tmp/118_enum_payload_ctor
+          set +e
+          timeout --kill-after=5s 60s /tmp/118_enum_payload_ctor
+          status=$?
+          set -e
+          echo "118_enum_payload_ctor exited $status, expected 42"
+          test "$status" -eq 42
+
+      - name: Compile and run enum payload match fixture
+        timeout-minutes: 2
+        run: |
+          grep -qF 'enum_variant_pattern = { identifier ~ "." ~ identifier ~ ("(" ~ identifier ~ ("," ~ identifier)* ~ ")")? }' bunker-cli/src/grammar/bunker.pest
+          grep -q 'fn ast_pattern_ref_new3(kind: PatternKind, value: i64, aux: i64, bind: i64) -> AstPatternRef' self-host/modules/ast.bkr
+          grep -q 'fn ast_pattern_ref_bind(pattern_ref: AstPatternRef) -> i64' self-host/modules/ast.bkr
+          grep -q 'value_name + " >> 8)' self-host/modules/c_codegen.bkr
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/119_enum_payload_match.bkr \
+            -o /tmp/119_enum_payload_match.c
+          test -s /tmp/119_enum_payload_match.c
+          ! grep -q "Parse error" /tmp/119_enum_payload_match.c
+          grep -q " >> 8" /tmp/119_enum_payload_match.c
+          grep -q " & 255" /tmp/119_enum_payload_match.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/119_enum_payload_match.c -o /tmp/119_enum_payload_match
+          set +e
+          timeout --kill-after=5s 60s /tmp/119_enum_payload_match
+          status=$?
+          set -e
+          echo "119_enum_payload_match exited $status, expected 42"
+          test "$status" -eq 42
+
+      - name: Compile enum multi-field payload declaration fixture
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/120_enum_multi_payload_decl.bkr \
+            -o /tmp/120_enum_multi_payload_decl.c
+          test -s /tmp/120_enum_multi_payload_decl.c
+          ! grep -q "Parse error" /tmp/120_enum_multi_payload_decl.c
+          grep -q "int main(void)" /tmp/120_enum_multi_payload_decl.c
+          grep -q '"enum_count":1' /tmp/120_enum_multi_payload_decl.c
+          grep -q '"variant_count":2' /tmp/120_enum_multi_payload_decl.c
+          grep -q '"payload_count":1' /tmp/120_enum_multi_payload_decl.c
+          grep -q '"payload_arity_sum":2' /tmp/120_enum_multi_payload_decl.c
+
+      - name: Compile and run enum multi-field payload constructor fixture
+        timeout-minutes: 2
+        run: |
+          grep -q 'Pack two-field payload constructors as (a << 20) | (b << 8) | tag' bunker-cli/src/typeck.rs
+          grep -q 'let twenty_ref: AstExprRef = ast_int_lit_ref(20);' self-host/modules/parser.bkr
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/121_enum_multi_payload_ctor.bkr \
+            -o /tmp/121_enum_multi_payload_ctor.c
+          test -s /tmp/121_enum_multi_payload_ctor.c
+          ! grep -q "Parse error" /tmp/121_enum_multi_payload_ctor.c
+          grep -q " << 20" /tmp/121_enum_multi_payload_ctor.c
+          grep -q " << 8" /tmp/121_enum_multi_payload_ctor.c
+          grep -q " | " /tmp/121_enum_multi_payload_ctor.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/121_enum_multi_payload_ctor.c -o /tmp/121_enum_multi_payload_ctor
+          set +e
+          timeout --kill-after=5s 60s /tmp/121_enum_multi_payload_ctor
+          status=$?
+          set -e
+          echo "121_enum_multi_payload_ctor exited $status, expected 42"
+          test "$status" -eq 42
+
+      - name: Compile and run enum multi-field payload match fixture
+        timeout-minutes: 2
+        run: |
+          grep -q 'fn ast_pattern_ref_new4(kind: PatternKind, value: i64, aux: i64, bind: i64, bind2: i64) -> AstPatternRef' self-host/modules/ast.bkr
+          grep -q 'fn ast_pattern_ref_bind2(pattern_ref: AstPatternRef) -> i64' self-host/modules/ast.bkr
+          grep -q 'value_name + " >> 20)' self-host/modules/c_codegen.bkr
+          grep -q 'value_name + " >> 8) & 4095)' self-host/modules/c_codegen.bkr
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/122_enum_multi_payload_match.bkr \
+            -o /tmp/122_enum_multi_payload_match.c
+          test -s /tmp/122_enum_multi_payload_match.c
+          ! grep -q "Parse error" /tmp/122_enum_multi_payload_match.c
+          grep -q " >> 20" /tmp/122_enum_multi_payload_match.c
+          grep -q " >> 8" /tmp/122_enum_multi_payload_match.c
+          grep -q " & 4095" /tmp/122_enum_multi_payload_match.c
+          grep -q " & 255" /tmp/122_enum_multi_payload_match.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/122_enum_multi_payload_match.c -o /tmp/122_enum_multi_payload_match
+          set +e
+          timeout --kill-after=5s 60s /tmp/122_enum_multi_payload_match
+          status=$?
+          set -e
+          echo "122_enum_multi_payload_match exited $status, expected 42"
+          test "$status" -eq 42
 
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2

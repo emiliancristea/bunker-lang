@@ -2,7 +2,7 @@
 
 This is the authoritative implementation tracker for moving Bunker from a bootstrap language into a production language and then into full self-hosting.
 
-Last updated: 2026-05-07
+Last updated: 2026-08-13
 
 ## Operating Rules
 
@@ -39,6 +39,7 @@ Current bootstrap state after the latest self-host work:
 - Successful self-host compiler outputs include `BUNKER_RESOLVER_JSON`, a machine-readable bootstrap resolver report for duplicate and unresolved symbol diagnostics.
 - Successful self-host compiler outputs include `BUNKER_TYPECHECK_JSON`, a machine-readable bootstrap typecheck report for annotation, return, condition, assignment, range, and direct call-argument diagnostics.
 - The language is not yet production-complete.
+- Verification note: the latest green GitHub Actions baseline is commit `1b282fe` / run `28668326471`. This checkout's HEAD (`1697301`) is 70 commits ahead of `origin/main` and is not CI-certified. Queue items after Q-122 exist only in this local history until they are pushed and pass Actions.
 
 ## Critical Path
 
@@ -47,12 +48,12 @@ Implement in this order unless a CI failure forces a repair first.
 | Order | Gate | Status | Goal |
 |---:|---|---|---|
 | 1 | Self-host runtime surface | PARTIAL | Finish file I/O, string methods, stdlib handles, and C runtime coverage. |
-| 2 | Modules and multi-file compilation | TODO | Split Bunker compiler source into real modules. |
+| 2 | Modules and multi-file compilation | PARTIAL | Bootstrap import expansion and module split exist; visibility, packages, and production module semantics remain. |
 | 3 | Typed compiler data structures | TODO | Replace raw numeric AST nodes with Bunker structs/enums. |
 | 4 | Real generics and ADTs | TODO | Replace erased handles and hardcoded Option/Result logic. |
 | 5 | Production diagnostics | PARTIAL | Make compiler errors exact, structured, and AI-repairable. |
 | 6 | Memory/resource model | PARTIAL | Make long-running compiler processes safe and leak-controlled. |
-| 7 | Self-host module migration | TODO | Move lexer, parser, typechecker, and codegen out of Rust. |
+| 7 | Self-host module migration | PARTIAL | Lexer, parser, typechecker, and C codegen live in Bunker modules; Rust remains the production compiler and bootstrap driver. |
 | 8 | Rust removal gate | BLOCKED | Build Bunker compiler with Bunker compiler, with Rust only as bootstrap. |
 
 ## Immediate Implementation Queue
@@ -182,19 +183,122 @@ These are the next concrete PR-sized slices.
 | Q-119 | DONE | Route AST-report while fields through typed refs. | Complete-tree while JSON now reads condition and body through typed statement/block accessors. |
 | Q-120 | DONE | Route AST-report expression-statement fields through typed refs. | Complete-tree expression-statement JSON now reads its expression handle through typed statement accessors. |
 | Q-121 | DONE | Route AST-report assign fields through typed refs. | Complete-tree assignment JSON now reads target and value expression handles through typed statement accessors. |
+| Q-122 | DONE | Route AST-report for fields through typed refs. | Complete-tree for-loop JSON now reads binding, range expressions, inclusive flag, and body through typed statement/block accessors. |
+| Q-123 | DONE | Route AST-report loop fields through typed refs. | Complete-tree loop JSON now reads its body through typed statement/block accessors. |
+| Q-124 | DONE | Route AST-report const, struct, and field fields through typed refs. | Complete-tree const/struct/field JSON now reads declaration fields through typed item/node accessors. |
+| Q-125 | DONE | Route AST-report expression upcasts through typed refs. | AST exposes an `AstNodeRef` to `AstExprRef` upcast helper, and complete-tree expression JSON no longer converts node refs through raw handles in the report. |
+| Q-126 | DONE | Route type-graph type detail reads through typed refs. | Type-graph report and bootstrap type-state helpers now read type kind, struct metadata, and array metadata through `AstTypeRef` accessors. |
+| Q-127 | DONE | Route consumer type detail reads through typed refs. | C codegen, resolver, and symbol-table type consumers now read type metadata and type-node spans through `AstTypeRef` helpers instead of raw handles/details. |
+| Q-128 | DONE | Route consumer node-ref upcasts through typed refs. | C codegen, resolver, symbol-table, and typecheck now convert `AstNodeRef` values to expression/block refs through named AST upcast helpers. |
+| Q-129 | DONE | Route typecheck function lookup through typed item refs. | Typecheck call-argument diagnostics now keep resolved function declarations as `AstItemRef` values, with optional item refs handled inside the AST boundary. |
+| Q-130 | DONE | Route AST-report optional node handles through typed refs. | AST report optional-node serialization now converts raw optional handles through an AST-owned helper instead of constructing node refs directly. |
+| Q-131 | DONE | Route parser optional field handles through typed refs. | Parser construction now converts optional type/expression/block refs through named AST helpers instead of direct ref-handle access. |
+| Q-132 | DONE | Add recursive self-host import expansion. | Self-host import expansion now walks nested imported files, suppresses duplicate/cyclic imports with a seen list, and scans nested imports for missing-module diagnostics. |
+| Q-133 | DONE | Add self-host import graph report. | Successful and missing-import self-host outputs now include `BUNKER_IMPORT_GRAPH_JSON` with recursive expansion support, duplicate suppression, unique import count, and missing-import state. |
+| Q-134 | DONE | Add self-host import path policy diagnostics. | Self-host import resolution rejects invalid string paths before file reads, reports `BKR_SELF_IMPORT_PATH`, and exposes path policy/invalid path state in `BUNKER_IMPORT_GRAPH_JSON`. |
+| Q-135 | DONE | Add import path list to self-host import graph. | `BUNKER_IMPORT_GRAPH_JSON` now includes the recursive unique import path list so agents can inspect the exact module set used for expansion. |
+| Q-136 | DONE | Resolve self-host imports relative to importer directories. | Recursive import expansion, missing/invalid scans, counts, and import graph path lists now resolve nested imports against the importing file's directory. |
+| Q-137 | DONE | Add base-directory-aware self-host compile entrypoint. | `compile_to_c_with_base_dir` lets wrappers compile a root source with an explicit import base directory while preserving the legacy `compile_to_c(source)` API. |
+| Q-138 | DONE | Add self-host import graph edges. | `BUNKER_IMPORT_GRAPH_JSON` now includes import edges with importer base, requested path, resolved path, and status for ok/missing/invalid/duplicate imports. |
+| Q-139 | DONE | Add source excerpts to self-host diagnostics. | `BUNKER_DIAGNOSTIC_JSON` now includes `source_excerpt`, and parse diagnostics populate it from the offending source line for agent repair context. |
+| Q-140 | DONE | Add related declarations to resolver diagnostics. | `BUNKER_RESOLVER_JSON` unresolved diagnostics now include candidate declaration lists for functions, constants, structs, and struct fields. |
+| Q-141 | DONE | Add spans to resolver related declarations. | Resolver related declarations are now structured objects with declaration kind, name, source offsets, and span-known flags. |
+| Q-142 | DONE | Add typed context to typecheck diagnostics. | `BUNKER_TYPECHECK_JSON` diagnostics now include `expected_type` and `found_type` objects with type tags, names, C ABI, and known/source metadata. |
+| Q-143 | DONE | Add structured repair metadata to driver diagnostics. | `BUNKER_DIAGNOSTIC_JSON` now carries `suggested_action`, `fix_applicability`, and `fix_confidence` fields alongside `repair_hint`. |
+| Q-144 | DONE | Add structured repair metadata to resolver/typecheck diagnostics. | `BUNKER_RESOLVER_JSON` and `BUNKER_TYPECHECK_JSON` diagnostics now expose the same suggested-action, applicability, and confidence fields. |
+| Q-145 | DONE | Add import graph edge status counters. | `BUNKER_IMPORT_GRAPH_JSON` now includes total, ok, missing, invalid, and duplicate edge counts next to the full edge list. |
+| Q-146 | DONE | Add typecheck call arity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `call_argument_count_mismatch` with stable `BKR_SELF_ARITY_MISMATCH` diagnostics for too few or too many direct user-function arguments. |
+| Q-147 | DONE | Add struct literal field value diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `struct_field_type_mismatch` when a struct literal field value does not match the declared field type. |
+| Q-148 | DONE | Add invalid assignment target diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `invalid_assignment_target` with stable `BKR_SELF_ASSIGNMENT_TARGET` diagnostics for non-assignable targets. |
+| Q-149 | DONE | Add diagnostic code registry to capabilities. | `BUNKER_CAPABILITY_JSON` now advertises supported diagnostic codes with phase, category, and description metadata for agent discovery. |
+| Q-150 | DONE | Add uniform diagnostic phase fields. | Parse/import, resolver, and typecheck diagnostics now expose a `phase` field plus capability/report flags for phase-aware agent routing. |
+| Q-151 | DONE | Add suggested-edit diagnostic envelopes. | Parse/import, resolver, and typecheck diagnostics now expose `suggested_edits`; parse diagnostics emit concrete insert-token edit candidates for common missing punctuation. |
+| Q-152 | DONE | Add index expression type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `index_type_mismatch` when an index expression is not integer-compatible. |
+| Q-153 | DONE | Add binary operand type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `binary_operand_type_mismatch` for invalid logical, numeric, bitwise, shift, and equality operands. |
+| Q-154 | DONE | Add unary operand type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `unary_operand_type_mismatch` for invalid `!` and unary `-` operands. |
+| Q-155 | DONE | Add ternary branch type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `ternary_branch_type_mismatch` when ternary branches produce incompatible value types. |
+| Q-156 | DONE | Add match arm value type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `match_arm_type_mismatch` when match arms produce incompatible value types. |
+| Q-157 | DONE | Add match pattern type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `match_pattern_type_mismatch` when literal match patterns are incompatible with the scrutinee type. |
+| Q-158 | DONE | Add array element type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `array_element_type_mismatch` when array literal elements produce incompatible value types. |
+| Q-159 | DONE | Add loop-control context diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `invalid_loop_control` with stable `BKR_SELF_CONTROL_FLOW` diagnostics for `break`/`continue` outside loops. |
+| Q-160 | DONE | Add return-path diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `missing_return` with stable `BKR_SELF_RETURN_PATH` diagnostics when non-void functions can fall through. |
+| Q-161 | DONE | Add unreachable statement diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `unreachable_statement` with stable `BKR_SELF_UNREACHABLE_CODE` diagnostics after terminating control-flow statements. |
+| Q-162 | DONE | Add match pattern semantic diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `duplicate_match_pattern` and `unreachable_match_pattern` for repeated literal patterns and arms after catch-all patterns. |
+| Q-163 | DONE | Add bool match exhaustiveness diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `non_exhaustive_match` with stable `BKR_SELF_EXHAUSTIVENESS` diagnostics for boolean matches missing `true` or `false`. |
+| Q-164 | DONE | Add duplicate struct literal field diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `duplicate_struct_literal_field` with stable `BKR_SELF_STRUCT_LITERAL` diagnostics for repeated field initializers. |
+| Q-165 | DONE | Add missing struct literal field diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `missing_struct_literal_field` with stable `BKR_SELF_STRUCT_LITERAL` diagnostics for omitted declared fields. |
+| Q-166 | DONE | Add const assignment diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `const_assignment` with stable `BKR_SELF_CONST_ASSIGNMENT` diagnostics when assignment targets a top-level constant. |
+| Q-167 | DONE | Add empty array ambiguity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `ambiguous_empty_array` with stable `BKR_SELF_AMBIGUOUS_TYPE` diagnostics for unannotated empty array initializers. |
+| Q-168 | DONE | Add `None` ambiguity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `ambiguous_none` with stable `BKR_SELF_AMBIGUOUS_TYPE` diagnostics for unannotated `None` initializers. |
+| Q-169 | DONE | Add Result constructor ambiguity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `ambiguous_result_constructor` with stable `BKR_SELF_AMBIGUOUS_TYPE` diagnostics for unannotated `result_ok`/`result_err` initializers. |
+| Q-170 | DONE | Add builtin call arity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `builtin_argument_count_mismatch` with stable `BKR_SELF_ARITY_MISMATCH` diagnostics for supported bootstrap builtins. |
+| Q-171 | DONE | Add Option match exhaustiveness diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `non_exhaustive_match` when Option-pattern matches omit `Some` or `None` without a catch-all. |
+| Q-172 | DONE | Add duplicate `Some` pattern diagnostics. | `BUNKER_TYPECHECK_JSON` now treats repeated `Some(...)` match arms as duplicate patterns regardless of the binding name. |
+| Q-173 | DONE | Add field-access base type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `field_access_base_type_mismatch` when a field access base is known not to be a struct. |
+| Q-174 | DONE | Add builtin argument type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `builtin_argument_type_mismatch` for known string, file, handle, index, Result, and conversion builtin argument types. |
+| Q-175 | DONE | Add collection constructor ambiguity diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `ambiguous_collection_constructor` for unannotated `vec_new` and `hashmap_new` initializers. |
+| Q-176 | DONE | Add index base type diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `index_base_type_mismatch` when an indexed base is known not to be an array. |
+| Q-177 | DONE | Add void value diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `void_value_used` with stable `BKR_SELF_VOID_VALUE` diagnostics when unannotated let/const initializers produce void. |
+| Q-178 | DONE | Add entry-point diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `missing_entry_function` with stable `BKR_SELF_ENTRY_POINT` diagnostics when the kernel entry name has no function declaration. |
+| Q-179 | DONE | Add compound void value diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `void_value_used` when void expressions appear in call arguments or array elements. |
+| Q-180 | DONE | Add full value-context void diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `void_value_used` for void expressions in returns, assignments, conditions, ranges, operands, ternary branches, match arms, struct fields, field bases, and index expressions. |
+| Q-181 | DONE | Add call-target diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `invalid_call_target` with stable `BKR_SELF_CALL_TARGET` diagnostics when a known constant or struct name is used as a call target. |
+| Q-182 | DONE | Add finite match redundancy diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `unreachable_match_pattern` when bool or Option arms appear after all finite cases are already covered. |
+| Q-183 | DONE | Add import duplicate/cycle summary fields. | `BUNKER_IMPORT_GRAPH_JSON` now exposes cycle-safe expansion plus duplicate-or-cycle edge counts and booleans for agent planning. |
+| Q-184 | DONE | Add entry signature diagnostics. | `BUNKER_TYPECHECK_JSON` now reports `invalid_entry_signature` when the kernel entry function takes parameters or cannot return an integer-compatible process code. |
+| Q-185 | DONE | Add diagnostic rule IDs. | `BUNKER_RESOLVER_JSON` and `BUNKER_TYPECHECK_JSON` diagnostics now include `rule_id` alongside `kind` and stable error codes for agent routing. |
+| Q-186 | DONE | Add parse/import diagnostic rule IDs. | `BUNKER_DIAGNOSTIC_JSON` parse/import diagnostics now include `rule_id` derived from the stable diagnostic code. |
+| Q-187 | DONE | Add diagnostic severity fields. | Parse/import, resolver, and typecheck diagnostics now include `severity` plus capability/report flags for severity-aware agent routing. |
+| Q-188 | DONE | Add diagnostic severity counts. | `BUNKER_RESOLVER_JSON` and `BUNKER_TYPECHECK_JSON` now expose `error_count` and `warning_count` summary fields for agent triage. |
+| Q-189 | DONE | Add AI-agent capability contract fields. | `BUNKER_CAPABILITY_JSON` now exposes agent contract version, self-hosting stage, agent-native diagnostics, production readiness, and CI validation state. |
+| Q-190 | DONE | Add Rust-compiler unit enums. | Grammar/AST/typeck/JIT lowering support `enum Name { A, B }` plus `Name.A` construction and exhaustive `Name.A` match; fixtures `88`/`89_BAD`/`90_BAD` passed in GitHub Actions. |
+| Q-191 | PARTIAL | Add self-host unit enums. | Self-host lexer/parser/AST/C codegen lower unit enums and `Enum.Variant` match/construction to i64 tags; `tests/88_kernel_unit_enum.bkr` is in the self-host compile subset. Self-host exhaustiveness landed in Q-218. Payload declarations, single-type construction/match, and two-field construction/match landed in Q-219–Q-224. Richer ADT lowering remains. |
+| Q-192 | DONE | Back AST node tags with `enum NodeKind`. | `self-host/modules/constants.bkr` declares `enum NodeKind` and defines `NODE_*` as `NodeKind.*` aliases; CI rejects a return to raw `NODE_FN = 2`. |
+| Q-193 | DONE | Back lexer tags with `enum TokenKind`. | `TOK_*` constants are `TokenKind` variant aliases; CI rejects a return to raw `TOK_FN = 23`. |
+| Q-194 | DONE | Back pattern and type tags with enums. | `PAT_*` comes from `enum PatternKind` and `TYPE_*` from `enum TypeKind`; CI rejects raw `PAT_INT = 1` / `TYPE_I32 = 0`. |
+| Q-195 | DONE | Type AST kind APIs with `NodeKind`. | Kind-model name/category/predicate helpers and typed AST constructor/kind readers take or return `NodeKind`; integer builtins accept unit enums; `tests/94_node_kind_typed_api.bkr` proves param/return/local/int_to_string use; CI rejects a return to `kind: i64`. |
+| Q-196 | DONE | Type lexer token APIs with `TokenKind`. | Kind-model token name/predicate helpers, parser `token_name`/`is_name_token`, and parser peek/expect/error token accessors take or return `TokenKind`; lexer `tok_type` is `TokenKind`; `tests/95_token_kind_typed_api.bkr` proves param/return/local/int_to_string use; CI rejects a return to `tok: i64`. |
+| Q-197 | DONE | Type pattern and type kind APIs. | Kind-model name helpers, pattern/type constructors and readers, `type_to_c`, and integer/numeric typecheck predicates take or return `PatternKind`/`TypeKind`; `TYPE_UNKNOWN` stays the i64 99 sentinel; `tests/96_pattern_type_kind_typed_api.bkr` proves param/return/local/int_to_string use; CI rejects a return to `kind: i64`. |
+| Q-198 | DONE | Replace span records with `struct AstSpan`. | Span construction/read helpers and parser error spans return `AstSpan` instead of `Vec<i64>`; parse diagnostics read `error_span.start`/`end`; `tests/97_ast_span_struct.bkr` proves struct param/return/field use; CI rejects a return to `fn ast_span(...) -> Vec<i64>`. |
+| Q-199 | DONE | Replace pattern records with `struct AstPattern`. | Pattern construction packs `AstPattern` and readers unpack to field access; `tests/98_ast_pattern_struct.bkr` proves struct param/return/field use; CI rejects raw `vec_push(pattern, kind)` construction. |
+| Q-200 | DONE | Replace type records with `struct AstType`. | Type construction packs `AstType` and kind/payload/array/struct readers unpack to field access; `TYPE_UNKNOWN` stays the optional-none sentinel; `tests/100_ast_type_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_TYPE)` construction. |
+| Q-201 | DONE | Replace atomic expression records with `struct AstAtom`. | Ident/int/bool/str/float constructors pack `AstAtom` and name/value readers unpack to `payload`; `tests/101_ast_atom_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_INT_LIT)` / `NODE_IDENT` construction. |
+| Q-202 | DONE | Replace binary/unary records with structs. | Binary/unary constructors pack `AstBinary`/`AstUnary` with `TokenKind` ops; readers unpack op/child handles; `tests/102_ast_binary_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_BINARY)` construction. |
+| Q-203 | DONE | Replace call records with `struct AstCall`. | Call constructors pack `AstCall` and name/args readers unpack fields; `tests/103_ast_call_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_CALL)` construction. |
+| Q-204 | DONE | Replace index/field-access records with structs. | Index and field-access constructors pack `AstIndex`/`AstFieldAccess`; readers unpack base/index/name fields; `tests/104_ast_index_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_INDEX)` construction. |
+| Q-205 | DONE | Replace let/return statement records with structs. | Let/return constructors pack `AstLet`/`AstReturn`; typed unpack APIs remain; hot name/type/init/expr readers use `ast_field` so stage1 typecheck of `bkrc` stays inside the 600s smoke; `tests/105_ast_let_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_LET)` construction. |
+| Q-206 | DONE | Replace if/while statement records with structs. | If/while constructors pack `AstIf`/`AstWhile`; typed unpack APIs remain; cond/body/else readers stay on `ast_field`; `tests/106_ast_if_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_IF)` / `NODE_WHILE`. Relanded after Q-207 truncated large-kernel reports. |
+| Q-208 | DONE | Replace for/loop statement records with structs. | For/loop constructors pack `AstFor`/`AstLoop`; typed unpack APIs remain; name/range/body readers stay on `ast_field`; `tests/107_ast_for_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_FOR)` / `NODE_LOOP`. |
+| Q-209 | DONE | Replace assign/expr-stmt statement records with structs. | Assign/expr-stmt constructors pack `AstAssign`/`AstExprStmt`; typed unpack APIs remain; target/value/expr readers stay on `ast_field`; `tests/108_ast_assign_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_ASSIGN)` / `NODE_EXPR_STMT`. |
+| Q-210 | DONE | Replace ternary expression records with struct AstTernary. | Ternary constructors pack `AstTernary`; typed unpack API remains; cond/then/else readers stay on `ast_field`; `tests/109_ast_ternary_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_TERNARY)`. |
+| Q-211 | DONE | Replace array/struct-lit records with structs. | Array/struct-lit constructors pack `AstArrayLit`/`AstStructLit`; typed unpack APIs remain; element/name/field readers stay on `ast_field`; `tests/110_ast_array_lit_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_ARRAY_LIT)` / `NODE_STRUCT_LIT`. |
+| Q-212 | DONE | Replace match expression records with struct AstMatch. | Match constructors pack `AstMatch`; typed unpack API remains; scrutinee/pattern/body readers stay on `ast_field`; `tests/111_ast_match_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_MATCH)`. |
+| Q-213 | DONE | Replace param/fn item records with structs. | Param/fn constructors pack `AstParam`/`AstFn`; typed unpack APIs remain; name/type/params/body readers stay on `ast_field`; `tests/112_ast_fn_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_PARAM)` / `NODE_FN`. |
+| Q-214 | DONE | Replace const/field-decl item records with structs. | Const/field constructors pack `AstConst`/`AstFieldDecl`; typed unpack APIs remain; name/type/value readers stay on `ast_field`; `tests/113_ast_const_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_CONST)` / `NODE_FIELD`. |
+| Q-215 | DONE | Replace struct/enum item records with structs. | Struct/enum constructors pack `AstStruct`/`AstEnum`; typed unpack APIs remain; name/fields/variants readers stay on `ast_field`; `tests/114_ast_struct_item.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_STRUCT)` / `NODE_ENUM`. |
+| Q-216 | DONE | Replace kernel root records with struct AstKernel. | Kernel constructors pack `AstKernel`; typed unpack API remains; name/items/entry/names readers stay on `ast_field`; `tests/115_ast_kernel_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_KERNEL)`. |
+| Q-217 | DONE | Replace break/continue/block records with structs. | Break/continue/block constructors pack `AstBreak`/`AstContinue`/`AstBlock`; typed unpack APIs remain; empty-block pack stays `[NODE_BLOCK, start, end]` so trailing-stmt append still works; `tests/116_ast_block_struct.bkr` proves struct param/return/field use; CI rejects `ast_node_ref_new(NODE_BREAK)` / `NODE_CONTINUE` / `NODE_BLOCK`. |
+| Q-218 | DONE | Add self-host unit-enum match exhaustiveness. | `BUNKER_TYPECHECK_JSON` reports `non_exhaustive_match` with `BKR_SELF_EXHAUSTIVENESS` when unit-enum matches omit a declared variant without a catch-all; CI compiles `tests/89_enum_nonexhaustive_BAD.bkr` and requires `missing Color.Blue`. Payloads remain. |
+| Q-219 | DONE | Parse single-type enum variant payloads. | Grammar/AST/self-host parser accept `Variant(Type)` beside unit variants; `AstEnum` stores a parallel payload-type handle list; `tests/117_enum_payload_decl.bkr` plus AST `payload_count` prove declaration storage. Construction, match bindings, and payload codegen remain. |
+| Q-220 | DONE | Construct single-type enum variant payloads. | Rust typeck accepts `Enum.Variant(expr)` and lowers it to `(payload << 8) \| tag`; self-host postfix parsing desugars the same pack; `tests/118_enum_payload_ctor.bkr` returns 42. Match bindings remain. |
+| Q-221 | DONE | Bind single-type enum variant payloads in match. | `Enum.Variant(x)` parses a payload binding, typeck binds the declared payload type, and both compilers extract `value >> 8` after matching `(value & 255) == tag`; `tests/119_enum_payload_match.bkr` returns 42. |
+| Q-222 | DONE | Parse multi-field enum variant payloads. | Grammar/AST/self-host parser accept `Variant(Type, Type)`; each variant stores a type-handle list; `tests/120_enum_multi_payload_decl.bkr` plus AST `payload_arity_sum` prove declaration storage. Multi-field construction and match remain. |
+| Q-223 | DONE | Construct multi-field enum variant payloads. | Rust typeck accepts `Enum.Variant(a, b)` and lowers it to `(a << 20) \| (b << 8) \| tag`; self-host postfix parsing desugars the same pack; `tests/121_enum_multi_payload_ctor.bkr` returns 42. Multi-field match remains. |
+| Q-224 | DONE | Bind multi-field enum variant payloads in match. | `Enum.Variant(x, y)` parses two payload bindings; typeck binds each declared field type; both compilers extract `value >> 20` and `(value >> 8) & 4095` after matching `(value & 255) == tag`; `tests/122_enum_multi_payload_match.bkr` returns 42. |
+| Q-207 | DONE | Truncate large-kernel AST reports. | AST/type-graph/symbol-table JSON skips detail walks when interned names exceed 512; language-test fixture reports stay complete; CI requires `ast_report_full_walk`. |
 
 ## Language Core
 
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
-| L-001 | TODO | P0 | Real module/import system. | `import` resolves Bunker files with stable module paths, duplicate handling, and CI fixtures. |
-| L-002 | TODO | P0 | Multi-file compilation. | Compiler accepts a root file and compiles/imports dependency files deterministically. |
+| L-001 | PARTIAL | P0 | Real module/import system. | Self-host import expansion walks nested normalized relative string-path imports, resolves them against importer directories, suppresses duplicate/cyclic imports, rejects invalid paths with diagnostics, and emits `BUNKER_IMPORT_GRAPH_JSON` with resolved import path lists, edge status details, edge status counters, and duplicate-or-cycle summaries; final gate requires stable module paths, import graph diagnostics, visibility, and CI fixtures. |
+| L-002 | PARTIAL | P0 | Multi-file compilation. | Self-host compilation expands dependency files recursively from a root source with an import path policy, importer-directory resolution, and a base-directory-aware compile entrypoint; final gate requires deterministic artifact layout, filesystem canonicalization, and import graph diagnostics. |
 | L-003 | TODO | P1 | Public/private visibility. | Symbols can be exported or hidden; invalid access produces diagnostics. |
 | L-004 | TODO | P1 | Namespaces/packages. | Package/module names avoid global collisions. |
 | L-005 | TODO | P1 | Stable grammar versioning. | Source declares or infers language version; parser behavior is reproducible. |
 | L-006 | PARTIAL | P1 | Full expression-oriented blocks. | Blocks can yield typed values consistently outside match arms. |
 | L-007 | PARTIAL | P1 | Statement/expression consistency. | All expression and statement forms have precise grammar and type rules. |
-| L-008 | TODO | P1 | Mutable vs immutable binding rules. | Assignments to immutable bindings are rejected everywhere. |
+| L-008 | PARTIAL | P1 | Mutable vs immutable binding rules. | Self-host typecheck now rejects assignment to top-level constants; final gate requires explicit mutable/immutable local binding rules. |
 | L-009 | PARTIAL | P2 | Constants across modules. | Constants resolve across imported modules and are typechecked. |
 | L-010 | PARTIAL | P2 | Compile-time evaluation. | Comptime works beyond simple current cases with diagnostics and limits. |
 | L-011 | PARTIAL | P2 | Attribute semantics. | Parsed attributes are enforced consistently or rejected when unsupported. |
@@ -210,24 +314,24 @@ These are the next concrete PR-sized slices.
 | T-004 | TODO | P1 | Generic constraints. | Generic operations require explicit trait/interface bounds. |
 | T-005 | TODO | P1 | Type aliases. | Aliases preserve diagnostics and compile to the same representation. |
 | T-006 | PARTIAL | P0 | Local type inference. | Let bindings infer robustly for all supported expressions. |
-| T-007 | PARTIAL | P0 | Call-result inference. | Builtins and user functions propagate exact result types. |
-| T-008 | TODO | P0 | Inference for `None`, empty arrays, Vec, HashMap, Ok, Err. | Ambiguous values infer from annotation/context or produce precise errors. |
-| T-009 | TODO | P0 | User-defined enums/sum types. | Users can define enum variants with payloads. |
-| T-010 | TODO | P0 | Exhaustive match checking. | Non-exhaustive matches are rejected with missing cases. |
-| T-011 | PARTIAL | P0 | Pattern type checking. | Match patterns are checked against scrutinee type in Rust and self-host paths. |
+| T-007 | PARTIAL | P0 | Call-result inference. | Builtins and user functions propagate exact result types where known, and user/builtin call arity plus known builtin argument types are diagnosed in self-host reports. |
+| T-008 | PARTIAL | P0 | Inference for `None`, empty arrays, Vec, HashMap, Ok, Err. | Unannotated empty array, `None`, Result constructor, Vec constructor, and HashMap constructor initializers now produce precise self-host diagnostics; final gate requires richer contextual propagation. |
+| T-009 | PARTIAL | P0 | User-defined enums/sum types. | Rust and self-host compilers parse unit enums, `Enum.Variant` construction/match, single- and multi-field payload declarations, `Enum.Variant(expr)` construction packed as `(payload << 8) \| tag`, `Enum.Variant(x)` match bindings, two-field `Enum.Variant(a, b)` construction packed as `(a << 20) \| (b << 8) \| tag`, and `Enum.Variant(x, y)` match bindings; Rust and self-host exhaustiveness are enforced for unit enums; final gate requires richer ADT lowering. |
+| T-010 | PARTIAL | P0 | Exhaustive match checking. | Self-host typecheck reports non-exhaustive boolean, Option-pattern, and unit-enum matches; the Rust compiler also rejects non-exhaustive unit-enum matches; final gate requires payload/ADT and integer-range exhaustiveness. |
+| T-011 | PARTIAL | P0 | Pattern type checking. | Match patterns are checked against scrutinee type in Rust and self-host paths, and duplicate/unreachable literal, finite bool/Option, and catch-all patterns are diagnosed in self-host reports. |
 | T-012 | TODO | P1 | Destructuring patterns. | Struct/tuple/enum destructuring works with bound names. |
 | T-013 | TODO | P1 | Nested patterns. | Nested enum/struct patterns typecheck and bind correctly. |
 | T-014 | TODO | P1 | Match guards. | `pattern if condition` works with scoped bindings. |
 | T-015 | TODO | P1 | Tuple types. | Tuples parse, typecheck, codegen, and destructure. |
-| T-016 | TODO | P1 | Unit type. | `()` has consistent syntax and return semantics. |
+| T-016 | PARTIAL | P1 | Unit type. | Void-returning expressions are now rejected across initializer, return, assignment, operand, condition, range, branch, call-argument, array-element, match-arm, struct-field, field-base, and index value contexts; final gate requires a real `()` syntax and consistent unit value semantics. |
 | T-017 | TODO | P1 | Never/bottom type. | Diverging expressions typecheck in all contexts. |
 | T-018 | TODO | P2 | Function types. | Functions can be values when needed for higher-order support. |
 | T-019 | TODO | P0 | Trait/interface system. | Shared behavior is expressed without inheritance. |
-| T-020 | TODO | P1 | Method resolution. | `value.method(args)` resolves with clear rules. |
+| T-020 | PARTIAL | P1 | Method resolution. | Field access now reports non-struct base types in self-host typecheck; final gate requires full method/member lookup rules. |
 | T-021 | TODO | P2 | Operator overloading policy. | Either explicitly supported via traits or rejected with diagnostics. |
 | T-022 | PARTIAL | P1 | Numeric promotion rules. | All numeric conversions are specified and tested. |
 | T-023 | PARTIAL | P1 | Cast safety rules. | Safe/unsafe casts are documented, checked, and diagnosed. |
-| T-024 | PARTIAL | P0 | Type diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` expected/found type diagnostics with spans and repair hints for bootstrap annotation, return, condition, assignment, range, and direct call-argument checks; final gate requires origin tracking and a real typechecker across Rust and self-host modes. |
+| T-024 | PARTIAL | P0 | Type diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` expected/found type diagnostics with spans and repair hints for bootstrap annotation, return, condition, ternary/match branch values and patterns, array elements including void element use, assignment value/target, index, unary/binary operands, range, entry-point presence/signature, direct call-target validation, direct call-argument including void argument use, direct call-arity, and struct literal field-value checks, with direct void-value diagnostics across value contexts; final gate requires origin tracking and a real typechecker across Rust and self-host modes. |
 
 ## Data Model And Standard Types
 
@@ -239,7 +343,7 @@ These are the next concrete PR-sized slices.
 | D-004 | TODO | P1 | Struct methods. | Methods are declared and called with receiver semantics. |
 | D-005 | TODO | P2 | Struct update syntax. | Copy/update syntax works or is intentionally rejected. |
 | D-006 | TODO | P2 | Tuple structs. | Tuple-like structs parse and typecheck. |
-| D-007 | PARTIAL | P1 | Nested structs/arrays. | Deeply nested values codegen and typecheck robustly. |
+| D-007 | PARTIAL | P1 | Nested structs/arrays. | Deeply nested values codegen and typecheck robustly, with array element/index-base and struct literal field-shape diagnostics in self-host reports. |
 | D-008 | TODO | P0 | Slices. | Borrowed views into arrays/Vec have bounds-safe operations. |
 | D-009 | PARTIAL | P0 | Typed Vec. | `Vec<T>` preserves element type through all operations. |
 | D-010 | PARTIAL | P0 | Typed HashMap. | `HashMap<K,V>` preserves key/value types beyond integer-key bootstrap. |
@@ -265,7 +369,7 @@ These are the next concrete PR-sized slices.
 |---|---|---:|---|---|
 | C-001 | TODO | P0 | `?` operator. | Result/Option propagation is typed, hygienic, and tested. |
 | C-002 | PARTIAL | P1 | `defer` in self-host path. | Self-host compiler can parse/codegen defer or rejects it clearly. |
-| C-003 | TODO | P2 | Labeled break/continue. | Nested loop exits are explicit and tested. |
+| C-003 | PARTIAL | P2 | Labeled break/continue. | Invalid unlabeled `break`/`continue` outside loops is now diagnosed in the self-host typecheck report; final gate requires labeled nested loop exits. |
 | C-004 | TODO | P0 | Pattern guards. | Guards typecheck and preserve exhaustiveness rules. |
 | C-005 | TODO | P0 | Early-exit cleanup guarantees. | Return/break/continue/? run required cleanup/defer. |
 | C-006 | TODO | P1 | Panic/abort policy. | Runtime failure policy is documented and enforced. |
@@ -313,14 +417,14 @@ These are the next concrete PR-sized slices.
 |---|---|---:|---|---|
 | CF-001 | PARTIAL | P0 | Reusable Bunker lexer. | Lexer exists as module and routes lexer output layout through `LexerResultRef` lexer-result helpers. |
 | CF-002 | PARTIAL | P0 | Reusable Bunker parser. | Parser exists as module with recovery/spans and routes parser cursor, token-table, and parse-error state through `ParserStateRef` parser-state helpers. |
-| CF-003 | PARTIAL | P0 | AST definitions in Bunker. | AST construction, parser/codegen reads, AST collection refs/access, optional AST handles, node/type/expression/pattern handle conversion, semantic child-handle access, explicit handle-named optional field access, read-only AST wrapper structs, typed AST node/pattern builder refs, C-codegen typed-ref consumption, AST-report typed-ref consumption, symbol-table typed-ref consumption, type-graph typed-ref consumption, resolver typed-ref consumption, typecheck typed-ref consumption, internal field conversion, AST kind/category/span reasoning, and codegen state typed-ref consumption are centralized in Bunker helpers; final gate requires structs/enums instead of raw `Vec<i64>` tags. |
+| CF-003 | PARTIAL | P0 | AST definitions in Bunker. | AST construction, parser/codegen reads, AST collection refs/access, optional AST handles, node/type/expression/pattern handle conversion, semantic child-handle access, explicit handle-named optional field access, read-only AST wrapper structs, typed AST node/pattern builder refs, C-codegen typed-ref consumption, AST-report typed-ref consumption, symbol-table typed-ref consumption, type-graph typed-ref consumption, resolver typed-ref consumption, typecheck typed-ref consumption, internal field conversion, AST kind/category/span reasoning, NodeKind-typed kind APIs, and codegen state typed-ref consumption are centralized in Bunker helpers; final gate requires structs/enums instead of raw `Vec<i64>` records. |
 | CF-004 | PARTIAL | P0 | Source spans on AST nodes. | Self-host AST nodes and patterns carry byte start/end offsets; final gate requires file, line, column, byte offsets, and source excerpts across compiler phases. |
 | CF-005 | TODO | P0 | Parser recovery. | Multiple errors are reported from one parse. |
 | CF-006 | PARTIAL | P0 | Machine-readable parse diagnostics. | Parse errors emit JSON and prompt-ready hints. |
-| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation, return, condition, assignment, range, and direct call-argument mismatches; final gate requires full subset enforcement and separation from codegen inference. |
-| CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass lives in `modules/resolver.bkr` and reports duplicate declarations plus unresolved identifiers/calls/types/struct literal fields; final gate requires import graph, visibility, overloads, and definition-use related spans. |
-| CF-009 | TODO | P0 | Module resolver. | Import graph, cycles, and visibility are checked. |
-| CF-010 | TODO | P0 | Semantic validation passes. | Non-type semantic errors are separate and tested. |
+| CF-007 | PARTIAL | P0 | Typechecker in Bunker. | Bootstrap typecheck pass lives in `modules/typecheck.bkr`, consumes typed AST refs over the bootstrap layout, and reports annotation/ambiguity, return values/paths, void value use, condition, ternary/match branch values and patterns, duplicate/unreachable/non-exhaustive bool/Option match patterns including finite redundancy, array elements, loop-control context, unreachable statements, assignment value/target/const writes, index, field access, unary/binary operand, range, entry-point presence/signature, direct call-target validation, direct call-argument and builtin-argument type mismatches, direct user/builtin call arity mismatches, and struct literal field-value/shape mismatches with typed expected/found context; final gate requires full subset enforcement and separation from codegen inference. |
+| CF-008 | PARTIAL | P0 | Name resolver in Bunker. | Bootstrap resolver pass lives in `modules/resolver.bkr` and reports duplicate declarations plus unresolved identifiers/calls/types/struct literal fields with related declaration span objects; final gate requires import graph, visibility, overloads, and cross-file definition origins. |
+| CF-009 | PARTIAL | P0 | Module resolver. | Import graph expansion is cycle-safe and reports duplicate-or-cycle summary state; final gate requires exact cycle paths and visibility checks. |
+| CF-010 | PARTIAL | P0 | Semantic validation passes. | Self-host diagnostics now include loop-control context validation for `break`/`continue` outside loops plus unreachable-statement detection after terminating statements; final gate requires a separate semantic pass with fixtures. |
 | CF-011 | TODO | P0 | Exhaustiveness checker. | Match exhaustiveness works for ADTs. |
 | CF-012 | BLOCKED | P0 | Borrow/resource checker. | Depends on selected memory/resource model. |
 
@@ -345,8 +449,8 @@ These are the next concrete PR-sized slices.
 |---|---|---:|---|---|
 | SH-001 | PARTIAL | P0 | Self-host smoke gate. | Current stage1/stage2 CI remains green after every change. |
 | SH-002 | DONE | P0 | Split `bkrc.bkr` into modules. | Compiler source is multiple Bunker files with imports. |
-| SH-003 | PARTIAL | P0 | Typed AST in self-host compiler. | Parser construction, parser/codegen reads, common AST collection iteration, optional AST node handles, AST handle conversions, semantic child-handle access, explicit handle-named optional field access, read-only AST wrapper structs, typed AST node/pattern builder refs, C-codegen typed-ref consumption, AST-report typed-ref consumption, symbol-table typed-ref consumption, type-graph typed-ref consumption, resolver typed-ref consumption, typecheck typed-ref consumption, codegen state typed-ref consumption, and AST field conversions go through Bunker bridge helpers; final gate requires raw numeric tags to be replaced by Bunker types. |
-| SH-004 | TODO | P0 | Enums for token/node kinds. | Token and AST tags use language enums. |
+| SH-003 | PARTIAL | P0 | Typed AST in self-host compiler. | Parser construction, parser/codegen reads, common AST collection iteration, optional AST node handles, AST handle conversions, semantic child-handle access, explicit handle-named optional field access, read-only AST wrapper structs, typed AST node/pattern builder refs, C-codegen typed-ref consumption, AST-report typed-ref consumption, symbol-table typed-ref consumption, type-graph typed-ref consumption, resolver typed-ref consumption, typecheck typed-ref consumption, codegen state typed-ref consumption, AST field conversions, NodeKind-typed kind construction/read helpers, TokenKind-typed lexer/parser token APIs, PatternKind/TypeKind-typed pattern/type helpers, `AstSpan` span records, `AstPattern` pattern records, `AstType` type records, `AstAtom` ident/literal records, `AstBinary`/`AstUnary` operator records, `AstCall` call records, `AstIndex`/`AstFieldAccess` postfix records, `AstLet`/`AstReturn` statement records, `AstIf`/`AstWhile` control-flow records, `AstFor`/`AstLoop` loop records, `AstAssign`/`AstExprStmt` statement records, `AstTernary` expression records, `AstArrayLit`/`AstStructLit` literal records, `AstMatch` match records, `AstParam`/`AstFn` item records, `AstConst`/`AstFieldDecl` item records, `AstStruct`/`AstEnum` item records, `AstKernel` root records, and `AstBreak`/`AstContinue`/`AstBlock` control records go through Bunker types; final gate requires remaining raw `Vec<i64>` node records to be replaced by Bunker structs. |
+| SH-004 | DONE | P0 | Enums for token/node kinds. | Token, node, pattern, and type tags are language enums with i64 aliases; `TYPE_UNKNOWN` stays the historical 99 sentinel. |
 | SH-005 | TODO | P0 | Real generic collections in self-host compiler. | `Vec<T>` and maps preserve element/key/value types. |
 | SH-006 | TODO | P0 | Stage0/Stage1/Stage2 docs. | Bootstrap chain is documented and reproducible. |
 | SH-007 | DONE | P0 | Golden tests vs Rust compiler. | Outputs/diagnostics match for selected fixtures or known differences are logged. |
@@ -375,19 +479,19 @@ These are the next concrete PR-sized slices.
 
 | ID | Status | Priority | Item | Definition Of Done |
 |---|---|---:|---|---|
-| A-001 | PARTIAL | P0 | JSON diagnostics. | Parse/import errors plus self-host resolver/typecheck reports emit structured JSON diagnostics; final gate requires every compiler phase to share one documented diagnostic envelope. |
-| A-002 | PARTIAL | P0 | Stable diagnostic codes. | Codes are documented, unique, and testable. |
-| A-003 | PARTIAL | P0 | Exact spans. | Parse diagnostics and self-host AST nodes carry byte offsets; final gate requires file, line, column, byte offset, and source excerpt across compiler phases. |
-| A-004 | PARTIAL | P0 | Expected/found details. | Parse diagnostics include expected/actual tokens, resolver diagnostics include expected/actual symbol context, and typecheck diagnostics include expected/found types. |
-| A-005 | TODO | P0 | Suggested fix edits. | Diagnostics include concrete text edits when safe. |
-| A-006 | TODO | P1 | Confidence levels. | Suggestions carry confidence/applicability. |
-| A-007 | TODO | P1 | Related spans. | Diagnostics link definition/use/origin locations. |
-| A-008 | PARTIAL | P0 | Prompt-ready explanations. | Errors include short AI repair context. |
+| A-001 | PARTIAL | P0 | JSON diagnostics. | Parse/import errors, import path-policy errors, import graph reports with path lists/edges/counts, capability diagnostic-code registry, and self-host resolver/typecheck reports emit structured JSON diagnostics with phase, rule-id, severity, and severity-count fields across current diagnostic phases; final gate requires every compiler phase to share one documented diagnostic envelope. |
+| A-002 | PARTIAL | P0 | Stable diagnostic codes. | `BUNKER_CAPABILITY_JSON` now advertises parse/import/resolver/typecheck diagnostic codes with phase/category descriptions; final gate requires a shared documented registry across Rust and self-host modes. |
+| A-003 | PARTIAL | P0 | Exact spans. | Parse diagnostics and self-host AST nodes carry byte offsets, line/column, and parse source excerpts; final gate requires file identity and source excerpts across all compiler phases. |
+| A-004 | PARTIAL | P0 | Expected/found details. | Parse diagnostics include expected/actual tokens, resolver diagnostics include expected/actual symbol context plus related declaration spans, and typecheck diagnostics include typed expected/found objects. |
+| A-005 | PARTIAL | P0 | Suggested fix edits. | Diagnostics expose a shared `suggested_edits` envelope, and parse diagnostics emit concrete insert-token edit candidates for common missing punctuation; final gate requires safe edits across semantic phases. |
+| A-006 | PARTIAL | P1 | Confidence levels. | Parse/import/resolver/typecheck diagnostics carry severity plus structured action/applicability/confidence metadata; final gate requires calibrated confidence across every compiler phase. |
+| A-007 | PARTIAL | P1 | Related spans. | Resolver diagnostics include related declaration kind/name/source spans for in-file declarations; final gate requires cross-file definition/use/origin spans. |
+| A-008 | PARTIAL | P0 | Prompt-ready explanations. | Parse/import/resolver/typecheck errors include short repair context plus structured suggested action/applicability/confidence fields and rule IDs; final gate requires phase-wide prompt-ready explanations. |
 | A-009 | TODO | P0 | Multi-error recovery. | Parser/typechecker return multiple useful diagnostics. |
 | A-010 | PARTIAL | P0 | Machine-readable AST dump. | Self-host generated outputs include `BUNKER_AST_JSON` root/top-level summaries plus a complete nested `tree`; final gate requires Rust and self-host compiler modes to expose the same stable AST dump contract. |
 | A-011 | PARTIAL | P0 | Machine-readable type graph. | Self-host generated outputs include `BUNKER_TYPE_GRAPH_JSON` from `modules/type_graph.bkr` for declared types plus bootstrap-inferred locals/returns; final gate requires a real typechecker-backed graph across Rust and self-host compiler modes. |
 | A-012 | PARTIAL | P0 | Machine-readable symbol table. | Self-host generated outputs include `BUNKER_SYMBOL_TABLE_JSON` declarations/references and `BUNKER_RESOLVER_JSON` duplicate/unresolved diagnostics; final gate requires import-aware visibility, overloads, and related definition-use spans. |
-| A-013 | PARTIAL | P0 | Capability report. | Self-host generated outputs include `BUNKER_CAPABILITY_JSON`; final gate requires CLI-native capability reports across Rust and self-host compiler modes. |
+| A-013 | PARTIAL | P0 | Capability report. | Self-host generated outputs include `BUNKER_CAPABILITY_JSON` with agent contract, self-hosting stage, diagnostics, readiness, and validation fields; final gate requires CLI-native capability reports across Rust and self-host compiler modes. |
 | A-014 | PARTIAL | P0 | Machine-readable typecheck diagnostics. | Self-host generated outputs include `BUNKER_TYPECHECK_JSON` from `modules/typecheck.bkr` for bootstrap expected/found semantic diagnostics, now walked through typed AST refs; final gate requires stable codes, related origins, fix edits, and parity across Rust and self-host compiler modes. |
 
 ## Safety And Production Readiness
@@ -430,7 +534,7 @@ These are the next concrete PR-sized slices.
 | Self-Host Typed | TODO | Compiler AST/types use Bunker structs/enums/generics instead of raw handles. |
 | Self-Host Primary | TODO | Bunker compiler can build a working compiler without Rust for normal development. |
 | Production Language | TODO | Modules, generics, ADTs, diagnostics, memory/resource model, stdlib, tooling, and safety gates are green. |
-| AI-Agent Native | TODO | Diagnostics, capability reports, AST/type/symbol dumps, and repair hints are machine-readable and stable. |
+| AI-Agent Native | PARTIAL | Diagnostics, capability reports, AST/type/symbol dumps, and repair hints are machine-readable and stable for the bootstrap self-host path; final gate requires Rust/self-host parity and CI validation. |
 
 ## Work Log
 
@@ -568,3 +672,108 @@ Use this log for major capability jumps. Keep detailed implementation notes in P
 | 2026-05-08 | Routed AST-report while fields through typed refs. | Complete-tree while JSON now reads loop condition and body through `AstStmtRef` and `AstBlockRef` accessors. |
 | 2026-05-08 | Routed AST-report expression-statement fields through typed refs. | Complete-tree expression-statement JSON now reads its expression handle through `AstStmtRef` accessors. |
 | 2026-05-08 | Routed AST-report assign fields through typed refs. | Complete-tree assignment JSON now reads target and value expression handles through `AstStmtRef` accessors. |
+| 2026-05-17 | Routed AST-report for fields through typed refs. | Complete-tree for-loop JSON now reads binding, range expressions, inclusive flag, and body through `AstStmtRef` and `AstBlockRef` accessors. |
+| 2026-06-04 | Routed AST-report loop fields through typed refs. | Complete-tree loop JSON now reads its body through `AstStmtRef` and `AstBlockRef` accessors. |
+| 2026-06-10 | Routed AST-report const, struct, and field fields through typed refs. | Complete-tree declaration JSON now reads const, struct, and field data through typed `AstItemRef` and `AstNodeRef` accessors. |
+| 2026-06-10 | Routed AST-report expression upcasts through typed refs. | Complete-tree expression JSON now obtains `AstExprRef` directly from `AstNodeRef`. |
+| 2026-06-10 | Routed type-graph type detail reads through typed refs. | `modules/type_graph.bkr` now uses `AstTypeRef` accessors for type kind, struct names, and array metadata, with CI guarding against raw type detail reads. |
+| 2026-06-10 | Routed consumer type detail reads through typed refs. | C codegen, resolver, and symbol-table now consume type metadata via `AstTypeRef` helpers, with CI guarding those modules against raw type handles/details. |
+| 2026-06-10 | Routed consumer node-ref upcasts through typed refs. | C codegen, resolver, symbol-table, and typecheck now use named AST upcast helpers instead of direct node-ref handle conversions. |
+| 2026-06-10 | Routed typecheck function lookup through typed item refs. | Typecheck call-argument diagnostics now keep found functions as `AstItemRef` values and use AST-owned optional item-ref helpers. |
+| 2026-06-10 | Routed AST-report optional node handles through typed refs. | AST report optional-node serialization now uses an AST-owned optional-handle-to-node-ref helper, with CI guarding direct raw node-ref construction. |
+| 2026-06-10 | Routed parser optional field handles through typed refs. | Parser construction now uses AST-owned optional-handle helpers for optional type, expression, and block fields, with CI guarding direct ref-handle conversions. |
+| 2026-06-10 | Added recursive self-host import expansion. | The self-host driver now expands nested imports, skips duplicate/cyclic imports with a seen list, and scans nested imports before compilation for missing-module diagnostics. |
+| 2026-06-10 | Added self-host import graph report. | Self-host outputs now include `BUNKER_IMPORT_GRAPH_JSON` so agents can inspect recursive import expansion capability, duplicate suppression, import counts, and missing-import state. |
+| 2026-06-10 | Added self-host import path policy diagnostics. | Self-host import resolution now rejects invalid import paths before file reads and reports both `BKR_SELF_IMPORT_PATH` and import graph invalid-path fields. |
+| 2026-06-10 | Added import path list to self-host import graph. | `BUNKER_IMPORT_GRAPH_JSON` now carries a recursive unique `imports` array for agent inspection and future import graph validation. |
+| 2026-06-10 | Resolved self-host imports relative to importer directories. | Recursive import expansion and import graph reporting now carry importer base directories, so nested relative imports resolve deterministically from their declaring module. |
+| 2026-06-10 | Added base-directory-aware self-host compile entrypoint. | `compile_to_c_with_base_dir` now allows wrappers to provide the root import base directory, and import graph JSON reports that root base. |
+| 2026-06-10 | Added self-host import graph edges. | `BUNKER_IMPORT_GRAPH_JSON` now reports import edges with importer base, requested path, resolved path, and ok/missing/invalid/duplicate status. |
+| 2026-06-10 | Added source excerpts to self-host diagnostics. | `BUNKER_DIAGNOSTIC_JSON` now includes a `source_excerpt` field, with parse diagnostics carrying the exact offending source line for agent repair. |
+| 2026-06-10 | Added related declarations to resolver diagnostics. | `BUNKER_RESOLVER_JSON` unresolved diagnostics now include candidate functions, constants, structs, or fields to guide agent repairs. |
+| 2026-06-10 | Added resolver related declaration spans. | Resolver related declarations now carry declaration kind, name, byte offsets, and span-known flags for prompt-ready repair context. |
+| 2026-06-10 | Added typed typecheck diagnostic context. | Typecheck diagnostics now carry raw `expected_type` and `found_type` JSON objects instead of requiring agents to infer type tags from strings. |
+| 2026-06-10 | Added structured repair metadata to diagnostics. | Parse/import diagnostics now include suggested action, fix applicability, and confidence fields for safer agent prompting. |
+| 2026-06-10 | Normalized resolver/typecheck repair metadata. | Resolver and typecheck diagnostics now expose the same suggested action, applicability, and confidence fields as parse/import diagnostics. |
+| 2026-06-10 | Added import graph edge status counters. | Import graph reports now expose total, ok, missing, invalid, and duplicate edge counts for quick agent assessment. |
+| 2026-06-10 | Added typecheck call arity diagnostics. | Typecheck now reports too-few/too-many direct user-function arguments with `BKR_SELF_ARITY_MISMATCH` diagnostics. |
+| 2026-06-10 | Added struct literal field-value diagnostics. | Typecheck now compares struct literal field values against declared field types and reports `struct_field_type_mismatch`. |
+| 2026-06-10 | Added invalid assignment target diagnostics. | Typecheck now reports non-assignable assignment targets with `BKR_SELF_ASSIGNMENT_TARGET` diagnostics. |
+| 2026-06-10 | Added diagnostic code registry. | Capability reports now advertise supported diagnostic codes with phase, category, and description metadata for agents. |
+| 2026-06-10 | Added uniform diagnostic phase fields. | Parse/import, resolver, and typecheck diagnostics now carry explicit phase fields for agent routing. |
+| 2026-06-10 | Added suggested-edit diagnostic envelopes. | Diagnostics now expose `suggested_edits`, with parse diagnostics providing concrete insert-token candidates for common missing punctuation. |
+| 2026-06-10 | Added index expression type diagnostics. | Typecheck now reports non-integer-compatible index expressions as `index_type_mismatch`. |
+| 2026-06-10 | Added binary operand type diagnostics. | Typecheck now reports invalid logical, numeric, bitwise, shift, and equality operands as `binary_operand_type_mismatch`. |
+| 2026-06-10 | Added unary operand type diagnostics. | Typecheck now reports invalid `!` and unary `-` operands as `unary_operand_type_mismatch`. |
+| 2026-06-10 | Added ternary branch type diagnostics. | Typecheck now reports incompatible ternary branch value types as `ternary_branch_type_mismatch`. |
+| 2026-06-10 | Added match arm value type diagnostics. | Typecheck now reports incompatible match arm value types as `match_arm_type_mismatch`. |
+| 2026-06-10 | Added match pattern type diagnostics. | Typecheck now compares integer/bool literal match patterns against the scrutinee type and reports `match_pattern_type_mismatch`. |
+| 2026-06-10 | Added array element type diagnostics. | Typecheck now compares array literal elements against the first known element type and reports `array_element_type_mismatch`. |
+| 2026-06-10 | Added loop-control context diagnostics. | Typecheck now scans function bodies for `break`/`continue` outside loop depth and reports `invalid_loop_control` with `BKR_SELF_CONTROL_FLOW`. |
+| 2026-06-10 | Added return-path diagnostics. | Typecheck now reports non-void functions that can fall through as `missing_return` with `BKR_SELF_RETURN_PATH`. |
+| 2026-06-10 | Added unreachable statement diagnostics. | Typecheck now reports statements after terminating control flow as `unreachable_statement` with `BKR_SELF_UNREACHABLE_CODE`. |
+| 2026-06-10 | Added match pattern semantic diagnostics. | Typecheck now reports duplicate literal patterns and unreachable patterns after catch-all arms with `BKR_SELF_MATCH_PATTERN`. |
+| 2026-06-10 | Added bool match exhaustiveness diagnostics. | Typecheck now reports boolean matches missing `true` or `false` as `non_exhaustive_match` with `BKR_SELF_EXHAUSTIVENESS`. |
+| 2026-06-10 | Added duplicate struct literal field diagnostics. | Typecheck now reports repeated struct literal fields as `duplicate_struct_literal_field` with `BKR_SELF_STRUCT_LITERAL`. |
+| 2026-06-10 | Added missing struct literal field diagnostics. | Typecheck now reports omitted declared fields as `missing_struct_literal_field` with `BKR_SELF_STRUCT_LITERAL`. |
+| 2026-06-10 | Added const assignment diagnostics. | Typecheck now reports assignments to top-level constants as `const_assignment` with `BKR_SELF_CONST_ASSIGNMENT`. |
+| 2026-06-10 | Added empty array ambiguity diagnostics. | Typecheck now reports unannotated empty array initializers as `ambiguous_empty_array` with `BKR_SELF_AMBIGUOUS_TYPE`. |
+| 2026-06-10 | Added `None` ambiguity diagnostics. | Typecheck now reports unannotated `None` initializers as `ambiguous_none` with `BKR_SELF_AMBIGUOUS_TYPE`. |
+| 2026-06-10 | Added Result constructor ambiguity diagnostics. | Typecheck now reports unannotated `result_ok`/`result_err` initializers as `ambiguous_result_constructor` with `BKR_SELF_AMBIGUOUS_TYPE`. |
+| 2026-06-10 | Added builtin call arity diagnostics. | Typecheck now reports wrong argument counts for supported bootstrap builtins as `builtin_argument_count_mismatch`. |
+| 2026-06-10 | Added Option match exhaustiveness diagnostics. | Typecheck now reports Option-pattern matches missing `Some` or `None` as `non_exhaustive_match`. |
+| 2026-06-10 | Added duplicate `Some` pattern diagnostics. | Typecheck now treats repeated `Some(...)` match arms as duplicate patterns regardless of binding name. |
+| 2026-06-10 | Added field-access base type diagnostics. | Typecheck now reports non-struct field access bases as `field_access_base_type_mismatch`. |
+| 2026-06-10 | Added builtin argument type diagnostics. | Typecheck now reports known builtin argument type mismatches as `builtin_argument_type_mismatch`. |
+| 2026-06-10 | Added collection constructor ambiguity diagnostics. | Typecheck now reports unannotated `vec_new` and `hashmap_new` initializers as `ambiguous_collection_constructor`. |
+| 2026-06-10 | Added index base type diagnostics. | Typecheck now reports indexing non-array bases as `index_base_type_mismatch`. |
+| 2026-06-10 | Added void value diagnostics. | Typecheck now reports void-returning initializers used as values as `void_value_used`. |
+| 2026-06-10 | Added entry-point diagnostics. | Typecheck now reports missing kernel entry functions as `missing_entry_function` with `BKR_SELF_ENTRY_POINT`. |
+| 2026-06-10 | Added compound void value diagnostics. | Typecheck now reports void-returning expressions used as call arguments or array elements as `void_value_used`. |
+| 2026-06-10 | Added full value-context void diagnostics. | Typecheck now reports void-returning expressions used across return, assignment, operand, branch, condition, range, field, match-arm, and index value contexts as `void_value_used`. |
+| 2026-06-10 | Added call-target diagnostics. | Typecheck now reports known non-function symbols used as calls as `invalid_call_target` with `BKR_SELF_CALL_TARGET`. |
+| 2026-06-10 | Added finite match redundancy diagnostics. | Typecheck now reports bool/Option arms after all finite cases are already covered as `unreachable_match_pattern`. |
+| 2026-06-10 | Added import duplicate/cycle summary fields. | Import graph JSON now exposes cycle-safe expansion and duplicate-or-cycle edge counts/flags for agents. |
+| 2026-06-10 | Added entry signature diagnostics. | Typecheck now reports entry functions with parameters or non-integer return types as `invalid_entry_signature`. |
+| 2026-06-10 | Added diagnostic rule IDs. | Resolver and typecheck diagnostics now emit `rule_id` fields matching their machine-rule kind. |
+| 2026-06-10 | Added parse/import diagnostic rule IDs. | Parse and import diagnostics now emit `rule_id` fields derived from their stable diagnostic code. |
+| 2026-06-10 | Added diagnostic severity fields. | Parse/import, resolver, and typecheck diagnostics now emit `severity:"error"` plus capability flags. |
+| 2026-06-10 | Added diagnostic severity counts. | Resolver and typecheck reports now expose `error_count` and `warning_count` fields. |
+| 2026-06-10 | Added AI-agent capability contract fields. | Capability JSON now advertises the agent diagnostics contract, self-hosting stage, production-readiness state, and CI-validation requirement. |
+| 2026-08-13 | Added Rust-compiler unit enums. | `enum` items, `Enum.Variant` constructors, exhaustive unit-enum match, and i64 tag lowering landed with fixtures `88_kernel_unit_enum.bkr`, `89_enum_nonexhaustive_BAD.bkr`, and `90_enum_unknown_variant_BAD.bkr`. Pending GitHub Actions. |
+| 2026-08-13 | Added self-host unit enums. | Self-host lexer/parser/AST/C codegen now parse `enum` items and lower `Enum.Variant` construction/match to i64 tags; `88_kernel_unit_enum.bkr` is in the self-host compile subset. |
+| 2026-08-13 | Backed AST node tags with `enum NodeKind`. | `NODE_*` constants are now `NodeKind` variant aliases so stored numeric tags stay stable while the kind family is a language enum. |
+| 2026-08-13 | Backed lexer tags with `enum TokenKind`. | `TOK_*` constants are now `TokenKind` variant aliases with unused slots preserving historical lexer numbers. |
+| 2026-08-13 | Backed pattern and type tags with enums. | `PAT_*` and `TYPE_*` are now `PatternKind` / `TypeKind` aliases; `TYPE_UNKNOWN` remains the 99 sentinel. |
+| 2026-08-13 | Typed AST kind APIs with `NodeKind`. | Kind-model helpers and typed AST constructor/kind readers now take or return `enum NodeKind`; fixture `94_node_kind_typed_api.bkr` covers param/return/local use. |
+| 2026-08-13 | Typed lexer token APIs with `TokenKind`. | Kind-model token helpers, parser token name/peek/expect/error APIs, and lexer `tok_type` now take or return `enum TokenKind`; fixture `95_token_kind_typed_api.bkr` covers param/return/local use. |
+| 2026-08-13 | Typed pattern and type kind APIs. | Pattern/type name helpers, constructors, readers, `type_to_c`, and integer/numeric predicates now take or return `PatternKind`/`TypeKind`; `TYPE_UNKNOWN` stays the 99 sentinel; fixture `96_pattern_type_kind_typed_api.bkr` covers param/return/local use. |
+| 2026-08-13 | Replaced span records with `struct AstSpan`. | Span construction, span readers, and parser error spans now use `AstSpan` instead of `Vec<i64>`; fixture `97_ast_span_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced pattern records with `struct AstPattern`. | Pattern construction packs `AstPattern` and kind/value/aux/span readers unpack to field access; fixture `98_ast_pattern_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced type records with `struct AstType`. | Type construction packs `AstType` and kind/payload readers unpack to field access; `TYPE_UNKNOWN` stays the optional-none sentinel; fixture `100_ast_type_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced atomic expression records with `struct AstAtom`. | Ident/int/bool/str/float constructors pack `AstAtom` and name/value readers unpack `payload`; fixture `101_ast_atom_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced binary/unary records with structs. | Binary/unary constructors pack `AstBinary`/`AstUnary` with `TokenKind` ops and child handles; fixture `102_ast_binary_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced call records with `struct AstCall`. | Call constructors pack `AstCall` and name/args readers unpack fields; fixture `103_ast_call_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced index/field-access records with structs. | Index and field-access constructors pack `AstIndex`/`AstFieldAccess`; fixture `104_ast_index_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced let/return statement records with structs. | Let/return constructors pack `AstLet`/`AstReturn`; fixture `105_ast_let_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Keep SH-003 pack/unpack off the typecheck hot path. | Single-field AST readers use `ast_field` again; typed record unpack stays for whole-struct APIs so stage1 `bkrc` typecheck does not exceed the 600s smoke. |
+| 2026-08-13 | Hold AstIf/AstWhile until stage1 reports slim down. | Pack constructors for `AstIf`/`AstWhile` parsed and fixture-compiled, but stage1 `symbol_table_report` on full `bkrc` killed the GitHub runner three times. Reverted to keep SH-001 green. |
+| 2026-08-13 | Truncate full-AST JSON reports on large kernels. | AST/type-graph/symbol-table reports skip detail walks when interned names exceed 512 so stage1 compile of `bkrc` stays inside runner memory; language-test fixture reports stay complete. |
+| 2026-08-13 | Relanded if/while statement records as structs. | If/while constructors pack `AstIf`/`AstWhile` after Q-207 report truncation; fixture `106_ast_if_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced for/loop statement records with structs. | For/loop constructors pack `AstFor`/`AstLoop`; fixture `107_ast_for_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced assign/expr-stmt statement records with structs. | Assign/expr-stmt constructors pack `AstAssign`/`AstExprStmt`; fixture `108_ast_assign_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced ternary expression records with struct AstTernary. | Ternary constructors pack `AstTernary`; fixture `109_ast_ternary_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced array/struct-lit records with structs. | Array/struct-lit constructors pack `AstArrayLit`/`AstStructLit`; fixture `110_ast_array_lit_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced match expression records with struct AstMatch. | Match constructors pack `AstMatch`; fixture `111_ast_match_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced param/fn item records with structs. | Param/fn constructors pack `AstParam`/`AstFn`; fixture `112_ast_fn_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced const/field-decl item records with structs. | Const/field constructors pack `AstConst`/`AstFieldDecl`; fixture `113_ast_const_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced struct/enum item records with structs. | Struct/enum constructors pack `AstStruct`/`AstEnum`; fixture `114_ast_struct_item.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced kernel root records with struct AstKernel. | Kernel constructors pack `AstKernel`; fixture `115_ast_kernel_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Replaced break/continue/block records with structs. | Break/continue/block constructors pack `AstBreak`/`AstContinue`/`AstBlock`; empty-block pack stays `[NODE_BLOCK, start, end]`; fixture `116_ast_block_struct.bkr` covers struct param/return/field use. |
+| 2026-08-13 | Added self-host unit-enum match exhaustiveness. | Typecheck now reports unit-enum matches missing a declared variant as `non_exhaustive_match`; CI compiles `89_enum_nonexhaustive_BAD.bkr` and requires `missing Color.Blue`. |
+| 2026-08-13 | Parsed single-type enum variant payloads. | Grammar/AST/self-host parser accept `Variant(Type)`; fixture `117_enum_payload_decl.bkr` and AST `payload_count` cover declaration storage. |
+| 2026-08-13 | Constructed single-type enum variant payloads. | `Enum.Variant(expr)` typechecks and packs as `(payload << 8) \| tag`; fixture `118_enum_payload_ctor.bkr` returns 42. |
+| 2026-08-13 | Bound single-type enum variant payloads in match. | `Enum.Variant(x)` binds `value >> 8` after a tag-mask test; fixture `119_enum_payload_match.bkr` returns 42. |
+| 2026-08-13 | Parsed multi-field enum variant payloads. | Grammar/AST/self-host parser accept `Variant(Type, Type)`; fixture `120_enum_multi_payload_decl.bkr` and AST `payload_arity_sum` cover declaration storage. |
+| 2026-08-13 | Constructed multi-field enum variant payloads. | `Enum.Variant(a, b)` typechecks and packs as `(a << 20) \| (b << 8) \| tag`; fixture `121_enum_multi_payload_ctor.bkr` returns 42. |
+| 2026-08-13 | Bound multi-field enum variant payloads in match. | `Enum.Variant(x, y)` binds `value >> 20` and `(value >> 8) & 4095` after a tag-mask test; fixture `122_enum_multi_payload_match.bkr` returns 42. |

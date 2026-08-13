@@ -61,6 +61,9 @@ fn build_kernel_item(pair: Pair<Rule>) -> Result<Option<KernelItem>, String> {
             Rule::struct_def => {
                 return Ok(Some(KernelItem::Struct(build_struct(inner)?)));
             }
+            Rule::enum_def => {
+                return Ok(Some(KernelItem::Enum(build_enum(inner)?)));
+            }
             Rule::const_def => {
                 return Ok(Some(KernelItem::Const(build_const(inner)?)));
             }
@@ -284,6 +287,47 @@ fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
     }
 
     Ok(StructDef { name, fields })
+}
+
+fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
+    let mut name = String::new();
+    let mut variants = vec![];
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::identifier => {
+                name = inner.as_str().to_string();
+            }
+            Rule::enum_variant_list => {
+                for variant_pair in inner.into_inner() {
+                    if variant_pair.as_rule() == Rule::enum_variant {
+                        let mut variant_name = String::new();
+                        let mut payloads = Vec::new();
+                        for variant_inner in variant_pair.into_inner() {
+                            match variant_inner.as_rule() {
+                                Rule::identifier => {
+                                    variant_name = variant_inner.as_str().to_string();
+                                }
+                                Rule::type_expr => {
+                                    payloads.push(build_type(variant_inner)?);
+                                }
+                                _ => {}
+                            }
+                        }
+                        if !variant_name.is_empty() {
+                            variants.push(EnumVariantDecl {
+                                name: variant_name,
+                                payloads,
+                            });
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    Ok(EnumDef { name, variants })
 }
 
 fn build_struct_field(pair: Pair<Rule>) -> Result<StructField, String> {
@@ -573,6 +617,21 @@ fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::enum_variant_pattern => {
+                let mut names = Vec::new();
+                for part in inner.into_inner() {
+                    if part.as_rule() == Rule::identifier {
+                        names.push(part.as_str().to_string());
+                    }
+                }
+                if names.len() >= 2 {
+                    return Ok(Pattern::EnumVariant {
+                        enum_name: names[0].clone(),
+                        variant: names[1].clone(),
+                        bindings: names[2..].to_vec(),
+                    });
+                }
+            }
             Rule::literal => {
                 let expr = build_literal(inner)?;
                 if let Expr::Literal(lit) = expr {
