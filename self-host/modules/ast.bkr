@@ -75,11 +75,11 @@
         return ast_node_ref_set_span(node_ref, ast_span_start(span), ast_span_end(span));
     }
 
-    fn ast_pattern_ref_new(kind: i64, value: i64) -> AstPatternRef {
+    fn ast_pattern_ref_new(kind: PatternKind, value: i64) -> AstPatternRef {
         return ast_pattern_ref_new2(kind, value, 0);
     }
 
-    fn ast_pattern_ref_new2(kind: i64, value: i64, aux: i64) -> AstPatternRef {
+    fn ast_pattern_ref_new2(kind: PatternKind, value: i64, aux: i64) -> AstPatternRef {
         let pattern: Vec<i64> = vec_new();
         vec_push(pattern, kind);
         vec_push(pattern, AST_SPAN_UNKNOWN);
@@ -301,7 +301,7 @@
         return ast_node_from_handle(ast_type_ref_handle(type_ref));
     }
 
-    fn ast_type_ref_kind_value(type_ref: AstTypeRef) -> i64 {
+    fn ast_type_ref_kind_value(type_ref: AstTypeRef) -> TypeKind {
         return ast_type_kind_value(ast_type_ref_handle(type_ref));
     }
 
@@ -309,7 +309,7 @@
         return ast_type_struct_name_idx_value(ast_type_ref_handle(type_ref));
     }
 
-    fn ast_type_ref_array_elem_kind_value(type_ref: AstTypeRef) -> i64 {
+    fn ast_type_ref_array_elem_kind_value(type_ref: AstTypeRef) -> TypeKind {
         return ast_type_array_elem_kind_value(ast_type_ref_handle(type_ref));
     }
 
@@ -497,7 +497,7 @@
         return ast_pattern_from_handle(ast_pattern_ref_handle(pattern_ref));
     }
 
-    fn ast_pattern_ref_kind(pattern_ref: AstPatternRef) -> i64 {
+    fn ast_pattern_ref_kind(pattern_ref: AstPatternRef) -> PatternKind {
         return ast_pattern_kind(ast_pattern_from_ref(pattern_ref));
     }
 
@@ -725,7 +725,7 @@
         return ast_node_from_handle(value);
     }
 
-    fn ast_type_kind_value(type_node: i64) -> i64 {
+    fn ast_type_kind_value(type_node: i64) -> TypeKind {
         if ast_optional_is_none(type_node) {
             return TYPE_UNKNOWN;
         }
@@ -743,7 +743,7 @@
         return -1;
     }
 
-    fn ast_type_array_elem_kind_value(type_node: i64) -> i64 {
+    fn ast_type_array_elem_kind_value(type_node: i64) -> TypeKind {
         if ast_optional_is_none(type_node) {
             return TYPE_UNKNOWN;
         }
@@ -1025,7 +1025,7 @@
         return ast_match_bodies_ref(ast_expr_node_from_ref(expr_ref));
     }
 
-    fn ast_pattern_kind(pattern: Vec<i64>) -> i64 {
+    fn ast_pattern_kind(pattern: Vec<i64>) -> PatternKind {
         return vec_get(pattern, 0);
     }
 
@@ -1564,17 +1564,17 @@
         return ast_node_list_ref_get_handle(ast_struct_lit_field_values_ref(node), index);
     }
 
-    fn ast_type_ref(kind: i64) -> AstTypeRef {
+    fn ast_type_ref(kind: TypeKind) -> AstTypeRef {
         let node_ref: AstNodeRef = ast_node_ref_new(NODE_TYPE);
         ast_node_ref_push(node_ref, kind);
         return ast_type_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
-    fn ast_type(kind: i64) -> Vec<i64> {
+    fn ast_type(kind: TypeKind) -> Vec<i64> {
         return ast_type_node_from_ref(ast_type_ref(kind));
     }
 
-    fn ast_type_array_ref(elem_kind: i64, len_value: i64) -> AstTypeRef {
+    fn ast_type_array_ref(elem_kind: TypeKind, len_value: i64) -> AstTypeRef {
         let node_ref: AstNodeRef = ast_node_ref_new(NODE_TYPE);
         ast_node_ref_push(node_ref, TYPE_ARRAY);
         ast_node_ref_push(node_ref, elem_kind);
@@ -1582,7 +1582,7 @@
         return ast_type_ref_from_handle(ast_node_ref_handle(node_ref));
     }
 
-    fn ast_type_array(elem_kind: i64, len_value: i64) -> Vec<i64> {
+    fn ast_type_array(elem_kind: TypeKind, len_value: i64) -> Vec<i64> {
         return ast_type_node_from_ref(ast_type_array_ref(elem_kind, len_value));
     }
 
@@ -1597,7 +1597,7 @@
         return ast_type_node_from_ref(ast_type_struct_ref(name_idx));
     }
 
-    fn ast_pattern(kind: i64, value: i64) -> Vec<i64> {
+    fn ast_pattern(kind: PatternKind, value: i64) -> Vec<i64> {
         return ast_pattern_from_ref(ast_pattern_ref_new(kind, value));
     }
 

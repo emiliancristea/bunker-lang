@@ -57,7 +57,7 @@
         return -1;
     }
 
-    fn type_to_c(kind: i64) -> str {
+    fn type_to_c(kind: TypeKind) -> str {
         if kind == TYPE_I32 { return "bkr_i32"; }
         if kind == TYPE_I64 { return "bkr_i64"; }
         if kind == TYPE_F64 { return "bkr_f64"; }

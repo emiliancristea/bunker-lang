@@ -5,12 +5,12 @@
     // Produces BUNKER_TYPECHECK_JSON for conservative expected/found semantic
     // diagnostics from typed AST refs over the bootstrap layout.
 
-    fn typecheck_is_integer_kind(kind: i64) -> bool {
-        return kind == TYPE_I32 || kind == TYPE_I64;
+    fn typecheck_is_integer_kind(kind: TypeKind) -> bool {
+        return kind == TypeKind.I32 || kind == TypeKind.I64;
     }
 
-    fn typecheck_is_numeric_kind(kind: i64) -> bool {
-        return kind == TYPE_I32 || kind == TYPE_I64 || kind == TYPE_F64;
+    fn typecheck_is_numeric_kind(kind: TypeKind) -> bool {
+        return kind == TypeKind.I32 || kind == TypeKind.I64 || kind == TypeKind.F64;
     }
 
     fn typecheck_is_unknown_kind(kind: i64) -> bool {
@@ -30,8 +30,8 @@
         return false;
     }
 
-    fn typecheck_is_scalar_cast_kind(kind: i64) -> bool {
-        return kind == TYPE_I32 || kind == TYPE_I64 || kind == TYPE_F64 || kind == TYPE_BOOL;
+    fn typecheck_is_scalar_cast_kind(kind: TypeKind) -> bool {
+        return kind == TypeKind.I32 || kind == TypeKind.I64 || kind == TypeKind.F64 || kind == TypeKind.Bool;
     }
 
     fn typecheck_value_kinds_compatible(expected_kind: i64, found_kind: i64) -> bool {
