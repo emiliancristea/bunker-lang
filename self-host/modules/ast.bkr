@@ -98,7 +98,7 @@
             start: AST_SPAN_UNKNOWN,
             end: AST_SPAN_UNKNOWN,
             value: value,
-            aux: aux,
+            aux: aux
         };
     }
 
@@ -122,7 +122,7 @@
             start: vec_get(node, AST_NODE_SPAN_START_INDEX),
             end: vec_get(node, AST_NODE_SPAN_END_INDEX),
             value: vec_get(node, AST_NODE_DATA_START),
-            aux: aux,
+            aux: aux
         };
     }
 

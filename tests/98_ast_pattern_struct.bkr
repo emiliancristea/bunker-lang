@@ -23,7 +23,7 @@ kernel AstPatternStruct {
             start: 0,
             end: 2,
             value: value,
-            aux: 0,
+            aux: 0
         };
     }
 
