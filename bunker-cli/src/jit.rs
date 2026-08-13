@@ -3090,6 +3090,7 @@ fn bind_enum_payload_fields(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn bind_shifted_payload(
     builder: &mut FunctionBuilder,
     val: Value,
