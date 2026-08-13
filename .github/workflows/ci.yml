@@ -167,10 +167,12 @@ jobs:
           grep -q 'fn parser_peek_ref(p_ref: ParserStateRef) -> TokenKind' "$parser_state"
           grep -q 'fn parser_expect_ref(p_ref: ParserStateRef, expected: TokenKind) -> bool' "$parser_state"
           grep -q 'fn parser_error_expected_ref(p_ref: ParserStateRef) -> TokenKind' "$parser_state"
+          grep -q 'fn parse_insert_text_for_expected_token(expected_token: TokenKind) -> str' 'self-host/modules/driver.bkr'
           grep -q 'let tok_type: TokenKind =' "$lexer"
           ! grep -q 'fn token_kind_name(kind: i64)' "$kind_model"
           ! grep -q 'fn token_name(tok: i64)' "$parser"
           ! grep -q 'fn parser_peek_ref(p_ref: ParserStateRef) -> i64' "$parser_state"
+          ! grep -q 'fn parse_insert_text_for_expected_token(expected_token: i64)' 'self-host/modules/driver.bkr'
 
       - name: Require recursive self-host import expansion
         shell: bash
@@ -239,7 +241,7 @@ jobs:
           grep -q 'json_field_bool("suggested_edit_envelope", true)' "$driver"
           grep -q 'fn diagnostic_text_edit_json(kind: str, source_start: i64, source_end: i64,' 'self-host/modules/report_support.bkr'
           grep -q 'json_field_raw("suggested_edits", suggested_edits)' "$driver"
-          grep -q 'fn parse_insert_text_for_expected_token(expected_token: i64) -> str' "$driver"
+          grep -q 'fn parse_insert_text_for_expected_token(expected_token: TokenKind) -> str' "$driver"
           grep -q 'json_field_raw("diagnostic_codes", self_host_diagnostic_codes_json())' "$driver"
           grep -q 'BKR_SELF_ASSIGNMENT_TARGET' "$driver"
           grep -q 'BKR_SELF_CONTROL_FLOW' "$driver"
