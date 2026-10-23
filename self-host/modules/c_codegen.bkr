@@ -1047,6 +1047,20 @@
             let raw: str = name_from_table(names, name_idx);
             let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
             let arg_count: i64 = ast_node_list_ref_count(args_ref);
+            if raw == "panic" && arg_count == 1 {
+                let msg_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_panic((bkr_str)(intptr_t)(" + msg_arg + "))";
+            }
+            if raw == "assert" && arg_count == 1 {
+                let cond_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let quote: str = from_char_code(34);
+                return "bkr_assert(" + cond_arg + ", " + quote + "assertion failed" + quote + ")";
+            }
+            if raw == "assert" && arg_count == 2 {
+                let cond_arg2: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let msg_arg2: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_assert(" + cond_arg2 + ", (bkr_str)(intptr_t)(" + msg_arg2 + "))";
+            }
             if raw == "Some" && arg_count == 1 {
                 return "(((" + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0))) + ") << 1) | 1)";
             }

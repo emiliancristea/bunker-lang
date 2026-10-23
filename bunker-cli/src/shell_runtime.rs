@@ -833,6 +833,28 @@ impl<'a> Executor<'a> {
                 // Handle built-in functions
                 if let ast::Expr::Ident(name) = func.as_ref() {
                     match name.as_str() {
+                        "panic" => {
+                            let msg = if let Some(arg) = args.first() {
+                                format!("{:?}", self.eval_expr(arg, env, queue)?)
+                            } else {
+                                "panic".to_string()
+                            };
+                            return Err(anyhow!("bunker runtime panic: {}", msg));
+                        }
+                        "assert" => {
+                            if let Some(cond_arg) = args.first() {
+                                let cond_val = self.eval_expr(cond_arg, env, queue)?;
+                                if cond_val == Value::Bool(false) {
+                                    let msg = if args.len() > 1 {
+                                        format!("{:?}", self.eval_expr(&args[1], env, queue)?)
+                                    } else {
+                                        "assertion failed".to_string()
+                                    };
+                                    return Err(anyhow!("bunker runtime assertion failed: {}", msg));
+                                }
+                            }
+                            return Ok(Value::Int(0));
+                        }
                         "len" => {
                             if args.len() != 1 {
                                 return Err(anyhow!("len() takes exactly 1 argument"));

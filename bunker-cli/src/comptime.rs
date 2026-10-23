@@ -375,6 +375,28 @@ impl ComptimeEvaluator {
             }
             Expr::Call { func, args } => {
                 if let Expr::Ident(name) = func.as_ref() {
+                    if name == "panic" {
+                        let msg = if let Some(arg) = args.first() {
+                            format!("{:?}", self.eval_expr(arg, env, depth)?)
+                        } else {
+                            "panic".to_string()
+                        };
+                        return Err(anyhow!("comptime panic: {}", msg));
+                    }
+                    if name == "assert" {
+                        if let Some(cond_arg) = args.first() {
+                            let cond_val = self.eval_expr(cond_arg, env, depth)?;
+                            if cond_val == ComptimeValue::Bool(false) {
+                                let msg = if args.len() > 1 {
+                                    format!("{:?}", self.eval_expr(&args[1], env, depth)?)
+                                } else {
+                                    "assertion failed".to_string()
+                                };
+                                return Err(anyhow!("comptime assertion failed: {}", msg));
+                            }
+                        }
+                        return Ok(ComptimeValue::Int(0));
+                    }
                     if self.is_comptime_fn(name) {
                         let mut arg_values = Vec::new();
                         for arg in args {

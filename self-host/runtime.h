@@ -525,6 +525,28 @@ static inline void bkr_print_i64(bkr_i64 n) {
 }
 
 /* ============================================
+ * Panic and Assert Runtime Policy
+ * ============================================ */
+
+static inline void bkr_panic(bkr_str s) {
+    fprintf(stderr, "bunker runtime panic: %s\n", s ? s : "<no message>");
+    fflush(stderr);
+    exit(101);
+}
+
+static inline void bkr_assert(bkr_bool cond, bkr_str msg) {
+    if (!cond) {
+        fprintf(stderr, "bunker runtime assertion failed: %s\n", msg ? msg : "assertion failed");
+        fflush(stderr);
+        exit(101);
+    }
+}
+
+static inline void panic(bkr_str s) {
+    bkr_panic(s);
+}
+
+/* ============================================
  * HashMap (Arena-Backed Implementation)
  * ============================================ */
 

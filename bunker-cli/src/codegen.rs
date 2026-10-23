@@ -1727,10 +1727,53 @@ fn compile_expr_inline(
         ast::Expr::Call { func, args } => {
             if let ast::Expr::Ident(name) = func.as_ref() {
                 // Skip built-in functions for now
-                if matches!(
-                    name.as_str(),
-                    "log" | "print" | "println" | "panic" | "assert"
-                ) {
+                if name == "panic" {
+                    let panic_sig = {
+                        let mut sig = module.make_signature();
+                        sig.params.push(AbiParam::new(types::I64));
+                        sig
+                    };
+                    let panic_id = module.declare_function("bkr_panic", Linkage::Import, &panic_sig)?;
+                    let msg_ptr = if let Some(arg) = args.first() {
+                        compile_expr_inline(
+                            builder, module, alloc_func, functions, structs, fn_sigs,
+                            variables, var_types, var_index, defer_stack, arg,
+                        )?
+                    } else {
+                        builder.ins().iconst(types::I64, 0)
+                    };
+                    let panic_ref = module.declare_func_in_func(panic_id, builder.func);
+                    builder.ins().call(panic_ref, &[msg_ptr]);
+                    return Ok(builder.ins().iconst(types::I32, 0));
+                }
+                if name == "assert" {
+                    let assert_sig = {
+                        let mut sig = module.make_signature();
+                        sig.params.push(AbiParam::new(types::I8));
+                        sig.params.push(AbiParam::new(types::I64));
+                        sig
+                    };
+                    let assert_id = module.declare_function("bkr_assert", Linkage::Import, &assert_sig)?;
+                    if let Some(cond_arg) = args.first() {
+                        let cond_val = compile_expr_inline(
+                            builder, module, alloc_func, functions, structs, fn_sigs,
+                            variables, var_types, var_index, defer_stack, cond_arg,
+                        )?;
+                        let cond_bool = bool_value_to_i8(builder, cond_val)?;
+                        let msg_ptr = if args.len() > 1 {
+                            compile_expr_inline(
+                                builder, module, alloc_func, functions, structs, fn_sigs,
+                                variables, var_types, var_index, defer_stack, &args[1],
+                            )?
+                        } else {
+                            builder.ins().iconst(types::I64, 0)
+                        };
+                        let assert_ref = module.declare_func_in_func(assert_id, builder.func);
+                        builder.ins().call(assert_ref, &[cond_bool, msg_ptr]);
+                    }
+                    return Ok(builder.ins().iconst(types::I32, 0));
+                }
+                if matches!(name.as_str(), "log" | "print" | "println") {
                     return Ok(builder.ins().iconst(types::I32, 0));
                 }
                 // strlen builtin: returns the length of a string

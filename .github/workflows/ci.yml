@@ -2192,6 +2192,11 @@ jobs:
         run: |
           ./bunker-cli/target/release/bunker-cli run tests/133_labeled_loops.bkr
 
+      - name: Run panic abort policy acceptance test (JIT)
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/134_panic_abort_policy.bkr
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

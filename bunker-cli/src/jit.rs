@@ -219,6 +219,40 @@ extern "C" fn bunker_read_file(path_ptr: i64) -> i64 {
     alloc_bunker_string(&contents)
 }
 
+/// Unrecoverable panic with formatted message to stderr. Exits process with code 101.
+extern "C" fn bunker_panic(msg_ptr: i64) {
+    let msg_str = if msg_ptr == 0 {
+        "<no message>".to_string()
+    } else {
+        unsafe {
+            let ptr = msg_ptr as *const u8;
+            let len = *(ptr as *const i64) as usize;
+            let data = std::slice::from_raw_parts(ptr.add(8), len);
+            std::str::from_utf8(data).unwrap_or("<invalid utf8>").to_string()
+        }
+    };
+    eprintln!("bunker runtime panic: {}", msg_str);
+    std::process::exit(101);
+}
+
+/// Runtime assertion failure check. If cond == 0, exits process with code 101.
+extern "C" fn bunker_assert(cond: i8, msg_ptr: i64) {
+    if cond == 0 {
+        let msg_str = if msg_ptr == 0 {
+            "assertion failed".to_string()
+        } else {
+            unsafe {
+                let ptr = msg_ptr as *const u8;
+                let len = *(ptr as *const i64) as usize;
+                let data = std::slice::from_raw_parts(ptr.add(8), len);
+                std::str::from_utf8(data).unwrap_or("<invalid utf8>").to_string()
+            }
+        };
+        eprintln!("bunker runtime assertion failed: {}", msg_str);
+        std::process::exit(101);
+    }
+}
+
 /// Write content to a file. Returns 1 on success, 0 on failure.
 extern "C" fn bunker_write_file(path_ptr: i64, content_ptr: i64) -> i64 {
     if path_ptr == 0 || content_ptr == 0 {
@@ -1377,6 +1411,8 @@ impl KernelJit {
         builder.symbol("bunker_alloc", bunker_alloc as *const u8);
         builder.symbol("bunker_arena_push", bunker_arena_push as *const u8);
         builder.symbol("bunker_arena_pop", bunker_arena_pop as *const u8);
+        builder.symbol("bunker_panic", bunker_panic as *const u8);
+        builder.symbol("bunker_assert", bunker_assert as *const u8);
         builder.symbol("bunker_read_file", bunker_read_file as *const u8);
         builder.symbol("bunker_write_file", bunker_write_file as *const u8);
         builder.symbol("bunker_file_exists", bunker_file_exists as *const u8);
@@ -1433,6 +1469,8 @@ impl KernelJit {
         let alloc_func = declare_alloc_func(&mut module)?;
         let arena_push_func = declare_arena_push_func(&mut module)?;
         let arena_pop_func = declare_arena_pop_func(&mut module)?;
+        let panic_func = declare_panic_func(&mut module)?;
+        let assert_func = declare_assert_func(&mut module)?;
         let read_file_func = declare_read_file_func(&mut module)?;
         let write_file_func = declare_write_file_func(&mut module)?;
         let file_exists_func = declare_file_exists_func(&mut module)?;
@@ -1529,6 +1567,8 @@ impl KernelJit {
         ] {
             register_runtime_builtin(&mut functions, &mut fn_sigs, name, func_id)?;
         }
+        functions.insert("bunker_panic".to_string(), panic_func);
+        functions.insert("bunker_assert".to_string(), assert_func);
         Ok(Self {
             module,
             ctx,
@@ -3731,10 +3771,77 @@ fn compile_expr_inline(
         ast::Expr::Call { func, args } => {
             if let ast::Expr::Ident(name) = func.as_ref() {
                 // Built-in functions
-                if matches!(
-                    name.as_str(),
-                    "log" | "print" | "println" | "panic" | "assert"
-                ) {
+                if name == "panic" {
+                    if let Some(&panic_func) = functions.get("bunker_panic") {
+                        let msg_ptr = if let Some(arg) = args.first() {
+                            compile_expr_inline(
+                                builder,
+                                module,
+                                alloc_func,
+                                arena_push_func,
+                                arena_pop_func,
+                                functions,
+                                structs,
+                                fn_sigs,
+                                variables,
+                                var_types,
+                                var_index,
+                                defer_stack,
+                                arg,
+                            )?
+                        } else {
+                            builder.ins().iconst(types::I64, 0)
+                        };
+                        let panic_ref = module.declare_func_in_func(panic_func, builder.func);
+                        builder.ins().call(panic_ref, &[msg_ptr]);
+                    }
+                    return Ok(builder.ins().iconst(types::I32, 0));
+                }
+                if name == "assert" {
+                    if let Some(&assert_func) = functions.get("bunker_assert") {
+                        if let Some(cond_arg) = args.first() {
+                            let cond_val = compile_expr_inline(
+                                builder,
+                                module,
+                                alloc_func,
+                                arena_push_func,
+                                arena_pop_func,
+                                functions,
+                                structs,
+                                fn_sigs,
+                                variables,
+                                var_types,
+                                var_index,
+                                defer_stack,
+                                cond_arg,
+                            )?;
+                            let cond_bool = bool_value_to_i8(builder, cond_val)?;
+                            let msg_ptr = if args.len() > 1 {
+                                compile_expr_inline(
+                                    builder,
+                                    module,
+                                    alloc_func,
+                                    arena_push_func,
+                                    arena_pop_func,
+                                    functions,
+                                    structs,
+                                    fn_sigs,
+                                    variables,
+                                    var_types,
+                                    var_index,
+                                    defer_stack,
+                                    &args[1],
+                                )?
+                            } else {
+                                builder.ins().iconst(types::I64, 0)
+                            };
+                            let assert_ref = module.declare_func_in_func(assert_func, builder.func);
+                            builder.ins().call(assert_ref, &[cond_bool, msg_ptr]);
+                        }
+                    }
+                    return Ok(builder.ins().iconst(types::I32, 0));
+                }
+                if matches!(name.as_str(), "log" | "print" | "println") {
                     return Ok(builder.ins().iconst(types::I32, 0));
                 }
                 // strlen builtin: returns the length of a string
@@ -5224,6 +5331,23 @@ fn resolve_field(
     }
 
     None
+}
+
+fn declare_panic_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_panic", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_panic: {}", e))
+}
+
+fn declare_assert_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I8));
+    sig.params.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_assert", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_assert: {}", e))
 }
 
 fn declare_alloc_func(module: &mut JITModule) -> Result<FuncId> {

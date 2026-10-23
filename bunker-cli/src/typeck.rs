@@ -1071,6 +1071,48 @@ impl TypeChecker {
         expected: Option<&Type>,
     ) -> Result<Option<Type>> {
         match name {
+            "panic" => {
+                self.check_builtin_arity("panic expects 1 argument (message)", args, 1, context);
+                if let Some(arg) = args.first() {
+                    let ty = self.infer_expr(arg, context)?;
+                    if ty != Type::Str {
+                        self.errors.push(TypeError {
+                            message: format!("panic expects a string message, got {:?}", ty),
+                            location: context.to_string(),
+                        });
+                    }
+                }
+                return Ok(Some(expected.cloned().unwrap_or(Type::Unit)));
+            }
+            "assert" => {
+                if args.is_empty() || args.len() > 2 {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "assert expects 1 or 2 arguments (condition, optional message), got {}",
+                            args.len()
+                        ),
+                        location: context.to_string(),
+                    });
+                } else {
+                    let cond_ty = self.infer_expr(&args[0], context)?;
+                    if cond_ty != Type::Bool {
+                        self.errors.push(TypeError {
+                            message: format!("assert condition must be bool, got {:?}", cond_ty),
+                            location: context.to_string(),
+                        });
+                    }
+                    if args.len() == 2 {
+                        let msg_ty = self.infer_expr(&args[1], context)?;
+                        if msg_ty != Type::Str {
+                            self.errors.push(TypeError {
+                                message: format!("assert message must be str, got {:?}", msg_ty),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                return Ok(Some(Type::Unit));
+            }
             "vec_new" => {
                 self.check_builtin_arity("vec_new expects 0 arguments", args, 0, context);
                 match expected {
