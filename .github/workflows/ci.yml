@@ -2788,6 +2788,9 @@ jobs:
           cp "$self_compile_dir/self_host_output.c" self-host-artifacts/bkrc-stage2.c
           cp "$self_compile_dir/bkrc2" self-host-artifacts/bkrc-stage2
           cp self-host/runtime.h self-host-artifacts/runtime.h
+          (cd self-host-artifacts && sha256sum bkrc-stage1.c bkrc-stage2.c runtime.h > SHA256SUMS)
+          cat self-host-artifacts/SHA256SUMS
+          sha256sum -c self-host-artifacts/SHA256SUMS
 
       - name: Upload self-host compiler artifacts
         uses: actions/upload-artifact@v4
