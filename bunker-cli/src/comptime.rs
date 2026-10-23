@@ -212,7 +212,7 @@ impl ComptimeEvaluator {
                 Stmt::Expr(expr) => {
                     result = self.eval_expr(expr, env, depth)?;
                 }
-                Stmt::For { var, iter, body } => {
+                Stmt::For { var, iter, body, .. } => {
                     // Extract range bounds (iterator must be a range expression)
                     let (start, end, inclusive) = match iter {
                         Expr::Range {
@@ -252,7 +252,7 @@ impl ComptimeEvaluator {
                         }
                     }
                 }
-                Stmt::Loop(body) => {
+                Stmt::Loop { body, .. } => {
                     const MAX_ITERATIONS: usize = 100_000;
                     let mut iterations = 0;
 
@@ -273,7 +273,7 @@ impl ComptimeEvaluator {
                         }
                     }
                 }
-                Stmt::While { condition, body } => {
+                Stmt::While { condition, body, .. } => {
                     const MAX_ITERATIONS: usize = 100_000;
                     let mut iterations = 0;
 
@@ -310,10 +310,10 @@ impl ComptimeEvaluator {
                         }
                     }
                 }
-                Stmt::Break => {
+                Stmt::Break(_) => {
                     return Ok(ControlFlow::Break);
                 }
-                Stmt::Continue => {
+                Stmt::Continue(_) => {
                     return Ok(ControlFlow::LoopContinue);
                 }
                 Stmt::Defer(_) | Stmt::Send { .. } => {
@@ -712,14 +712,14 @@ fn fold_stmt(stmt: &mut Stmt, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
             fold_expr(iter, eval, stats);
             fold_block(body, eval, stats);
         }
-        Stmt::Loop(block) => {
+        Stmt::Loop { body: block, .. } => {
             fold_block(block, eval, stats);
         }
-        Stmt::While { condition, body } => {
+        Stmt::While { condition, body, .. } => {
             fold_expr(condition, eval, stats);
             fold_block(body, eval, stats);
         }
-        Stmt::Break | Stmt::Continue => {
+        Stmt::Break(_) | Stmt::Continue(_) => {
             // These don't contain expressions to fold
         }
     }

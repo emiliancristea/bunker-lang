@@ -1698,8 +1698,7 @@ impl KernelJit {
                 &func.body,
                 &mut returned,
                 &mut defer_stack,
-                None, // loop_exit - not in a loop
-                None, // loop_continue - not in a loop
+                &[], // loop_stack - not in a loop
                 false,
             )?;
 
@@ -1927,8 +1926,7 @@ fn compile_block_inline(
     block: &ast::Block,
     returned: &mut bool,
     defer_stack: &mut Vec<Vec<ast::Block>>,
-    loop_exit: Option<Block>,
-    loop_continue: Option<Block>,
+    loop_stack: &[(Option<String>, Block, Block)],
 ) -> Result<()> {
     compile_block_inline_inner(
         builder,
@@ -1945,8 +1943,7 @@ fn compile_block_inline(
         block,
         returned,
         defer_stack,
-        loop_exit,
-        loop_continue,
+        loop_stack,
         // Runtime allocations currently bypass JIT_ARENA, so emitted block
         // watermarks only add leak risk on early returns in self-host runs.
         false,
@@ -1969,8 +1966,7 @@ fn compile_block_inline_inner(
     block: &ast::Block,
     returned: &mut bool,
     defer_stack: &mut Vec<Vec<ast::Block>>,
-    loop_exit: Option<Block>,
-    loop_continue: Option<Block>,
+    loop_stack: &[(Option<String>, Block, Block)],
     track_arena_scope: bool,
 ) -> Result<()> {
     // Arena scope: save watermark at block entry
@@ -1999,8 +1995,7 @@ fn compile_block_inline_inner(
             stmt,
             returned,
             defer_stack,
-            loop_exit,
-            loop_continue,
+            loop_stack,
         )?;
     }
     if !*returned {
@@ -2047,8 +2042,7 @@ fn compile_stmt_inline(
     stmt: &ast::Stmt,
     returned: &mut bool,
     defer_stack: &mut Vec<Vec<ast::Block>>,
-    loop_exit: Option<Block>,
-    loop_continue: Option<Block>,
+    loop_stack: &[(Option<String>, Block, Block)],
 ) -> Result<()> {
     match stmt {
         ast::Stmt::Let { name, ty, value } => {
@@ -2318,8 +2312,7 @@ fn compile_stmt_inline(
                 then_block,
                 &mut then_returned,
                 defer_stack,
-                loop_exit,
-                loop_continue,
+                loop_stack,
             )?;
             if !then_returned {
                 builder.ins().jump(merge_bb, &[]);
@@ -2345,8 +2338,7 @@ fn compile_stmt_inline(
                     else_block,
                     &mut else_returned,
                     defer_stack,
-                    loop_exit,
-                    loop_continue,
+                    loop_stack,
                 )?;
             }
             if !else_returned {
@@ -2362,7 +2354,12 @@ fn compile_stmt_inline(
 
             builder.switch_to_block(merge_bb);
         }
-        ast::Stmt::For { var, iter, body } => {
+        ast::Stmt::For {
+            label,
+            var,
+            iter,
+            body,
+        } => {
             // Check if iterator is a range expression
             if let ast::Expr::Range {
                 start,
@@ -2448,6 +2445,8 @@ fn compile_stmt_inline(
                 builder.def_var(loop_var, idx_val);
 
                 let mut body_returned = false;
+                let mut inner_loop_stack = loop_stack.to_vec();
+                inner_loop_stack.push((label.clone(), exit_bb, continue_bb));
                 compile_block_inline(
                     builder,
                     module,
@@ -2463,8 +2462,7 @@ fn compile_stmt_inline(
                     body,
                     &mut body_returned,
                     defer_stack,
-                    Some(exit_bb),
-                    Some(continue_bb),
+                    &inner_loop_stack,
                 )?;
 
                 if !body_returned {
@@ -2550,6 +2548,8 @@ fn compile_stmt_inline(
                 builder.def_var(loop_var, elem_val);
 
                 let mut body_returned = false;
+                let mut inner_loop_stack = loop_stack.to_vec();
+                inner_loop_stack.push((label.clone(), exit_bb, continue_bb));
                 compile_block_inline(
                     builder,
                     module,
@@ -2565,8 +2565,7 @@ fn compile_stmt_inline(
                     body,
                     &mut body_returned,
                     defer_stack,
-                    Some(exit_bb),
-                    Some(continue_bb),
+                    &inner_loop_stack,
                 )?;
 
                 if !body_returned {
@@ -2586,7 +2585,7 @@ fn compile_stmt_inline(
                 builder.switch_to_block(exit_bb);
             }
         }
-        ast::Stmt::Loop(body) => {
+        ast::Stmt::Loop { label, body } => {
             let loop_bb = builder.create_block();
             let exit_bb = builder.create_block();
 
@@ -2597,6 +2596,8 @@ fn compile_stmt_inline(
             let parent_types = var_types.clone();
 
             let mut body_returned = false;
+            let mut inner_loop_stack = loop_stack.to_vec();
+            inner_loop_stack.push((label.clone(), exit_bb, loop_bb));
             compile_block_inline(
                 builder,
                 module,
@@ -2612,8 +2613,7 @@ fn compile_stmt_inline(
                 body,
                 &mut body_returned,
                 defer_stack,
-                Some(exit_bb), // break jumps to exit
-                Some(loop_bb), // continue jumps to loop header
+                &inner_loop_stack,
             )?;
 
             if !body_returned {
@@ -2625,7 +2625,11 @@ fn compile_stmt_inline(
 
             builder.switch_to_block(exit_bb);
         }
-        ast::Stmt::While { condition, body } => {
+        ast::Stmt::While {
+            label,
+            condition,
+            body,
+        } => {
             let loop_header = builder.create_block();
             let loop_body = builder.create_block();
             let exit_bb = builder.create_block();
@@ -2659,6 +2663,8 @@ fn compile_stmt_inline(
             let parent_types = var_types.clone();
 
             let mut body_returned = false;
+            let mut inner_loop_stack = loop_stack.to_vec();
+            inner_loop_stack.push((label.clone(), exit_bb, loop_header));
             compile_block_inline(
                 builder,
                 module,
@@ -2674,8 +2680,7 @@ fn compile_stmt_inline(
                 body,
                 &mut body_returned,
                 defer_stack,
-                Some(exit_bb),     // break jumps to exit
-                Some(loop_header), // continue jumps to loop header (re-check condition)
+                &inner_loop_stack,
             )?;
 
             if !body_returned {
@@ -2687,26 +2692,42 @@ fn compile_stmt_inline(
 
             builder.switch_to_block(exit_bb);
         }
-        ast::Stmt::Break => {
-            if let Some(exit_block) = loop_exit {
+        ast::Stmt::Break(target_label) => {
+            let target_entry = if let Some(target) = target_label {
+                loop_stack
+                    .iter()
+                    .rev()
+                    .find(|(lbl, _, _)| lbl.as_deref() == Some(target.as_str()))
+            } else {
+                loop_stack.last()
+            };
+            if let Some((_, exit_block, _)) = target_entry {
                 // Pop watermark for current block before jumping to exit
                 // TODO: For deeply nested blocks inside loops, we may need to pop more watermarks
                 emit_arena_pops(builder, module, arena_pop_func, 1);
-                builder.ins().jump(exit_block, &[]);
+                builder.ins().jump(*exit_block, &[]);
                 *returned = true; // Mark as returned to stop further code gen in this block
             } else {
-                return Err(anyhow!("break statement outside of loop"));
+                return Err(anyhow!("break statement outside of loop or invalid label"));
             }
         }
-        ast::Stmt::Continue => {
-            if let Some(continue_block) = loop_continue {
+        ast::Stmt::Continue(target_label) => {
+            let target_entry = if let Some(target) = target_label {
+                loop_stack
+                    .iter()
+                    .rev()
+                    .find(|(lbl, _, _)| lbl.as_deref() == Some(target.as_str()))
+            } else {
+                loop_stack.last()
+            };
+            if let Some((_, _, continue_block)) = target_entry {
                 // Pop watermark for current block before jumping to continue point
                 // TODO: For deeply nested blocks inside loops, we may need to pop more watermarks
                 emit_arena_pops(builder, module, arena_pop_func, 1);
-                builder.ins().jump(continue_block, &[]);
+                builder.ins().jump(*continue_block, &[]);
                 *returned = true; // Mark as returned to stop further code gen in this block
             } else {
-                return Err(anyhow!("continue statement outside of loop"));
+                return Err(anyhow!("continue statement outside of loop or invalid label"));
             }
         }
         ast::Stmt::Match { expr, arms } => {
@@ -2921,8 +2942,7 @@ fn compile_stmt_inline(
                             block,
                             &mut arm_returned,
                             defer_stack,
-                            loop_exit,
-                            loop_continue,
+                            loop_stack,
                         )?;
                     }
                 }
@@ -3046,8 +3066,7 @@ fn emit_defer_blocks(
             block,
             &mut local_returned,
             &mut local_defer_stack,
-            None, // no loop context in defer blocks
-            None,
+            &[], // no loop context in defer blocks
         )?;
 
         if local_returned {
@@ -3077,8 +3096,7 @@ fn compile_block_value(
     var_index: &mut u32,
     block: &ast::Block,
     defer_stack: &mut Vec<Vec<ast::Block>>,
-    loop_exit: Option<Block>,
-    loop_continue: Option<Block>,
+    loop_stack: &[(Option<String>, Block, Block)],
 ) -> Result<Option<Value>> {
     defer_stack.push(Vec::new());
     let mut last_val = None;
@@ -3124,8 +3142,7 @@ fn compile_block_value(
                     stmt,
                     &mut returned,
                     defer_stack,
-                    loop_exit,
-                    loop_continue,
+                    loop_stack,
                 )?;
             }
         }
@@ -4131,8 +4148,7 @@ fn compile_expr_inline(
                             var_index,
                             block,
                             defer_stack,
-                            None, // no break/continue from match arm block expression
-                            None,
+                            &[], // no break/continue from match arm block expression
                         )?
                         .ok_or_else(|| {
                             anyhow!("match arm block must yield a value in expression context")
@@ -4173,8 +4189,7 @@ fn compile_expr_inline(
                 var_index,
                 block,
                 defer_stack,
-                None, // no break/continue from block expression
-                None,
+                &[], // no break/continue from block expression
             )?;
             val.ok_or_else(|| anyhow!("block expression must yield a value"))
         }

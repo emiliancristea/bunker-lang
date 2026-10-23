@@ -416,10 +416,22 @@ fn build_statement(pair: Pair<Rule>) -> Result<Stmt, String> {
                 return build_loop_stmt(inner);
             }
             Rule::break_stmt => {
-                return Ok(Stmt::Break);
+                let mut label = None;
+                for sub in inner.into_inner() {
+                    if sub.as_rule() == Rule::loop_label {
+                        label = Some(sub.as_str().trim_start_matches('\'').to_string());
+                    }
+                }
+                return Ok(Stmt::Break(label));
             }
             Rule::continue_stmt => {
-                return Ok(Stmt::Continue);
+                let mut label = None;
+                for sub in inner.into_inner() {
+                    if sub.as_rule() == Rule::loop_label {
+                        label = Some(sub.as_str().trim_start_matches('\'').to_string());
+                    }
+                }
+                return Ok(Stmt::Continue(label));
             }
             Rule::match_stmt => {
                 return build_match_stmt(inner);
@@ -516,12 +528,16 @@ fn build_if_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
 }
 
 fn build_for_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
+    let mut label = None;
     let mut var = String::new();
     let mut iter = Expr::Literal(Literal::Int(0));
     let mut body = Block { statements: vec![] };
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::loop_label => {
+                label = Some(inner.as_str().trim_start_matches('\'').to_string());
+            }
             Rule::identifier => {
                 var = inner.as_str().to_string();
             }
@@ -535,15 +551,19 @@ fn build_for_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
         }
     }
 
-    Ok(Stmt::For { var, iter, body })
+    Ok(Stmt::For { label, var, iter, body })
 }
 
 fn build_while_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
+    let mut label = None;
     let mut condition = Expr::Literal(Literal::Bool(true));
     let mut body = Block { statements: vec![] };
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::loop_label => {
+                label = Some(inner.as_str().trim_start_matches('\'').to_string());
+            }
             Rule::expr => {
                 condition = build_expr(inner)?;
             }
@@ -554,16 +574,24 @@ fn build_while_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
         }
     }
 
-    Ok(Stmt::While { condition, body })
+    Ok(Stmt::While { label, condition, body })
 }
 
 fn build_loop_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
+    let mut label = None;
+    let mut body = Block { statements: vec![] };
     for inner in pair.into_inner() {
-        if inner.as_rule() == Rule::block {
-            return Ok(Stmt::Loop(build_block(inner)?));
+        match inner.as_rule() {
+            Rule::loop_label => {
+                label = Some(inner.as_str().trim_start_matches('\'').to_string());
+            }
+            Rule::block => {
+                body = build_block(inner)?;
+            }
+            _ => {}
         }
     }
-    Ok(Stmt::Loop(Block { statements: vec![] }))
+    Ok(Stmt::Loop { label, body })
 }
 
 fn build_match_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {

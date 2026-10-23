@@ -175,17 +175,22 @@ pub enum Stmt {
         else_block: Option<Block>,
     },
     For {
+        label: Option<String>,
         var: String,
         iter: Expr,
         body: Block,
     },
     While {
+        label: Option<String>,
         condition: Expr,
         body: Block,
     },
-    Loop(Block),
-    Break,
-    Continue,
+    Loop {
+        label: Option<String>,
+        body: Block,
+    },
+    Break(Option<String>),
+    Continue(Option<String>),
     Match {
         expr: Expr,
         arms: Vec<MatchArm>,

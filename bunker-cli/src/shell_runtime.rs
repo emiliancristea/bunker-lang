@@ -511,7 +511,7 @@ impl<'a> Executor<'a> {
                 }
                 Ok(ControlFlow::Normal)
             }
-            ast::Stmt::For { var, iter, body } => {
+            ast::Stmt::For { var, iter, body, .. } => {
                 // Evaluate the iterator expression
                 match iter {
                     ast::Expr::Range {
@@ -582,7 +582,7 @@ impl<'a> Executor<'a> {
                 }
                 Ok(ControlFlow::Normal)
             }
-            ast::Stmt::While { condition, body } => {
+            ast::Stmt::While { condition, body, .. } => {
                 loop {
                     let cond = self.eval_expr(condition, env, queue)?.as_bool()?;
                     if !cond {
@@ -597,7 +597,7 @@ impl<'a> Executor<'a> {
                 }
                 Ok(ControlFlow::Normal)
             }
-            ast::Stmt::Loop(body) => {
+            ast::Stmt::Loop { body, .. } => {
                 loop {
                     let cf = self.exec_block_cf(body, env, queue)?;
                     match cf {
@@ -608,8 +608,8 @@ impl<'a> Executor<'a> {
                 }
                 Ok(ControlFlow::Normal)
             }
-            ast::Stmt::Break => Ok(ControlFlow::Break),
-            ast::Stmt::Continue => Ok(ControlFlow::Continue),
+            ast::Stmt::Break(_) => Ok(ControlFlow::Break),
+            ast::Stmt::Continue(_) => Ok(ControlFlow::Continue),
             ast::Stmt::Return(_) => {
                 // Return in shell agent handler - just stop the handler
                 Ok(ControlFlow::Break)

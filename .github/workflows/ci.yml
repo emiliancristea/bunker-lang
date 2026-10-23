@@ -2187,6 +2187,11 @@ jobs:
           test "$status" -eq 42
           ./bunker-cli/target/release/bunker-cli run tests/132_try_operator.bkr
 
+      - name: Run labeled loops acceptance test (JIT)
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/133_labeled_loops.bkr
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

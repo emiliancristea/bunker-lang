@@ -116,11 +116,12 @@ assign_target = { identifier ~ ("." ~ identifier | "[" ~ expr ~ "]")* }
 let_stmt = { "let" ~ identifier ~ (":" ~ type_expr)? ~ "=" ~ expr ~ ";" }
 return_stmt = { "return" ~ expr? ~ ";" }
 if_stmt = { "if" ~ expr ~ block ~ ("else" ~ (if_stmt | block))? }
-for_stmt = { "for" ~ identifier ~ "in" ~ expr ~ block }
-while_stmt = { "while" ~ expr ~ block }
-loop_stmt = { "loop" ~ block }
-break_stmt = { "break" ~ ";" }
-continue_stmt = { "continue" ~ ";" }
+loop_label = @{ "'" ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+for_stmt = { (loop_label ~ ":")? ~ "for" ~ identifier ~ "in" ~ expr ~ block }
+while_stmt = { (loop_label ~ ":")? ~ "while" ~ expr ~ block }
+loop_stmt = { (loop_label ~ ":")? ~ "loop" ~ block }
+break_stmt = { "break" ~ loop_label? ~ ";" }
+continue_stmt = { "continue" ~ loop_label? ~ ";" }
 match_stmt = { "match" ~ expr ~ "{" ~ match_arm* ~ "}" }
 match_arm = { pattern ~ match_guard? ~ "=>" ~ (expr ~ ";" | block) }
 match_guard = { "if" ~ expr }

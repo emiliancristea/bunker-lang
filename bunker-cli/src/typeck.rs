@@ -31,6 +31,8 @@ pub struct TypeChecker {
     errors: Vec<TypeError>,
     // Current function return type (for checking return statements)
     current_return_type: Option<Type>,
+    // Loop label stack for break/continue validation
+    loop_labels: Vec<Option<String>>,
     // Move tracking: variables that have been moved
     moved_vars: HashSet<String>,
     // Where each variable was moved (for error messages)
@@ -47,6 +49,7 @@ impl TypeChecker {
             enum_payloads: HashMap::new(),
             errors: Vec::new(),
             current_return_type: None,
+            loop_labels: Vec::new(),
             moved_vars: HashSet::new(),
             moved_locations: HashMap::new(),
         };
@@ -306,7 +309,7 @@ impl TypeChecker {
                 }
                 Ok(None)
             }
-            Stmt::For { var, iter, body } => {
+            Stmt::For { label, var, iter, body } => {
                 // Determine element type based on iterator expression
                 let elem_ty = match iter {
                     // Range expressions: the element type is the range bound type
@@ -333,13 +336,46 @@ impl TypeChecker {
                 let saved = self.variables.clone();
                 let saved_moved = self.moved_vars.clone();
                 self.variables.insert(var.clone(), elem_ty);
+                self.loop_labels.push(label.clone());
                 self.check_block(body, context)?;
+                self.loop_labels.pop();
                 self.variables = saved;
                 self.moved_vars = saved_moved;
                 Ok(None)
             }
-            Stmt::Loop(body) => {
+            Stmt::While { label, condition, body } => {
+                let cond_ty = self.infer_expr(condition, context)?;
+                if cond_ty != Type::Bool {
+                    self.errors.push(TypeError {
+                        message: format!("While condition must be bool, got {:?}", cond_ty),
+                        location: context.to_string(),
+                    });
+                }
+                self.loop_labels.push(label.clone());
                 self.check_block(body, context)?;
+                self.loop_labels.pop();
+                Ok(None)
+            }
+            Stmt::Loop { label, body } => {
+                self.loop_labels.push(label.clone());
+                self.check_block(body, context)?;
+                self.loop_labels.pop();
+                Ok(None)
+            }
+            Stmt::Break(label) | Stmt::Continue(label) => {
+                if self.loop_labels.is_empty() {
+                    self.errors.push(TypeError {
+                        message: "break or continue outside of loop".to_string(),
+                        location: context.to_string(),
+                    });
+                } else if let Some(target) = label {
+                    if !self.loop_labels.iter().any(|l| l.as_deref() == Some(target.as_str())) {
+                        self.errors.push(TypeError {
+                            message: format!("Undefined loop label: '{}'", target),
+                            location: context.to_string(),
+                        });
+                    }
+                }
                 Ok(None)
             }
             Stmt::Defer(body) => {
@@ -2302,7 +2338,7 @@ fn lower_stmt(stmt: &mut Stmt, enums: &HashMap<String, Vec<(String, Vec<Type>)>>
             lower_expr(value, enums);
         }
         Stmt::Return(Some(value)) => lower_expr(value, enums),
-        Stmt::Return(None) | Stmt::Break | Stmt::Continue => {}
+        Stmt::Return(None) | Stmt::Break(_) | Stmt::Continue(_) => {}
         Stmt::If {
             condition,
             then_block,
@@ -2318,11 +2354,11 @@ fn lower_stmt(stmt: &mut Stmt, enums: &HashMap<String, Vec<(String, Vec<Type>)>>
             lower_expr(iter, enums);
             lower_block(body, enums);
         }
-        Stmt::While { condition, body } => {
+        Stmt::While { condition, body, .. } => {
             lower_expr(condition, enums);
             lower_block(body, enums);
         }
-        Stmt::Loop(body) | Stmt::Defer(body) => lower_block(body, enums),
+        Stmt::Loop { body, .. } | Stmt::Defer(body) => lower_block(body, enums),
         Stmt::Match { expr, arms } => {
             lower_expr(expr, enums);
             for arm in arms {
@@ -2570,7 +2606,7 @@ fn check_shell_stmt(
                 check_shell_block(eb, agent_messages, shell_name, errors);
             }
         }
-        ast::Stmt::For { body, .. } | ast::Stmt::While { body, .. } | ast::Stmt::Loop(body) => {
+        ast::Stmt::For { body, .. } | ast::Stmt::While { body, .. } | ast::Stmt::Loop { body, .. } => {
             check_shell_block(body, agent_messages, shell_name, errors);
         }
         ast::Stmt::Match { arms, .. } => {

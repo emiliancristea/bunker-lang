@@ -111,6 +111,7 @@ $expectedResults = @{
     "130_tuple_types" = 42
     "131_struct_destructuring" = 42
     "132_try_operator" = 42
+    "133_labeled_loops" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
