@@ -765,6 +765,7 @@ fn collect_places_in_expr(expr: &ast::Expr, out: &mut HashSet<String>) {
             collect_places_in_expr(left, out);
             collect_places_in_expr(right, out);
         }
+        ast::Expr::Try(expr) => collect_places_in_expr(expr, out),
         ast::Expr::Unary { expr, .. } => collect_places_in_expr(expr, out),
         ast::Expr::Call { func, args } => {
             collect_places_in_expr(func, out);

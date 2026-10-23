@@ -182,6 +182,12 @@ impl ComptimeEvaluator {
                             for (name, val) in bindings {
                                 arm_env.insert(name, val);
                             }
+                            if let Some(guard) = &arm.guard {
+                                let guard_val = self.eval_expr(guard, &arm_env, depth)?;
+                                if !matches!(guard_val, ComptimeValue::Bool(true)) {
+                                    continue;
+                                }
+                            }
                             match &arm.body {
                                 ast::MatchBody::Expr(e) => {
                                     result = self.eval_expr(e, &arm_env, depth)?;
@@ -327,6 +333,7 @@ impl ComptimeEvaluator {
         depth: usize,
     ) -> Result<ComptimeValue> {
         match expr {
+            Expr::Unit => Ok(ComptimeValue::Int(0)),
             Expr::Literal(lit) => Ok(match lit {
                 Literal::Int(n) => ComptimeValue::Int(*n),
                 Literal::Float(f) => ComptimeValue::Float(*f),
@@ -382,6 +389,14 @@ impl ComptimeEvaluator {
                 let val = self.eval_expr(inner, env, depth)?;
                 Ok(ComptimeValue::Some(Box::new(val)))
             }
+            Expr::Try(inner) => {
+                let val = self.eval_expr(inner, env, depth)?;
+                match val {
+                    ComptimeValue::Some(inner_val) => Ok(*inner_val),
+                    ComptimeValue::None => Err(anyhow!("? operator on None in comptime")),
+                    _ => Ok(val),
+                }
+            }
             Expr::None => Ok(ComptimeValue::None),
             Expr::Match { expr, arms } => {
                 let value = self.eval_expr(expr, env, depth)?;
@@ -390,6 +405,12 @@ impl ComptimeEvaluator {
                         let mut arm_env = env.clone();
                         for (name, val) in bindings {
                             arm_env.insert(name, val);
+                        }
+                        if let Some(guard) = &arm.guard {
+                            let guard_val = self.eval_expr(guard, &arm_env, depth)?;
+                            if !matches!(guard_val, ComptimeValue::Bool(true)) {
+                                continue;
+                            }
                         }
                         return match &arm.body {
                             ast::MatchBody::Expr(e) => self.eval_expr(e, &arm_env, depth),
@@ -513,6 +534,9 @@ impl ComptimeEvaluator {
         value: &ComptimeValue,
     ) -> Option<HashMap<String, ComptimeValue>> {
         let mut bindings = HashMap::new();
+        if matches!(pattern, ast::Pattern::Unit) {
+            return Some(bindings);
+        }
         match (pattern, value) {
             (ast::Pattern::Literal(lit), val) => {
                 let pat_val = match lit {
@@ -544,6 +568,8 @@ impl ComptimeEvaluator {
             (ast::Pattern::None, ComptimeValue::None) => Some(bindings),
             (ast::Pattern::EnumVariant { .. }, _) => None,
             (ast::Pattern::EnumPayload { .. }, _) => None,
+            (ast::Pattern::ResultOk(_), _) => None,
+            (ast::Pattern::ResultErr(_), _) => None,
             _ => None,
         }
     }
@@ -664,6 +690,9 @@ fn fold_stmt(stmt: &mut Stmt, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
         Stmt::Match { expr, arms } => {
             fold_expr(expr, eval, stats);
             for arm in arms {
+                if let Some(guard) = &mut arm.guard {
+                    fold_expr(guard, eval, stats);
+                }
                 match &mut arm.body {
                     ast::MatchBody::Expr(e) => fold_expr(e, eval, stats),
                     ast::MatchBody::Block(b) => fold_block(b, eval, stats),
@@ -731,6 +760,9 @@ fn fold_expr(expr: &mut Expr, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
         Expr::Match { expr: inner, arms } => {
             fold_expr(inner, eval, stats);
             for arm in arms {
+                if let Some(guard) = &mut arm.guard {
+                    fold_expr(guard, eval, stats);
+                }
                 match &mut arm.body {
                     ast::MatchBody::Expr(e) => fold_expr(e, eval, stats),
                     ast::MatchBody::Block(b) => fold_block(b, eval, stats),
@@ -739,6 +771,11 @@ fn fold_expr(expr: &mut Expr, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
         }
         Expr::Block(block) => {
             fold_block(block, eval, stats);
+        }
+        Expr::Tuple(items) => {
+            for item in items {
+                fold_expr(item, eval, stats);
+            }
         }
         Expr::Array(items) => {
             for item in items {
@@ -774,11 +811,14 @@ fn fold_expr(expr: &mut Expr, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
             fold_expr(start, eval, stats);
             fold_expr(end, eval, stats);
         }
-        Expr::Cast { expr: inner, .. } => {
-            fold_expr(inner, eval, stats);
+        Expr::Try(inner) => {
+            fold_expr(inner, eval, stats);
+        }
+        Expr::Cast { expr: inner, .. } => {
+            fold_expr(inner, eval, stats);
         }
         // Terminals - no children to fold
-        Expr::Literal(_) | Expr::Ident(_) | Expr::None => {}
+        Expr::Unit | Expr::Literal(_) | Expr::Ident(_) | Expr::None => {}
     }
 
     // Now try to fold this expression if it's a comptime fn call

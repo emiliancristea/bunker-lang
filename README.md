@@ -2,6 +2,12 @@
 
 **The first systems programming language designed for human-AI collaborative development.**
 
+> **Division assignment: OPEN.** Under the BUNKER <-> XENO boundary
+> (`bunker-app/BUNKER-XENO-BOUNDARY.md`, open item 1), this repo is undecided. A language is
+> arguably foundational substrate (Bunker) *and* arguably developer tooling (XENO, alongside
+> Agent CLI and XENO Index). It currently sits in the Bunker tree. **Do not assume either
+> owner** until the call is made.
+
 ```
 ┌─────────────────────────────────────────────────────┐
 │                    VIEW LAYER                        │

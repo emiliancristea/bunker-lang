@@ -22,6 +22,9 @@
         if kind == NodeKind.Continue { return "continue"; }
         if kind == NodeKind.For { return "for"; }
         if kind == NodeKind.Loop { return "loop"; }
+        if kind == NodeKind.Defer { return "defer"; }
+        if kind == NodeKind.ArrayRepeat || kind == NodeKind.Try { return "array repeat"; }
+        if kind == NodeKind.Try { return "try"; }
         if kind == NodeKind.Binary { return "binary expression"; }
         if kind == NodeKind.Unary { return "unary expression"; }
         if kind == NodeKind.Call { return "call expression"; }
@@ -67,6 +70,7 @@
         if kind == TokenKind.Return { return "return"; }
         if kind == TokenKind.Match { return "match"; }
         if kind == TokenKind.Const { return "const"; }
+        if kind == TokenKind.Defer { return "defer"; }
         if kind == TokenKind.I32 { return "i32"; }
         if kind == TokenKind.I64 { return "i64"; }
         if kind == TokenKind.F64 { return "f64"; }
@@ -142,6 +146,8 @@
         if kind == PatternKind.Some { return "Some pattern"; }
         if kind == PatternKind.None { return "None pattern"; }
         if kind == PatternKind.EnumVariant { return "enum variant pattern"; }
+        if kind == PatternKind.ResultOk { return "Result.Ok pattern"; }
+        if kind == PatternKind.ResultErr { return "Result.Err pattern"; }
         return "pattern " + int_to_string(kind);
     }
 
@@ -160,14 +166,14 @@
         }
         if kind == NodeKind.Block || kind == NodeKind.Let || kind == NodeKind.Return || kind == NodeKind.If ||
            kind == NodeKind.While || kind == NodeKind.ExprStmt || kind == NodeKind.Assign ||
-           kind == NodeKind.Break || kind == NodeKind.Continue || kind == NodeKind.For || kind == NodeKind.Loop {
+           kind == NodeKind.Break || kind == NodeKind.Continue || kind == NodeKind.For || kind == NodeKind.Loop || kind == NodeKind.Defer {
             return AST_CAT_STMT;
         }
         if kind == NodeKind.Binary || kind == NodeKind.Unary || kind == NodeKind.Call || kind == NodeKind.Ident ||
            kind == NodeKind.IntLit || kind == NodeKind.BoolLit || kind == NodeKind.StrLit ||
            kind == NodeKind.Ternary || kind == NodeKind.FloatLit || kind == NodeKind.ArrayLit ||
            kind == NodeKind.Index || kind == NodeKind.FieldAccess || kind == NodeKind.StructLit ||
-           kind == NodeKind.Match {
+           kind == NodeKind.Match || kind == NodeKind.ArrayRepeat {
             return AST_CAT_EXPR;
         }
         if kind == NodeKind.TypeTag {

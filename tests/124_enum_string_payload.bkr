@@ -1,0 +1,21 @@
+// Test 124: Enum variant string and pointer-safe payload
+// Purpose: Construct and match an enum variant carrying a string payload.
+// Expected: Result: 42
+
+kernel EnumStringPayload {
+    enum Token {
+        Ident(str),
+        Number(i32),
+        Eof,
+    }
+
+    fn main() -> i32 {
+        let tok: Token = Token.Ident("forty-two");
+        let result: i32 = match tok {
+            Token.Ident(s) => strlen(s) as i32 + 33;
+            Token.Number(n) => n;
+            Token.Eof => 0;
+        };
+        return result;
+    }
+}

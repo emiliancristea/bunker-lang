@@ -525,6 +525,21 @@ static TYPECHECK_BUILTINS: &[TypecheckBuiltinSpec] = &[
         }],
         return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
     },
+    TypecheckBuiltinSpec {
+        name: "args_count",
+        arity_error: "args_count expects 0 arguments",
+        params: &[],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "arg_at",
+        arity_error: "arg_at expects 1 argument (index)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Integer,
+            type_error: "arg_at argument 1 must be i64 or i32",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
+    },
 ];
 
 static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
@@ -542,6 +557,16 @@ static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
         name: "file_exists",
         params: &[RuntimeBuiltinType::Str],
         return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "args_count",
+        params: &[],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "arg_at",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::Str),
     },
     RuntimeBuiltinSpec {
         name: "char_at",

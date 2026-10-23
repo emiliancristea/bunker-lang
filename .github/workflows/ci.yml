@@ -2004,6 +2004,189 @@ jobs:
           echo "122_enum_multi_payload_match exited $status, expected 42"
           test "$status" -eq 42
 
+      - name: Compile 123_enum_payload_nonexhaustive_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/123_enum_payload_nonexhaustive_BAD.bkr \
+            -o /tmp/123_enum_payload_nonexhaustive_BAD.c
+          test -s /tmp/123_enum_payload_nonexhaustive_BAD.c
+          ! grep -q "Parse error" /tmp/123_enum_payload_nonexhaustive_BAD.c
+          grep -q "BUNKER_TYPECHECK_JSON" /tmp/123_enum_payload_nonexhaustive_BAD.c
+          grep -q '"kind":"non_exhaustive_match"' /tmp/123_enum_payload_nonexhaustive_BAD.c
+          grep -q "BKR_SELF_EXHAUSTIVENESS" /tmp/123_enum_payload_nonexhaustive_BAD.c
+          grep -q "missing Pair.Empty" /tmp/123_enum_payload_nonexhaustive_BAD.c
+          grep -q '"enum_match_exhaustiveness_checks":true' /tmp/123_enum_payload_nonexhaustive_BAD.c
+
+      - name: Compile and run enum string payload fixture
+        timeout-minutes: 2
+        run: |
+          grep -q 'bkr_enum_payload1' self-host/runtime.h
+          grep -q 'bkr_enum_tag' self-host/runtime.h
+          grep -q 'bkr_enum_field' self-host/runtime.h
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/124_enum_string_payload.bkr \
+            -o /tmp/124_enum_string_payload.c
+          test -s /tmp/124_enum_string_payload.c
+          ! grep -q "Parse error" /tmp/124_enum_string_payload.c
+          grep -q "bkr_enum_payload1" /tmp/124_enum_string_payload.c
+          grep -q "bkr_enum_tag" /tmp/124_enum_string_payload.c
+          grep -q "bkr_enum_field" /tmp/124_enum_string_payload.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/124_enum_string_payload.c -o /tmp/124_enum_string_payload
+          set +e
+          timeout --kill-after=5s 60s /tmp/124_enum_string_payload
+          status=$?
+          set -e
+          echo "124_enum_string_payload exited $status, expected 42"
+          test "$status" -eq 42
+
+      - name: Compile and run canonical Result & Option enum fixture (125)
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/125_result_option_canonical_enum.bkr \
+            -o /tmp/125_result_option_canonical_enum.c
+          test -s /tmp/125_result_option_canonical_enum.c
+          ! grep -q "Parse error" /tmp/125_result_option_canonical_enum.c
+          grep -q "bkr_result_is_ok" /tmp/125_result_option_canonical_enum.c
+          grep -q "bkr_result_is_err" /tmp/125_result_option_canonical_enum.c
+          grep -q "bkr_result_unwrap" /tmp/125_result_option_canonical_enum.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/125_result_option_canonical_enum.c -o /tmp/125_result_option_canonical_enum
+          set +e
+          timeout --kill-after=5s 60s /tmp/125_result_option_canonical_enum
+          status=$?
+          set -e
+          echo "125_result_option_canonical_enum exited $status, expected 42"
+          test "$status" -eq 42
+          ./bunker-cli/target/release/bunker-cli run tests/125_result_option_canonical_enum.bkr
+
+      - name: Compile 126_result_match_nonexhaustive_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/126_result_match_nonexhaustive_BAD.bkr \
+            -o /tmp/126_result_match_nonexhaustive_BAD.c
+          test -s /tmp/126_result_match_nonexhaustive_BAD.c
+          ! grep -q "Parse error" /tmp/126_result_match_nonexhaustive_BAD.c
+          grep -q "BUNKER_TYPECHECK_JSON" /tmp/126_result_match_nonexhaustive_BAD.c
+          grep -q '"kind":"non_exhaustive_match"' /tmp/126_result_match_nonexhaustive_BAD.c
+          grep -q "BKR_SELF_EXHAUSTIVENESS" /tmp/126_result_match_nonexhaustive_BAD.c
+          grep -q "missing Err" /tmp/126_result_match_nonexhaustive_BAD.c
+          grep -q '"result_match_exhaustiveness_checks":true' /tmp/126_result_match_nonexhaustive_BAD.c
+
+      - name: Compile and run process arguments driver fixture (127)
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/127_cli_args_driver.bkr \
+            -o /tmp/127_cli_args_driver.c
+          test -s /tmp/127_cli_args_driver.c
+          ! grep -q "Parse error" /tmp/127_cli_args_driver.c
+          grep -q "bkr_init_args" /tmp/127_cli_args_driver.c
+          grep -q "bkr_args_count" /tmp/127_cli_args_driver.c
+          grep -q "bkr_arg_at" /tmp/127_cli_args_driver.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/127_cli_args_driver.c -o /tmp/127_cli_args_driver
+          set +e
+          timeout --kill-after=5s 60s /tmp/127_cli_args_driver hello world
+          status=$?
+          set -e
+          echo "127_cli_args_driver exited $status, expected 42"
+          test "$status" -eq 42
+          ./bunker-cli/target/release/bunker-cli run tests/127_cli_args_driver.bkr
+
+      - name: Compile and run match guards fixture (128)
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/128_match_guard.bkr \
+            -o /tmp/128_match_guard.c
+          test -s /tmp/128_match_guard.c
+          ! grep -q "Parse error" /tmp/128_match_guard.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/128_match_guard.c -o /tmp/128_match_guard
+          set +e
+          timeout --kill-after=5s 60s /tmp/128_match_guard
+          status=$?
+          set -e
+          echo "128_match_guard exited $status, expected 42"
+          test "$status" -eq 42
+          ./bunker-cli/target/release/bunker-cli run tests/128_match_guard.bkr
+
+      - name: Compile and run unit type fixture (129)
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/129_unit_type.bkr \
+            -o /tmp/129_unit_type.c
+          test -s /tmp/129_unit_type.c
+          ! grep -q "Parse error" /tmp/129_unit_type.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/129_unit_type.c -o /tmp/129_unit_type
+          set +e
+          timeout --kill-after=5s 60s /tmp/129_unit_type
+          status=$?
+          set -e
+          echo "129_unit_type exited $status, expected 42"
+          test "$status" -eq 42
+          ./bunker-cli/target/release/bunker-cli run tests/129_unit_type.bkr
+
+      - name: Compile and run tuple types acceptance test
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/130_tuple_types.bkr \
+            -o /tmp/130_tuple_types.c
+          test -s /tmp/130_tuple_types.c
+          ! grep -q "Parse error" /tmp/130_tuple_types.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/130_tuple_types.c -o /tmp/130_tuple_types
+          set +e
+          timeout --kill-after=5s 60s /tmp/130_tuple_types
+          status=$?
+          set -e
+          echo "130_tuple_types exited $status, expected 42"
+          test "$status" -eq 42
+          ./bunker-cli/target/release/bunker-cli run tests/130_tuple_types.bkr
+
+      - name: Compile and run struct destructuring acceptance test
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/131_struct_destructuring.bkr \
+            -o /tmp/131_struct_destructuring.c
+          test -s /tmp/131_struct_destructuring.c
+          ! grep -q "Parse error" /tmp/131_struct_destructuring.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/131_struct_destructuring.c -o /tmp/131_struct_destructuring
+          set +e
+          timeout --kill-after=5s 60s /tmp/131_struct_destructuring
+          status=$?
+          set -e
+          echo "131_struct_destructuring exited $status, expected 42"
+          test "$status" -eq 42
+          ./bunker-cli/target/release/bunker-cli run tests/131_struct_destructuring.bkr
+
+      - name: Compile and run try operator acceptance test
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/132_try_operator.bkr \
+            -o /tmp/132_try_operator.c
+          test -s /tmp/132_try_operator.c
+          ! grep -q "Parse error" /tmp/132_try_operator.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/132_try_operator.c -o /tmp/132_try_operator
+          set +e
+          timeout --kill-after=5s 60s /tmp/132_try_operator
+          status=$?
+          set -e
+          echo "132_try_operator exited $status, expected 42"
+          test "$status" -eq 42
+          ./bunker-cli/target/release/bunker-cli run tests/132_try_operator.bkr
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |
@@ -2061,6 +2244,27 @@ jobs:
           status=$?
           set -e
           echo "01_basic_math exited $status, expected 42"
+          test "$status" -eq 42
+
+      - name: Compile and run arena memory fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/02_arena_memory.bkr \
+            -o /tmp/02_arena_memory.c
+          test -s /tmp/02_arena_memory.c
+          ! grep -q "Parse error" /tmp/02_arena_memory.c
+          grep -q "int main(int argc, char" /tmp/02_arena_memory.c
+          grep -q "bkr_log" /tmp/02_arena_memory.c
+          cp self-host/runtime.h /tmp/runtime.h
+          cc -std=c11 /tmp/02_arena_memory.c -o /tmp/02_arena_memory
+          set +e
+          out=$(timeout --kill-after=5s 60s /tmp/02_arena_memory)
+          status=$?
+          set -e
+          echo "$out"
+          echo "$out" | grep -q "Buffer freed"
+          echo "02_arena_memory exited $status, expected 42"
           test "$status" -eq 42
 
       - name: Check self-host resolver diagnostics
@@ -2273,6 +2477,18 @@ jobs:
           echo "[self-host smoke] build stage1 bkrc"
           cc -std=c11 /tmp/bkrc.c -o /tmp/bkrc
 
+          echo "[self-host smoke] test direct CLI driver with arguments: bkrc input.bkr -o output.c"
+          /tmp/bkrc tests/01_basic_math.bkr -o /tmp/direct_cli_basic_math.c
+          test -s /tmp/direct_cli_basic_math.c
+          ! grep -q "Parse error" /tmp/direct_cli_basic_math.c
+          cc -std=c11 /tmp/direct_cli_basic_math.c -o /tmp/direct_cli_basic_math
+          set +e
+          /tmp/direct_cli_basic_math
+          direct_math_status=$?
+          set -e
+          echo "direct_cli_basic_math exited $direct_math_status, expected 42"
+          test "$direct_math_status" -eq 42
+
           run_invalid_bkrc_fixture() {
             compiler="$1"
             name="$2"
@@ -2308,9 +2524,8 @@ jobs:
             expected_status="$3"
             run_dir="/tmp/bkrc-run-$name"
             mkdir -p "$run_dir"
-            cp "$fixture" "$run_dir/self_host_input.bkr"
             set +e
-            (cd "$run_dir" && timeout --kill-after=5s 60s /tmp/bkrc)
+            timeout --kill-after=5s 60s /tmp/bkrc "$fixture" -o "$run_dir/self_host_output.c"
             bkrc_status=$?
             set -e
             test "$bkrc_status" -eq 42
@@ -2345,6 +2560,7 @@ jobs:
 
           echo "[self-host smoke] run stage1 generated fixtures"
           run_generated_bkrc_fixture tests/01_basic_math.bkr basic 42
+          run_generated_bkrc_fixture tests/02_arena_memory.bkr arena_memory 42
           run_generated_bkrc_fixture tests/14_kernel_if_branching.bkr branching 42
           run_generated_bkrc_fixture tests/16_kernel_match_block_expr.bkr match_block 12
           run_generated_bkrc_fixture tests/19_kernel_match_binding.bkr match_binding 7
@@ -2394,11 +2610,11 @@ jobs:
           self_compile_dir="/tmp/bkrc-self"
           mkdir -p "$self_compile_dir"
           mkdir -p "$self_compile_dir/modules"
-          cp self-host/bkrc.bkr "$self_compile_dir/self_host_input.bkr"
+          cp self-host/bkrc.bkr "$self_compile_dir/bkrc.bkr"
           cp self-host/modules/*.bkr "$self_compile_dir/modules/"
-          echo "[self-host smoke] stage2 compile bkrc with generated bkrc"
+          echo "[self-host smoke] stage2 compile bkrc with generated bkrc via CLI"
           set +e
-          (cd "$self_compile_dir" && timeout --kill-after=5s 600s /tmp/bkrc)
+          timeout --kill-after=5s 600s /tmp/bkrc "$self_compile_dir/bkrc.bkr" -o "$self_compile_dir/self_host_output.c"
           bkrc_self_status=$?
           set -e
           echo "generated bkrc self-compile exited $bkrc_self_status, expected 42"
@@ -2419,9 +2635,8 @@ jobs:
             expected_status="$3"
             run_dir="/tmp/bkrc2-run-$name"
             mkdir -p "$run_dir"
-            cp "$fixture" "$run_dir/self_host_input.bkr"
             set +e
-            (cd "$run_dir" && timeout --kill-after=5s 60s "$self_compile_dir/bkrc2")
+            timeout --kill-after=5s 60s "$self_compile_dir/bkrc2" "$fixture" -o "$run_dir/self_host_output.c"
             bkrc_status=$?
             set -e
             test "$bkrc_status" -eq 42
@@ -2453,6 +2668,7 @@ jobs:
 
           echo "[self-host smoke] run stage2 generated fixtures"
           run_stage2_bkrc_fixture tests/01_basic_math.bkr basic 42
+          run_stage2_bkrc_fixture tests/02_arena_memory.bkr arena_memory 42
           run_stage2_bkrc_fixture tests/14_kernel_if_branching.bkr branching 42
           run_stage2_bkrc_fixture tests/16_kernel_match_block_expr.bkr match_block 12
           run_stage2_bkrc_fixture tests/19_kernel_match_binding.bkr match_binding 7
@@ -2516,9 +2732,8 @@ jobs:
             expected_result="$4"
             run_dir="$5"
             mkdir -p "$run_dir"
-            cp "$fixture" "$run_dir/self_host_input.bkr"
             set +e
-            (cd "$run_dir" && timeout --kill-after=5s 60s "$compiler")
+            timeout --kill-after=5s 60s "$compiler" "$fixture" -o "$run_dir/self_host_output.c"
             bkrc_status=$?
             set -e
             test "$bkrc_status" -eq 42

@@ -202,6 +202,7 @@ pub enum Stmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct MatchArm {
     pub pattern: Pattern,
+    pub guard: Option<Expr>,
     pub body: MatchBody,
 }
 
@@ -214,6 +215,12 @@ pub enum MatchBody {
 #[derive(Debug, Clone, PartialEq)]
 #[allow(dead_code)]
 pub enum Pattern {
+    Unit,
+    Tuple(Vec<Pattern>),
+    Struct {
+        name: String,
+        fields: Vec<(String, Pattern)>,
+    },
     Some(String),
     None,
     Bool(bool),
@@ -227,7 +234,10 @@ pub enum Pattern {
     EnumPayload {
         tag: i64,
         bindings: Vec<String>,
+        types: Vec<Type>,
     },
+    ResultOk(String),
+    ResultErr(String),
 }
 
 // ====================
@@ -236,6 +246,8 @@ pub enum Pattern {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    Unit,
+    Tuple(Vec<Expr>),
     Literal(Literal),
     Ident(String),
     Binary {
@@ -301,6 +313,8 @@ pub enum Expr {
         expr: Box<Expr>,
         target_type: Type,
     },
+    /// Postfix try operator: expr?
+    Try(Box<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -348,6 +362,8 @@ pub enum UnaryOp {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
+    Unit,
+    Tuple(Vec<Type>),
     I32,
     I64,
     F32,

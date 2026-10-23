@@ -17,6 +17,7 @@ $bunker = ".\bunker-cli\target\release\bunker-cli.exe"
 # Expected results for JIT Kernel tests (main() return values - integers)
 $expectedResults = @{
     "01_basic_math" = 42
+    "02_arena_memory" = 42
     "14_kernel_if_branching" = 42
     "15_kernel_defer_return" = 11
     "16_kernel_match_block_expr" = 12
@@ -102,6 +103,14 @@ $expectedResults = @{
     "120_enum_multi_payload_decl" = 42
     "121_enum_multi_payload_ctor" = 42
     "122_enum_multi_payload_match" = 42
+    "124_enum_string_payload" = 42
+    "125_result_option_canonical_enum" = 42
+    "127_cli_args_driver" = 42
+    "128_match_guard" = 42
+    "129_unit_type" = 42
+    "130_tuple_types" = 42
+    "131_struct_destructuring" = 42
+    "132_try_operator" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -300,7 +309,8 @@ if (-not $JitOnly) {
         "tests\119_enum_payload_match.bkr",
         "tests\120_enum_multi_payload_decl.bkr",
         "tests\121_enum_multi_payload_ctor.bkr",
-        "tests\122_enum_multi_payload_match.bkr"
+        "tests\122_enum_multi_payload_match.bkr",
+        "tests\124_enum_string_payload.bkr"
     )
 
     $subsetOk = $true

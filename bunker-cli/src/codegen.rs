@@ -145,7 +145,9 @@ impl Compiler {
         }
 
         if let Some(ref ret_ty) = func.return_type {
-            sig.returns.push(AbiParam::new(convert_ast_type(ret_ty)));
+            if *ret_ty != ast::Type::Unit {
+                sig.returns.push(AbiParam::new(convert_ast_type(ret_ty)));
+            }
         }
 
         let linkage = if func.name == "main" {
@@ -227,7 +229,13 @@ impl Compiler {
 
             // Add fallback return if needed (only if no explicit return was emitted)
             if !returned {
-                builder.ins().return_(&[]);
+                if builder.func.signature.returns.is_empty() {
+                    builder.ins().return_(&[]);
+                } else {
+                    let ret_ty = builder.func.signature.returns[0].value_type;
+                    let default_ret = zero_value(&mut builder, ret_ty);
+                    builder.ins().return_(&[default_ret]);
+                }
             }
 
             // Seal all blocks at once
@@ -951,6 +959,81 @@ fn compile_stmt_inline(
                             local_types.insert(name.clone(), inner.as_ref().clone());
                         }
                     }
+                    ast::Pattern::ResultOk(name) if name != "_" => {
+                        if let ast::Type::Result(ok_ty, _) = &match_expr_ty {
+                            let var = Variable::new(*var_index as usize);
+                            *var_index += 1;
+                            let cr_ty = convert_ast_type(ok_ty);
+                            builder.declare_var(var, cr_ty);
+                            let loaded =
+                                builder.ins().load(cr_ty, MemFlags::new(), match_val, 8);
+                            builder.def_var(var, loaded);
+                            local_vars.insert(name.clone(), var);
+                            local_types.insert(name.clone(), ok_ty.as_ref().clone());
+                        }
+                    }
+                    ast::Pattern::ResultErr(name) if name != "_" => {
+                        if let ast::Type::Result(_, err_ty) = &match_expr_ty {
+                            let var = Variable::new(*var_index as usize);
+                            *var_index += 1;
+                            let cr_ty = convert_ast_type(err_ty);
+                            builder.declare_var(var, cr_ty);
+                            let loaded =
+                                builder.ins().load(cr_ty, MemFlags::new(), match_val, 8);
+                            builder.def_var(var, loaded);
+                            local_vars.insert(name.clone(), var);
+                            local_types.insert(name.clone(), err_ty.as_ref().clone());
+                        }
+                    }
+                    ast::Pattern::Tuple(sub_pats) => {
+                        let ptr = cast_value(builder, match_val, types::I64);
+                        for (i, sub_pat) in sub_pats.iter().enumerate() {
+                            if let ast::Pattern::Ident(name) = sub_pat {
+                                if name != "_" {
+                                    let elem_ty = if let ast::Type::Tuple(elem_tys) = &match_expr_ty {
+                                        elem_tys.get(i).cloned().unwrap_or(ast::Type::I64)
+                                    } else {
+                                        ast::Type::I64
+                                    };
+                                    let cr_ty = convert_ast_type(&elem_ty);
+                                    let var = Variable::new(*var_index as usize);
+                                    *var_index += 1;
+                                    builder.declare_var(var, cr_ty);
+                                    let offset = (i * 8) as i32;
+                                    let loaded = builder.ins().load(cr_ty, MemFlags::new(), ptr, offset);
+                                    builder.def_var(var, loaded);
+                                    local_vars.insert(name.clone(), var);
+                                    local_types.insert(name.clone(), elem_ty);
+                                }
+                            }
+                        }
+                    }
+                    ast::Pattern::Struct { name, fields } => {
+                        let ptr = cast_value(builder, match_val, types::I64);
+                        if let Some(layout) = structs.get(name) {
+                            for (field_name, sub_pat) in fields {
+                                if let ast::Pattern::Ident(bind_name) = sub_pat {
+                                    if bind_name != "_" {
+                                        if let Some((offset, field_ty)) = layout
+                                            .fields
+                                            .iter()
+                                            .find(|(n, _, _)| n == field_name)
+                                            .map(|(_, o, t)| (*o, t.clone()))
+                                        {
+                                            let cr_ty = convert_ast_type(&field_ty);
+                                            let var = Variable::new(*var_index as usize);
+                                            *var_index += 1;
+                                            builder.declare_var(var, cr_ty);
+                                            let loaded = builder.ins().load(cr_ty, MemFlags::new(), ptr, offset as i32);
+                                            builder.def_var(var, loaded);
+                                            local_vars.insert(bind_name.clone(), var);
+                                            local_types.insert(bind_name.clone(), field_ty);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     ast::Pattern::EnumPayload { bindings, .. } => {
                         bind_enum_payload_fields(
                             builder,
@@ -1031,20 +1114,34 @@ fn compile_stmt_inline(
                 )?;
                 if let Some(ret) = builder.func.signature.returns.first() {
                     val = cast_value(builder, val, ret.value_type);
+                    emit_defer_stack(
+                        builder,
+                        module,
+                        alloc_func,
+                        functions,
+                        structs,
+                        fn_sigs,
+                        variables,
+                        var_types,
+                        var_index,
+                        defer_stack,
+                    )?;
+                    builder.ins().return_(&[val]);
+                } else {
+                    emit_defer_stack(
+                        builder,
+                        module,
+                        alloc_func,
+                        functions,
+                        structs,
+                        fn_sigs,
+                        variables,
+                        var_types,
+                        var_index,
+                        defer_stack,
+                    )?;
+                    builder.ins().return_(&[]);
                 }
-                emit_defer_stack(
-                    builder,
-                    module,
-                    alloc_func,
-                    functions,
-                    structs,
-                    fn_sigs,
-                    variables,
-                    var_types,
-                    var_index,
-                    defer_stack,
-                )?;
-                builder.ins().return_(&[val]);
             } else {
                 emit_defer_stack(
                     builder,
@@ -1379,6 +1476,19 @@ fn compile_pattern_cond(
         ast::Pattern::Some(_) => {
             let val = cast_value(builder, value, types::I64);
             Ok(builder.ins().icmp_imm(IntCC::NotEqual, val, 0))
+        }
+        ast::Pattern::Unit => Ok(builder.ins().iconst(types::I8, 1)),
+        ast::Pattern::Tuple(_) => Ok(builder.ins().iconst(types::I8, 1)),
+        ast::Pattern::Struct { .. } => Ok(builder.ins().iconst(types::I8, 1)),
+        ast::Pattern::ResultOk(_) => {
+            let ptr = cast_value(builder, value, types::I64);
+            let tag = builder.ins().load(types::I64, MemFlags::new(), ptr, 0);
+            Ok(builder.ins().icmp_imm(IntCC::Equal, tag, 0))
+        }
+        ast::Pattern::ResultErr(_) => {
+            let ptr = cast_value(builder, value, types::I64);
+            let tag = builder.ins().load(types::I64, MemFlags::new(), ptr, 0);
+            Ok(builder.ins().icmp_imm(IntCC::Equal, tag, 1))
         }
         ast::Pattern::None => {
             let val = cast_value(builder, value, types::I64);
@@ -1817,42 +1927,28 @@ fn compile_expr_inline(
             builder.append_block_param(merge_bb, result_ty);
             let default_bb = builder.create_block();
 
-            let mut arm_blocks = Vec::new();
-            for arm in arms {
-                let block = builder.create_block();
-                arm_blocks.push((arm, block));
-            }
+            let parent_vars = variables.clone();
+            let parent_types = var_types.clone();
 
-            for (i, (arm, arm_bb)) in arm_blocks.iter().enumerate() {
+            for (i, arm) in arms.iter().enumerate() {
+                let is_last = i == arms.len() - 1;
+                let fallthrough_bb = if is_last {
+                    default_bb
+                } else {
+                    builder.create_block()
+                };
+
                 let cond = if pattern_is_wildcard(&arm.pattern) {
                     builder.ins().iconst(types::I8, 1)
                 } else {
                     compile_pattern_cond(builder, match_val, &arm.pattern)?
                 };
-                let is_last = i == arm_blocks.len() - 1;
-                let fallthrough = if is_last {
-                    default_bb
-                } else {
-                    builder.create_block()
-                };
-                builder.ins().brif(cond, *arm_bb, &[], fallthrough, &[]);
-                if !is_last {
-                    builder.switch_to_block(fallthrough);
-                    builder.seal_block(fallthrough);
-                }
-            }
 
-            builder.switch_to_block(default_bb);
-            builder.seal_block(default_bb);
-            let default_val = zero_value(builder, result_ty);
-            builder.ins().jump(merge_bb, &[default_val]);
+                let matched_bb = builder.create_block();
+                builder.ins().brif(cond, matched_bb, &[], fallthrough_bb, &[]);
+                builder.switch_to_block(matched_bb);
+                builder.seal_block(matched_bb);
 
-            let parent_vars = variables.clone();
-            let parent_types = var_types.clone();
-
-            for (arm, arm_bb) in arm_blocks {
-                builder.switch_to_block(arm_bb);
-                builder.seal_block(arm_bb);
                 let mut local_vars = parent_vars.clone();
                 let mut local_types = parent_types.clone();
 
@@ -1880,6 +1976,81 @@ fn compile_expr_inline(
                             local_types.insert(name.clone(), inner.as_ref().clone());
                         }
                     }
+                    ast::Pattern::ResultOk(name) if name != "_" => {
+                        if let ast::Type::Result(ok_ty, _) = &match_expr_ty {
+                            let var = Variable::new(*var_index as usize);
+                            *var_index += 1;
+                            let cr_ty = convert_ast_type(ok_ty);
+                            builder.declare_var(var, cr_ty);
+                            let loaded =
+                                builder.ins().load(cr_ty, MemFlags::new(), match_val, 8);
+                            builder.def_var(var, loaded);
+                            local_vars.insert(name.clone(), var);
+                            local_types.insert(name.clone(), ok_ty.as_ref().clone());
+                        }
+                    }
+                    ast::Pattern::ResultErr(name) if name != "_" => {
+                        if let ast::Type::Result(_, err_ty) = &match_expr_ty {
+                            let var = Variable::new(*var_index as usize);
+                            *var_index += 1;
+                            let cr_ty = convert_ast_type(err_ty);
+                            builder.declare_var(var, cr_ty);
+                            let loaded =
+                                builder.ins().load(cr_ty, MemFlags::new(), match_val, 8);
+                            builder.def_var(var, loaded);
+                            local_vars.insert(name.clone(), var);
+                            local_types.insert(name.clone(), err_ty.as_ref().clone());
+                        }
+                    }
+                    ast::Pattern::Tuple(sub_pats) => {
+                        let ptr = cast_value(builder, match_val, types::I64);
+                        for (i, sub_pat) in sub_pats.iter().enumerate() {
+                            if let ast::Pattern::Ident(name) = sub_pat {
+                                if name != "_" {
+                                    let elem_ty = if let ast::Type::Tuple(elem_tys) = &match_expr_ty {
+                                        elem_tys.get(i).cloned().unwrap_or(ast::Type::I64)
+                                    } else {
+                                        ast::Type::I64
+                                    };
+                                    let cr_ty = convert_ast_type(&elem_ty);
+                                    let var = Variable::new(*var_index as usize);
+                                    *var_index += 1;
+                                    builder.declare_var(var, cr_ty);
+                                    let offset = (i * 8) as i32;
+                                    let loaded = builder.ins().load(cr_ty, MemFlags::new(), ptr, offset);
+                                    builder.def_var(var, loaded);
+                                    local_vars.insert(name.clone(), var);
+                                    local_types.insert(name.clone(), elem_ty);
+                                }
+                            }
+                        }
+                    }
+                    ast::Pattern::Struct { name, fields } => {
+                        let ptr = cast_value(builder, match_val, types::I64);
+                        if let Some(layout) = structs.get(name) {
+                            for (field_name, sub_pat) in fields {
+                                if let ast::Pattern::Ident(bind_name) = sub_pat {
+                                    if bind_name != "_" {
+                                        if let Some((offset, field_ty)) = layout
+                                            .fields
+                                            .iter()
+                                            .find(|(n, _, _)| n == field_name)
+                                            .map(|(_, o, t)| (*o, t.clone()))
+                                        {
+                                            let cr_ty = convert_ast_type(&field_ty);
+                                            let var = Variable::new(*var_index as usize);
+                                            *var_index += 1;
+                                            builder.declare_var(var, cr_ty);
+                                            let loaded = builder.ins().load(cr_ty, MemFlags::new(), ptr, offset as i32);
+                                            builder.def_var(var, loaded);
+                                            local_vars.insert(bind_name.clone(), var);
+                                            local_types.insert(bind_name.clone(), field_ty);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                     ast::Pattern::EnumPayload { bindings, .. } => {
                         bind_enum_payload_fields(
                             builder,
@@ -1891,6 +2062,27 @@ fn compile_expr_inline(
                         );
                     }
                     _ => {}
+                }
+
+                if let Some(guard) = &arm.guard {
+                    let guard_val = compile_expr_inline(
+                        builder,
+                        module,
+                        alloc_func,
+                        functions,
+                        structs,
+                        fn_sigs,
+                        &local_vars,
+                        &local_types,
+                        var_index,
+                        defer_stack,
+                        guard,
+                    )?;
+                    let guard_cond = bool_value_to_i8(builder, guard_val)?;
+                    let guarded_body_bb = builder.create_block();
+                    builder.ins().brif(guard_cond, guarded_body_bb, &[], fallthrough_bb, &[]);
+                    builder.switch_to_block(guarded_body_bb);
+                    builder.seal_block(guarded_body_bb);
                 }
 
                 let arm_val = match &arm.body {
@@ -1931,7 +2123,17 @@ fn compile_expr_inline(
 
                 let arm_val = cast_value(builder, arm_val, result_ty);
                 builder.ins().jump(merge_bb, &[arm_val]);
+
+                if !is_last {
+                    builder.switch_to_block(fallthrough_bb);
+                    builder.seal_block(fallthrough_bb);
+                }
             }
+
+            builder.switch_to_block(default_bb);
+            builder.seal_block(default_bb);
+            let default_val = zero_value(builder, result_ty);
+            builder.ins().jump(merge_bb, &[default_val]);
 
             builder.switch_to_block(merge_bb);
             builder.seal_block(merge_bb);
@@ -1976,6 +2178,31 @@ fn compile_expr_inline(
             let ptr = emit_alloc(builder, module, alloc_func, size_bytes, align)?;
             if size_bytes > 0 {
                 builder.ins().store(MemFlags::new(), inner_val, ptr, 0);
+            }
+            Ok(ptr)
+        }
+        ast::Expr::Unit => Ok(builder.ins().iconst(types::I32, 0)),
+        ast::Expr::Tuple(elements) => {
+            let size_bytes = (elements.len() * 8) as i64;
+            let ptr = emit_alloc(builder, module, alloc_func, size_bytes, 8)?;
+            for (i, elem) in elements.iter().enumerate() {
+                let elem_ty = infer_expr_type(elem, var_types, structs, fn_sigs);
+                let val = compile_expr_inline(
+                    builder,
+                    module,
+                    alloc_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    defer_stack,
+                    elem,
+                )?;
+                let val = cast_value(builder, val, convert_ast_type(&elem_ty));
+                let offset = (i * 8) as i32;
+                builder.ins().store(MemFlags::new(), val, ptr, offset);
             }
             Ok(ptr)
         }
@@ -2070,6 +2297,109 @@ fn compile_expr_inline(
             )?;
             let source_ty = infer_expr_type(expr, var_types, structs, fn_sigs);
             emit_type_cast(builder, val, &source_ty, target_type)
+        }
+        ast::Expr::Try(inner) => {
+            let inner_ty = infer_expr_type(inner, var_types, structs, fn_sigs);
+            let inner_val = compile_expr_inline(
+                builder,
+                module,
+                alloc_func,
+                functions,
+                structs,
+                fn_sigs,
+                variables,
+                var_types,
+                var_index,
+                defer_stack,
+                inner,
+            )?;
+
+            if matches!(inner_ty, ast::Type::Option(_)) {
+                let val_ty = match &inner_ty {
+                    ast::Type::Option(v) => v.as_ref().clone(),
+                    _ => ast::Type::I32,
+                };
+                let inner_val_i64 = cast_value(builder, inner_val, types::I64);
+                let is_none = builder.ins().icmp_imm(IntCC::Equal, inner_val_i64, 0);
+
+                let none_bb = builder.create_block();
+                let some_bb = builder.create_block();
+
+                builder.ins().brif(is_none, none_bb, &[], some_bb, &[]);
+
+                builder.switch_to_block(none_bb);
+                builder.seal_block(none_bb);
+                let mut local_vars = variables.clone();
+                let mut local_types = var_types.clone();
+                emit_defer_stack(
+                    builder,
+                    module,
+                    alloc_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    &mut local_vars,
+                    &mut local_types,
+                    var_index,
+                    defer_stack,
+                )?;
+                let ret_ty = builder.func.signature.returns.first().map(|r| r.value_type);
+                if let Some(ret_ty) = ret_ty {
+                    let zero = builder.ins().iconst(ret_ty, 0);
+                    builder.ins().return_(&[zero]);
+                } else {
+                    builder.ins().return_(&[]);
+                }
+
+                builder.switch_to_block(some_bb);
+                builder.seal_block(some_bb);
+                let some_cr_ty = convert_ast_type(&val_ty);
+                let loaded = builder.ins().load(some_cr_ty, MemFlags::new(), inner_val_i64, 0);
+                Ok(loaded)
+            } else {
+                let ok_ty = match &inner_ty {
+                    ast::Type::Result(ok, _) => ok.as_ref().clone(),
+                    _ => ast::Type::I32,
+                };
+                let inner_val_i64 = cast_value(builder, inner_val, types::I64);
+                let tag = builder.ins().load(types::I64, MemFlags::new(), inner_val_i64, 0);
+                let is_err = builder.ins().icmp_imm(IntCC::NotEqual, tag, 0);
+
+                let err_bb = builder.create_block();
+                let ok_bb = builder.create_block();
+
+                builder.ins().brif(is_err, err_bb, &[], ok_bb, &[]);
+
+                builder.switch_to_block(err_bb);
+                builder.seal_block(err_bb);
+                let mut local_vars = variables.clone();
+                let mut local_types = var_types.clone();
+                emit_defer_stack(
+                    builder,
+                    module,
+                    alloc_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    &mut local_vars,
+                    &mut local_types,
+                    var_index,
+                    defer_stack,
+                )?;
+                let ret_ty = builder.func.signature.returns.first().map(|r| r.value_type);
+                if let Some(ret_ty) = ret_ty {
+                    let ret_val = cast_value(builder, inner_val_i64, ret_ty);
+                    builder.ins().return_(&[ret_val]);
+                } else {
+                    builder.ins().return_(&[]);
+                }
+
+                builder.switch_to_block(ok_bb);
+                builder.seal_block(ok_bb);
+                let ok_cr_ty = convert_ast_type(&ok_ty);
+                let loaded = builder.ins().load(ok_cr_ty, MemFlags::new(), inner_val_i64, 8);
+                Ok(loaded)
+            }
         }
         ast::Expr::Copy(inner) => {
             // Deep copy: for primitives, return value as-is; for composites, allocate and copy
@@ -2389,6 +2719,13 @@ fn infer_expr_type(
             ast::Type::Option(Box::new(inner_ty))
         }
         ast::Expr::None => ast::Type::Option(Box::new(ast::Type::I32)),
+        ast::Expr::Try(inner) => {
+            match infer_expr_type(inner, var_types, structs, fn_sigs) {
+                ast::Type::Result(ok_ty, _) => *ok_ty,
+                ast::Type::Option(val_ty) => *val_ty,
+                _ => ast::Type::I32,
+            }
+        }
         ast::Expr::Copy(expr) => infer_expr_type(expr, var_types, structs, fn_sigs),
         _ => ast::Type::I32,
     }
@@ -2606,8 +2943,16 @@ fn resolve_field(
         ast::Expr::Field { expr, field } => {
             resolve_field(structs, expr, field, var_types).map(|(_, ty)| ty)
         }
-        _ => None,
+        _ => Some(infer_expr_type(expr, var_types, structs, &HashMap::new())),
     };
+
+    if let Some(ast::Type::Tuple(elem_types)) = &base_ty {
+        if let Ok(idx) = field.parse::<usize>() {
+            if let Some(ty) = elem_types.get(idx) {
+                return Some(((idx * 8) as u32, ty.clone()));
+            }
+        }
+    }
 
     if let Some(ast::Type::Named(struct_name)) = base_ty {
         if let Some(layout) = structs.get(&struct_name) {

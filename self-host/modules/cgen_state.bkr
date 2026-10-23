@@ -43,8 +43,14 @@
         vec_push(state, global_types as i64);
         vec_push(state, array_names as i64);
         vec_push(state, array_lengths as i64);
+        let defers: Vec<i64> = vec_new();
+        let local_struct_names: Vec<i64> = vec_new();
         vec_push(state, array_elem_types as i64);
-        vec_push(state, 0);
+        vec_push(state, 0); // 13: kernel_handle
+        vec_push(state, 0); // 14: current_ret_type
+        vec_push(state, defers as i64); // 15: defers
+        vec_push(state, 0); // 16: temp_counter
+        vec_push(state, local_struct_names as i64); // 17: local_struct_names
         return cgen_state_ref_from_state(state);
     }
 
@@ -230,11 +236,19 @@
         let array_names: Vec<i64> = vec_new();
         let array_lengths: Vec<i64> = vec_new();
         let array_elem_types: Vec<i64> = vec_new();
+        let defers: Vec<i64> = vec_new();
+        let local_struct_names: Vec<i64> = vec_new();
         vec_set(state, 4, local_names as i64);
         vec_set(state, 5, local_types as i64);
         vec_set(state, 10, array_names as i64);
         vec_set(state, 11, array_lengths as i64);
         vec_set(state, 12, array_elem_types as i64);
+        if vec_len(state) > 15 {
+            vec_set(state, 15, defers as i64);
+        }
+        if vec_len(state) > 17 {
+            vec_set(state, 17, local_struct_names as i64);
+        }
         return state_ref;
     }
 
@@ -246,9 +260,88 @@
     fn cgen_add_local_type_ref(state_ref: CgenStateRef, name_idx: i64, kind: i64) -> CgenStateRef {
         let local_names: Vec<i64> = cgen_local_names_ref(state_ref);
         let local_types: Vec<i64> = cgen_local_types_ref(state_ref);
+        let local_struct_names: Vec<i64> = cgen_local_struct_names_ref(state_ref);
         vec_push(local_names, name_idx);
         vec_push(local_types, kind);
+        vec_push(local_struct_names, -1);
         return state_ref;
+    }
+
+    fn cgen_add_local_struct_ref(state_ref: CgenStateRef, name_idx: i64, kind: i64, struct_name_idx: i64) -> CgenStateRef {
+        cgen_add_local_type_ref(state_ref, name_idx, kind);
+        let local_struct_names: Vec<i64> = cgen_local_struct_names_ref(state_ref);
+        vec_set(local_struct_names, vec_len(local_struct_names) - 1, struct_name_idx);
+        return state_ref;
+    }
+
+    fn cgen_local_struct_names_ref(state_ref: CgenStateRef) -> Vec<i64> {
+        let state: Vec<i64> = cgen_state_from_ref(state_ref);
+        if vec_len(state) <= 17 {
+            let sn: Vec<i64> = vec_new();
+            return sn;
+        }
+        return vec_get(state, 17) as Vec<i64>;
+    }
+
+    fn cgen_lookup_local_struct_name_idx_ref(state_ref: CgenStateRef, name_idx: i64) -> i64 {
+        let local_names: Vec<i64> = cgen_local_names_ref(state_ref);
+        let local_struct_names: Vec<i64> = cgen_local_struct_names_ref(state_ref);
+        let i: i64 = vec_len(local_names) - 1;
+        while i >= 0 {
+            if vec_get(local_names, i) == name_idx {
+                if i < vec_len(local_struct_names) {
+                    return vec_get(local_struct_names, i);
+                }
+                return -1;
+            }
+            i = i - 1;
+        }
+        return -1;
+    }
+
+    fn cgen_defers_ref(state_ref: CgenStateRef) -> Vec<i64> {
+        let state: Vec<i64> = cgen_state_from_ref(state_ref);
+        if vec_len(state) <= 15 {
+            let defers: Vec<i64> = vec_new();
+            return defers;
+        }
+        return vec_get(state, 15) as Vec<i64>;
+    }
+
+    fn cgen_add_defer_ref(state_ref: CgenStateRef, stmt_handle: i64) -> CgenStateRef {
+        let defers: Vec<i64> = cgen_defers_ref(state_ref);
+        vec_push(defers, stmt_handle);
+        return state_ref;
+    }
+
+    fn cgen_current_ret_type_ref(state_ref: CgenStateRef) -> str {
+        let state: Vec<i64> = cgen_state_from_ref(state_ref);
+        if vec_len(state) <= 14 {
+            return "bkr_i64";
+        }
+        let val: i64 = vec_get(state, 14);
+        if val == 0 {
+            return "bkr_i64";
+        }
+        return val as str;
+    }
+
+    fn cgen_set_current_ret_type_ref(state_ref: CgenStateRef, ret_type: str) -> CgenStateRef {
+        let state: Vec<i64> = cgen_state_from_ref(state_ref);
+        if vec_len(state) > 14 {
+            vec_set(state, 14, ret_type as i64);
+        }
+        return state_ref;
+    }
+
+    fn cgen_next_temp_id_ref(state_ref: CgenStateRef) -> i64 {
+        let state: Vec<i64> = cgen_state_from_ref(state_ref);
+        if vec_len(state) <= 16 {
+            return 0;
+        }
+        let cur: i64 = vec_get(state, 16);
+        vec_set(state, 16, cur + 1);
+        return cur;
     }
 
     fn cgen_add_fn_type(state: Vec<i64>, name_idx: i64, kind: i64) -> Vec<i64> {

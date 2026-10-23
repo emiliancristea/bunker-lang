@@ -37,7 +37,7 @@
         Return,
         Match,
         Const,
-        Unused36,
+        Defer,
         Unused37,
         Unused38,
         Unused39,
@@ -147,6 +147,7 @@
     const TOK_RETURN: i64 = TokenKind.Return;
     const TOK_MATCH: i64 = TokenKind.Match;
     const TOK_CONST: i64 = TokenKind.Const;
+    const TOK_DEFER: i64 = TokenKind.Defer;
     const TOK_I32: i64 = TokenKind.I32;
     const TOK_I64: i64 = TokenKind.I64;
     const TOK_F64: i64 = TokenKind.F64;
@@ -207,9 +208,9 @@
         Continue,
         For,
         Loop,
-        Unused16,
-        Unused17,
-        Unused18,
+        Defer,
+        ArrayRepeat,
+        Try,
         Unused19,
         Binary,
         Unary,
@@ -246,6 +247,9 @@
     const NODE_CONTINUE: i64 = NodeKind.Continue;
     const NODE_FOR: i64 = NodeKind.For;
     const NODE_LOOP: i64 = NodeKind.Loop;
+    const NODE_DEFER: i64 = NodeKind.Defer;
+    const NODE_ARRAY_REPEAT: i64 = NodeKind.ArrayRepeat;
+    const NODE_TRY: i64 = NodeKind.Try;
     const NODE_BINARY: i64 = NodeKind.Binary;
     const NODE_UNARY: i64 = NodeKind.Unary;
     const NODE_CALL: i64 = NodeKind.Call;
@@ -292,6 +296,10 @@
         Some,
         None,
         EnumVariant,
+        ResultOk,
+        ResultErr,
+        Tuple,
+        Struct,
     }
 
     const PAT_INT: i64 = PatternKind.Int;
@@ -301,6 +309,10 @@
     const PAT_SOME: i64 = PatternKind.Some;
     const PAT_NONE: i64 = PatternKind.None;
     const PAT_ENUM_VARIANT: i64 = PatternKind.EnumVariant;
+    const PAT_RESULT_OK: i64 = PatternKind.ResultOk;
+    const PAT_RESULT_ERR: i64 = PatternKind.ResultErr;
+    const PAT_TUPLE: i64 = PatternKind.Tuple;
+    const PAT_STRUCT: i64 = PatternKind.Struct;
 
     // ===== Type Kinds =====
     enum TypeKind {

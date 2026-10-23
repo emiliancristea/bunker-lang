@@ -228,6 +228,7 @@
         if name == "strlen" { return true; }
         if name == "print" { return true; }
         if name == "println" { return true; }
+        if name == "log" { return true; }
         if name == "read_file" { return true; }
         if name == "write_file" { return true; }
         if name == "file_exists" { return true; }
@@ -263,6 +264,11 @@
         if name == "result_unwrap_err" { return true; }
         if name == "result_tag" { return true; }
         if name == "result_value" { return true; }
+        if name == "bkr_tuple2" { return true; }
+        if name == "bkr_tuple3" { return true; }
+        if name == "bkr_tuple_get" { return true; }
+        if name == "args_count" { return true; }
+        if name == "arg_at" { return true; }
         return false;
     }
 
@@ -380,13 +386,29 @@
     fn resolver_pattern_ref_bindings(state: Vec<str>, names: Vec<str>, pattern_ref: AstPatternRef,
                                      scope: str, bindings: Vec<i64>) -> Vec<str> {
         let kind: i64 = ast_pattern_ref_kind(pattern_ref);
-        if kind == PAT_BIND || kind == PAT_SOME {
+        if kind == PAT_BIND || kind == PAT_SOME || kind == PAT_RESULT_OK || kind == PAT_RESULT_ERR {
             let name_idx: i64 = ast_pattern_ref_value(pattern_ref);
             if resolver_i64_vec_contains(bindings, name_idx) {
                 state = resolver_append_duplicate_pattern_ref(state, ast_report_name(names, name_idx), scope, pattern_ref);
             } else {
                 vec_push(bindings, name_idx);
             }
+        }
+        if kind == PAT_TUPLE {
+            let b1 = ast_pattern_ref_bind(pattern_ref);
+            let b2 = ast_pattern_ref_bind2(pattern_ref);
+            let b3 = ast_pattern_ref_value(pattern_ref);
+            if b1 >= 0 { vec_push(bindings, b1); }
+            if b2 >= 0 { vec_push(bindings, b2); }
+            if b3 >= 0 { vec_push(bindings, b3); }
+        }
+        if kind == PAT_STRUCT {
+            let b1 = ast_pattern_ref_bind(pattern_ref);
+            let b2 = ast_pattern_ref_bind2(pattern_ref);
+            let b3 = ast_pattern_ref_aux(pattern_ref);
+            if b1 >= 0 { vec_push(bindings, b1); }
+            if b2 >= 0 { vec_push(bindings, b2); }
+            if b3 >= 0 { vec_push(bindings, b3); }
         }
         return state;
     }
@@ -467,12 +489,16 @@
         } else if kind == NODE_BINARY {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref)), scope, bindings);
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_binary_ref_right_handle(expr_ref)), scope, bindings);
+        } else if kind == NODE_TRY {
+            state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_try_ref_expr_handle(expr_ref)), scope, bindings);
         } else if kind == NODE_UNARY {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_unary_ref_operand_handle(expr_ref)), scope, bindings);
         } else if kind == NODE_TERNARY {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_ternary_ref_cond_handle(expr_ref)), scope, bindings);
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_ternary_ref_then_handle(expr_ref)), scope, bindings);
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_ternary_ref_else_handle(expr_ref)), scope, bindings);
+        } else if kind == NODE_ARRAY_REPEAT {
+            state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_array_repeat_ref_elem_handle(expr_ref)), scope, bindings);
         } else if kind == NODE_ARRAY_LIT {
             let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
             let i: i64 = 0;
@@ -488,6 +514,7 @@
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_match_ref_scrutinee_handle(expr_ref)), scope, bindings);
             let patterns_ref: AstPatternListRef = ast_match_ref_patterns_ref(expr_ref);
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
+            let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
             let i: i64 = 0;
             while i < ast_pattern_list_ref_count(patterns_ref) {
                 let arm_bindings = resolver_i64_vec_copy(bindings);
@@ -498,6 +525,13 @@
                     let binding_name_idx: i64 = vec_get(pattern_bindings, j);
                     vec_push(arm_bindings, binding_name_idx);
                     j = j + 1;
+                }
+
+                if i < ast_i64_list_ref_count(guards_ref) {
+                    let guard_h: i64 = ast_i64_list_ref_get(guards_ref, i);
+                    if guard_h != 0 {
+                        state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(guard_h), scope, arm_bindings);
+                    }
                 }
 
                 let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
@@ -560,6 +594,9 @@
         } else if kind == NODE_ASSIGN {
             state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_assign_ref_target_handle(stmt_ref), scope, bindings);
             state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_assign_ref_value_handle(stmt_ref), scope, bindings);
+        } else if kind == NODE_DEFER {
+            let inner_handle: i64 = ast_defer_ref_stmt_handle(stmt_ref);
+            state = resolver_stmt_ref_diagnostics(state, kernel_ref, names, ast_stmt_ref_from_handle(inner_handle), scope, bindings, declared);
         } else if kind == NODE_EXPR_STMT {
             state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_expr_stmt_ref_expr_handle(stmt_ref), scope, bindings);
         }

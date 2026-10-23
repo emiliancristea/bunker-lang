@@ -178,6 +178,16 @@ fn build_param(pair: Pair<Rule>) -> Result<Param, String> {
 fn build_type(pair: Pair<Rule>) -> Result<Type, String> {
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::unit_type => return Ok(Type::Unit),
+            Rule::tuple_type => {
+                let mut elem_types = Vec::new();
+                for type_inner in inner.into_inner() {
+                    if type_inner.as_rule() == Rule::type_expr {
+                        elem_types.push(build_type(type_inner)?);
+                    }
+                }
+                return Ok(Type::Tuple(elem_types));
+            }
             Rule::option_type => {
                 for type_inner in inner.into_inner() {
                     if type_inner.as_rule() == Rule::type_expr {
@@ -577,12 +587,17 @@ fn build_match_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
 
 fn build_match_arm(pair: Pair<Rule>) -> Result<MatchArm, String> {
     let mut pattern = Pattern::Ident("_".to_string());
+    let mut guard = None;
     let mut body = MatchBody::Expr(Expr::Literal(Literal::Int(0)));
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::pattern => {
                 pattern = build_pattern(inner)?;
+            }
+            Rule::match_guard => {
+                let guard_expr_pair = inner.into_inner().next().ok_or("Empty match guard")?;
+                guard = Some(build_expr(guard_expr_pair)?);
             }
             Rule::expr => {
                 body = MatchBody::Expr(build_expr(inner)?);
@@ -595,18 +610,29 @@ fn build_match_arm(pair: Pair<Rule>) -> Result<MatchArm, String> {
         }
     }
 
-    Ok(MatchArm { pattern, body })
+    Ok(MatchArm { pattern, guard, body })
 }
 
 fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
     let text = pair.as_str().trim().to_string();
 
+    if text == "()" {
+        return Ok(Pattern::Unit);
+    }
     if text.starts_with("Some(") && text.ends_with(')') {
-        let inner = &text[5..text.len() - 1];
+        let inner = &text[5..text.len() - 1].trim();
         return Ok(Pattern::Some(inner.to_string()));
     }
     if text == "None" {
         return Ok(Pattern::None);
+    }
+    if text.starts_with("Ok(") && text.ends_with(')') {
+        let inner = &text[3..text.len() - 1].trim();
+        return Ok(Pattern::ResultOk(inner.to_string()));
+    }
+    if text.starts_with("Err(") && text.ends_with(')') {
+        let inner = &text[4..text.len() - 1].trim();
+        return Ok(Pattern::ResultErr(inner.to_string()));
     }
     if text == "true" {
         return Ok(Pattern::Bool(true));
@@ -617,6 +643,48 @@ fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::tuple_pattern => {
+                let mut sub_pats = Vec::new();
+                for pat_inner in inner.into_inner() {
+                    if pat_inner.as_rule() == Rule::pattern {
+                        sub_pats.push(build_pattern(pat_inner)?);
+                    }
+                }
+                return Ok(Pattern::Tuple(sub_pats));
+            }
+            Rule::struct_pattern => {
+                let mut struct_name = String::new();
+                let mut fields = Vec::new();
+                for part in inner.into_inner() {
+                    match part.as_rule() {
+                        Rule::identifier => {
+                            struct_name = part.as_str().to_string();
+                        }
+                        Rule::struct_field_pattern => {
+                            let mut field_name = String::new();
+                            let mut sub_pattern = None;
+                            for sub in part.into_inner() {
+                                match sub.as_rule() {
+                                    Rule::identifier => {
+                                        field_name = sub.as_str().to_string();
+                                    }
+                                    Rule::pattern => {
+                                        sub_pattern = Some(build_pattern(sub)?);
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            let pat = sub_pattern.unwrap_or_else(|| Pattern::Ident(field_name.clone()));
+                            fields.push((field_name, pat));
+                        }
+                        _ => {}
+                    }
+                }
+                return Ok(Pattern::Struct {
+                    name: struct_name,
+                    fields,
+                });
+            }
             Rule::enum_variant_pattern => {
                 let mut names = Vec::new();
                 for part in inner.into_inner() {
@@ -625,6 +693,19 @@ fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
                     }
                 }
                 if names.len() >= 2 {
+                    if names[0] == "Option" {
+                        if names[1] == "Some" && names.len() == 3 {
+                            return Ok(Pattern::Some(names[2].clone()));
+                        } else if names[1] == "None" && names.len() == 2 {
+                            return Ok(Pattern::None);
+                        }
+                    } else if names[0] == "Result" {
+                        if names[1] == "Ok" && names.len() == 3 {
+                            return Ok(Pattern::ResultOk(names[2].clone()));
+                        } else if names[1] == "Err" && names.len() == 3 {
+                            return Ok(Pattern::ResultErr(names[2].clone()));
+                        }
+                    }
                     return Ok(Pattern::EnumVariant {
                         enum_name: names[0].clone(),
                         variant: names[1].clone(),
@@ -1009,14 +1090,14 @@ fn build_postfix_op(pair: Pair<Rule>, base: Expr) -> Result<Expr, String> {
                 }
             }
             Rule::field_op => {
-                for field_inner in inner.into_inner() {
-                    if field_inner.as_rule() == Rule::identifier {
-                        return Ok(Expr::Field {
-                            expr: Box::new(base),
-                            field: field_inner.as_str().to_string(),
-                        });
-                    }
-                }
+                let text = inner.as_str().trim_start_matches('.').trim().to_string();
+                return Ok(Expr::Field {
+                    expr: Box::new(base),
+                    field: text,
+                });
+            }
+            Rule::try_op => {
+                return Ok(Expr::Try(Box::new(base)));
             }
             Rule::cast_op => {
                 for cast_inner in inner.into_inner() {
@@ -1037,6 +1118,16 @@ fn build_postfix_op(pair: Pair<Rule>, base: Expr) -> Result<Expr, String> {
 fn build_primary_expr(pair: Pair<Rule>) -> Result<Expr, String> {
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::unit_literal => return Ok(Expr::Unit),
+            Rule::tuple_literal => {
+                let mut elems = Vec::new();
+                for expr_inner in inner.into_inner() {
+                    if expr_inner.as_rule() == Rule::expr {
+                        elems.push(build_expr(expr_inner)?);
+                    }
+                }
+                return Ok(Expr::Tuple(elems));
+            }
             Rule::expr => {
                 return build_expr(inner);
             }

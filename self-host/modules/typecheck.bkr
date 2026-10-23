@@ -421,6 +421,11 @@
         if name == "result_unwrap_err" { return 1; }
         if name == "result_tag" { return 1; }
         if name == "result_value" { return 1; }
+        if name == "bkr_tuple2" { return 2; }
+        if name == "bkr_tuple3" { return 3; }
+        if name == "bkr_tuple_get" { return 2; }
+        if name == "args_count" { return 0; }
+        if name == "arg_at" { return 1; }
         return -1;
     }
 
@@ -466,6 +471,7 @@
         if name == "result_unwrap_err" && index == 0 { return TYPE_I64; }
         if name == "result_tag" && index == 0 { return TYPE_I64; }
         if name == "result_value" && index == 0 { return TYPE_I64; }
+        if name == "arg_at" && index == 0 { return TYPE_I64; }
         return TYPE_UNKNOWN;
     }
 
@@ -883,6 +889,8 @@
 
     fn typecheck_pattern_expected_kind(pattern_ref: AstPatternRef) -> i64 {
         let pattern_kind: i64 = ast_pattern_ref_kind(pattern_ref);
+        if pattern_kind == PAT_TUPLE { return TYPE_I64; }
+        if pattern_kind == PAT_STRUCT { return TYPE_I64; }
         if pattern_kind == PAT_INT { return TYPE_I64; }
         if pattern_kind == PAT_BOOL { return TYPE_BOOL; }
         return TYPE_UNKNOWN;
@@ -920,14 +928,14 @@
 
     fn typecheck_pattern_is_catch_all_ref(pattern_ref: AstPatternRef) -> bool {
         let kind: i64 = ast_pattern_ref_kind(pattern_ref);
-        return kind == PAT_WILDCARD || kind == PAT_BIND;
+        return kind == PAT_WILDCARD || kind == PAT_BIND || kind == PAT_TUPLE || kind == PAT_STRUCT;
     }
 
     fn typecheck_patterns_same_literal_ref(left_ref: AstPatternRef, right_ref: AstPatternRef) -> bool {
         if ast_pattern_ref_kind(left_ref) != ast_pattern_ref_kind(right_ref) {
             return false;
         }
-        if ast_pattern_ref_kind(left_ref) == PAT_SOME {
+        if ast_pattern_ref_kind(left_ref) == PAT_SOME || ast_pattern_ref_kind(left_ref) == PAT_RESULT_OK || ast_pattern_ref_kind(left_ref) == PAT_RESULT_ERR {
             return true;
         }
         if !typecheck_pattern_is_literal_like_ref(left_ref) {
@@ -1165,6 +1173,99 @@
         return state;
     }
 
+    fn typecheck_match_patterns_contain_result_ref(patterns_ref: AstPatternListRef) -> bool {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            let kind: i64 = ast_pattern_ref_kind(pattern_ref);
+            if kind == PAT_RESULT_OK || kind == PAT_RESULT_ERR {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_match_patterns_cover_result_ref(patterns_ref: AstPatternListRef, pattern_kind: i64) -> bool {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if typecheck_pattern_is_catch_all_ref(pattern_ref) {
+                return true;
+            }
+            if ast_pattern_ref_kind(pattern_ref) == pattern_kind {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_check_result_match_exhaustiveness_ref(state: Vec<str>, expr_ref: AstExprRef,
+                                                       patterns_ref: AstPatternListRef,
+                                                       scope: str) -> Vec<str> {
+        if !typecheck_match_patterns_contain_result_ref(patterns_ref) {
+            return state;
+        }
+        let covers_ok: bool = typecheck_match_patterns_cover_result_ref(patterns_ref, PAT_RESULT_OK);
+        let covers_err: bool = typecheck_match_patterns_cover_result_ref(patterns_ref, PAT_RESULT_ERR);
+        if covers_ok && covers_err {
+            return state;
+        }
+        let missing: str = "";
+        if !covers_ok {
+            missing = "Ok";
+        }
+        if !covers_err {
+            if len(missing) > 0 {
+                missing = missing + ", Err";
+            } else {
+                missing = "Err";
+            }
+        }
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("non_exhaustive_match", "BKR_SELF_EXHAUSTIVENESS",
+                "match", scope, ast_node_ref_from_expr_ref(expr_ref),
+                "patterns covering Ok and Err",
+                "missing " + missing,
+                "Add the missing Result pattern arm or a catch-all pattern."));
+    }
+
+    fn typecheck_check_result_match_redundancy_ref(state: Vec<str>, patterns_ref: AstPatternListRef,
+                                                   scope: str) -> Vec<str> {
+        if !typecheck_match_patterns_contain_result_ref(patterns_ref) {
+            return state;
+        }
+        let covers_ok: bool = false;
+        let covers_err: bool = false;
+        let exhausted: bool = false;
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if exhausted {
+                state = typecheck_append_match_pattern_semantic_ref(state,
+                    "unreachable_match_pattern",
+                    "match pattern " + int_to_string(i + 1),
+                    scope,
+                    pattern_ref,
+                    "reachable match pattern",
+                    "previous Result patterns already cover Ok and Err",
+                    "Remove this arm or move it before the exhaustive Result patterns.");
+            }
+            if ast_pattern_ref_kind(pattern_ref) == PAT_RESULT_OK {
+                covers_ok = true;
+            }
+            if ast_pattern_ref_kind(pattern_ref) == PAT_RESULT_ERR {
+                covers_err = true;
+            }
+            if covers_ok && covers_err {
+                exhausted = true;
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
     fn typecheck_match_patterns_contain_enum_variant_ref(patterns_ref: AstPatternListRef) -> bool {
         let i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
@@ -1263,9 +1364,9 @@
         return resolver_state_append(state,
             typecheck_diagnostic_ref_json("non_exhaustive_match", "BKR_SELF_EXHAUSTIVENESS",
                 "match", scope, ast_node_ref_from_expr_ref(expr_ref),
-                "patterns covering every declared unit-enum variant",
+                "patterns covering every declared enum variant",
                 "missing " + missing,
-                "Add the missing unit-enum pattern arm or a catch-all pattern."));
+                "Add the missing enum pattern arm or a catch-all pattern."));
     }
 
     fn typecheck_check_enum_match_redundancy_ref(state: Vec<str>, kernel_ref: AstNodeRef,
@@ -1299,8 +1400,8 @@
                     scope,
                     pattern_ref,
                     "reachable match pattern",
-                    "previous unit-enum patterns already cover every declared variant",
-                    "Remove this arm or move it before the exhaustive unit-enum patterns.");
+                    "previous enum patterns already cover every declared variant",
+                    "Remove this arm or move it before the exhaustive enum patterns.");
             }
             if ast_pattern_ref_kind(pattern_ref) == PAT_ENUM_VARIANT {
                 let variant_idx: i64 = ast_pattern_ref_aux(pattern_ref);
@@ -1408,12 +1509,17 @@
         } else if kind == NODE_BINARY {
             state = typecheck_scan_loop_control_expr_handle(state, ast_binary_ref_left_handle(expr_ref), scope, loop_depth);
             state = typecheck_scan_loop_control_expr_handle(state, ast_binary_ref_right_handle(expr_ref), scope, loop_depth);
+        } else if kind == NODE_TRY {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_try_ref_expr_handle(expr_ref), scope, loop_depth);
         } else if kind == NODE_UNARY {
             state = typecheck_scan_loop_control_expr_handle(state, ast_unary_ref_operand_handle(expr_ref), scope, loop_depth);
         } else if kind == NODE_TERNARY {
             state = typecheck_scan_loop_control_expr_handle(state, ast_ternary_ref_cond_handle(expr_ref), scope, loop_depth);
             state = typecheck_scan_loop_control_expr_handle(state, ast_ternary_ref_then_handle(expr_ref), scope, loop_depth);
             state = typecheck_scan_loop_control_expr_handle(state, ast_ternary_ref_else_handle(expr_ref), scope, loop_depth);
+        } else if kind == NODE_ARRAY_REPEAT {
+            state = typecheck_scan_loop_control_expr_ref(state,
+                ast_array_repeat_ref_elem_ref(expr_ref), scope, loop_depth);
         } else if kind == NODE_ARRAY_LIT {
             let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
             let i: i64 = 0;
@@ -1472,6 +1578,8 @@
         } else if kind == NODE_ASSIGN {
             state = typecheck_scan_loop_control_expr_handle(state, ast_assign_ref_target_handle(stmt_ref), scope, loop_depth);
             state = typecheck_scan_loop_control_expr_handle(state, ast_assign_ref_value_handle(stmt_ref), scope, loop_depth);
+        } else if kind == NODE_DEFER {
+            state = typecheck_scan_loop_control_stmt_ref(state, ast_stmt_ref_from_handle(ast_defer_ref_stmt_handle(stmt_ref)), scope, loop_depth);
         } else if kind == NODE_EXPR_STMT {
             state = typecheck_scan_loop_control_expr_handle(state, ast_expr_stmt_ref_expr_handle(stmt_ref), scope, loop_depth);
         }
@@ -1729,6 +1837,12 @@
                 ast_binary_ref_left_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_binary_ref_right_handle(expr_ref), scope, expected_return_kind);
+        } else if kind == NODE_TRY {
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(ast_try_ref_expr_handle(expr_ref)),
+                "try operand", scope);
+            state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
+                ast_try_ref_expr_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_UNARY {
             state = typecheck_check_unary_operand_ref(state, cstate, expr_ref, scope);
             state = typecheck_check_void_value_ref(state, cstate,
@@ -1760,6 +1874,12 @@
                 ast_ternary_ref_then_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_ternary_ref_else_handle(expr_ref), scope, expected_return_kind);
+        } else if kind == NODE_ARRAY_REPEAT {
+            state = typecheck_scan_loop_control_expr_ref(state,
+                ast_array_repeat_ref_elem_ref(expr_ref), scope, loop_depth);
+        } else if kind == NODE_ARRAY_REPEAT {
+            state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
+                ast_array_repeat_ref_elem_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_ARRAY_LIT {
             let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
             state = typecheck_check_array_element_types_ref(state, cstate, elements_ref, scope);
@@ -1799,14 +1919,28 @@
                 ast_match_ref_patterns_ref(expr_ref), scrutinee_kind, scope);
             state = typecheck_check_option_match_exhaustiveness_ref(state, expr_ref,
                 ast_match_ref_patterns_ref(expr_ref), scope);
+            state = typecheck_check_result_match_exhaustiveness_ref(state, expr_ref,
+                ast_match_ref_patterns_ref(expr_ref), scope);
             state = typecheck_check_enum_match_exhaustiveness_ref(state, kernel_ref, names, expr_ref,
                 ast_match_ref_patterns_ref(expr_ref), scope);
             state = typecheck_check_bool_match_redundancy_ref(state,
                 ast_match_ref_patterns_ref(expr_ref), scrutinee_kind, scope);
             state = typecheck_check_option_match_redundancy_ref(state,
                 ast_match_ref_patterns_ref(expr_ref), scope);
+            state = typecheck_check_result_match_redundancy_ref(state,
+                ast_match_ref_patterns_ref(expr_ref), scope);
             state = typecheck_check_enum_match_redundancy_ref(state, kernel_ref,
                 ast_match_ref_patterns_ref(expr_ref), scope);
+            let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
+            let k: i64 = 0;
+            while k < ast_i64_list_ref_count(guards_ref) {
+                let guard_h: i64 = ast_i64_list_ref_get(guards_ref, k);
+                if guard_h != 0 {
+                    state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
+                        ast_expr_ref_from_handle(guard_h), scope, expected_return_kind);
+                }
+                k = k + 1;
+            }
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
             state = typecheck_check_match_arm_types_ref(state, cstate, bodies_ref, scope);
             let i: i64 = 0;
@@ -1956,6 +2090,9 @@
             state = typecheck_maybe_append_value_mismatch_ref(state, "assignment_type_mismatch",
                 "assignment", scope, stmt_node_ref, expected_kind, found_kind,
                 "Assign a value that matches the target type.");
+        } else if kind == NODE_DEFER {
+            state = typecheck_stmt_ref_diagnostics(state, kernel_ref, names, cstate,
+                ast_stmt_ref_from_handle(ast_defer_ref_stmt_handle(stmt_ref)), scope, expected_return_kind);
         } else if kind == NODE_EXPR_STMT {
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_expr_stmt_ref_expr_handle(stmt_ref), scope, expected_return_kind);
@@ -2107,6 +2244,7 @@
             json_field_bool("match_pattern_semantic_checks", true) + comma +
             json_field_bool("bool_match_exhaustiveness_checks", true) + comma +
             json_field_bool("option_match_exhaustiveness_checks", true) + comma +
+            json_field_bool("result_match_exhaustiveness_checks", true) + comma +
             json_field_bool("enum_match_exhaustiveness_checks", true) + comma +
             json_field_bool("finite_match_redundancy_checks", true) + comma +
             json_field_bool("array_element_type_checks", true) + comma +
@@ -2127,7 +2265,7 @@
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
             json_field_i64("error_count", resolver_state_count(state)) + comma +
             json_field_i64("warning_count", 0) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use across initializers and value expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, call targets, builtin argument types, user/builtin call arity, entry-point presence/signature, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal, finite bool/Option/unit-enum redundancy, and Option match patterns, non-exhaustive bool/Option/unit-enum matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, payload/ADT exhaustiveness, full field member typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use across initializers and value expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, call targets, builtin argument types, user/builtin call arity, entry-point presence/signature, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal, finite bool/Option/enum redundancy, and Option match patterns, non-exhaustive bool/Option/enum matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full field member typing, or cross-module types.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }

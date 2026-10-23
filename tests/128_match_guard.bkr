@@ -1,0 +1,52 @@
+// Test 128: Match Guards
+// Purpose: Verify pattern matching with condition guards (\pattern if condition => body\)
+// across Result, Option, and custom Enum variants, ensuring fallthrough when guards fail.
+// Expected: Returns 42
+
+kernel MatchGuard {
+    enum Status {
+        Active(i32),
+        Inactive,
+    }
+
+    fn check_result(r: Result<i32, str>) -> i32 {
+        let v: i32 = match r {
+            Ok(x) if x > 100 => 0;
+            Ok(x) if x > 20 => 20;
+            Ok(x) => 5;
+            Err(e) => 0;
+        };
+        return v;
+    }
+
+    fn check_option(o: Option<i32>) -> i32 {
+        let v: i32 = match o {
+            Some(x) if x < 0 => 0;
+            Some(x) if x == 8 => 7;
+            Some(x) => 2;
+            None => 0;
+        };
+        return v;
+    }
+
+    fn check_enum(s: Status) -> i32 {
+        let v: i32 = match s {
+            Status.Active(code) if code > 50 => 0;
+            Status.Active(code) if code == 42 => 6;
+            Status.Active(code) => 1;
+            Status.Inactive => 1;
+        };
+        return v;
+    }
+
+    fn main() -> i32 {
+        let r1: i32 = check_result(result_ok(25));
+        let r2: i32 = check_result(result_ok(10));
+        let o1: i32 = check_option(Some(8));
+        let o2: i32 = check_option(Some(3));
+        let e1: i32 = check_enum(Status.Active(42));
+        let e2: i32 = check_enum(Status.Active(9));
+        let e3: i32 = check_enum(Status.Inactive);
+        return r1 + r2 + o1 + o2 + e1 + e2 + e3;
+    }
+}

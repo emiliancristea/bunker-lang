@@ -1,0 +1,12 @@
+// Test 126 (BAD): Non-exhaustive Result match
+// Purpose: Reject matches on Result that omit the Err variant.
+// Expected: Type error for missing Err.
+
+kernel ResultMatchNonexhaustiveBad {
+    fn main() -> i32 {
+        let r: Result<i32, str> = result_ok(42);
+        return match r {
+            Ok(x) => x;
+        };
+    }
+}

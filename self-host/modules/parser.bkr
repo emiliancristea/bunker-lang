@@ -243,6 +243,20 @@
         let tok = parser_peek_ref(p);
         let kind: i64 = TYPE_I64;
         let consumed = false;
+        if tok == TOK_LPAREN {
+            parser_advance_ref(p);
+            if parser_peek_ref(p) == TOK_RPAREN {
+                parser_advance_ref(p);
+                return parser_set_type_ref_span_from_start(p, ast_type_ref(TYPE_VOID), start);
+            }
+            let _first = parse_type_ref(p);
+            while parser_peek_ref(p) == TOK_COMMA {
+                parser_advance_ref(p);
+                let _next = parse_type_ref(p);
+            }
+            parser_expect_ref(p, TOK_RPAREN);
+            return parser_set_type_ref_span_from_start(p, ast_type_ref(TYPE_I64), start);
+        }
         if tok == TOK_LBRACKET {
             parser_advance_ref(p);
             let elem_type_ref: AstTypeRef = parse_type_ref(p);
@@ -287,6 +301,27 @@
         let start = parser_current_token_start(p);
         let tok = parser_peek_ref(p);
 
+        if tok == TOK_LPAREN {
+            parser_advance_ref(p);
+            if parser_peek_ref(p) == TOK_RPAREN {
+                parser_advance_ref(p);
+                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_WILDCARD, 0), start);
+            }
+            let bind1 = parser_expect_name(p);
+            let bind2: i64 = -1;
+            let bind3: i64 = -1;
+            if parser_peek_ref(p) == TOK_COMMA {
+                parser_advance_ref(p);
+                bind2 = parser_expect_name(p);
+                if parser_peek_ref(p) == TOK_COMMA {
+                    parser_advance_ref(p);
+                    bind3 = parser_expect_name(p);
+                }
+            }
+            parser_expect_ref(p, TOK_RPAREN);
+            return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new4(PAT_TUPLE, bind3, 0, bind1, bind2), start);
+        }
+
         if tok == TOK_INT {
             let val_idx = parser_peek_value_ref(p);
             let val = parser_get_value_ref(p, val_idx);
@@ -309,9 +344,46 @@
             let raw_name = parser_get_name_ref(p, name_idx);
             parser_advance_ref(p);
 
+            if parser_peek_ref(p) == TOK_LBRACE {
+                parser_advance_ref(p);
+                let f1_idx: i64 = -1;
+                let f2_idx: i64 = -1;
+                let f3_idx: i64 = -1;
+                if parser_peek_ref(p) != TOK_RBRACE {
+                    f1_idx = parser_expect_name(p);
+                    if parser_peek_ref(p) == TOK_COLON {
+                        parser_advance_ref(p);
+                        f1_idx = parser_expect_name(p);
+                    }
+                    if parser_peek_ref(p) == TOK_COMMA {
+                        parser_advance_ref(p);
+                        if parser_peek_ref(p) != TOK_RBRACE {
+                            f2_idx = parser_expect_name(p);
+                            if parser_peek_ref(p) == TOK_COLON {
+                                parser_advance_ref(p);
+                                f2_idx = parser_expect_name(p);
+                            }
+                            if parser_peek_ref(p) == TOK_COMMA {
+                                parser_advance_ref(p);
+                                if parser_peek_ref(p) != TOK_RBRACE {
+                                    f3_idx = parser_expect_name(p);
+                                    if parser_peek_ref(p) == TOK_COLON {
+                                        parser_advance_ref(p);
+                                        f3_idx = parser_expect_name(p);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                parser_expect_ref(p, TOK_RBRACE);
+                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new4(PAT_STRUCT, name_idx, f3_idx, f1_idx, f2_idx), start);
+            }
+
             if parser_peek_ref(p) == TOK_DOT {
                 parser_advance_ref(p);
                 let variant_idx = parser_expect_name(p);
+                let raw_variant = parser_get_name_ref(p, variant_idx);
                 let bind_idx: i64 = -1;
                 let bind2_idx: i64 = -1;
                 if parser_peek_ref(p) == TOK_LPAREN {
@@ -322,6 +394,22 @@
                         bind2_idx = parser_expect_name(p);
                     }
                     parser_expect_ref(p, TOK_RPAREN);
+                }
+                if raw_name == "Option" {
+                    if raw_variant == "Some" {
+                        return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_SOME, bind_idx), start);
+                    }
+                    if raw_variant == "None" {
+                        return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_NONE, 0), start);
+                    }
+                }
+                if raw_name == "Result" {
+                    if raw_variant == "Ok" {
+                        return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_RESULT_OK, bind_idx), start);
+                    }
+                    if raw_variant == "Err" {
+                        return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_RESULT_ERR, bind_idx), start);
+                    }
                 }
                 return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new4(PAT_ENUM_VARIANT, name_idx, variant_idx, bind_idx, bind2_idx), start);
             }
@@ -339,6 +427,20 @@
 
             if raw_name == "None" {
                 return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_NONE, 0), start);
+            }
+
+            if raw_name == "Ok" && parser_peek_ref(p) == TOK_LPAREN {
+                parser_advance_ref(p);
+                let bind_idx = parser_expect_name(p);
+                parser_expect_ref(p, TOK_RPAREN);
+                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_RESULT_OK, bind_idx), start);
+            }
+
+            if raw_name == "Err" && parser_peek_ref(p) == TOK_LPAREN {
+                parser_advance_ref(p);
+                let bind_idx = parser_expect_name(p);
+                parser_expect_ref(p, TOK_RPAREN);
+                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_RESULT_ERR, bind_idx), start);
             }
 
             return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_BIND, name_idx), start);
@@ -363,11 +465,20 @@
 
         let patterns: Vec<i64> = vec_new();
         let bodies: Vec<i64> = vec_new();
+        let guards: Vec<i64> = vec_new();
         let patterns_ref: AstPatternListRef = ast_pattern_list_ref_from_list(patterns);
         let bodies_ref: AstNodeListRef = ast_node_list_ref_from_list(bodies);
+        let guards_ref: AstI64ListRef = ast_i64_list_ref_from_list(guards);
 
         while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
             let pattern_ref: AstPatternRef = parse_match_pattern_ref(p);
+            let guard_handle: i64 = 0;
+            if parser_peek_ref(p) == TOK_IF {
+                parser_advance_ref(p);
+                let guard_ref: AstExprRef = parse_expr_ref(p);
+                guard_handle = ast_expr_ref_handle(guard_ref);
+            }
+            ast_i64_list_append(guards_ref, guard_handle);
             parser_expect_ref(p, TOK_FAT_ARROW);
 
             if parser_peek_ref(p) == TOK_LBRACE {
@@ -385,7 +496,7 @@
 
         parser_expect_ref(p, TOK_RBRACE);
 
-        return parser_set_expr_ref_span_from_start(p, ast_match_ref(scrutinee_ref, patterns_ref, bodies_ref), start);
+        return parser_set_expr_ref_span_from_start(p, ast_match_ref(scrutinee_ref, patterns_ref, bodies_ref, guards_ref), start);
     }
 
     fn parse_atom(p: ParserStateRef) -> Vec<i64> {
@@ -431,15 +542,67 @@
 
         if tok == TOK_LPAREN {
             parser_advance_ref(p);
+            if parser_peek_ref(p) == TOK_RPAREN {
+                parser_advance_ref(p);
+                return parser_set_expr_ref_span_from_start(p, ast_int_lit_ref(0), start);
+            }
             let expr_ref: AstExprRef = parse_expr_ref(p);
+            if parser_peek_ref(p) == TOK_COMMA {
+                parser_advance_ref(p);
+                let elem2_ref: AstExprRef = parse_expr_ref(p);
+                if parser_peek_ref(p) == TOK_COMMA {
+                    parser_advance_ref(p);
+                    let elem3_ref: AstExprRef = parse_expr_ref(p);
+                    parser_expect_ref(p, TOK_RPAREN);
+                    let args3: Vec<i64> = vec_new();
+                    let args3_ref: AstNodeListRef = ast_node_list_ref_from_list(args3);
+                    ast_node_list_append_expr_ref(args3_ref, expr_ref);
+                    ast_node_list_append_expr_ref(args3_ref, elem2_ref);
+                    ast_node_list_append_expr_ref(args3_ref, elem3_ref);
+                    let callee3_idx = parser_intern_ref(p, "bkr_tuple3");
+                    let call3_ref = ast_call_ref(ast_ident_ref(callee3_idx), args3_ref);
+                    return parser_set_expr_ref_span_from_start(p, call3_ref, start);
+                }
+                parser_expect_ref(p, TOK_RPAREN);
+                let args2: Vec<i64> = vec_new();
+                let args2_ref: AstNodeListRef = ast_node_list_ref_from_list(args2);
+                ast_node_list_append_expr_ref(args2_ref, expr_ref);
+                ast_node_list_append_expr_ref(args2_ref, elem2_ref);
+                let callee2_idx = parser_intern_ref(p, "bkr_tuple2");
+                let call2_ref = ast_call_ref(ast_ident_ref(callee2_idx), args2_ref);
+                return parser_set_expr_ref_span_from_start(p, call2_ref, start);
+            }
             parser_expect_ref(p, TOK_RPAREN);
             return parser_set_expr_ref_span_from_start(p, expr_ref, start);
         }
 
         if tok == TOK_LBRACKET {
             parser_advance_ref(p);
+            if parser_peek_ref(p) == TOK_RBRACKET {
+                parser_advance_ref(p);
+                let elements: Vec<i64> = vec_new();
+                let elements_ref: AstNodeListRef = ast_node_list_ref_from_list(elements);
+                return parser_set_expr_ref_span_from_start(p, ast_array_lit_ref(elements_ref), start);
+            }
+            let first_elem_ref: AstExprRef = parse_expr_ref(p);
+            if parser_peek_ref(p) == TOK_SEMICOLON {
+                parser_advance_ref(p);
+                let repeat_count: i64 = 0;
+                if parser_peek_ref(p) == TOK_INT {
+                    repeat_count = parser_get_value_ref(p, parser_peek_value_ref(p));
+                    parser_advance_ref(p);
+                } else {
+                    parser_mark_error_ref(p, TOK_INT);
+                }
+                parser_expect_ref(p, TOK_RBRACKET);
+                return parser_set_expr_ref_span_from_start(p, ast_array_repeat_ref(first_elem_ref, repeat_count), start);
+            }
             let elements: Vec<i64> = vec_new();
             let elements_ref: AstNodeListRef = ast_node_list_ref_from_list(elements);
+            ast_node_list_append_expr_ref(elements_ref, first_elem_ref);
+            if parser_peek_ref(p) == TOK_COMMA {
+                parser_advance_ref(p);
+            }
             while parser_peek_ref(p) != TOK_RBRACKET && parser_peek_ref(p) != TOK_EOF {
                 let elem_ref: AstExprRef = parse_expr_ref(p);
                 ast_node_list_append_expr_ref(elements_ref, elem_ref);
@@ -522,26 +685,67 @@
         return parser_set_expr_ref_span_from_start(p, ast_int_lit_ref(0), start);
     }
 
+    fn parser_lookahead_has_colon_ref(p: ParserStateRef) -> bool {
+        let offset: i64 = 1;
+        while true {
+            let tok: i64 = parser_peek_at_ref(p, offset);
+            if tok == TOK_COLON {
+                return true;
+            }
+            if tok == TOK_SEMICOLON || tok == TOK_RBRACE || tok == TOK_RPAREN || tok == TOK_RBRACKET || tok == TOK_COMMA || tok == TOK_EOF {
+                return false;
+            }
+            offset = offset + 1;
+        }
+        return false;
+    }
+
     fn parse_postfix(p: ParserStateRef) -> Vec<i64> {
         return parser_expr_ref_to_compat_node(parse_postfix_ref(p));
     }
 
     fn parse_postfix_ref(p: ParserStateRef) -> AstExprRef {
         let base_ref: AstExprRef = parse_atom_ref(p);
-        while parser_peek_ref(p) == TOK_LBRACKET {
-            let start = ast_expr_ref_span_start(base_ref);
-            parser_advance_ref(p);
-            let idx_ref: AstExprRef = parse_expr_ref(p);
-            parser_expect_ref(p, TOK_RBRACKET);
-            let index_ref: AstExprRef = ast_index_ref(base_ref, idx_ref);
-            base_ref = parser_set_expr_ref_span(index_ref, start, parser_previous_token_end(p));
-        }
-        while parser_peek_ref(p) == TOK_DOT {
-            let start = ast_expr_ref_span_start(base_ref);
-            parser_advance_ref(p);
-            let field_name = parser_expect_name(p);
-            let field_ref: AstExprRef = ast_field_access_ref(base_ref, field_name);
-            base_ref = parser_set_expr_ref_span(field_ref, start, parser_previous_token_end(p));
+        let continue_postfix: bool = true;
+        while continue_postfix {
+            let peek: i64 = parser_peek_ref(p);
+            if peek == TOK_LBRACKET {
+                let start = ast_expr_ref_span_start(base_ref);
+                parser_advance_ref(p);
+                let idx_ref: AstExprRef = parse_expr_ref(p);
+                parser_expect_ref(p, TOK_RBRACKET);
+                let index_ref: AstExprRef = ast_index_ref(base_ref, idx_ref);
+                base_ref = parser_set_expr_ref_span(index_ref, start, parser_previous_token_end(p));
+            } else if peek == TOK_DOT {
+                let start = ast_expr_ref_span_start(base_ref);
+                parser_advance_ref(p);
+                let field_name: i64 = 0;
+                if parser_peek_ref(p) == TOK_INT {
+                    let val_idx = parser_peek_value_ref(p);
+                    let val = parser_get_value_ref(p, val_idx);
+                    parser_advance_ref(p);
+                    if val == 0 { field_name = parser_intern_ref(p, "0"); }
+                    if val == 1 { field_name = parser_intern_ref(p, "1"); }
+                    if val == 2 { field_name = parser_intern_ref(p, "2"); }
+                    if val == 3 { field_name = parser_intern_ref(p, "3"); }
+                } else {
+                    field_name = parser_expect_name(p);
+                }
+                let field_ref: AstExprRef = ast_field_access_ref(base_ref, field_name);
+                base_ref = parser_set_expr_ref_span(field_ref, start, parser_previous_token_end(p));
+            } else if peek == TOK_QUESTION {
+                let is_ternary: bool = parser_lookahead_has_colon_ref(p);
+                if !is_ternary {
+                    let start = ast_expr_ref_span_start(base_ref);
+                    parser_advance_ref(p);
+                    let try_ref: AstExprRef = ast_try_ref(base_ref);
+                    base_ref = parser_set_expr_ref_span(try_ref, start, parser_previous_token_end(p));
+                } else {
+                    continue_postfix = false;
+                }
+            } else {
+                continue_postfix = false;
+            }
         }
         if parser_peek_ref(p) == TOK_LPAREN {
             let start = ast_expr_ref_span_start(base_ref);
@@ -808,6 +1012,22 @@
 
         if tok == TOK_RETURN {
             return parse_return_stmt_ref(p);
+        }
+
+        if tok == TOK_DEFER {
+            parser_advance_ref(p);
+            let inner_stmt_ref: AstStmtRef = ast_stmt_ref_from_handle(0);
+            if parser_peek_ref(p) == TOK_LBRACE {
+                let block_ref: AstBlockRef = parse_block_ref(p);
+                inner_stmt_ref = ast_stmt_ref_from_handle(ast_block_ref_handle(block_ref));
+            } else {
+                let expr_ref: AstExprRef = parse_expr_ref(p);
+                parser_expect_ref(p, TOK_SEMICOLON);
+                let expr_stmt_ref: AstStmtRef = ast_expr_stmt_ref(expr_ref);
+                inner_stmt_ref = parser_set_stmt_ref_span(expr_stmt_ref, ast_expr_ref_span_start(expr_ref), parser_previous_token_end(p));
+            }
+            let defer_ref: AstStmtRef = ast_defer_ref(inner_stmt_ref);
+            return parser_set_stmt_ref_span_from_start(p, defer_ref, start);
         }
 
         if tok == TOK_BREAK {

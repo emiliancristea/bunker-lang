@@ -184,7 +184,7 @@
             result = result + comma + json_field_i64("value", value);
         } else if kind == PAT_BOOL {
             result = result + comma + json_field_bool("value", value == 1);
-        } else if kind == PAT_BIND || kind == PAT_SOME {
+        } else if kind == PAT_BIND || kind == PAT_SOME || kind == PAT_RESULT_OK || kind == PAT_RESULT_ERR || kind == PAT_TUPLE || kind == PAT_STRUCT {
             result = result + comma + json_field_str("binding", ast_report_name(names, value));
         }
 
@@ -322,12 +322,19 @@
         } else if kind == NODE_LOOP {
             let stmt_ref: AstStmtRef = ast_stmt_ref_from_node_ref(node_ref);
             result = result + comma + json_field_raw("body", ast_report_node_ref_json(names, ast_node_ref_from_block_ref(ast_loop_ref_body_ref(stmt_ref))));
+        } else if kind == NODE_DEFER {
+            let stmt_ref: AstStmtRef = ast_stmt_ref_from_node_ref(node_ref);
+            result = result + comma + json_field_raw("stmt", ast_report_stmt_handle_json(names, ast_defer_ref_stmt_handle(stmt_ref)));
         } else if kind == NODE_BINARY {
             let expr_ref: AstExprRef = ast_expr_ref_from_node_ref(node_ref);
             result = result + comma +
                 json_field_str("op", token_name(ast_binary_ref_op(expr_ref))) + comma +
                 json_field_raw("left", ast_report_expr_handle_json(names, ast_binary_ref_left_handle(expr_ref))) + comma +
                 json_field_raw("right", ast_report_expr_handle_json(names, ast_binary_ref_right_handle(expr_ref)));
+        } else if kind == NODE_TRY {
+            let expr_ref: AstExprRef = ast_expr_ref_from_node_ref(node_ref);
+            result = result + comma +
+                json_field_raw("expr", ast_report_expr_handle_json(names, ast_try_ref_expr_handle(expr_ref)));
         } else if kind == NODE_UNARY {
             let expr_ref: AstExprRef = ast_expr_ref_from_node_ref(node_ref);
             result = result + comma +
@@ -368,6 +375,11 @@
         } else if kind == NODE_ARRAY_LIT {
             let expr_ref: AstExprRef = ast_expr_ref_from_node_ref(node_ref);
             result = result + comma + json_field_raw("elements", ast_report_node_array_json_ref(names, ast_array_lit_ref_elements_ref(expr_ref)));
+        } else if kind == NODE_ARRAY_REPEAT {
+            let expr_ref: AstExprRef = ast_expr_ref_from_node_ref(node_ref);
+            result = result + comma +
+                json_field_raw("element", ast_report_expr_handle_json(names, ast_array_repeat_ref_elem_handle(expr_ref))) + comma +
+                json_field_i64("count", ast_array_repeat_ref_count(expr_ref));
         } else if kind == NODE_INDEX {
             let expr_ref: AstExprRef = ast_expr_ref_from_node_ref(node_ref);
             result = result + comma +

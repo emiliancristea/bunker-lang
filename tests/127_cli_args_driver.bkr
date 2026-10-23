@@ -1,0 +1,21 @@
+kernel CliArgsDriver {
+    fn main() -> i32 {
+        let count: i64 = args_count();
+        if count < 0 {
+            return 1;
+        }
+        let oob = arg_at(99999);
+        if oob != "" {
+            return 2;
+        }
+        let neg = arg_at(-1);
+        if neg != "" {
+            return 3;
+        }
+        let arg0 = arg_at(0);
+        if len(arg0) < 0 {
+            return 4;
+        }
+        return 42;
+    }
+}

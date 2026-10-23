@@ -394,6 +394,9 @@ fn collect_places_in_stmt(stmt: &ast::Stmt, out: &mut HashSet<String>) {
         ast::Stmt::Match { expr, arms } => {
             collect_places_in_expr(expr, out);
             for arm in arms {
+                if let Some(guard) = &arm.guard {
+                    collect_places_in_expr(guard, out);
+                }
                 match &arm.body {
                     ast::MatchBody::Expr(expr) => collect_places_in_expr(expr, out),
                     ast::MatchBody::Block(block) => collect_places_in_block(block, out),
@@ -443,6 +446,9 @@ fn collect_places_in_expr(expr: &ast::Expr, out: &mut HashSet<String>) {
         ast::Expr::Match { expr, arms } => {
             collect_places_in_expr(expr, out);
             for arm in arms {
+                if let Some(guard) = &arm.guard {
+                    collect_places_in_expr(guard, out);
+                }
                 match &arm.body {
                     ast::MatchBody::Expr(expr) => collect_places_in_expr(expr, out),
                     ast::MatchBody::Block(block) => collect_places_in_block(block, out),
@@ -451,7 +457,12 @@ fn collect_places_in_expr(expr: &ast::Expr, out: &mut HashSet<String>) {
         }
         ast::Expr::Block(block) => collect_places_in_block(block, out),
         ast::Expr::Some(expr) => collect_places_in_expr(expr, out),
-        ast::Expr::None => {}
+        ast::Expr::Unit | ast::Expr::None => {}
+        ast::Expr::Tuple(items) => {
+            for item in items {
+                collect_places_in_expr(item, out);
+            }
+        }
         ast::Expr::Array(items) => {
             for item in items {
                 collect_places_in_expr(item, out);
@@ -467,6 +478,7 @@ fn collect_places_in_expr(expr: &ast::Expr, out: &mut HashSet<String>) {
                 collect_places_in_expr(value, out);
             }
         }
+        ast::Expr::Try(expr) => collect_places_in_expr(expr, out),
         ast::Expr::Copy(expr) => collect_places_in_expr(expr, out),
         ast::Expr::Range { start, end, .. } => {
             collect_places_in_expr(start, out);

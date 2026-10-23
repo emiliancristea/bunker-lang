@@ -841,14 +841,34 @@
     }
 
     fn main() -> i32 {
-        // File-based entrypoint for agents and the Rust wrapper:
-        // write self_host_input.bkr, run this program, read self_host_output.c.
         let input_path = "self_host_input.bkr";
         let output_path = "self_host_output.c";
 
+        let argc: i64 = args_count();
+        if argc > 1 {
+            let arg1 = arg_at(1);
+            if arg1 != "" {
+                input_path = arg1;
+                output_path = input_path + ".c";
+                let i: i64 = 2;
+                while i < argc {
+                    let opt = arg_at(i);
+                    if opt == "-o" && i + 1 < argc {
+                        output_path = arg_at(i + 1);
+                        i = i + 1;
+                    }
+                    i = i + 1;
+                }
+            }
+        }
+
         let default_source = "kernel Test { fn main() -> i32 { let x: i32 = 40; let y: i32 = 2; return x + y; } }";
-        if !file_exists(input_path) {
+        if input_path == "self_host_input.bkr" && !file_exists(input_path) {
             write_file(input_path, default_source);
+        }
+
+        if !file_exists(input_path) {
+            return 1;
         }
 
         let source = read_file(input_path);

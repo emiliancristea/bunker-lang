@@ -103,6 +103,7 @@
                 if word == "continue" { tok_type = TOK_CONTINUE; }
                 if word == "loop" { tok_type = TOK_LOOP; }
                 if word == "return" { tok_type = TOK_RETURN; }
+                if word == "defer" { tok_type = TOK_DEFER; }
                 if word == "match" { tok_type = TOK_MATCH; }
                 if word == "const" { tok_type = TOK_CONST; }
                 if word == "true" { tok_type = TOK_TRUE; }
