@@ -868,6 +868,13 @@
         }
 
         if !file_exists(input_path) {
+            if file_exists("self_host_input.bkr") {
+                input_path = "self_host_input.bkr";
+                output_path = "self_host_output.c";
+            }
+        }
+
+        if !file_exists(input_path) {
             return 1;
         }
 

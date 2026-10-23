@@ -40,6 +40,36 @@
             result = result + comma +
                 json_field_str("element_type_kind", ast_type_kind_name(ast_type_ref_array_elem_kind_value(type_ref))) + comma +
                 json_field_i64("array_len", ast_type_ref_array_len_value(type_ref));
+        } else if kind == TYPE_VEC {
+            let elem_kind = ast_type_ref_generic_payload(type_ref);
+            let elem_struct = ast_type_ref_generic_aux(type_ref);
+            result = result + comma +
+                json_field_str("element_type_kind", ast_type_kind_name(elem_kind));
+            if elem_kind == TYPE_STRUCT && elem_struct >= 0 {
+                result = result + comma +
+                    json_field_str("element_struct_name", ast_report_name(names, elem_struct));
+            }
+        } else if kind == TYPE_MAP {
+            let key_kind = ast_type_ref_generic_payload(type_ref);
+            let val_kind = ast_type_ref_generic_aux(type_ref);
+            result = result + comma +
+                json_field_str("key_type_kind", ast_type_kind_name(key_kind)) + comma +
+                json_field_str("value_type_kind", ast_type_kind_name(val_kind));
+        } else if kind == TYPE_OPTION {
+            let inner_kind = ast_type_ref_generic_payload(type_ref);
+            let inner_struct = ast_type_ref_generic_aux(type_ref);
+            result = result + comma +
+                json_field_str("inner_type_kind", ast_type_kind_name(inner_kind));
+            if inner_kind == TYPE_STRUCT && inner_struct >= 0 {
+                result = result + comma +
+                    json_field_str("inner_struct_name", ast_report_name(names, inner_struct));
+            }
+        } else if kind == TYPE_RESULT {
+            let ok_kind = ast_type_ref_generic_payload(type_ref);
+            let err_kind = ast_type_ref_generic_aux(type_ref);
+            result = result + comma +
+                json_field_str("ok_type_kind", ast_type_kind_name(ok_kind)) + comma +
+                json_field_str("err_type_kind", ast_type_kind_name(err_kind));
         }
 
         return result + "}";

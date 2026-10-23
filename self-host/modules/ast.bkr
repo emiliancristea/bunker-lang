@@ -601,6 +601,14 @@
         return ast_type_ref_handle(type_ref);
     }
 
+    fn ast_type_ref_is_none(type_ref: AstTypeRef) -> bool {
+        return ast_optional_is_none(ast_type_ref_handle(type_ref));
+    }
+
+    fn ast_type_ref_is_some(type_ref: AstTypeRef) -> bool {
+        return ast_optional_is_some(ast_type_ref_handle(type_ref));
+    }
+
     fn ast_type_node_from_ref(type_ref: AstTypeRef) -> Vec<i64> {
         return ast_node_from_handle(ast_type_ref_handle(type_ref));
     }
@@ -636,6 +644,16 @@
             return rec.aux;
         }
         return -1;
+    }
+
+    fn ast_type_ref_generic_payload(type_ref: AstTypeRef) -> i64 {
+        let rec: AstType = ast_type_ref_record(type_ref);
+        return rec.payload;
+    }
+
+    fn ast_type_ref_generic_aux(type_ref: AstTypeRef) -> i64 {
+        let rec: AstType = ast_type_ref_record(type_ref);
+        return rec.aux;
     }
 
     fn ast_expr_handle(expr: Vec<i64>) -> i64 {
@@ -1100,6 +1118,22 @@
             return rec.aux;
         }
         return -1;
+    }
+
+    fn ast_type_generic_payload_value(type_node: i64) -> i64 {
+        if ast_optional_is_none(type_node) {
+            return 0;
+        }
+        let rec: AstType = ast_type_unpack(ast_node_from_handle(type_node));
+        return rec.payload;
+    }
+
+    fn ast_type_generic_aux_value(type_node: i64) -> i64 {
+        if ast_optional_is_none(type_node) {
+            return -1;
+        }
+        let rec: AstType = ast_type_unpack(ast_node_from_handle(type_node));
+        return rec.aux;
     }
 
     fn ast_name_idx(node: Vec<i64>) -> i64 {
@@ -2105,6 +2139,16 @@
         };
     }
 
+    fn ast_type_generic_record(kind: TypeKind, payload: i64, aux: i64) -> AstType {
+        return AstType {
+            kind: kind,
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            payload: payload,
+            aux: aux
+        };
+    }
+
     fn ast_type_pack(type_rec: AstType) -> Vec<i64> {
         let node: Vec<i64> = vec_new();
         vec_push(node, NODE_TYPE);
@@ -2117,6 +2161,10 @@
         }
         if type_rec.kind == TypeKind.Struct {
             vec_push(node, type_rec.payload);
+        }
+        if type_rec.kind == TypeKind.Vec || type_rec.kind == TypeKind.Map || type_rec.kind == TypeKind.Option || type_rec.kind == TypeKind.Result {
+            vec_push(node, type_rec.payload);
+            vec_push(node, type_rec.aux);
         }
         return node;
     }
@@ -2168,6 +2216,15 @@
 
     fn ast_type_struct(name_idx: i64) -> Vec<i64> {
         return ast_type_node_from_ref(ast_type_struct_ref(name_idx));
+    }
+
+    fn ast_type_generic_ref(kind: TypeKind, payload: i64, aux: i64) -> AstTypeRef {
+        let rec: AstType = ast_type_generic_record(kind, payload, aux);
+        return ast_type_ref_from_handle(ast_type_pack(rec) as i64);
+    }
+
+    fn ast_type_generic(kind: TypeKind, payload: i64, aux: i64) -> Vec<i64> {
+        return ast_type_node_from_ref(ast_type_generic_ref(kind, payload, aux));
     }
 
     fn ast_pattern(kind: PatternKind, value: i64) -> Vec<i64> {

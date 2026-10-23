@@ -324,6 +324,10 @@
         Void,
         Array,
         Struct,
+        Vec,
+        Map,
+        Option,
+        Result,
     }
 
     const TYPE_I32: i64 = TypeKind.I32;
@@ -334,5 +338,9 @@
     const TYPE_VOID: i64 = TypeKind.Void;
     const TYPE_ARRAY: i64 = TypeKind.Array;
     const TYPE_STRUCT: i64 = TypeKind.Struct;
+    const TYPE_VEC: i64 = TypeKind.Vec;
+    const TYPE_MAP: i64 = TypeKind.Map;
+    const TYPE_OPTION: i64 = TypeKind.Option;
+    const TYPE_RESULT: i64 = TypeKind.Result;
     // Sentinel, not a TypeKind variant: keep the historical unknown tag.
     const TYPE_UNKNOWN: i64 = 99;

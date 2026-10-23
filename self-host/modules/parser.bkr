@@ -278,9 +278,45 @@
         if tok == TOK_STR_TYPE { kind = TYPE_STR; parser_advance_ref(p); consumed = true; }
         if tok == TOK_IDENT {
             let name_idx = parser_peek_value_ref(p);
+            let name = parser_get_name_ref(p, name_idx);
             parser_advance_ref(p);
             if parser_peek_ref(p) == TOK_LT {
-                // Bootstrap generics such as Vec<i64> are represented as handles.
+                if name == "Vec" {
+                    parser_advance_ref(p);
+                    let elem_ref: AstTypeRef = parse_type_ref(p);
+                    let elem_kind: i64 = ast_type_ref_kind_value(elem_ref);
+                    let elem_struct: i64 = ast_type_ref_struct_name_idx_value(elem_ref);
+                    parser_expect_ref(p, TOK_GT);
+                    return parser_set_type_ref_span_from_start(p, ast_type_generic_ref(TypeKind.Vec, elem_kind, elem_struct), start);
+                }
+                if name == "HashMap" {
+                    parser_advance_ref(p);
+                    let key_ref: AstTypeRef = parse_type_ref(p);
+                    let key_kind: i64 = ast_type_ref_kind_value(key_ref);
+                    parser_expect_ref(p, TOK_COMMA);
+                    let val_ref: AstTypeRef = parse_type_ref(p);
+                    let val_kind: i64 = ast_type_ref_kind_value(val_ref);
+                    parser_expect_ref(p, TOK_GT);
+                    return parser_set_type_ref_span_from_start(p, ast_type_generic_ref(TypeKind.Map, key_kind, val_kind), start);
+                }
+                if name == "Option" {
+                    parser_advance_ref(p);
+                    let inner_ref: AstTypeRef = parse_type_ref(p);
+                    let inner_kind: i64 = ast_type_ref_kind_value(inner_ref);
+                    let inner_struct: i64 = ast_type_ref_struct_name_idx_value(inner_ref);
+                    parser_expect_ref(p, TOK_GT);
+                    return parser_set_type_ref_span_from_start(p, ast_type_generic_ref(TypeKind.Option, inner_kind, inner_struct), start);
+                }
+                if name == "Result" {
+                    parser_advance_ref(p);
+                    let ok_ref: AstTypeRef = parse_type_ref(p);
+                    let ok_kind: i64 = ast_type_ref_kind_value(ok_ref);
+                    parser_expect_ref(p, TOK_COMMA);
+                    let err_ref: AstTypeRef = parse_type_ref(p);
+                    let err_kind: i64 = ast_type_ref_kind_value(err_ref);
+                    parser_expect_ref(p, TOK_GT);
+                    return parser_set_type_ref_span_from_start(p, ast_type_generic_ref(TypeKind.Result, ok_kind, err_kind), start);
+                }
                 skip_type_tail(p);
                 consumed = true;
             } else {
@@ -478,7 +514,7 @@
                 let guard_ref: AstExprRef = parse_expr_ref(p);
                 guard_handle = ast_expr_ref_handle(guard_ref);
             }
-            ast_i64_list_append(guards_ref, guard_handle);
+            ast_i64_list_append_ref(guards_ref, guard_handle);
             parser_expect_ref(p, TOK_FAT_ARROW);
 
             if parser_peek_ref(p) == TOK_LBRACE {
@@ -560,7 +596,7 @@
                     ast_node_list_append_expr_ref(args3_ref, elem2_ref);
                     ast_node_list_append_expr_ref(args3_ref, elem3_ref);
                     let callee3_idx = parser_intern_ref(p, "bkr_tuple3");
-                    let call3_ref = ast_call_ref(ast_ident_ref(callee3_idx), args3_ref);
+                    let call3_ref = ast_call_ref(callee3_idx, args3_ref);
                     return parser_set_expr_ref_span_from_start(p, call3_ref, start);
                 }
                 parser_expect_ref(p, TOK_RPAREN);
@@ -569,7 +605,7 @@
                 ast_node_list_append_expr_ref(args2_ref, expr_ref);
                 ast_node_list_append_expr_ref(args2_ref, elem2_ref);
                 let callee2_idx = parser_intern_ref(p, "bkr_tuple2");
-                let call2_ref = ast_call_ref(ast_ident_ref(callee2_idx), args2_ref);
+                let call2_ref = ast_call_ref(callee2_idx, args2_ref);
                 return parser_set_expr_ref_span_from_start(p, call2_ref, start);
             }
             parser_expect_ref(p, TOK_RPAREN);

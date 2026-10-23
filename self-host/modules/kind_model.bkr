@@ -134,6 +134,10 @@
         if kind == TypeKind.Void { return "void"; }
         if kind == TypeKind.Array { return "array"; }
         if kind == TypeKind.Struct { return "struct"; }
+        if kind == TypeKind.Vec { return "Vec"; }
+        if kind == TypeKind.Map { return "HashMap"; }
+        if kind == TypeKind.Option { return "Option"; }
+        if kind == TypeKind.Result { return "Result"; }
         if kind == TYPE_UNKNOWN { return "unknown"; }
         return "type " + int_to_string(kind);
     }

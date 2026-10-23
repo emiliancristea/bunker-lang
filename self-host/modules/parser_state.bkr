@@ -209,6 +209,20 @@
         return vec_get(parser_names_ref(p_ref), idx);
     }
 
+    fn parser_intern_ref(p_ref: ParserStateRef, text: str) -> i64 {
+        let names: Vec<str> = parser_names_ref(p_ref);
+        let i: i64 = 0;
+        let count: i64 = vec_len(names);
+        while i < count {
+            if vec_get(names, i) == text {
+                return i;
+            }
+            i = i + 1;
+        }
+        vec_push(names, text);
+        return count;
+    }
+
     fn parser_get_value(p: Vec<i64>, idx: i64) -> i64 {
         return parser_get_value_ref(parser_state_ref_from_state(p), idx);
     }

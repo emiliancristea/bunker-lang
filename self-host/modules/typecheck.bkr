@@ -27,6 +27,12 @@
         if typecheck_is_integer_kind(expected_kind) && typecheck_is_integer_kind(found_kind) {
             return true;
         }
+        if (expected_kind == TYPE_VEC || expected_kind == TYPE_MAP || expected_kind == TYPE_OPTION || expected_kind == TYPE_RESULT) && (found_kind == TYPE_I64 || found_kind == TYPE_UNKNOWN) {
+            return true;
+        }
+        if (found_kind == TYPE_VEC || found_kind == TYPE_MAP || found_kind == TYPE_OPTION || found_kind == TYPE_RESULT) && (expected_kind == TYPE_I64 || expected_kind == TYPE_UNKNOWN) {
+            return true;
+        }
         return false;
     }
 
@@ -1874,9 +1880,6 @@
                 ast_ternary_ref_then_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_ternary_ref_else_handle(expr_ref), scope, expected_return_kind);
-        } else if kind == NODE_ARRAY_REPEAT {
-            state = typecheck_scan_loop_control_expr_ref(state,
-                ast_array_repeat_ref_elem_ref(expr_ref), scope, loop_depth);
         } else if kind == NODE_ARRAY_REPEAT {
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_array_repeat_ref_elem_handle(expr_ref), scope, expected_return_kind);

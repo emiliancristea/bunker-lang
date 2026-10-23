@@ -2202,6 +2202,27 @@ jobs:
         run: |
           ./bunker-cli/target/release/bunker-cli run tests/135_recoverable_error_conventions.bkr
 
+      - name: Run generic collections self-host acceptance test (JIT)
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/136_generic_collections_self_host.bkr
+
+      - name: Compile generic collections fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/136_generic_collections_self_host.bkr \
+            -o /tmp/136_generic_collections_self_host.c
+          test -s /tmp/136_generic_collections_self_host.c
+          grep -q "BUNKER_AST_JSON" /tmp/136_generic_collections_self_host.c
+          grep -q '"type_kind":"Vec"' /tmp/136_generic_collections_self_host.c
+          grep -q '"type_kind":"HashMap"' /tmp/136_generic_collections_self_host.c
+          grep -q '"type_kind":"Option"' /tmp/136_generic_collections_self_host.c
+          grep -q '"type_kind":"Result"' /tmp/136_generic_collections_self_host.c
+          grep -q '"element_type_kind":"i32"' /tmp/136_generic_collections_self_host.c
+          grep -q '"key_type_kind":"i32"' /tmp/136_generic_collections_self_host.c
+          grep -q '"value_type_kind":"str"' /tmp/136_generic_collections_self_host.c
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

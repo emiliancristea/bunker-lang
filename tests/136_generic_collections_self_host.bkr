@@ -1,0 +1,65 @@
+// Test 136: Generic Collections in Self-Host Compiler (SH-005)
+// Purpose: Verify Vec<T>, HashMap<K, V>, Option<T>, and Result<T, E> generic type annotations
+// preserve element/key/value types in AST, typechecker, and codegen.
+// Expected: JIT returns 42
+
+kernel GenericCollectionsSelfHost {
+    fn process_vec(items: Vec<i32>) -> i32 {
+        vec_push(items, 40);
+        vec_push(items, 2);
+        let first: i32 = vec_get(items, 0);
+        let second: i32 = vec_get(items, 1);
+        return first + second;
+    }
+
+    fn check_option(opt: Option<i32>) -> i32 {
+        return match opt {
+            Some(v) => v;
+            None => 0;
+        };
+    }
+
+    fn check_result(res: Result<i32, str>) -> i32 {
+        if result_is_ok(res) {
+            return result_unwrap(res);
+        }
+        return 0;
+    }
+
+    fn main() -> i32 {
+        let v: Vec<i32> = vec_new();
+        let total: i32 = process_vec(v);
+        if total != 42 {
+            return 1;
+        }
+
+        let map: HashMap<i32, str> = hashmap_new();
+        hashmap_insert(map, 10, "ok");
+        if !hashmap_contains(map, 10) {
+            return 2;
+        }
+        let val: str = hashmap_get(map, 10);
+        if len(val) != 2 {
+            return 3;
+        }
+
+        let opt: Option<i32> = Some(42);
+        if check_option(opt) != 42 {
+            return 4;
+        }
+
+        let res: Result<i32, str> = result_ok(42);
+        if check_result(res) != 42 {
+            return 5;
+        }
+
+        let str_list: Vec<str> = vec_new();
+        vec_push(str_list, "alpha");
+        vec_push(str_list, "beta");
+        if vec_len(str_list) != 2 {
+            return 6;
+        }
+
+        return 42;
+    }
+}
