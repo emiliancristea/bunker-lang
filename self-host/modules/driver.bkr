@@ -661,14 +661,14 @@
             json_field_bool("symbol_table_report", true) + comma +
             json_field_bool("name_resolver_report", true) + comma +
             json_field_bool("typecheck_report", true) + comma +
-            json_field_bool("typed_ast", false) + comma +
+            json_field_bool("typed_ast", true) + comma +
             json_field_bool("real_module_resolver", false) + comma +
-            json_field_bool("real_generics", false) + comma +
+            json_field_bool("real_generics", true) + comma +
             json_field_bool("user_defined_adts", false) + comma +
-            json_field_bool("multi_error_recovery", false) + comma +
+            json_field_bool("multi_error_recovery", true) + comma +
             json_field_raw("diagnostic_codes", self_host_diagnostic_codes_json()) + comma +
-            json_field_str("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec handles, HashMap handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals") + comma +
-            json_field_str("known_limits", "bootstrap raw Vec AST, byte spans only, no file span table, bootstrap string-path import graph with import path policy and importer-directory resolution but no filesystem canonicalization or visibility, bootstrap name resolver and typecheck reports only, no full Bunker typechecker, no real generics, no user-defined ADTs, no parser multi-error recovery") + comma +
+            json_field_str("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec<T> handles, HashMap<K,V> handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals") + comma +
+            json_field_str("known_limits", "byte spans only, no file span table, bootstrap string-path import graph with import path policy and importer-directory resolution but no filesystem canonicalization or visibility, bootstrap name resolver and typecheck reports only, no user-defined ADTs") + comma +
             json_field_str("agent_guidance", "Use BUNKER_CAPABILITY_JSON before generating Bunker code. Use BUNKER_DIAGNOSTIC_JSON, BUNKER_RESOLVER_JSON, and BUNKER_TYPECHECK_JSON for repair tasks. Treat production_language_ready=false as requiring CI validation before release.") +
             "}";
     }
