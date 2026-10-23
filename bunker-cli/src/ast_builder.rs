@@ -181,6 +181,7 @@ fn build_param(pair: Pair<Rule>) -> Result<Param, String> {
 fn build_type(pair: Pair<Rule>) -> Result<Type, String> {
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::never_type => return Ok(Type::Never),
             Rule::unit_type => return Ok(Type::Unit),
             Rule::tuple_type => {
                 let mut elem_types = Vec::new();

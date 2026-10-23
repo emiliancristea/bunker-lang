@@ -2239,6 +2239,22 @@ jobs:
           grep -q '"type_kind":"type alias"' /tmp/137_type_aliases.c
           grep -q '"has_diagnostics":false' /tmp/137_type_aliases.c
 
+      - name: Run never type acceptance test (JIT)
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/138_never_type.bkr
+
+      - name: Compile never type fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/138_never_type.bkr \
+            -o /tmp/138_never_type.c
+          test -s /tmp/138_never_type.c
+          grep -q "BUNKER_AST_JSON" /tmp/138_never_type.c
+          grep -q '"type_kind":"!"' /tmp/138_never_type.c
+          grep -q '"has_diagnostics":false' /tmp/138_never_type.c
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

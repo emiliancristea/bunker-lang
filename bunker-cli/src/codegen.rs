@@ -145,7 +145,7 @@ impl Compiler {
         }
 
         if let Some(ref ret_ty) = func.return_type {
-            if *ret_ty != ast::Type::Unit {
+            if *ret_ty != ast::Type::Unit && *ret_ty != ast::Type::Never {
                 sig.returns.push(AbiParam::new(convert_ast_type(ret_ty)));
             }
         }

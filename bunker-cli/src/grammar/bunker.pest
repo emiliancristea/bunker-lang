@@ -235,6 +235,7 @@ enum_variant_pattern = { identifier ~ "." ~ identifier ~ ("(" ~ identifier ~ (",
 // ====================
 
 type_expr = {
+    never_type |
     unit_type |
     tuple_type |
     option_type |
@@ -246,6 +247,7 @@ type_expr = {
     base_type
 }
 
+never_type = { "!" | "never" }
 unit_type = { "(" ~ ")" }
 tuple_type = { "(" ~ type_expr ~ ("," ~ type_expr)+ ~ ","? ~ ")" }
 option_type = { "Option<" ~ type_expr ~ ">" }

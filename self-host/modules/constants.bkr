@@ -331,6 +331,7 @@
         Map,
         Option,
         Result,
+        Never,
     }
 
     const TYPE_I32: i64 = TypeKind.I32;
@@ -345,5 +346,6 @@
     const TYPE_MAP: i64 = TypeKind.Map;
     const TYPE_OPTION: i64 = TypeKind.Option;
     const TYPE_RESULT: i64 = TypeKind.Result;
+    const TYPE_NEVER: i64 = TypeKind.Never;
     // Sentinel, not a TypeKind variant: keep the historical unknown tag.
     const TYPE_UNKNOWN: i64 = 99;

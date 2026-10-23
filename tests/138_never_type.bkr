@@ -1,0 +1,46 @@
+kernel NeverTypeTest {
+    type Bottom = !;
+
+    fn fail(msg: str) -> ! {
+        panic(msg);
+    }
+
+    fn test_if(flag: bool) -> i32 {
+        let x: i32 = 0;
+        if flag {
+            x = 20;
+        } else {
+            fail("flag was false");
+        }
+        return x;
+    }
+
+    fn test_ternary(flag: bool) -> i32 {
+        let val: i32 = flag ? 12 : fail("ternary false");
+        return val;
+    }
+
+    fn test_opt(opt: Option<i32>) -> i32 {
+        let val: i32 = match opt {
+            Some(v) => v;
+            None => fail("none encountered");
+        };
+        return val;
+    }
+
+    fn test_res(res: Result<i32, str>) -> i32 {
+        let val: i32 = match res {
+            Ok(v) => v;
+            Err(e) => fail(e);
+        };
+        return val;
+    }
+
+    fn main() -> i32 {
+        let a: i32 = test_if(true);
+        let b: i32 = test_ternary(true);
+        let c: i32 = test_opt(Some(5));
+        let d: i32 = test_res(result_ok(5));
+        return a + b + c + d;
+    }
+}

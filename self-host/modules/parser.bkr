@@ -271,6 +271,7 @@
             parser_expect_ref(p, TOK_RBRACKET);
             return parser_set_type_ref_span_from_start(p, ast_type_array_ref(ast_type_ref_kind_value(elem_type_ref), len_value), start);
         }
+        if tok == TOK_NOT { parser_advance_ref(p); return parser_set_type_ref_span_from_start(p, ast_type_ref(TYPE_NEVER), start); }
         if tok == TOK_I32 { kind = TYPE_I32; parser_advance_ref(p); consumed = true; }
         if tok == TOK_I64 { kind = TYPE_I64; parser_advance_ref(p); consumed = true; }
         if tok == TOK_F64 { kind = TYPE_F64; parser_advance_ref(p); consumed = true; }
@@ -279,6 +280,10 @@
         if tok == TOK_IDENT {
             let name_idx = parser_peek_value_ref(p);
             let name = parser_get_name_ref(p, name_idx);
+            if name == "never" && parser_peek_ref(p) != TOK_LT {
+                parser_advance_ref(p);
+                return parser_set_type_ref_span_from_start(p, ast_type_ref(TYPE_NEVER), start);
+            }
             parser_advance_ref(p);
             if parser_peek_ref(p) == TOK_LT {
                 if name == "Vec" {

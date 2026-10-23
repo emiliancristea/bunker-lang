@@ -21,6 +21,12 @@
         if expected_kind == TYPE_UNKNOWN || found_kind == TYPE_UNKNOWN {
             return true;
         }
+        if found_kind == TYPE_NEVER {
+            return true;
+        }
+        if expected_kind == TYPE_NEVER {
+            return false;
+        }
         if expected_kind == found_kind {
             return true;
         }
@@ -2211,7 +2217,7 @@
         let expected_return_kind: i64 = typecheck_return_ref_kind_with_kernel(kernel_ref, item_ref);
         state = typecheck_scan_loop_control_block_ref(state, ast_fn_ref_body_ref(item_ref), scope, 0);
         state = typecheck_scan_unreachable_block_ref(state, ast_fn_ref_body_ref(item_ref), scope);
-        if expected_return_kind != TYPE_VOID && expected_return_kind != TYPE_UNKNOWN &&
+        if expected_return_kind != TYPE_VOID && expected_return_kind != TYPE_NEVER && expected_return_kind != TYPE_UNKNOWN &&
                 !typecheck_block_definitely_returns_ref(ast_fn_ref_body_ref(item_ref)) {
             state = typecheck_append_missing_return_ref(state, names, scope, item_ref);
         }

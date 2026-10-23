@@ -792,7 +792,7 @@ impl TypeChecker {
                 }
                 let then_ty = self.infer_expr(then_expr, context)?;
                 let else_ty = self.infer_expr(else_expr, context)?;
-                if !self.types_compatible(&then_ty, &else_ty) {
+                if !self.types_compatible(&then_ty, &else_ty) && !self.types_compatible(&else_ty, &then_ty) {
                     self.errors.push(TypeError {
                         message: format!(
                             "If branches have different types: {:?} vs {:?}",
@@ -801,7 +801,11 @@ impl TypeChecker {
                         location: context.to_string(),
                     });
                 }
-                Ok(then_ty)
+                if then_ty == Type::Never {
+                    Ok(else_ty)
+                } else {
+                    Ok(then_ty)
+                }
             }
         Expr::Array(elements) => {
                 if elements.is_empty() {
@@ -910,21 +914,31 @@ impl TypeChecker {
                 self.check_option_match(&expr_ty, arms, context);
                 self.check_result_match(&expr_ty, arms, context);
 
-                // Infer result type from first arm
-                if let Some(first_arm) = arms.first() {
-                    match &first_arm.body {
+                // Infer result type across arms (propagating non-Never types)
+                let mut match_result: Option<Type> = None;
+                for arm in arms {
+                    match &arm.body {
                         ast::MatchBody::Expr(e) => {
                             let saved = self.variables.clone();
                             let saved_moved = self.moved_vars.clone();
-                            // Bind pattern variable
-                            self.bind_pattern(&first_arm.pattern, &expr_ty);
-                            let result = self.infer_expr(e, context)?;
+                            self.bind_pattern(&arm.pattern, &expr_ty);
+                            let arm_ty = self.infer_expr(e, context)?;
                             self.variables = saved;
                             self.moved_vars = saved_moved;
-                            Ok(result)
+                            if arm_ty != Type::Never {
+                                if let Some(existing) = &match_result {
+                                    if !self.types_compatible(existing, &arm_ty) && !self.types_compatible(&arm_ty, existing) {
+                                        self.errors.push(TypeError {
+                                            message: format!("Match arms have incompatible types: {:?} vs {:?}", existing, arm_ty),
+                                            location: context.to_string(),
+                                        });
+                                    }
+                                } else {
+                                    match_result = Some(arm_ty);
+                                }
+                            }
                         }
                         ast::MatchBody::Block(block) => {
-                            // Block must end with an expression to produce a value
                             let has_value = block
                                 .statements
                                 .last()
@@ -936,12 +950,13 @@ impl TypeChecker {
                                 });
                             }
                             self.check_block(block, context)?;
-                            Ok(Type::I32)
+                            if match_result.is_none() {
+                                match_result = Some(Type::I32);
+                            }
                         }
                     }
-                } else {
-                    Ok(Type::I32)
                 }
+                Ok(match_result.unwrap_or(Type::Never))
             }
             Expr::Block(block) => {
                 // Block expression - check all statements and return type of last expression
@@ -1195,7 +1210,7 @@ impl TypeChecker {
                         });
                     }
                 }
-                return Ok(Some(expected.cloned().unwrap_or(Type::Unit)));
+                return Ok(Some(Type::Never));
             }
             "assert" => {
                 if args.is_empty() || args.len() > 2 {
@@ -1681,7 +1696,7 @@ impl TypeChecker {
     fn is_copy_type(&self, ty: &Type) -> bool {
         match ty {
             Type::Tuple(elem_types) => elem_types.iter().all(|t| self.is_copy_type(t)),
-            Type::Unit | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool => true,
+            Type::Never | Type::Unit | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool => true,
             Type::Named(name) => self.enums.contains_key(name),
             _ => false,
         }
@@ -2257,6 +2272,9 @@ impl TypeChecker {
         let expected = &expected_res;
         let actual = &actual_res;
         if expected == actual {
+            return true;
+        }
+        if *actual == Type::Never {
             return true;
         }
         if let (Type::Tuple(t1), Type::Tuple(t2)) = (expected, actual) {

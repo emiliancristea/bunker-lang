@@ -374,6 +374,7 @@ pub enum UnaryOp {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
+    Never,
     Unit,
     Tuple(Vec<Type>),
     I32,

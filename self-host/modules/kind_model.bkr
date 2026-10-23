@@ -140,6 +140,7 @@
         if kind == TypeKind.Map { return "HashMap"; }
         if kind == TypeKind.Option { return "Option"; }
         if kind == TypeKind.Result { return "Result"; }
+        if kind == TypeKind.Never { return "!"; }
         if kind == TYPE_UNKNOWN { return "unknown"; }
         return "type " + int_to_string(kind);
     }
