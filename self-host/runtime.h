@@ -741,4 +741,72 @@ static inline bkr_str bkr_arg_at(bkr_i64 index) {
     return "";
 }
 
+/* ============================================
+ * Recoverable Error Stdlib Builtins (C-007)
+ * ============================================ */
+
+static inline bkr_i64 bkr_option_some(bkr_i64 val) {
+    return ((val << 1) | 1);
+}
+
+static inline bkr_i64 bkr_hashmap_get_opt(bkr_i64 handle, bkr_i64 key) {
+    BkrHashMap* m = (BkrHashMap*)(intptr_t)handle;
+    if (!m || !m->buckets) return 0;
+    bkr_i64 idx = bkr_hash(key) % m->size;
+    BkrHashEntry* e = m->buckets[idx];
+    while (e) {
+        if (e->key == key) return bkr_option_some(e->value);
+        e = e->next;
+    }
+    return 0;
+}
+
+static inline bkr_i64 bkr_vec_get_opt(bkr_i64 handle, bkr_i64 index) {
+    BkrVec* v = (BkrVec*)(intptr_t)handle;
+    if (!v || index < 0 || index >= v->len) return 0;
+    return bkr_option_some(v->data[index]);
+}
+
+static inline bkr_i64 bkr_vec_pop_opt(bkr_i64 handle) {
+    BkrVec* v = (BkrVec*)(intptr_t)handle;
+    if (!v || v->len <= 0) return 0;
+    v->len--;
+    return bkr_option_some(v->data[v->len]);
+}
+
+static inline bkr_i64 bkr_read_file_result(bkr_str path) {
+    bkr_str content = bkr_read_file(path);
+    if (!content) {
+        return bkr_result_err((bkr_i64)(intptr_t)"failed to read file");
+    }
+    return bkr_result_ok((bkr_i64)(intptr_t)content);
+}
+
+static inline bkr_i64 bkr_write_file_result(bkr_str path, bkr_str content) {
+    bkr_bool ok = bkr_write_file(path, content);
+    if (!ok) {
+        return bkr_result_err((bkr_i64)(intptr_t)"failed to write file");
+    }
+    return bkr_result_ok(1);
+}
+
+static inline bkr_i64 bkr_parse_int_result(bkr_str s) {
+    if (!s || *s == '\0') {
+        return bkr_result_err((bkr_i64)(intptr_t)"empty integer string");
+    }
+    char* endptr = NULL;
+    long long val = strtoll(s, &endptr, 10);
+    if (endptr == s || *endptr != '\0') {
+        return bkr_result_err((bkr_i64)(intptr_t)"invalid integer format");
+    }
+    return bkr_result_ok((bkr_i64)val);
+}
+
+static inline bkr_i64 hashmap_get_opt(bkr_i64 handle, bkr_i64 key) { return bkr_hashmap_get_opt(handle, key); }
+static inline bkr_i64 vec_get_opt(bkr_i64 handle, bkr_i64 index) { return bkr_vec_get_opt(handle, index); }
+static inline bkr_i64 vec_pop_opt(bkr_i64 handle) { return bkr_vec_pop_opt(handle); }
+static inline bkr_i64 read_file_result(bkr_str path) { return bkr_read_file_result(path); }
+static inline bkr_i64 write_file_result(bkr_str path, bkr_str content) { return bkr_write_file_result(path, content); }
+static inline bkr_i64 parse_int_result(bkr_str s) { return bkr_parse_int_result(s); }
+
 #endif /* BUNKER_RUNTIME_H */

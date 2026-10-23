@@ -113,6 +113,7 @@ $expectedResults = @{
     "132_try_operator" = 42
     "133_labeled_loops" = 42
     "134_panic_abort_policy" = 42
+    "135_recoverable_error_conventions" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)

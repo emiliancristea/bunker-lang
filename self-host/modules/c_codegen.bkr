@@ -1076,6 +1076,33 @@
                 let arg2: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
                 return "bkr_result_err(" + arg2 + ")";
             }
+            if raw == "hashmap_get_opt" && arg_count == 2 {
+                let map_arg: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let key_arg: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_hashmap_get_opt(" + map_arg + ", " + key_arg + ")";
+            }
+            if raw == "vec_get_opt" && arg_count == 2 {
+                let v_arg: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let idx_arg: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_vec_get_opt(" + v_arg + ", " + idx_arg + ")";
+            }
+            if raw == "vec_pop_opt" && arg_count == 1 {
+                let v_arg2: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_vec_pop_opt(" + v_arg2 + ")";
+            }
+            if raw == "read_file_result" && arg_count == 1 {
+                let p_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_read_file_result((bkr_str)(intptr_t)(" + p_arg + "))";
+            }
+            if raw == "write_file_result" && arg_count == 2 {
+                let p_arg2: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let c_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_write_file_result((bkr_str)(intptr_t)(" + p_arg2 + "), (bkr_str)(intptr_t)(" + c_arg + "))";
+            }
+            if raw == "parse_int_result" && arg_count == 1 {
+                let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_parse_int_result((bkr_str)(intptr_t)(" + s_arg + "))";
+            }
             if raw == "vec_push" && arg_count == 2 {
                 let vec_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
                 let value: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));

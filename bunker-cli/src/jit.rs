@@ -1190,6 +1190,140 @@ extern "C" fn bunker_hashmap_keys(map_ptr: i64) -> i64 {
     vec_ptr
 }
 
+/// Allocate an 8-byte Option::Some box containing `val`.
+extern "C" fn bunker_option_some(val: i64) -> i64 {
+    let layout = std::alloc::Layout::from_size_align(8, 8).unwrap();
+    let ptr = unsafe { std::alloc::alloc_zeroed(layout) };
+    if ptr.is_null() {
+        return 0;
+    }
+    unsafe {
+        *(ptr as *mut i64) = val;
+    }
+    ptr as i64
+}
+
+/// Recoverable hashmap get returning Option<V> (Some(val) if found, 0 / None if not found).
+extern "C" fn bunker_hashmap_get_opt(map_ptr: i64, key: i64) -> i64 {
+    if map_ptr == 0 {
+        return 0;
+    }
+    unsafe {
+        let capacity = *(map_ptr as *const i64);
+        let entries_ptr = *((map_ptr as *const i64).offset(2)) as *const i64;
+        let hash = hash_i64(key);
+        let mut idx = (hash & (capacity - 1)) as isize;
+        let start_idx = idx;
+
+        loop {
+            let entry_ptr =
+                (entries_ptr as *const u8).offset(idx * HASHMAP_ENTRY_SIZE as isize) as *const i64;
+            let occupied = *entry_ptr.offset(3);
+            if occupied == 0 {
+                return 0;
+            } else if *entry_ptr == key {
+                let val = *entry_ptr.offset(1);
+                return bunker_option_some(val);
+            }
+            idx = (idx + 1) & (capacity as isize - 1);
+            if idx == start_idx {
+                return 0;
+            }
+        }
+    }
+}
+
+/// Recoverable vec get returning Option<T> (Some(val) if in bounds, 0 / None if out of bounds).
+extern "C" fn bunker_vec_get_opt(vec_ptr: i64, index: i64) -> i64 {
+    if vec_ptr == 0 {
+        return 0;
+    }
+    unsafe {
+        let header = vec_ptr as *mut i64;
+        let length = *header.offset(1);
+        if index < 0 || index >= length {
+            return 0;
+        }
+        let data_ptr = *header.offset(2) as *mut i64;
+        let val = *data_ptr.offset(index as isize);
+        bunker_option_some(val)
+    }
+}
+
+/// Recoverable vec pop returning Option<T> (Some(val) if non-empty, 0 / None if empty).
+extern "C" fn bunker_vec_pop_opt(vec_ptr: i64) -> i64 {
+    if vec_ptr == 0 {
+        return 0;
+    }
+    unsafe {
+        let header = vec_ptr as *mut i64;
+        let length = *header.offset(1);
+        if length <= 0 {
+            return 0;
+        }
+        let data_ptr = *header.offset(2) as *mut i64;
+        let val = *data_ptr.offset((length - 1) as isize);
+        *header.offset(1) = length - 1;
+        bunker_option_some(val)
+    }
+}
+
+/// Recoverable read_file returning Result<str, str> (Ok(content) or Err(msg)).
+extern "C" fn bunker_read_file_result(path_ptr: i64) -> i64 {
+    let path_str = unsafe { read_bunker_string(path_ptr) };
+    let Some(path_str) = path_str else {
+        let err_ptr = alloc_bunker_string("null path");
+        return bunker_result_err(err_ptr);
+    };
+    match std::fs::read_to_string(&path_str) {
+        Ok(contents) => {
+            let ok_ptr = alloc_bunker_string(&contents);
+            bunker_result_ok(ok_ptr)
+        }
+        Err(e) => {
+            let err_ptr = alloc_bunker_string(&e.to_string());
+            bunker_result_err(err_ptr)
+        }
+    }
+}
+
+/// Recoverable write_file returning Result<bool, str> (Ok(true) or Err(msg)).
+extern "C" fn bunker_write_file_result(path_ptr: i64, content_ptr: i64) -> i64 {
+    let path_str = unsafe { read_bunker_string(path_ptr) };
+    let Some(path_str) = path_str else {
+        let err_ptr = alloc_bunker_string("null path");
+        return bunker_result_err(err_ptr);
+    };
+    let content_str = unsafe { read_bunker_string(content_ptr) };
+    let Some(content_str) = content_str else {
+        let err_ptr = alloc_bunker_string("null content");
+        return bunker_result_err(err_ptr);
+    };
+    match std::fs::write(&path_str, &content_str) {
+        Ok(()) => bunker_result_ok(1),
+        Err(e) => {
+            let err_ptr = alloc_bunker_string(&e.to_string());
+            bunker_result_err(err_ptr)
+        }
+    }
+}
+
+/// Recoverable parse_int returning Result<i64, str> (Ok(val) or Err(msg)).
+extern "C" fn bunker_parse_int_result(str_ptr: i64) -> i64 {
+    let s = unsafe { read_bunker_string(str_ptr) };
+    let Some(s) = s else {
+        let err_ptr = alloc_bunker_string("null string");
+        return bunker_result_err(err_ptr);
+    };
+    match s.trim().parse::<i64>() {
+        Ok(val) => bunker_result_ok(val),
+        Err(_) => {
+            let err_ptr = alloc_bunker_string("invalid integer format");
+            bunker_result_err(err_ptr)
+        }
+    }
+}
+
 // Free function to convert types (kept in sync with object codegen)
 fn convert_ast_type(ty: &ast::Type) -> types::Type {
     match ty {
@@ -1464,6 +1598,12 @@ impl KernelJit {
         builder.symbol("bunker_hashmap_len", bunker_hashmap_len as *const u8);
         builder.symbol("bunker_hashmap_clear", bunker_hashmap_clear as *const u8);
         builder.symbol("bunker_hashmap_keys", bunker_hashmap_keys as *const u8);
+        builder.symbol("bunker_hashmap_get_opt", bunker_hashmap_get_opt as *const u8);
+        builder.symbol("bunker_vec_get_opt", bunker_vec_get_opt as *const u8);
+        builder.symbol("bunker_vec_pop_opt", bunker_vec_pop_opt as *const u8);
+        builder.symbol("bunker_read_file_result", bunker_read_file_result as *const u8);
+        builder.symbol("bunker_write_file_result", bunker_write_file_result as *const u8);
+        builder.symbol("bunker_parse_int_result", bunker_parse_int_result as *const u8);
 
         let mut module = JITModule::new(builder);
         let alloc_func = declare_alloc_func(&mut module)?;
@@ -1516,6 +1656,12 @@ impl KernelJit {
         let hashmap_len_func = declare_hashmap_len_func(&mut module)?;
         let hashmap_clear_func = declare_hashmap_clear_func(&mut module)?;
         let hashmap_keys_func = declare_hashmap_keys_func(&mut module)?;
+        let hashmap_get_opt_func = declare_hashmap_get_opt_func(&mut module)?;
+        let vec_get_opt_func = declare_vec_get_opt_func(&mut module)?;
+        let vec_pop_opt_func = declare_vec_pop_opt_func(&mut module)?;
+        let read_file_result_func = declare_read_file_result_func(&mut module)?;
+        let write_file_result_func = declare_write_file_result_func(&mut module)?;
+        let parse_int_result_func = declare_parse_int_result_func(&mut module)?;
         let ctx = module.make_context();
 
         // Initialize with builtin functions
@@ -1564,6 +1710,12 @@ impl KernelJit {
             ("hashmap_len", hashmap_len_func),
             ("hashmap_clear", hashmap_clear_func),
             ("hashmap_keys", hashmap_keys_func),
+            ("hashmap_get_opt", hashmap_get_opt_func),
+            ("vec_get_opt", vec_get_opt_func),
+            ("vec_pop_opt", vec_pop_opt_func),
+            ("read_file_result", read_file_result_func),
+            ("write_file_result", write_file_result_func),
+            ("parse_int_result", parse_int_result_func),
         ] {
             register_runtime_builtin(&mut functions, &mut fn_sigs, name, func_id)?;
         }
@@ -5822,6 +5974,63 @@ fn declare_hashmap_keys_func(module: &mut JITModule) -> Result<FuncId> {
     module
         .declare_function("bunker_hashmap_keys", Linkage::Import, &sig)
         .map_err(|e| anyhow!("Failed to declare runtime bunker_hashmap_keys: {}", e))
+}
+
+fn declare_hashmap_get_opt_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_hashmap_get_opt", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_hashmap_get_opt: {}", e))
+}
+
+fn declare_vec_get_opt_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_vec_get_opt", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_vec_get_opt: {}", e))
+}
+
+fn declare_vec_pop_opt_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_vec_pop_opt", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_vec_pop_opt: {}", e))
+}
+
+fn declare_read_file_result_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_read_file_result", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_read_file_result: {}", e))
+}
+
+fn declare_write_file_result_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_write_file_result", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_write_file_result: {}", e))
+}
+
+fn declare_parse_int_result_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_parse_int_result", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_parse_int_result: {}", e))
 }
 
 fn emit_alloc(

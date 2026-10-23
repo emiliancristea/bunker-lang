@@ -526,6 +526,78 @@ static TYPECHECK_BUILTINS: &[TypecheckBuiltinSpec] = &[
         return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
     },
     TypecheckBuiltinSpec {
+        name: "hashmap_get_opt",
+        arity_error: "hashmap_get_opt expects 2 arguments (map, key)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "vec_get_opt",
+        arity_error: "vec_get_opt expects 2 arguments (vec, index)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "vec_pop_opt",
+        arity_error: "vec_pop_opt expects 1 argument (vec)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Any,
+            type_error: "",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "read_file_result",
+        arity_error: "read_file_result expects 1 argument (path)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Str,
+            type_error: "read_file_result expects str path",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "write_file_result",
+        arity_error: "write_file_result expects 2 arguments (path, content)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "write_file_result path must be str",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "write_file_result content must be str",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "parse_int_result",
+        arity_error: "parse_int_result expects 1 argument (string)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Str,
+            type_error: "parse_int_result expects str",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
         name: "args_count",
         arity_error: "args_count expects 0 arguments",
         params: &[],
@@ -765,6 +837,36 @@ static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
         params: &[RuntimeBuiltinType::I64],
         return_type: Some(RuntimeBuiltinType::I64),
     },
+    RuntimeBuiltinSpec {
+        name: "hashmap_get_opt",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "vec_get_opt",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "vec_pop_opt",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "read_file_result",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "write_file_result",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "parse_int_result",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
 ];
 
 pub fn lookup_typecheck_builtin(name: &str) -> Option<&'static TypecheckBuiltinSpec> {
@@ -838,6 +940,17 @@ pub fn infer_special_builtin_call_type(
             Some(ast::Type::Result(ok, err)) if ok == err => ok.as_ref().clone(),
             _ => ast::Type::I64,
         }),
+        "hashmap_get_opt" => Some(match arg_types.first() {
+            Some(ast::Type::HashMap(_, value)) => ast::Type::Option(Box::new(value.as_ref().clone())),
+            _ => ast::Type::Option(Box::new(ast::Type::I64)),
+        }),
+        "vec_get_opt" | "vec_pop_opt" => Some(match arg_types.first() {
+            Some(ast::Type::Vec(elem)) => ast::Type::Option(Box::new(elem.as_ref().clone())),
+            _ => ast::Type::Option(Box::new(ast::Type::I64)),
+        }),
+        "read_file_result" => Some(ast::Type::Result(Box::new(ast::Type::Str), Box::new(ast::Type::Str))),
+        "write_file_result" => Some(ast::Type::Result(Box::new(ast::Type::Bool), Box::new(ast::Type::Str))),
+        "parse_int_result" => Some(ast::Type::Result(Box::new(ast::Type::I64), Box::new(ast::Type::Str))),
         _ => None,
     }
 }

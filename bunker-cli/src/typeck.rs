@@ -1402,6 +1402,36 @@ impl TypeChecker {
                     name, &arg_types, expected,
                 ))
             }
+            "hashmap_get_opt" => {
+                self.check_builtin_arity("hashmap_get_opt expects 2 arguments (map, key)", args, 2, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+            }
+            "vec_get_opt" => {
+                self.check_builtin_arity("vec_get_opt expects 2 arguments (vec, index)", args, 2, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+            }
+            "vec_pop_opt" => {
+                self.check_builtin_arity("vec_pop_opt expects 1 argument (vec)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+            }
+            "read_file_result" => {
+                self.check_builtin_arity("read_file_result expects 1 argument (path)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+            }
+            "write_file_result" => {
+                self.check_builtin_arity("write_file_result expects 2 arguments (path, content)", args, 2, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+            }
+            "parse_int_result" => {
+                self.check_builtin_arity("parse_int_result expects 1 argument (string)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+            }
             "result_is_ok" | "result_is_err" | "result_unwrap" | "result_unwrap_err"
             | "result_tag" | "result_value" => {
                 let arity_error = match name {

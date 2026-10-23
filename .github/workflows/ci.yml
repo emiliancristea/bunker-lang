@@ -2197,6 +2197,11 @@ jobs:
         run: |
           ./bunker-cli/target/release/bunker-cli run tests/134_panic_abort_policy.bkr
 
+      - name: Run recoverable error conventions acceptance test (JIT)
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/135_recoverable_error_conventions.bkr
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |
