@@ -244,6 +244,13 @@
         payloads: i64
     }
 
+    struct AstTypeAlias {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        target_handle: i64
+    }
+
     struct AstKernel {
         start: i64,
         end: i64,
@@ -3709,6 +3716,59 @@
             i = i + 1;
         }
         return sum;
+    }
+
+    fn ast_type_alias_record(name_idx: i64, target_handle: i64) -> AstTypeAlias {
+        return AstTypeAlias {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            name_idx: name_idx,
+            target_handle: target_handle
+        };
+    }
+
+    fn ast_type_alias_pack(item: AstTypeAlias) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_TYPE_ALIAS);
+        vec_push(node, item.start);
+        vec_push(node, item.end);
+        vec_push(node, item.name_idx);
+        vec_push(node, item.target_handle);
+        return node;
+    }
+
+    fn ast_type_alias_unpack(node: Vec<i64>) -> AstTypeAlias {
+        let name_idx: i64 = 0;
+        let target_handle: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            name_idx = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            target_handle = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        return AstTypeAlias {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            name_idx: name_idx,
+            target_handle: target_handle
+        };
+    }
+
+    fn ast_type_alias_ref(name_idx: i64, target_ref: AstTypeRef) -> AstItemRef {
+        let rec: AstTypeAlias = ast_type_alias_record(name_idx, ast_type_ref_handle(target_ref));
+        return ast_item_ref_from_handle(ast_type_alias_pack(rec) as i64);
+    }
+
+    fn ast_type_alias(name_idx: i64, target_type: Vec<i64>) -> Vec<i64> {
+        return ast_item_node_from_ref(ast_type_alias_ref(name_idx, ast_type_ref_from_node(target_type)));
+    }
+
+    fn ast_type_alias_ref_name_idx(item_ref: AstItemRef) -> i64 {
+        return ast_field(ast_item_node_from_ref(item_ref), 1);
+    }
+
+    fn ast_type_alias_ref_target_handle(item_ref: AstItemRef) -> i64 {
+        return ast_field(ast_item_node_from_ref(item_ref), 2);
     }
 
     fn ast_struct(name_idx: i64, fields: Vec<i64>) -> Vec<i64> {

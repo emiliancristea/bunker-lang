@@ -34,6 +34,9 @@
         if kind == NODE_ENUM {
             return ast_enum_ref_name_idx(item_ref);
         }
+        if kind == NODE_TYPE_ALIAS {
+            return ast_type_alias_ref_name_idx(item_ref);
+        }
         return -1;
     }
 
@@ -398,6 +401,11 @@
                 json_field_str("name", ast_report_name(names, ast_const_ref_name_idx(item_ref))) + comma +
                 json_field_raw("type", ast_report_optional_node_json(names, ast_const_ref_type_handle(item_ref))) + comma +
                 json_field_raw("value", ast_report_optional_node_json(names, ast_const_ref_value_handle(item_ref)));
+        } else if kind == NODE_TYPE_ALIAS {
+            let item_ref: AstItemRef = ast_item_ref_from_node_ref(node_ref);
+            result = result + comma +
+                json_field_str("name", ast_report_name(names, ast_type_alias_ref_name_idx(item_ref))) + comma +
+                json_field_raw("target", ast_report_optional_node_json(names, ast_type_alias_ref_target_handle(item_ref)));
         } else if kind == NODE_TERNARY {
             let expr_ref: AstExprRef = ast_expr_ref_from_node_ref(node_ref);
             result = result + comma +

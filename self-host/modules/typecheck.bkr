@@ -68,6 +68,41 @@
         return typecheck_declared_ref_kind(ast_type_ref_from_handle(type_node));
     }
 
+    fn typecheck_find_type_alias_target_handle(kernel_ref: AstNodeRef, name_idx: i64) -> i64 {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_TYPE_ALIAS {
+                if ast_type_alias_ref_name_idx(item_ref) == name_idx {
+                    return ast_type_alias_ref_target_handle(item_ref);
+                }
+            }
+            i = i + 1;
+        }
+        return ast_optional_none();
+    }
+
+    fn typecheck_resolve_type_ref_kind(kernel_ref: AstNodeRef, type_ref: AstTypeRef) -> i64 {
+        let kind: i64 = ast_type_ref_kind_value(type_ref);
+        if kind == TYPE_STRUCT {
+            let name_idx: i64 = ast_type_ref_struct_name_idx_value(type_ref);
+            let alias_target: i64 = typecheck_find_type_alias_target_handle(kernel_ref, name_idx);
+            if ast_optional_is_some(alias_target) {
+                return typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(alias_target));
+            }
+        }
+        return kind;
+    }
+
+    fn typecheck_return_ref_kind_with_kernel(kernel_ref: AstNodeRef, fn_ref: AstItemRef) -> i64 {
+        let return_type: i64 = ast_fn_ref_return_type_handle(fn_ref);
+        if ast_optional_is_none(return_type) {
+            return TYPE_VOID;
+        }
+        return typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(return_type));
+    }
+
     fn typecheck_declared_ref_kind(type_ref: AstTypeRef) -> i64 {
         return ast_type_ref_kind_value(type_ref);
     }
@@ -605,7 +640,7 @@
                 int_to_string(param_count) + " parameter(s)",
                 "Remove entry function parameters or make a zero-argument wrapper entry.");
         }
-        let return_kind: i64 = typecheck_return_ref_kind(entry_ref);
+        let return_kind: i64 = typecheck_return_ref_kind_with_kernel(kernel_ref, entry_ref);
         if return_kind != TYPE_UNKNOWN && !typecheck_is_integer_kind(return_kind) {
             state = typecheck_append_entry_signature_ref(state, names, kernel_scope, entry_ref,
                 "integer-compatible entry return type",
@@ -667,7 +702,7 @@
                 while j < ast_node_list_ref_count(fields_ref) {
                     let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, j);
                     if ast_field_decl_ref_name_idx(field_ref) == field_name_idx {
-                        return typecheck_declared_ref_kind(ast_type_ref_from_handle(ast_field_decl_ref_type_handle(field_ref)));
+                        return typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(ast_field_decl_ref_type_handle(field_ref)));
                     }
                     j = j + 1;
                 }
@@ -1753,7 +1788,7 @@
             let param_type: i64 = ast_param_ref_type_handle(param_ref);
             let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
             let arg_ref: AstExprRef = ast_expr_ref_from_node_ref(arg_node_ref);
-            let expected_kind: i64 = typecheck_declared_ref_kind(ast_type_ref_from_handle(param_type));
+            let expected_kind: i64 = typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(param_type));
             let found_kind: i64 = typecheck_expr_ref_kind(cstate, arg_ref);
             let hint: str = "Change argument " + int_to_string(i + 1) + " for " + fn_name +
                 " to match parameter " + ast_report_name(names, ast_param_ref_name_idx(param_ref)) +
@@ -1984,7 +2019,7 @@
                 init, scope, expected_return_kind);
             let type_node: i64 = ast_let_ref_type_handle(stmt_ref);
             if ast_optional_is_some(type_node) && ast_optional_is_some(init) {
-                let expected_kind: i64 = typecheck_declared_ref_kind(ast_type_ref_from_handle(type_node));
+                let expected_kind: i64 = typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(type_node));
                 let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(init));
                 let hint: str = "Change the initializer for " + name +
                     " or update the declared local type.";
@@ -2137,7 +2172,7 @@
             value, kernel_scope, TYPE_UNKNOWN);
         let type_node: i64 = ast_const_ref_type_handle(item_ref);
         if ast_optional_is_some(type_node) && ast_optional_is_some(value) {
-            let expected_kind: i64 = typecheck_declared_ref_kind(ast_type_ref_from_handle(type_node));
+            let expected_kind: i64 = typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(type_node));
             let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(value));
             let hint: str = "Change the initializer for " + const_name +
                 " or update the declared constant type.";
@@ -2173,7 +2208,7 @@
         let fn_name: str = ast_report_name(names, ast_fn_ref_name_idx(item_ref));
         let scope: str = "function:" + fn_name;
         let cstate: CgenStateRef = type_graph_function_state_ref(kernel_ref, item_ref);
-        let expected_return_kind: i64 = typecheck_return_ref_kind(item_ref);
+        let expected_return_kind: i64 = typecheck_return_ref_kind_with_kernel(kernel_ref, item_ref);
         state = typecheck_scan_loop_control_block_ref(state, ast_fn_ref_body_ref(item_ref), scope, 0);
         state = typecheck_scan_unreachable_block_ref(state, ast_fn_ref_body_ref(item_ref), scope);
         if expected_return_kind != TYPE_VOID && expected_return_kind != TYPE_UNKNOWN &&

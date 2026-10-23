@@ -1404,13 +1404,31 @@ impl std::fmt::Display for MainResult {
 
 /// Find the return type of the Kernel main() function.
 fn find_main_return_type(file: &ast::File) -> Option<ast::Type> {
+    let mut aliases = HashMap::new();
+    for kernel in &file.kernels {
+        for item in &kernel.items {
+            if let ast::KernelItem::TypeAlias(a) = item {
+                aliases.insert(a.name.clone(), a.target.clone());
+            }
+        }
+    }
     for kernel in &file.kernels {
         for item in &kernel.items {
             match item {
                 ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f)
                     if f.name == "main" && f.params.is_empty() =>
                 {
-                    return f.return_type.clone();
+                    if let Some(mut ret_ty) = f.return_type.clone() {
+                        while let ast::Type::Named(ref name) = ret_ty {
+                            if let Some(target) = aliases.get(name) {
+                                ret_ty = target.clone();
+                            } else {
+                                break;
+                            }
+                        }
+                        return Some(ret_ty);
+                    }
+                    return None;
                 }
                 _ => {}
             }

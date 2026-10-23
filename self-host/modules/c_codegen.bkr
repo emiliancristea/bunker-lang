@@ -1589,6 +1589,24 @@
         return state;
     }
 
+    fn gen_c_kernel_type_aliases_ref(state: CgenStateRef, kernel_ref: AstNodeRef) -> CgenStateRef {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_TYPE_ALIAS {
+                let name_idx: i64 = ast_type_alias_ref_name_idx(item_ref);
+                let target_handle: i64 = ast_type_alias_ref_target_handle(item_ref);
+                let target_ref: AstTypeRef = ast_type_ref_from_handle(target_handle);
+                let target_c: str = type_node_to_c_ref(state, target_ref);
+                let alias_name: str = name_to_c_ref(state, name_idx);
+                cgen_emit_ref(state, "typedef " + target_c + " " + alias_name + ";");
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
     fn gen_c_kernel_prototypes(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
         gen_c_kernel_prototypes_ref(cgen_state_ref_from_state(state), ast_node_ref_from_node(kernel));
         return state;
@@ -1640,6 +1658,7 @@
         cgen_emit_ref(state, "#include " + quote + "runtime.h" + quote);
         cgen_emit_ref(state, "");
 
+        gen_c_kernel_type_aliases_ref(state, kernel_ref);
         gen_c_kernel_structs_ref(state, kernel_ref);
         gen_c_kernel_function_types_ref(state, kernel_ref);
         gen_c_kernel_consts_ref(state, kernel_ref);

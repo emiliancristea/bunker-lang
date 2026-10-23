@@ -22,6 +22,13 @@ pub enum KernelItem {
     Enum(EnumDef),
     Const(ConstDef),
     ComptimeFn(Function),
+    TypeAlias(TypeAliasDef),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TypeAliasDef {
+    pub name: String,
+    pub target: Type,
 }
 
 #[derive(Debug, Clone, PartialEq)]

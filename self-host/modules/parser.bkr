@@ -1349,6 +1349,21 @@
         return parse_kernel_ref(parser_state_ref_from_state(p));
     }
 
+    fn parse_type_alias(p: ParserStateRef) -> Vec<i64> {
+        return parser_item_ref_to_compat_node(parse_type_alias_ref(p));
+    }
+
+    fn parse_type_alias_ref(p: ParserStateRef) -> AstItemRef {
+        let start = parser_current_token_start(p);
+        parser_expect_ref(p, TOK_TYPE_KW);
+        let name_idx = parser_expect_name(p);
+        parser_expect_ref(p, TOK_ASSIGN);
+        let target_type: AstTypeRef = parse_type_ref(p);
+        parser_expect_ref(p, TOK_SEMICOLON);
+        let alias_ref: AstItemRef = ast_type_alias_ref(name_idx, target_type);
+        return parser_set_item_ref_span_from_start(p, alias_ref, start);
+    }
+
     fn parse_kernel_ref(p: ParserStateRef) -> Vec<i64> {
         let start = parser_current_token_start(p);
         parser_expect_ref(p, TOK_KERNEL);
@@ -1373,6 +1388,8 @@
                 ast_node_list_append_item_ref(items_ref, parse_struct_ref(p));
             } else if tok == TOK_ENUM {
                 ast_node_list_append_item_ref(items_ref, parse_enum_ref(p));
+            } else if tok == TOK_TYPE_KW {
+                ast_node_list_append_item_ref(items_ref, parse_type_alias_ref(p));
             } else {
                 parser_advance_ref(p);  // skip unknown
             }

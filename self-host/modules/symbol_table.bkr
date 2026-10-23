@@ -339,6 +339,12 @@
                     item_node_ref));
             result = symbol_table_json_array_append_items(result,
                 symbol_table_expr_declarations_json(names, ast_const_ref_value_handle(item_ref), kernel_scope));
+        } else if kind == NODE_TYPE_ALIAS {
+            result = symbol_table_json_array_append(result,
+                symbol_table_node_ref_entry_json("type_alias",
+                    ast_report_name(names, ast_type_alias_ref_name_idx(item_ref)),
+                    kernel_scope,
+                    item_node_ref));
         } else if kind == NODE_STRUCT {
             let struct_name = ast_report_name(names, ast_struct_ref_name_idx(item_ref));
             let struct_scope = "struct:" + struct_name;
@@ -599,6 +605,9 @@
                 symbol_table_type_references_json(names, ast_const_ref_type_handle(item_ref), kernel_scope));
             result = symbol_table_json_array_append_items(result,
                 symbol_table_expr_references_json(names, ast_const_ref_value_handle(item_ref), kernel_scope));
+        } else if kind == NODE_TYPE_ALIAS {
+            result = symbol_table_json_array_append_items(result,
+                symbol_table_type_references_json(names, ast_type_alias_ref_target_handle(item_ref), kernel_scope));
         } else if kind == NODE_STRUCT {
             let struct_scope = "struct:" + ast_report_name(names, ast_struct_ref_name_idx(item_ref));
             let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(item_ref);

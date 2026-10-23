@@ -1,0 +1,45 @@
+kernel TypeAliases {
+    type UserId = i64;
+    type ExitCode = i32;
+    type PrimaryId = UserId;
+    type ScoreList = Vec<i32>;
+    type OptInt = Option<i32>;
+
+    fn calculate_code(base: PrimaryId, offset: UserId) -> ExitCode {
+        let total: UserId = base + offset;
+        if total == 42 {
+            return 42;
+        }
+        return 0;
+    }
+
+    fn check_collection(val: i32) -> i32 {
+        let scores: ScoreList = vec_new();
+        vec_push(scores, val);
+        return vec_get(scores, 0);
+    }
+
+    fn check_option(val: i32) -> i32 {
+        let opt: OptInt = Some(val);
+        let res: i32 = match opt {
+            Some(x) => x;
+            None => 0;
+        };
+        return res;
+    }
+
+    fn main() -> ExitCode {
+        let uid: UserId = 30;
+        let diff: PrimaryId = 12;
+        let code: ExitCode = calculate_code(uid, diff);
+
+        let list_val: i32 = check_collection(42);
+        let opt_val: i32 = check_option(42);
+
+        if code == 42 && list_val == 42 && opt_val == 42 {
+            return code;
+        }
+
+        return 1;
+    }
+}

@@ -96,6 +96,10 @@
 
     fn type_graph_effective_kind_ref(state: CgenStateRef, type_node: i64, expr_value: i64) -> i64 {
         if ast_optional_is_some(type_node) {
+            let kernel_handle: i64 = cgen_kernel_handle(state);
+            if kernel_handle != 0 {
+                return typecheck_resolve_type_ref_kind(ast_node_ref_from_handle(kernel_handle), ast_type_ref_from_handle(type_node));
+            }
             return ast_type_ref_kind_value(ast_type_ref_from_handle(type_node));
         }
         if ast_optional_is_some(expr_value) {
@@ -137,7 +141,7 @@
                 let ret_type: i64 = ast_fn_ref_return_type_handle(item_ref);
                 let ret_kind: i64 = TYPE_VOID;
                 if ast_optional_is_some(ret_type) {
-                    ret_kind = ast_type_ref_kind_value(ast_type_ref_from_handle(ret_type));
+                    ret_kind = typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(ret_type));
                 }
                 cgen_add_fn_type_ref(state, ast_fn_ref_name_idx(item_ref), ret_kind);
             } else if kind == NODE_CONST {
@@ -422,7 +426,11 @@
             let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
             let param_type: i64 = ast_param_ref_type_handle(param_ref);
             let param_name_idx: i64 = ast_param_ref_name_idx(param_ref);
-            cgen_add_local_type_ref(state, param_name_idx, ast_type_ref_kind_value(ast_type_ref_from_handle(param_type)));
+            let param_kind: i64 = TYPE_I64;
+            if ast_optional_is_some(param_type) {
+                param_kind = typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(param_type));
+            }
+            cgen_add_local_type_ref(state, param_name_idx, param_kind);
             if ast_optional_is_some(param_type) {
                 type_graph_maybe_add_array_type_ref(state, param_name_idx, ast_type_ref_from_handle(param_type));
             }

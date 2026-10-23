@@ -43,6 +43,7 @@
         if kind == NodeKind.FieldAccess { return "field access"; }
         if kind == NodeKind.StructLit { return "struct literal"; }
         if kind == NodeKind.Match { return "match expression"; }
+        if kind == NodeKind.TypeAlias { return "type alias"; }
         return "node " + int_to_string(kind);
     }
 
@@ -71,6 +72,7 @@
         if kind == TokenKind.Match { return "match"; }
         if kind == TokenKind.Const { return "const"; }
         if kind == TokenKind.Defer { return "defer"; }
+        if kind == TokenKind.TypeKw { return "type"; }
         if kind == TokenKind.I32 { return "i32"; }
         if kind == TokenKind.I64 { return "i64"; }
         if kind == TokenKind.F64 { return "f64"; }
@@ -165,7 +167,7 @@
     }
 
     fn ast_node_category_kind(kind: NodeKind) -> i64 {
-        if kind == NodeKind.Kernel || kind == NodeKind.Fn || kind == NodeKind.Const || kind == NodeKind.Struct || kind == NodeKind.Enum {
+        if kind == NodeKind.Kernel || kind == NodeKind.Fn || kind == NodeKind.Const || kind == NodeKind.Struct || kind == NodeKind.Enum || kind == NodeKind.TypeAlias {
             return AST_CAT_ITEM;
         }
         if kind == NodeKind.Block || kind == NodeKind.Let || kind == NodeKind.Return || kind == NodeKind.If ||

@@ -310,6 +310,19 @@
         return resolver_has_struct_name_ref(ast_node_ref_from_node(kernel), name_idx);
     }
 
+    fn resolver_has_type_alias_name_ref(kernel_ref: AstNodeRef, name_idx: i64) -> bool {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_TYPE_ALIAS && ast_type_alias_ref_name_idx(item_ref) == name_idx {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
     fn resolver_has_struct_name_ref(kernel_ref: AstNodeRef, name_idx: i64) -> bool {
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         let i: i64 = 0;
@@ -365,7 +378,7 @@
                                      type_ref: AstTypeRef, scope: str) -> Vec<str> {
         if ast_type_ref_kind_value(type_ref) == TYPE_STRUCT {
             let name_idx: i64 = ast_type_ref_struct_name_idx_value(type_ref);
-            if !resolver_has_struct_name_ref(kernel_ref, name_idx) {
+            if !resolver_has_struct_name_ref(kernel_ref, name_idx) && !resolver_has_type_alias_name_ref(kernel_ref, name_idx) {
                 state = resolver_append_unresolved_node_with_related_ref(state,
                     ast_report_name(names, name_idx),
                     scope,
@@ -706,6 +719,9 @@
             } else if kind == NODE_STRUCT {
                 name_idx = ast_struct_ref_name_idx(item_ref);
                 declaration_kind = "struct";
+            } else if kind == NODE_TYPE_ALIAS {
+                name_idx = ast_type_alias_ref_name_idx(item_ref);
+                declaration_kind = "type_alias";
             }
 
             if name_idx >= 0 {
@@ -741,6 +757,8 @@
                 state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_const_ref_value_handle(item_ref), kernel_scope, resolver_empty_i64_vec());
             } else if kind == NODE_STRUCT {
                 state = resolver_struct_ref_diagnostics(state, kernel_ref, names, item_ref);
+            } else if kind == NODE_TYPE_ALIAS {
+                state = resolver_type_handle_diagnostics(state, kernel_ref, names, ast_type_alias_ref_target_handle(item_ref), kernel_scope);
             }
             i = i + 1;
         }

@@ -38,7 +38,7 @@
         Match,
         Const,
         Defer,
-        Unused37,
+        TypeKw,
         Unused38,
         Unused39,
         Unused40,
@@ -148,6 +148,7 @@
     const TOK_MATCH: i64 = TokenKind.Match;
     const TOK_CONST: i64 = TokenKind.Const;
     const TOK_DEFER: i64 = TokenKind.Defer;
+    const TOK_TYPE_KW: i64 = TokenKind.TypeKw;
     const TOK_I32: i64 = TokenKind.I32;
     const TOK_I64: i64 = TokenKind.I64;
     const TOK_F64: i64 = TokenKind.F64;
@@ -230,6 +231,7 @@
         StructLit,
         Match,
         Enum,
+        TypeAlias,
     }
 
     const NODE_KERNEL: i64 = NodeKind.Kernel;
@@ -268,6 +270,7 @@
     const NODE_STRUCT_LIT: i64 = NodeKind.StructLit;
     const NODE_MATCH: i64 = NodeKind.Match;
     const NODE_ENUM: i64 = NodeKind.Enum;
+    const NODE_TYPE_ALIAS: i64 = NodeKind.TypeAlias;
 
     // ===== AST Category Constants =====
     const AST_CAT_UNKNOWN: i64 = 0;

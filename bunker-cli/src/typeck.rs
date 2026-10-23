@@ -27,6 +27,8 @@ pub struct TypeChecker {
     enums: HashMap<String, Vec<String>>,
     // Parallel payload types for each enum variant; None means a unit variant.
     enum_payloads: HashMap<String, Vec<Vec<Type>>>,
+    // Type aliases: name -> target type
+    type_aliases: HashMap<String, Type>,
     // Errors collected during type checking
     errors: Vec<TypeError>,
     // Current function return type (for checking return statements)
@@ -47,6 +49,7 @@ impl TypeChecker {
             structs: HashMap::new(),
             enums: HashMap::new(),
             enum_payloads: HashMap::new(),
+            type_aliases: HashMap::new(),
             errors: Vec::new(),
             current_return_type: None,
             loop_labels: Vec::new(),
@@ -67,19 +70,120 @@ impl TypeChecker {
         tc
     }
 
+    pub fn resolve_alias(&self, ty: &Type) -> Type {
+        let mut current = ty.clone();
+        let mut depth = 0;
+        loop {
+            match &current {
+                Type::Named(name) => {
+                    if let Some(target) = self.type_aliases.get(name) {
+                        current = target.clone();
+                        depth += 1;
+                        if depth > 32 {
+                            return current;
+                        }
+                    } else {
+                        return current;
+                    }
+                }
+                Type::Option(inner) => {
+                    return Type::Option(Box::new(self.resolve_alias(inner)));
+                }
+                Type::Result(ok, err) => {
+                    return Type::Result(
+                        Box::new(self.resolve_alias(ok)),
+                        Box::new(self.resolve_alias(err)),
+                    );
+                }
+                Type::Vec(elem) => {
+                    return Type::Vec(Box::new(self.resolve_alias(elem)));
+                }
+                Type::HashMap(k, v) => {
+                    return Type::HashMap(
+                        Box::new(self.resolve_alias(k)),
+                        Box::new(self.resolve_alias(v)),
+                    );
+                }
+                Type::Array(elem, len) => {
+                    return Type::Array(Box::new(self.resolve_alias(elem)), *len);
+                }
+                Type::Tuple(elems) => {
+                    return Type::Tuple(elems.iter().map(|e| self.resolve_alias(e)).collect());
+                }
+                Type::Ref { mutable, ty } => {
+                    return Type::Ref {
+                        mutable: *mutable,
+                        ty: Box::new(self.resolve_alias(ty)),
+                    };
+                }
+                _ => return current,
+            }
+        }
+    }
+
     pub fn check_kernel(&mut self, kernel: &ast::Kernel) -> Result<Vec<TypeError>> {
-        // First pass: collect all struct and function signatures
+        // Pre-pass: collect all type aliases and validate uniqueness
+        for item in &kernel.items {
+            if let ast::KernelItem::TypeAlias(a) = item {
+                if self.type_aliases.contains_key(&a.name) {
+                    self.errors.push(TypeError {
+                        message: format!("Duplicate type alias '{}'", a.name),
+                        location: a.name.clone(),
+                    });
+                }
+                self.type_aliases.insert(a.name.clone(), a.target.clone());
+            }
+        }
+
+        // Check for cyclic aliases
+        for name in self.type_aliases.keys() {
+            let mut visited = HashSet::new();
+            let mut curr = name.clone();
+            visited.insert(curr.clone());
+            while let Some(Type::Named(next)) = self.type_aliases.get(&curr) {
+                if visited.contains(next) {
+                    self.errors.push(TypeError {
+                        message: format!("Cyclic type alias detected involving '{}'", name),
+                        location: name.clone(),
+                    });
+                    break;
+                }
+                visited.insert(next.clone());
+                curr = next.clone();
+            }
+        }
+        // First pass: collect all struct, enum, and function signatures
         for item in &kernel.items {
             match item {
+                ast::KernelItem::TypeAlias(a) => {
+                    if self.structs.contains_key(&a.name) {
+                        self.errors.push(TypeError {
+                            message: format!("Name '{}' is already declared as a struct", a.name),
+                            location: a.name.clone(),
+                        });
+                    }
+                    if self.enums.contains_key(&a.name) {
+                        self.errors.push(TypeError {
+                            message: format!("Name '{}' is already declared as an enum", a.name),
+                            location: a.name.clone(),
+                        });
+                    }
+                }
                 ast::KernelItem::Struct(s) => {
                     let fields: Vec<(String, Type)> = s
                         .fields
                         .iter()
-                        .map(|f| (f.name.clone(), f.ty.clone()))
+                        .map(|f| (f.name.clone(), self.resolve_alias(&f.ty)))
                         .collect();
                     if self.enums.contains_key(&s.name) {
                         self.errors.push(TypeError {
                             message: format!("Name '{}' is already declared as an enum", s.name),
+                            location: s.name.clone(),
+                        });
+                    }
+                    if self.type_aliases.contains_key(&s.name) {
+                        self.errors.push(TypeError {
+                            message: format!("Name '{}' is already declared as a type alias", s.name),
                             location: s.name.clone(),
                         });
                     }
@@ -89,6 +193,12 @@ impl TypeChecker {
                     if self.structs.contains_key(&e.name) {
                         self.errors.push(TypeError {
                             message: format!("Name '{}' is already declared as a struct", e.name),
+                            location: e.name.clone(),
+                        });
+                    }
+                    if self.type_aliases.contains_key(&e.name) {
+                        self.errors.push(TypeError {
+                            message: format!("Name '{}' is already declared as a type alias", e.name),
                             location: e.name.clone(),
                         });
                     }
@@ -115,17 +225,17 @@ impl TypeChecker {
                         e.name.clone(),
                         e.variants
                             .iter()
-                            .map(|variant| variant.payloads.clone())
+                            .map(|variant| variant.payloads.iter().map(|p| self.resolve_alias(p)).collect())
                             .collect(),
                     );
                 }
                 ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f) => {
-                    let param_types: Vec<Type> = f.params.iter().map(|p| p.ty.clone()).collect();
+                    let param_types: Vec<Type> = f.params.iter().map(|p| self.resolve_alias(&p.ty)).collect();
                     self.functions
-                        .insert(f.name.clone(), (param_types, f.return_type.clone()));
+                        .insert(f.name.clone(), (param_types, f.return_type.as_ref().map(|t| self.resolve_alias(t))));
                 }
                 ast::KernelItem::Const(c) => {
-                    self.variables.insert(c.name.clone(), c.ty.clone());
+                    self.variables.insert(c.name.clone(), self.resolve_alias(&c.ty));
                 }
             }
         }
@@ -158,7 +268,7 @@ impl TypeChecker {
     fn check_function(&mut self, func: &ast::Function) -> Result<()> {
         // Save and set return type context
         let prev_return = self.current_return_type.take();
-        self.current_return_type = func.return_type.clone();
+        self.current_return_type = func.return_type.as_ref().map(|t| self.resolve_alias(t));
 
         // Save current variable scope and move tracking
         let saved_vars = self.variables.clone();
@@ -167,7 +277,7 @@ impl TypeChecker {
 
         // Add parameters to scope
         for param in &func.params {
-            self.variables.insert(param.name.clone(), param.ty.clone());
+            self.variables.insert(param.name.clone(), self.resolve_alias(&param.ty));
         }
 
         // Check function body
@@ -207,7 +317,8 @@ impl TypeChecker {
                     return Ok(None);
                 }
 
-                let inferred = self.infer_expr_with_hint(value, context, ty.as_ref())?;
+                let resolved_hint = ty.as_ref().map(|t| self.resolve_alias(t));
+                let inferred = self.infer_expr_with_hint(value, context, resolved_hint.as_ref())?;
 
                 // Move semantics: if value is a non-copy identifier (not wrapped in `copy`),
                 // mark the source variable as moved
@@ -222,7 +333,8 @@ impl TypeChecker {
                 }
 
                 if let Some(declared) = ty {
-                    if !self.types_compatible(declared, &inferred) {
+                    let resolved = self.resolve_alias(declared);
+                    if !self.types_compatible(&resolved, &inferred) {
                         self.errors.push(TypeError {
                             message: format!(
                                 "Type mismatch in let binding '{}': declared {:?}, got {:?}",
@@ -231,7 +343,7 @@ impl TypeChecker {
                             location: context.to_string(),
                         });
                     }
-                    self.variables.insert(name.clone(), declared.clone());
+                    self.variables.insert(name.clone(), resolved);
                 } else {
                     self.variables.insert(name.clone(), inferred);
                 }
@@ -839,10 +951,11 @@ impl TypeChecker {
                 for stmt in &block.statements {
                     match stmt {
                         Stmt::Let { name, ty, value } => {
+                            let resolved_hint = ty.as_ref().map(|t| self.resolve_alias(t));
                             let inferred =
-                                self.infer_expr_with_hint(value, context, ty.as_ref())?;
+                                self.infer_expr_with_hint(value, context, resolved_hint.as_ref())?;
                             if let Some(declared) = ty {
-                                self.variables.insert(name.clone(), declared.clone());
+                                self.variables.insert(name.clone(), self.resolve_alias(declared));
                             } else {
                                 self.variables.insert(name.clone(), inferred);
                             }
@@ -2139,6 +2252,10 @@ impl TypeChecker {
     }
 
     fn types_compatible(&self, expected: &Type, actual: &Type) -> bool {
+        let expected_res = self.resolve_alias(expected);
+        let actual_res = self.resolve_alias(actual);
+        let expected = &expected_res;
+        let actual = &actual_res;
         if expected == actual {
             return true;
         }
@@ -2461,7 +2578,188 @@ fn lower_block(block: &mut ast::Block, enums: &HashMap<String, Vec<(String, Vec<
 }
 
 /// Replace unit-enum constructors and patterns with integer tags for codegen/JIT.
+pub fn lower_type_aliases(file: &mut ast::File) {
+    let mut aliases = HashMap::new();
+    for kernel in &file.kernels {
+        for item in &kernel.items {
+            if let ast::KernelItem::TypeAlias(a) = item {
+                aliases.insert(a.name.clone(), a.target.clone());
+            }
+        }
+    }
+    if aliases.is_empty() {
+        return;
+    }
+
+    fn resolve_ty(ty: &mut ast::Type, aliases: &HashMap<String, ast::Type>) {
+        let mut depth = 0;
+        while let ast::Type::Named(name) = ty {
+            if let Some(target) = aliases.get(name) {
+                *ty = target.clone();
+                depth += 1;
+                if depth > 32 {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        match ty {
+            ast::Type::Option(inner) => resolve_ty(inner, aliases),
+            ast::Type::Result(ok, err) => {
+                resolve_ty(ok, aliases);
+                resolve_ty(err, aliases);
+            }
+            ast::Type::Vec(elem) => resolve_ty(elem, aliases),
+            ast::Type::HashMap(k, v) => {
+                resolve_ty(k, aliases);
+                resolve_ty(v, aliases);
+            }
+            ast::Type::Array(elem, _) => resolve_ty(elem, aliases),
+            ast::Type::Tuple(elems) => {
+                for elem in elems {
+                    resolve_ty(elem, aliases);
+                }
+            }
+            ast::Type::Ref { ty: inner, .. } => resolve_ty(inner, aliases),
+            _ => {}
+        }
+    }
+
+    fn lower_block_types(block: &mut ast::Block, aliases: &HashMap<String, ast::Type>) {
+        for stmt in &mut block.statements {
+            match stmt {
+                ast::Stmt::Let { ty, value, .. } => {
+                    if let Some(t) = ty {
+                        resolve_ty(t, aliases);
+                    }
+                    lower_expr_types(value, aliases);
+                }
+                ast::Stmt::Assign { target, value } => {
+                    lower_expr_types(target, aliases);
+                    lower_expr_types(value, aliases);
+                }
+                ast::Stmt::Expr(expr) => lower_expr_types(expr, aliases),
+                ast::Stmt::Return(Some(expr)) => lower_expr_types(expr, aliases),
+                ast::Stmt::If { condition, then_block, else_block } => {
+                    lower_expr_types(condition, aliases);
+                    lower_block_types(then_block, aliases);
+                    if let Some(b) = else_block {
+                        lower_block_types(b, aliases);
+                    }
+                }
+                ast::Stmt::While { condition, body, .. } => {
+                    lower_expr_types(condition, aliases);
+                    lower_block_types(body, aliases);
+                }
+                ast::Stmt::For { iter, body, .. } => {
+                    lower_expr_types(iter, aliases);
+                    lower_block_types(body, aliases);
+                }
+                ast::Stmt::Loop { body, .. } => {
+                    lower_block_types(body, aliases);
+                }
+                ast::Stmt::Defer(block) => {
+                    lower_block_types(block, aliases);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn lower_expr_types(expr: &mut ast::Expr, aliases: &HashMap<String, ast::Type>) {
+        match expr {
+            ast::Expr::Cast { expr: inner, target_type } => {
+                lower_expr_types(inner, aliases);
+                resolve_ty(target_type, aliases);
+            }
+            ast::Expr::Binary { left, right, .. } => {
+                lower_expr_types(left, aliases);
+                lower_expr_types(right, aliases);
+            }
+            ast::Expr::Unary { expr: inner, .. } => lower_expr_types(inner, aliases),
+            ast::Expr::Call { func, args } => {
+                lower_expr_types(func, aliases);
+                for arg in args {
+                    lower_expr_types(arg, aliases);
+                }
+            }
+            ast::Expr::Index { expr: inner, index } => {
+                lower_expr_types(inner, aliases);
+                lower_expr_types(index, aliases);
+            }
+            ast::Expr::Field { expr: inner, .. } => lower_expr_types(inner, aliases),
+            ast::Expr::If { condition, then_expr, else_expr } => {
+                lower_expr_types(condition, aliases);
+                lower_expr_types(then_expr, aliases);
+                lower_expr_types(else_expr, aliases);
+            }
+            ast::Expr::Match { expr: inner, arms } => {
+                lower_expr_types(inner, aliases);
+                for arm in arms {
+                    if let Some(guard) = &mut arm.guard {
+                        lower_expr_types(guard, aliases);
+                    }
+                    match &mut arm.body {
+                        ast::MatchBody::Expr(e) => lower_expr_types(e, aliases),
+                        ast::MatchBody::Block(b) => lower_block_types(b, aliases),
+                    }
+                }
+            }
+            ast::Expr::Block(block) => lower_block_types(block, aliases),
+            ast::Expr::Some(inner) | ast::Expr::Copy(inner) | ast::Expr::Try(inner) => {
+                lower_expr_types(inner, aliases);
+            }
+            ast::Expr::Array(elements) | ast::Expr::Tuple(elements) => {
+                for el in elements {
+                    lower_expr_types(el, aliases);
+                }
+            }
+            ast::Expr::Struct { fields, .. } => {
+                for (_, val) in fields {
+                    lower_expr_types(val, aliases);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    for kernel in &mut file.kernels {
+        for item in &mut kernel.items {
+            match item {
+                ast::KernelItem::Function(func) | ast::KernelItem::ComptimeFn(func) => {
+                    for param in &mut func.params {
+                        resolve_ty(&mut param.ty, &aliases);
+                    }
+                    if let Some(ret) = &mut func.return_type {
+                        resolve_ty(ret, &aliases);
+                    }
+                    lower_block_types(&mut func.body, &aliases);
+                }
+                ast::KernelItem::Struct(s) => {
+                    for field in &mut s.fields {
+                        resolve_ty(&mut field.ty, &aliases);
+                    }
+                }
+                ast::KernelItem::Enum(e) => {
+                    for variant in &mut e.variants {
+                        for payload in &mut variant.payloads {
+                            resolve_ty(payload, &aliases);
+                        }
+                    }
+                }
+                ast::KernelItem::Const(c) => {
+                    resolve_ty(&mut c.ty, &aliases);
+                    lower_expr_types(&mut c.value, &aliases);
+                }
+                ast::KernelItem::TypeAlias(_) => {}
+            }
+        }
+    }
+}
+
 pub fn lower_unit_enums(file: &mut ast::File) {
+    lower_type_aliases(file);
     let enums = collect_unit_enums(file);
     if enums.is_empty() {
         return;
@@ -2474,7 +2772,7 @@ pub fn lower_unit_enums(file: &mut ast::File) {
                     lower_block(&mut func.body, &enums);
                 }
                 ast::KernelItem::Const(def) => lower_expr(&mut def.value, &enums),
-                ast::KernelItem::Struct(_) | ast::KernelItem::Enum(_) => {}
+                ast::KernelItem::Struct(_) | ast::KernelItem::Enum(_) | ast::KernelItem::TypeAlias(_) => {}
             }
         }
     }

@@ -1152,14 +1152,29 @@ fn run_file(
     // Prefer Kernel entrypoint if present; otherwise, fall back to a Shell simulation.
     // Supported main() return types: i32, i64, f64, bool
     let has_kernel_main = ast.kernels.iter().any(|k| {
+        let mut aliases = std::collections::HashMap::new();
+        for item in &k.items {
+            if let ast::KernelItem::TypeAlias(a) = item {
+                aliases.insert(a.name.clone(), a.target.clone());
+            }
+        }
         k.items.iter().any(|item| match item {
             ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f) => {
-                f.name == "main"
-                    && f.params.is_empty()
-                    && matches!(
-                        f.return_type,
-                        Some(ast::Type::I32 | ast::Type::I64 | ast::Type::F64 | ast::Type::Bool)
-                    )
+                if f.name != "main" || !f.params.is_empty() {
+                    return false;
+                }
+                let mut ret_ty = f.return_type.clone();
+                while let Some(ast::Type::Named(ref name)) = ret_ty {
+                    if let Some(target) = aliases.get(name) {
+                        ret_ty = Some(target.clone());
+                    } else {
+                        break;
+                    }
+                }
+                matches!(
+                    ret_ty,
+                    Some(ast::Type::I32 | ast::Type::I64 | ast::Type::F64 | ast::Type::Bool)
+                )
             }
             _ => false,
         })

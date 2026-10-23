@@ -2223,6 +2223,22 @@ jobs:
           grep -q '"key_type_kind":"i32"' /tmp/136_generic_collections_self_host.c
           grep -q '"value_type_kind":"str"' /tmp/136_generic_collections_self_host.c
 
+      - name: Run type aliases acceptance test (JIT)
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/137_type_aliases.bkr
+
+      - name: Compile type aliases fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/137_type_aliases.bkr \
+            -o /tmp/137_type_aliases.c
+          test -s /tmp/137_type_aliases.c
+          grep -q "BUNKER_AST_JSON" /tmp/137_type_aliases.c
+          grep -q '"type_kind":"type alias"' /tmp/137_type_aliases.c
+          grep -q '"has_diagnostics":false' /tmp/137_type_aliases.c
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

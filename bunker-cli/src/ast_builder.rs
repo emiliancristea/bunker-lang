@@ -64,6 +64,9 @@ fn build_kernel_item(pair: Pair<Rule>) -> Result<Option<KernelItem>, String> {
             Rule::enum_def => {
                 return Ok(Some(KernelItem::Enum(build_enum(inner)?)));
             }
+            Rule::type_alias_def => {
+                return Ok(Some(KernelItem::TypeAlias(build_type_alias(inner)?)));
+            }
             Rule::const_def => {
                 return Ok(Some(KernelItem::Const(build_const(inner)?)));
             }
@@ -380,6 +383,26 @@ fn build_const(pair: Pair<Rule>) -> Result<ConstDef, String> {
     }
 
     Ok(ConstDef { name, ty, value })
+}
+
+fn build_type_alias(pair: Pair<Rule>) -> Result<TypeAliasDef, String> {
+    let mut name = String::new();
+    let mut target = None;
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::identifier => {
+                name = inner.as_str().to_string();
+            }
+            Rule::type_expr => {
+                target = Some(build_type(inner)?);
+            }
+            _ => {}
+        }
+    }
+
+    let target = target.ok_or_else(|| format!("type alias '{}' missing target type", name))?;
+    Ok(TypeAliasDef { name, target })
 }
 
 fn build_block(pair: Pair<Rule>) -> Result<Block, String> {
