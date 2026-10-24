@@ -123,6 +123,8 @@
         Question,
         FatArrow,
         ColonColon,
+        Pub,
+        Mut,
     }
 
     const TOK_EOF: i64 = TokenKind.Eof;
@@ -192,6 +194,8 @@
     const TOK_QUESTION: i64 = TokenKind.Question;
     const TOK_FAT_ARROW: i64 = TokenKind.FatArrow;
     const TOK_COLON_COLON: i64 = TokenKind.ColonColon;
+    const TOK_PUB: i64 = TokenKind.Pub;
+    const TOK_MUT: i64 = TokenKind.Mut;
 
     // ===== AST Node Kinds =====
     // Declaration order is the stored numeric tag. Unused slots keep historical values.

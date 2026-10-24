@@ -874,6 +874,7 @@ mod tests {
         // Create a simple comptime fn: comptime fn add(x: i32, y: i32) -> i32 { return x + y; }
         let func = Function {
             name: "add".to_string(),
+            is_pub: false,
             params: vec![
                 ast::Param {
                     name: "x".to_string(),
@@ -918,6 +919,7 @@ mod tests {
         // }
         let func = Function {
             name: "factorial".to_string(),
+            is_pub: false,
             params: vec![ast::Param {
                 name: "n".to_string(),
                 ty: Type::I32,

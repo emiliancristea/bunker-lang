@@ -1,0 +1,11 @@
+// Test 191: Immutable Assignment (Negative Test)
+// Purpose: Verify that reassigning an immutable variable is rejected by typechecker.
+// Expected: Type error: Cannot mutate immutable variable 'x', consider declaring it mutable: 'let mut x'
+
+kernel ImmutableBad {
+    fn main() -> i32 {
+        let x: i32 = 10;
+        x = 20;
+        return x;
+    }
+}

@@ -82,12 +82,12 @@ kernel IncrementalTest1 {
     fn tokenize_chunk(source: str, pos: i64) -> Vec<i64> {
         let result: Vec<i64> = vec_new();
         let src_len = len(source);
-        let count: i64 = 0;
-        let last_tok: i64 = 1;
-        let continue_loop = true;
+        let mut count: i64 = 0;
+        let mut last_tok: i64 = 1;
+        let mut continue_loop = true;
 
         while continue_loop && count < 8 {
-            let skipping = true;
+            let mut skipping = true;
             while skipping && pos < src_len {
                 let code = char_code(char_at(source, pos));
                 if code == 32 || code == 9 || code == 10 || code == 13 {
@@ -97,8 +97,8 @@ kernel IncrementalTest1 {
                 }
             }
 
-            let tok_type: i64 = TOK_EOF;
-            let handled = false;
+            let mut tok_type: i64 = TOK_EOF;
+            let mut handled = false;
 
             if pos >= src_len {
                 last_tok = TOK_EOF;
@@ -167,7 +167,7 @@ kernel IncrementalTest1 {
         let packed: Vec<i64> = vec_new();
         vec_push(packed, pos);
         vec_push(packed, last_tok);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(result) {
             vec_push(packed, vec_get(result, i));
             i = i + 1;
@@ -177,14 +177,14 @@ kernel IncrementalTest1 {
 
     fn tokenize(source: str) -> Vec<i64> {
         let types: Vec<i64> = vec_new();
-        let pos: i64 = 0;
-        let done = false;
+        let mut pos: i64 = 0;
+        let mut done = false;
 
         while !done {
             let chunk = tokenize_chunk(source, pos);
             pos = vec_get(chunk, 0);
-            let last_tok = vec_get(chunk, 1);
-            let i: i64 = 2;
+            let mut last_tok = vec_get(chunk, 1);
+            let mut i: i64 = 2;
             while i < vec_len(chunk) {
                 vec_push(types, vec_get(chunk, i));
                 i = i + 1;
@@ -206,13 +206,13 @@ kernel IncrementalTest1 {
 
     fn parser_peek(state: Vec<i64>) -> i64 {
         let tokens = vec_get(state, 0) as Vec<i64>;
-        let pos = vec_get(state, 1);
+        let mut pos = vec_get(state, 1);
         if pos >= vec_len(tokens) { return TOK_EOF; }
         return vec_get(tokens, pos);
     }
 
     fn parser_advance(state: Vec<i64>) -> i64 {
-        let pos = vec_get(state, 1);
+        let mut pos = vec_get(state, 1);
         vec_set(state, 1, pos + 1);
         let tokens = vec_get(state, 0) as Vec<i64>;
         return vec_get(tokens, pos);
@@ -276,7 +276,7 @@ kernel IncrementalTest1 {
     fn parse_return(state: Vec<i64>) -> Vec<i64> {
         let node: Vec<i64> = vec_new();
         parser_advance(state);
-        let expr: i64 = 0;
+        let mut expr: i64 = 0;
         if parser_peek(state) != TOK_SEMICOLON {
             expr = parse_expr(state) as i64;
         }
@@ -317,7 +317,7 @@ kernel IncrementalTest1 {
         vec_push(node, params as i64);
         parser_expect(state, TOK_RPAREN);
 
-        let ret_type: i64 = 0;
+        let mut ret_type: i64 = 0;
         if parser_peek(state) == TOK_ARROW {
             parser_advance(state);
             ret_type = parse_type(state) as i64;

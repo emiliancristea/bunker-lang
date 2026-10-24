@@ -28,12 +28,14 @@ pub enum KernelItem {
 #[derive(Debug, Clone, PartialEq)]
 pub struct TypeAliasDef {
     pub name: String,
+    pub is_pub: bool,
     pub target: Type,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
     pub name: String,
+    pub is_pub: bool,
     pub attributes: Vec<Attribute>,
     pub params: Vec<Param>,
     pub return_type: Option<Type>,
@@ -43,6 +45,7 @@ pub struct Function {
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructDef {
     pub name: String,
+    pub is_pub: bool,
     pub fields: Vec<StructField>,
     pub is_tuple: bool,
 }
@@ -62,6 +65,7 @@ pub struct EnumVariantDecl {
 #[derive(Debug, Clone, PartialEq)]
 pub struct EnumDef {
     pub name: String,
+    pub is_pub: bool,
     pub variants: Vec<EnumVariantDecl>,
 }
 
@@ -77,6 +81,7 @@ impl EnumDef {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConstDef {
     pub name: String,
+    pub is_pub: bool,
     pub ty: Type,
     pub value: Expr,
 }
@@ -169,6 +174,7 @@ pub struct Block {
 pub enum Stmt {
     Let {
         name: String,
+        mutable: bool,
         ty: Option<Type>,
         value: Expr,
     },

@@ -78,6 +78,7 @@ fn build_kernel_item(pair: Pair<Rule>) -> Result<Option<KernelItem>, String> {
 
 fn build_function(pair: Pair<Rule>) -> Result<Function, String> {
     let mut name = String::new();
+    let mut is_pub = false;
     let mut attributes = vec![];
     let mut params = vec![];
     let mut return_type = None;
@@ -85,6 +86,9 @@ fn build_function(pair: Pair<Rule>) -> Result<Function, String> {
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::visibility => {
+                is_pub = true;
+            }
             Rule::attribute => {
                 attributes.push(build_attribute(inner)?);
             }
@@ -115,6 +119,7 @@ fn build_function(pair: Pair<Rule>) -> Result<Function, String> {
 
     Ok(Function {
         name,
+        is_pub,
         attributes,
         params,
         return_type,
@@ -340,11 +345,15 @@ fn build_type(pair: Pair<Rule>) -> Result<Type, String> {
 
 fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
     let mut name = String::new();
+    let mut is_pub = false;
     let mut fields = vec![];
     let mut is_tuple = false;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::visibility => {
+                is_pub = true;
+            }
             Rule::identifier => {
                 name = inner.as_str().to_string();
             }
@@ -376,15 +385,19 @@ fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
         }
     }
 
-    Ok(StructDef { name, fields, is_tuple })
+    Ok(StructDef { name, is_pub, fields, is_tuple })
 }
 
 fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
     let mut name = String::new();
+    let mut is_pub = false;
     let mut variants = vec![];
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::visibility => {
+                is_pub = true;
+            }
             Rule::identifier => {
                 name = inner.as_str().to_string();
             }
@@ -417,7 +430,7 @@ fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
         }
     }
 
-    Ok(EnumDef { name, variants })
+    Ok(EnumDef { name, is_pub, variants })
 }
 
 fn build_struct_field(pair: Pair<Rule>) -> Result<StructField, String> {
@@ -441,11 +454,15 @@ fn build_struct_field(pair: Pair<Rule>) -> Result<StructField, String> {
 
 fn build_const(pair: Pair<Rule>) -> Result<ConstDef, String> {
     let mut name = String::new();
+    let mut is_pub = false;
     let mut ty = Type::I32;
     let mut value = Expr::Literal(Literal::Int(0));
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::visibility => {
+                is_pub = true;
+            }
             Rule::identifier => {
                 name = inner.as_str().to_string();
             }
@@ -459,15 +476,19 @@ fn build_const(pair: Pair<Rule>) -> Result<ConstDef, String> {
         }
     }
 
-    Ok(ConstDef { name, ty, value })
+    Ok(ConstDef { name, is_pub, ty, value })
 }
 
 fn build_type_alias(pair: Pair<Rule>) -> Result<TypeAliasDef, String> {
     let mut name = String::new();
+    let mut is_pub = false;
     let mut target = None;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::visibility => {
+                is_pub = true;
+            }
             Rule::identifier => {
                 name = inner.as_str().to_string();
             }
@@ -479,7 +500,7 @@ fn build_type_alias(pair: Pair<Rule>) -> Result<TypeAliasDef, String> {
     }
 
     let target = target.ok_or_else(|| format!("type alias '{}' missing target type", name))?;
-    Ok(TypeAliasDef { name, target })
+    Ok(TypeAliasDef { name, is_pub, target })
 }
 
 fn build_block(pair: Pair<Rule>) -> Result<Block, String> {
@@ -560,11 +581,15 @@ fn build_statement(pair: Pair<Rule>) -> Result<Stmt, String> {
 
 fn build_let_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
     let mut name = String::new();
+    let mut mutable = false;
     let mut ty = None;
     let mut value = Expr::Literal(Literal::Int(0));
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::mut_kw => {
+                mutable = true;
+            }
             Rule::identifier => {
                 name = inner.as_str().to_string();
             }
@@ -578,7 +603,12 @@ fn build_let_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
         }
     }
 
-    Ok(Stmt::Let { name, ty, value })
+    Ok(Stmt::Let {
+        name,
+        mutable,
+        ty,
+        value,
+    })
 }
 
 fn build_return_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
@@ -773,7 +803,7 @@ fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
                 let mut fields = Vec::new();
                 for part in inner.into_inner() {
                     match part.as_rule() {
-                        Rule::identifier => {
+                        Rule::path_expr | Rule::identifier => {
                             struct_name = part.as_str().to_string();
                         }
                         Rule::struct_field_pattern => {
@@ -1523,7 +1553,7 @@ fn build_struct_literal(pair: Pair<Rule>) -> Result<Expr, String> {
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
-            Rule::identifier => {
+            Rule::path_expr | Rule::identifier => {
                 name = inner.as_str().to_string();
             }
             Rule::struct_init => {

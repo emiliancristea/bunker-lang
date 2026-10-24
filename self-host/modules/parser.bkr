@@ -1126,6 +1126,9 @@
     fn parse_let_stmt_ref(p: ParserStateRef) -> AstStmtRef {
         let start = parser_current_token_start(p);
         parser_advance_ref(p);
+        if parser_peek_ref(p) == TOK_MUT {
+            parser_advance_ref(p);
+        }
         let name_idx = parser_expect_name(p);
 
         let type_node: i64 = ast_optional_none();
@@ -1544,6 +1547,10 @@
         let main_name_idx: i64 = -1;
         while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
             let tok = parser_peek_ref(p);
+            if tok == TOK_PUB {
+                parser_advance_ref(p);
+                tok = parser_peek_ref(p);
+            }
             if tok == TOK_FN {
                 let fn_ref: AstItemRef = parse_fn_ref(p);
                 let fn_name_idx = ast_fn_ref_name_idx(fn_ref);

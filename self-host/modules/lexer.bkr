@@ -94,6 +94,8 @@
                 if word == "enum" { tok_type = TOK_ENUM; }
                 if word == "fn" { tok_type = TOK_FN; }
                 if word == "let" { tok_type = TOK_LET; }
+                if word == "pub" { tok_type = TOK_PUB; }
+                if word == "mut" { tok_type = TOK_MUT; }
                 if word == "if" { tok_type = TOK_IF; }
                 if word == "else" { tok_type = TOK_ELSE; }
                 if word == "for" { tok_type = TOK_FOR; }

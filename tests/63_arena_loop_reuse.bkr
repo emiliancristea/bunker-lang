@@ -15,7 +15,7 @@ kernel ArenaLoopTest {
     }
 
     fn main() -> i32 {
-        let sum: i32 = 0;
+        let mut sum: i32 = 0;
 
         // Each iteration allocates a Data struct via create_data.
         // The arena watermark mechanism should free this at iteration end,

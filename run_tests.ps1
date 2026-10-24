@@ -135,6 +135,7 @@ $expectedResults = @{
     "182_runtime_stdlib_complete" = 42
     "185_higher_order_functions" = 42
     "188_vec_hashmap_combinators" = 42
+    "190_visibility_and_mutability" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -347,7 +348,8 @@ if (-not $JitOnly) {
         "tests\179_expression_blocks.bkr",
         "tests\182_runtime_stdlib_complete.bkr",
         "tests\185_higher_order_functions.bkr",
-        "tests\188_vec_hashmap_combinators.bkr"
+        "tests\188_vec_hashmap_combinators.bkr",
+        "tests\190_visibility_and_mutability.bkr"
     )
 
     $subsetOk = $true
@@ -415,6 +417,8 @@ if (-not $JitOnly) {
 
     if ($selfHostOut) { Remove-Item -Path $selfHostOut -ErrorAction SilentlyContinue }
     if ($selfHostTmp) { Remove-Item -Path $selfHostTmp -ErrorAction SilentlyContinue -Recurse -Force }
+    Remove-Item -Path "test_output.txt", "recoverable_test.txt" -ErrorAction SilentlyContinue
+    Remove-Item -Path "target" -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host ""

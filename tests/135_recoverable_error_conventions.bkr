@@ -16,7 +16,7 @@ kernel RecoverableErrorConventions {
     }
 
     fn main() -> i32 {
-        let score = 0;
+        let mut score = 0;
 
         // 1. HashMap recoverable lookup
         let map: HashMap<i32, i32> = hashmap_new();

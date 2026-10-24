@@ -25,11 +25,11 @@ kernel StructMethodsTest {
     fn Point::manhattan(self: Point, other: Point) -> i32 {
         let dx: i32 = self.x - other.x;
         let dy: i32 = self.y - other.y;
-        let mut_dx: i32 = dx;
+        let mut mut_dx: i32 = dx;
         if mut_dx < 0 {
             mut_dx = 0 - mut_dx;
         }
-        let mut_dy: i32 = dy;
+        let mut mut_dy: i32 = dy;
         if mut_dy < 0 {
             mut_dy = 0 - mut_dy;
         }

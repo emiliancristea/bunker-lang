@@ -39,6 +39,16 @@ pub struct TypeChecker {
     moved_vars: HashSet<String>,
     // Where each variable was moved (for error messages)
     moved_locations: HashMap<String, String>,
+    // Constants declared (for assignment rejection)
+    constants: HashSet<String>,
+    // Local variable mutability: variable_name -> is_mutable
+    var_mutability: HashMap<String, bool>,
+    // Current kernel name
+    current_kernel: String,
+    // Symbol visibility: symbol_name -> (declaring_kernel, is_pub)
+    symbol_visibility: HashMap<String, (String, bool)>,
+    // Strict mutability mode
+    pub strict_mutability: bool,
 }
 
 fn pattern_is_irrefutable(pat: &ast::Pattern) -> bool {
@@ -139,6 +149,11 @@ impl TypeChecker {
             loop_labels: Vec::new(),
             moved_vars: HashSet::new(),
             moved_locations: HashMap::new(),
+            constants: HashSet::new(),
+            var_mutability: HashMap::new(),
+            current_kernel: String::new(),
+            symbol_visibility: HashMap::new(),
+            strict_mutability: true,
         };
         // Register built-in functions
         tc.functions
@@ -152,6 +167,20 @@ impl TypeChecker {
         tc.functions
             .insert("assert".to_string(), (vec![Type::Bool], None));
         tc
+    }
+
+    pub fn check_visibility(&mut self, symbol_name: &str, context: &str) {
+        if let Some((declaring_kernel, is_pub)) = self.symbol_visibility.get(symbol_name) {
+            if !is_pub && declaring_kernel != &self.current_kernel && !self.current_kernel.is_empty() {
+                self.errors.push(TypeError {
+                    message: format!(
+                        "Symbol '{}' is private and cannot be accessed from outside its module",
+                        symbol_name
+                    ),
+                    location: context.to_string(),
+                });
+            }
+        }
     }
 
     pub fn resolve_alias(&self, ty: &Type) -> Type {
@@ -242,10 +271,13 @@ impl TypeChecker {
                 curr = next.clone();
             }
         }
+        self.current_kernel = kernel.name.clone();
         // First pass: collect all struct, enum, and function signatures
         for item in &kernel.items {
             match item {
                 ast::KernelItem::TypeAlias(a) => {
+                    self.symbol_visibility.insert(a.name.clone(), (kernel.name.clone(), a.is_pub));
+                    self.symbol_visibility.insert(format!("{}::{}", kernel.name, a.name), (kernel.name.clone(), a.is_pub));
                     if self.structs.contains_key(&a.name) {
                         self.errors.push(TypeError {
                             message: format!("Name '{}' is already declared as a struct", a.name),
@@ -277,7 +309,10 @@ impl TypeChecker {
                             location: s.name.clone(),
                         });
                     }
-                    self.structs.insert(s.name.clone(), fields);
+                    self.symbol_visibility.insert(s.name.clone(), (kernel.name.clone(), s.is_pub));
+                    self.symbol_visibility.insert(format!("{}::{}", kernel.name, s.name), (kernel.name.clone(), s.is_pub));
+                    self.structs.insert(s.name.clone(), fields.clone());
+                    self.structs.insert(format!("{}::{}", kernel.name, s.name), fields);
                 }
                 ast::KernelItem::Enum(e) => {
                     if self.structs.contains_key(&e.name) {
@@ -310,22 +345,33 @@ impl TypeChecker {
                             });
                         }
                     }
+                    self.symbol_visibility.insert(e.name.clone(), (kernel.name.clone(), e.is_pub));
+                    self.symbol_visibility.insert(format!("{}::{}", kernel.name, e.name), (kernel.name.clone(), e.is_pub));
                     self.enums.insert(e.name.clone(), e.variant_names());
-                    self.enum_payloads.insert(
-                        e.name.clone(),
-                        e.variants
-                            .iter()
-                            .map(|variant| variant.payloads.iter().map(|p| self.resolve_alias(p)).collect())
-                            .collect(),
-                    );
+                    self.enums.insert(format!("{}::{}", kernel.name, e.name), e.variant_names());
+                    let payloads: Vec<Vec<Type>> = e.variants
+                        .iter()
+                        .map(|variant| variant.payloads.iter().map(|p| self.resolve_alias(p)).collect())
+                        .collect();
+                    self.enum_payloads.insert(e.name.clone(), payloads.clone());
+                    self.enum_payloads.insert(format!("{}::{}", kernel.name, e.name), payloads);
                 }
                 ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f) => {
+                    self.symbol_visibility.insert(f.name.clone(), (kernel.name.clone(), f.is_pub));
+                    self.symbol_visibility.insert(format!("{}::{}", kernel.name, f.name), (kernel.name.clone(), f.is_pub));
                     let param_types: Vec<Type> = f.params.iter().map(|p| self.resolve_alias(&p.ty)).collect();
                     self.functions
-                        .insert(f.name.clone(), (param_types, f.return_type.as_ref().map(|t| self.resolve_alias(t))));
+                        .insert(f.name.clone(), (param_types.clone(), f.return_type.as_ref().map(|t| self.resolve_alias(t))));
+                    self.functions
+                        .insert(format!("{}::{}", kernel.name, f.name), (param_types, f.return_type.as_ref().map(|t| self.resolve_alias(t))));
                 }
                 ast::KernelItem::Const(c) => {
+                    self.symbol_visibility.insert(c.name.clone(), (kernel.name.clone(), c.is_pub));
+                    self.symbol_visibility.insert(format!("{}::{}", kernel.name, c.name), (kernel.name.clone(), c.is_pub));
+                    self.constants.insert(c.name.clone());
+                    self.constants.insert(format!("{}::{}", kernel.name, c.name));
                     self.variables.insert(c.name.clone(), self.resolve_alias(&c.ty));
+                    self.variables.insert(format!("{}::{}", kernel.name, c.name), self.resolve_alias(&c.ty));
                 }
             }
         }
@@ -364,6 +410,7 @@ impl TypeChecker {
         let saved_vars = self.variables.clone();
         let saved_moved = self.moved_vars.clone();
         let saved_moved_locations = self.moved_locations.clone();
+        let saved_mutability = self.var_mutability.clone();
 
         // Add parameters to scope
         for param in &func.params {
@@ -377,6 +424,7 @@ impl TypeChecker {
         self.variables = saved_vars;
         self.moved_vars = saved_moved;
         self.moved_locations = saved_moved_locations;
+        self.var_mutability = saved_mutability;
         self.current_return_type = prev_return;
 
         Ok(())
@@ -392,7 +440,8 @@ impl TypeChecker {
 
     fn check_stmt(&mut self, stmt: &Stmt, context: &str) -> Result<Option<Type>> {
         match stmt {
-            Stmt::Let { name, ty, value } => {
+            Stmt::Let { name, mutable, ty, value } => {
+                self.var_mutability.insert(name.clone(), *mutable);
                 // Check for None without type annotation
                 if ty.is_none() && matches!(value, Expr::None) {
                     self.errors.push(TypeError {
@@ -529,6 +578,26 @@ impl TypeChecker {
                 Ok(None)
             }
             Stmt::Assign { target, value } => {
+                if let Expr::Ident(name) = target {
+                    if self.constants.contains(name) {
+                        self.errors.push(TypeError {
+                            message: format!("Cannot assign to constant '{}'", name),
+                            location: context.to_string(),
+                        });
+                    } else if self.strict_mutability {
+                        if let Some(&is_mut) = self.var_mutability.get(name) {
+                            if !is_mut {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Cannot mutate immutable variable '{}', consider declaring it mutable: 'let mut {}'",
+                                        name, name
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                        }
+                    }
+                }
                 let target_ty = self.infer_expr(target, context)?;
                 let value_ty = self.infer_expr(value, context)?;
 
@@ -742,6 +811,7 @@ impl TypeChecker {
             }
             Expr::Literal(lit) => Ok(self.literal_type(lit)),
             Expr::Ident(name) => {
+                self.check_visibility(name, context);
                 // Check for use-after-move
                 if self.moved_vars.contains(name) {
                     let moved_at = self
@@ -854,6 +924,7 @@ impl TypeChecker {
                     }
                 }
                 if let Expr::Ident(name) = func.as_ref() {
+                    self.check_visibility(name, context);
                     if let Some(ty) = self.check_builtin_call(name, args, context, expected)? {
                         return Ok(ty);
                     }
@@ -1202,6 +1273,7 @@ impl TypeChecker {
                 }
             }
             Expr::Struct { name, fields, base } => {
+                self.check_visibility(name, context);
                 if let Some(struct_fields) = self.structs.get(name).cloned() {
                     for (field_name, field_expr) in fields {
                         let actual_ty = self.infer_expr(field_expr, context)?;
@@ -3668,8 +3740,16 @@ pub fn lower_unit_enums(file: &mut ast::File) {
 }
 
 pub fn check_file(file: &ast::File) -> Result<Vec<TypeError>> {
+    check_file_with_strict_mutability(file, true)
+}
+
+pub fn check_file_with_strict_mutability(
+    file: &ast::File,
+    strict_mutability: bool,
+) -> Result<Vec<TypeError>> {
     let mut all_errors = Vec::new();
     let mut checker = TypeChecker::new();
+    checker.strict_mutability = strict_mutability;
 
     for kernel in &file.kernels {
         let before = checker.errors.len();

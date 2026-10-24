@@ -2325,11 +2325,14 @@ impl KernelJit {
             match item {
                 ast::KernelItem::Struct(s) => {
                     let layout = compute_struct_layout(s, &self.structs);
-                    self.structs.insert(s.name.clone(), layout);
+                    self.structs.insert(s.name.clone(), layout.clone());
+                    self.structs.insert(format!("{}::{}", kernel.name, s.name), layout);
                 }
                 ast::KernelItem::Const(c) => {
                     self.constants
                         .insert(c.name.clone(), (c.ty.clone(), c.value.clone()));
+                    self.constants
+                        .insert(format!("{}::{}", kernel.name, c.name), (c.ty.clone(), c.value.clone()));
                 }
                 _ => {}
             }
@@ -2339,10 +2342,14 @@ impl KernelJit {
         // (comptime functions are evaluated at compile time, not compiled to native code)
         for item in &kernel.items {
             if let ast::KernelItem::Function(func) = item {
-                let params = func.params.iter().map(|p| p.ty.clone()).collect();
+                let params: Vec<_> = func.params.iter().map(|p| p.ty.clone()).collect();
                 self.fn_sigs
-                    .insert(func.name.clone(), (params, func.return_type.clone()));
-                self.declare_function(func)?;
+                    .insert(func.name.clone(), (params.clone(), func.return_type.clone()));
+                self.fn_sigs
+                    .insert(format!("{}::{}", kernel.name, func.name), (params, func.return_type.clone()));
+                let func_id = self.declare_function(func)?;
+                self.functions
+                    .insert(format!("{}::{}", kernel.name, func.name), func_id);
             }
         }
 
@@ -2818,7 +2825,7 @@ fn compile_stmt_inline(
     loop_stack: &[(Option<String>, Block, Block)],
 ) -> Result<()> {
     match stmt {
-        ast::Stmt::Let { name, ty, value } => {
+        ast::Stmt::Let { name, ty, value, .. } => {
             let val_opt = if let ast::Expr::Call { func, args } = value {
                 if let ast::Expr::Ident(fn_name) = func.as_ref() {
                     if fn_name == "hashmap_new" && args.is_empty() {
@@ -6210,7 +6217,7 @@ fn infer_block_value_type(
     let mut last = None;
     for stmt in &block.statements {
         match stmt {
-            ast::Stmt::Let { name, ty, value } => {
+            ast::Stmt::Let { name, ty, value, .. } => {
                 let inferred = ty
                     .clone()
                     .unwrap_or_else(|| infer_expr_type(value, &env, structs, fn_sigs));

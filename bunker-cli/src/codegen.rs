@@ -330,7 +330,7 @@ fn compile_stmt_inline(
     loop_stack: &[(Option<String>, Block, Block)],
 ) -> Result<()> {
     match stmt {
-        ast::Stmt::Let { name, ty, value } => {
+        ast::Stmt::Let { name, ty, value, .. } => {
             let mut val = compile_expr_inline(
                 builder,
                 module,
@@ -2987,7 +2987,7 @@ fn infer_block_value_type(
     let mut last = None;
     for stmt in &block.statements {
         match stmt {
-            ast::Stmt::Let { name, ty, value } => {
+            ast::Stmt::Let { name, ty, value, .. } => {
                 let inferred = ty
                     .clone()
                     .unwrap_or_else(|| infer_expr_type(value, &env, structs, fn_sigs));

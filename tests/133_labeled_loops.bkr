@@ -5,9 +5,9 @@
 kernel LabeledLoops {
     fn main() -> i32 {
         // 1. Nested while loops with labeled break exiting outer loop
-        let count = 0;
+        let mut count = 0;
         'outer_while: while count < 100 {
-            let inner = 0;
+            let mut inner = 0;
             while inner < 10 {
                 inner = inner + 1;
                 count = count + 1;
@@ -19,8 +19,8 @@ kernel LabeledLoops {
         // count should be exactly 10
 
         // 2. Nested loop and for with continue 'cycle and break 'cycle
-        let sum = 0;
-        let step = 0;
+        let mut sum = 0;
+        let mut step = 0;
         'cycle: loop {
             step = step + 1;
             if step > 3 {
@@ -40,7 +40,7 @@ kernel LabeledLoops {
         // sum should be 23
 
         // 3. Nested for loops with labeled break
-        let nested_sum = 0;
+        let mut nested_sum = 0;
         'outer_for: for a in 0..5 {
             for b in 0..5 {
                 nested_sum = nested_sum + 1;

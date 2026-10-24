@@ -28,7 +28,7 @@ kernel PanicPolicy {
         assert(valid, "bounds check failed");
 
         // 3. Verify assertions inside loop
-        let sum = 0;
+        let mut sum = 0;
         for i in 1..6 {
             assert(i > 0, "loop index must be positive");
             sum = sum + i;

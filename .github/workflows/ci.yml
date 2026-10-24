@@ -2813,6 +2813,45 @@ jobs:
             exit 1
           fi
 
+      - name: Verify 190_visibility_and_mutability fixture executes in JIT
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/190_visibility_and_mutability.bkr
+
+      - name: Compile 190_visibility_and_mutability through self-host compiler
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/190_visibility_and_mutability.bkr \
+            -o /tmp/190_visibility_and_mutability.c
+          test -s /tmp/190_visibility_and_mutability.c
+          grep -q "BUNKER_AST_JSON" /tmp/190_visibility_and_mutability.c
+          grep -q '"has_diagnostics":false' /tmp/190_visibility_and_mutability.c
+
+      - name: Verify 191_immutable_assignment_BAD rejected by bunker-cli
+        timeout-minutes: 2
+        run: |
+          if ./bunker-cli/target/release/bunker-cli check tests/191_immutable_assignment_BAD.bkr; then
+            echo "Expected 191_immutable_assignment_BAD to fail"
+            exit 1
+          fi
+
+      - name: Verify 192_private_symbol_access_BAD rejected by bunker-cli
+        timeout-minutes: 2
+        run: |
+          if ./bunker-cli/target/release/bunker-cli check tests/192_private_symbol_access_BAD.bkr; then
+            echo "Expected 192_private_symbol_access_BAD to fail"
+            exit 1
+          fi
+
+      - name: Verify 193_const_assignment_BAD rejected by bunker-cli
+        timeout-minutes: 2
+        run: |
+          if ./bunker-cli/target/release/bunker-cli check tests/193_const_assignment_BAD.bkr; then
+            echo "Expected 193_const_assignment_BAD to fail"
+            exit 1
+          fi
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

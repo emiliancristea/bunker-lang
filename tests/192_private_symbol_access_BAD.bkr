@@ -1,0 +1,15 @@
+// Test 192: Private Symbol Access (Negative Test)
+// Purpose: Verify that accessing a private symbol from outside its module is rejected.
+// Expected: Type error: Symbol 'InternalLib::secret_value' is private and cannot be accessed from outside its module
+
+kernel InternalLib {
+    fn secret_value() -> i32 {
+        return 42;
+    }
+}
+
+kernel Accessor {
+    fn main() -> i32 {
+        return InternalLib::secret_value();
+    }
+}

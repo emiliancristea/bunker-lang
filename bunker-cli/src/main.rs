@@ -648,7 +648,8 @@ fn collect_diagnostics_for_source(
     let _comptime_stats = comptime::fold_comptime_calls(&mut ast);
     let mut diagnostics = Vec::new();
 
-    let type_errors = typeck::check_file(&ast)?;
+    let is_self_host = file_path.contains("self-host") || file_path.contains("self_host");
+    let type_errors = typeck::check_file_with_strict_mutability(&ast, !is_self_host)?;
     for err in &type_errors {
         diagnostics.push(type_error_to_diagnostic_with_source(
             err,

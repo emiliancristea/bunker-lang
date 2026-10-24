@@ -6,7 +6,7 @@ kernel NeverTypeTest {
     }
 
     fn test_if(flag: bool) -> i32 {
-        let x: i32 = 0;
+        let mut x: i32 = 0;
         if flag {
             x = 20;
         } else {
