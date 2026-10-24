@@ -46,6 +46,35 @@
         return kind == TypeKind.I32 || kind == TypeKind.I64 || kind == TypeKind.F64 || kind == TypeKind.Bool;
     }
 
+    fn typecheck_is_handle_kind(kind: i64) -> bool {
+        return kind == TYPE_STR || kind == TYPE_OPTION || kind == TYPE_RESULT ||
+               kind == TYPE_VEC || kind == TYPE_MAP || kind == TYPE_ARRAY ||
+               kind == TYPE_STRUCT;
+    }
+
+    fn typecheck_can_cast(source_kind: i64, target_kind: i64) -> bool {
+        if source_kind == TYPE_UNKNOWN || target_kind == TYPE_UNKNOWN {
+            return true;
+        }
+        if source_kind == target_kind {
+            return true;
+        }
+        let source_is_scalar: bool = typecheck_is_numeric_kind(source_kind) || source_kind == TYPE_BOOL;
+        let target_is_scalar: bool = typecheck_is_numeric_kind(target_kind) || target_kind == TYPE_BOOL;
+        if source_is_scalar && target_is_scalar {
+            return true;
+        }
+        let source_is_handle: bool = typecheck_is_handle_kind(source_kind);
+        let target_is_handle: bool = typecheck_is_handle_kind(target_kind);
+        if (source_kind == TYPE_I64 && target_is_handle) || (source_is_handle && target_kind == TYPE_I64) {
+            return true;
+        }
+        if source_is_handle && target_is_handle {
+            return true;
+        }
+        return false;
+    }
+
     fn typecheck_value_kinds_compatible(expected_kind: i64, found_kind: i64) -> bool {
         if typecheck_kinds_compatible(expected_kind, found_kind) {
             return true;
@@ -1772,6 +1801,8 @@
             state = typecheck_scan_loop_control_expr_handle(state, ast_binary_ref_right_handle(expr_ref), scope, loop_depth);
         } else if kind == NODE_TRY {
             state = typecheck_scan_loop_control_expr_handle(state, ast_try_ref_expr_handle(expr_ref), scope, loop_depth);
+        } else if kind == NODE_CAST {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_cast_ref_expr_handle(expr_ref), scope, loop_depth);
         } else if kind == NODE_UNARY {
             state = typecheck_scan_loop_control_expr_handle(state, ast_unary_ref_operand_handle(expr_ref), scope, loop_depth);
         } else if kind == NODE_TERNARY {
@@ -2126,6 +2157,20 @@
                 "try operand", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_try_ref_expr_handle(expr_ref), scope, expected_return_kind);
+        } else if kind == NODE_CAST {
+            let inner_expr_ref: AstExprRef = ast_cast_ref_expr_ref(expr_ref);
+            let target_type_ref: AstTypeRef = ast_cast_ref_target_type_ref(expr_ref);
+            state = typecheck_check_void_value_ref(state, cstate, inner_expr_ref, "cast operand", scope);
+            state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
+                inner_expr_ref, scope, expected_return_kind);
+            let source_kind: i64 = typecheck_expr_ref_kind(cstate, inner_expr_ref);
+            let target_kind: i64 = typecheck_resolve_type_ref_kind(kernel_ref, target_type_ref);
+            if !typecheck_can_cast(source_kind, target_kind) {
+                let hint: str = "Cast between compatible numeric types, bool, or between i64 and handle types.";
+                state = typecheck_append_mismatch_ref(state, "cast_type_mismatch",
+                    "cast expression", scope, ast_node_ref_from_expr_ref(expr_ref),
+                    target_kind, source_kind, hint);
+            }
         } else if kind == NODE_UNARY {
             state = typecheck_check_unary_operand_ref(state, cstate, expr_ref, scope);
             state = typecheck_check_void_value_ref(state, cstate,

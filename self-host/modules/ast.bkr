@@ -101,6 +101,13 @@
         expr: i64
     }
 
+    struct AstCast {
+        start: i64,
+        end: i64,
+        expr: i64,
+        target_type: i64
+    }
+
     struct AstIf {
         start: i64,
         end: i64,
@@ -1549,6 +1556,30 @@
         return ast_expr_ref_from_handle(ast_try_ref_expr_handle(expr_ref));
     }
 
+    fn ast_cast_expr_handle(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_cast_target_type_handle(node: Vec<i64>) -> i64 {
+        return ast_field(node, 2);
+    }
+
+    fn ast_cast_ref_expr_handle(expr_ref: AstExprRef) -> i64 {
+        return ast_cast_expr_handle(ast_expr_node_from_ref(expr_ref));
+    }
+
+    fn ast_cast_ref_target_type_handle(expr_ref: AstExprRef) -> i64 {
+        return ast_cast_target_type_handle(ast_expr_node_from_ref(expr_ref));
+    }
+
+    fn ast_cast_ref_expr_ref(expr_ref: AstExprRef) -> AstExprRef {
+        return ast_expr_ref_from_handle(ast_cast_ref_expr_handle(expr_ref));
+    }
+
+    fn ast_cast_ref_target_type_ref(expr_ref: AstExprRef) -> AstTypeRef {
+        return ast_type_ref_from_handle(ast_cast_ref_target_type_handle(expr_ref));
+    }
+
     fn ast_stmt_ref_if(stmt_ref: AstStmtRef) -> AstIf {
         return ast_if_unpack(ast_stmt_node_from_ref(stmt_ref));
     }
@@ -2972,6 +3003,51 @@
 
     fn ast_try(expr: Vec<i64>) -> Vec<i64> {
         return ast_expr_node_from_ref(ast_try_ref(ast_expr_ref_from_node(expr)));
+    }
+
+    fn ast_cast_record(expr: i64, target_type: i64) -> AstCast {
+        return AstCast {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            expr: expr,
+            target_type: target_type
+        };
+    }
+
+    fn ast_cast_pack(cast_node: AstCast) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_CAST);
+        vec_push(node, cast_node.start);
+        vec_push(node, cast_node.end);
+        vec_push(node, cast_node.expr);
+        vec_push(node, cast_node.target_type);
+        return node;
+    }
+
+    fn ast_cast_unpack(node: Vec<i64>) -> AstCast {
+        let expr: i64 = 0;
+        let target_type: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            expr = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            target_type = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        return AstCast {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            expr: expr,
+            target_type: target_type
+        };
+    }
+
+    fn ast_cast_ref(expr: AstExprRef, target_type: AstTypeRef) -> AstExprRef {
+        let rec: AstCast = ast_cast_record(ast_expr_ref_handle(expr), ast_type_ref_handle(target_type));
+        return ast_expr_ref_from_handle(ast_cast_pack(rec) as i64);
+    }
+
+    fn ast_cast(expr: Vec<i64>, target_type: Vec<i64>) -> Vec<i64> {
+        return ast_expr_node_from_ref(ast_cast_ref(ast_expr_ref_from_node(expr), ast_type_ref_from_node(target_type)));
     }
 
     fn ast_break_record() -> AstBreak {

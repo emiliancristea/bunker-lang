@@ -25,6 +25,7 @@
         if kind == NodeKind.Defer { return "defer"; }
         if kind == NodeKind.ArrayRepeat || kind == NodeKind.Try { return "array repeat"; }
         if kind == NodeKind.Try { return "try"; }
+        if kind == NodeKind.Cast { return "cast expression"; }
         if kind == NodeKind.Binary { return "binary expression"; }
         if kind == NodeKind.Unary { return "unary expression"; }
         if kind == NodeKind.Call { return "call expression"; }
@@ -73,6 +74,7 @@
         if kind == TokenKind.Const { return "const"; }
         if kind == TokenKind.Defer { return "defer"; }
         if kind == TokenKind.TypeKw { return "type"; }
+        if kind == TokenKind.As { return "as"; }
         if kind == TokenKind.I32 { return "i32"; }
         if kind == TokenKind.I64 { return "i64"; }
         if kind == TokenKind.F64 { return "f64"; }
@@ -180,7 +182,7 @@
            kind == NodeKind.IntLit || kind == NodeKind.BoolLit || kind == NodeKind.StrLit ||
            kind == NodeKind.Ternary || kind == NodeKind.FloatLit || kind == NodeKind.ArrayLit ||
            kind == NodeKind.Index || kind == NodeKind.FieldAccess || kind == NodeKind.StructLit ||
-           kind == NodeKind.Match || kind == NodeKind.ArrayRepeat {
+           kind == NodeKind.Match || kind == NodeKind.ArrayRepeat || kind == NodeKind.Try || kind == NodeKind.Cast {
             return AST_CAT_EXPR;
         }
         if kind == NodeKind.TypeTag {

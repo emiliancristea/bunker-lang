@@ -39,7 +39,7 @@
         Const,
         Defer,
         TypeKw,
-        Unused38,
+        As,
         Unused39,
         Unused40,
         Unused41,
@@ -149,6 +149,7 @@
     const TOK_CONST: i64 = TokenKind.Const;
     const TOK_DEFER: i64 = TokenKind.Defer;
     const TOK_TYPE_KW: i64 = TokenKind.TypeKw;
+    const TOK_AS: i64 = TokenKind.As;
     const TOK_I32: i64 = TokenKind.I32;
     const TOK_I64: i64 = TokenKind.I64;
     const TOK_F64: i64 = TokenKind.F64;
@@ -212,7 +213,7 @@
         Defer,
         ArrayRepeat,
         Try,
-        Unused19,
+        Cast,
         Binary,
         Unary,
         Call,
@@ -252,6 +253,7 @@
     const NODE_DEFER: i64 = NodeKind.Defer;
     const NODE_ARRAY_REPEAT: i64 = NodeKind.ArrayRepeat;
     const NODE_TRY: i64 = NodeKind.Try;
+    const NODE_CAST: i64 = NodeKind.Cast;
     const NODE_BINARY: i64 = NodeKind.Binary;
     const NODE_UNARY: i64 = NodeKind.Unary;
     const NODE_CALL: i64 = NodeKind.Call;

@@ -533,6 +533,11 @@
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_binary_ref_right_handle(expr_ref)), scope, bindings);
         } else if kind == NODE_TRY {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_try_ref_expr_handle(expr_ref)), scope, bindings);
+        } else if kind == NODE_CAST {
+            state = resolver_expr_ref_diagnostics(state, kernel_ref, names,
+                ast_expr_ref_from_handle(ast_cast_ref_expr_handle(expr_ref)), scope, bindings);
+            state = resolver_type_ref_diagnostics(state, kernel_ref, names,
+                ast_type_ref_from_handle(ast_cast_ref_target_type_handle(expr_ref)), scope);
         } else if kind == NODE_UNARY {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_unary_ref_operand_handle(expr_ref)), scope, bindings);
         } else if kind == NODE_TERNARY {

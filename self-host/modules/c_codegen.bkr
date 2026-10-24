@@ -531,6 +531,11 @@
             return inner_kind;
         }
 
+        if node_type == NODE_CAST {
+            let target_type_ref: AstTypeRef = ast_type_ref_from_handle(ast_cast_ref_target_type_handle(expr_ref));
+            return ast_type_ref_kind_value(target_type_ref);
+        }
+
         if node_type == NODE_UNARY {
             let op: i64 = ast_unary_ref_op(expr_ref);
             if op == TOK_NOT {
@@ -1158,6 +1163,14 @@
                 }
             }
             return "({ bkr_i64 " + try_var + " = " + inner_c + "; if (bkr_try_is_err(" + try_var + ")) {" + defer_str + " return " + try_var + "; } bkr_try_unwrap(" + try_var + "); })";
+        }
+
+        if node_type == NODE_CAST {
+            let inner_expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_cast_ref_expr_handle(expr_ref));
+            let target_type_ref: AstTypeRef = ast_type_ref_from_handle(ast_cast_ref_target_type_handle(expr_ref));
+            let target_kind: i64 = ast_type_ref_kind_value(target_type_ref);
+            let c_type: str = type_to_c(target_kind);
+            return "((" + c_type + ")(" + gen_c_expr_ref(state, inner_expr_ref) + "))";
         }
 
         if node_type == NODE_UNARY {

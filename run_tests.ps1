@@ -124,6 +124,7 @@ $expectedResults = @{
     "150_call_result_inference" = 42
     "155_inference_constructors" = 42
     "160_user_defined_enums_adt" = 42
+    "161_cast_safety_rules" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -324,7 +325,9 @@ if (-not $JitOnly) {
         "tests\121_enum_multi_payload_ctor.bkr",
         "tests\122_enum_multi_payload_match.bkr",
         "tests\124_enum_string_payload.bkr",
-        "tests\160_user_defined_enums_adt.bkr"
+        "tests\160_user_defined_enums_adt.bkr",
+        "tests\36_kernel_type_cast.bkr",
+        "tests\161_cast_safety_rules.bkr"
     )
 
     $subsetOk = $true

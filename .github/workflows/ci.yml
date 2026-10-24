@@ -2512,6 +2512,41 @@ jobs:
           grep -q "BUNKER_AST_JSON" /tmp/160_user_defined_enums_adt.c
           grep -q '"has_diagnostics":false' /tmp/160_user_defined_enums_adt.c
 
+      - name: Verify 161_cast_safety_rules fixture executes in JIT
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/161_cast_safety_rules.bkr
+
+      - name: Compile 161_cast_safety_rules through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/161_cast_safety_rules.bkr \
+            -o /tmp/161_cast_safety_rules.c
+          test -s /tmp/161_cast_safety_rules.c
+          grep -q "BUNKER_AST_JSON" /tmp/161_cast_safety_rules.c
+          grep -q '"has_diagnostics":false' /tmp/161_cast_safety_rules.c
+
+      - name: Verify 162_invalid_struct_cast_BAD rejected by self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/162_invalid_struct_cast_BAD.bkr \
+            -o /tmp/162_invalid_struct_cast_BAD.c
+          test -s /tmp/162_invalid_struct_cast_BAD.c
+          grep -q '"kind":"cast_type_mismatch"' /tmp/162_invalid_struct_cast_BAD.c
+          grep -q "Cast between compatible numeric types, bool, or between i64 and handle types." /tmp/162_invalid_struct_cast_BAD.c
+
+      - name: Verify 163_invalid_array_cast_BAD rejected by self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/163_invalid_array_cast_BAD.bkr \
+            -o /tmp/163_invalid_array_cast_BAD.c
+          test -s /tmp/163_invalid_array_cast_BAD.c
+          grep -q '"kind":"cast_type_mismatch"' /tmp/163_invalid_array_cast_BAD.c
+          grep -q "Cast between compatible numeric types, bool, or between i64 and handle types." /tmp/163_invalid_array_cast_BAD.c
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

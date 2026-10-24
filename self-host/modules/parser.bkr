@@ -811,6 +811,12 @@
                 } else {
                     continue_postfix = false;
                 }
+            } else if peek == TOK_AS {
+                let start = ast_expr_ref_span_start(base_ref);
+                parser_advance_ref(p);
+                let target_type_ref: AstTypeRef = parse_type_ref(p);
+                let cast_ref: AstExprRef = ast_cast_ref(base_ref, target_type_ref);
+                base_ref = parser_set_expr_ref_span(cast_ref, start, parser_previous_token_end(p));
             } else {
                 continue_postfix = false;
             }
