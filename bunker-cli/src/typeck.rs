@@ -1287,7 +1287,7 @@ impl TypeChecker {
                 // Block expression - check all statements and return type of last expression
                 let saved = self.variables.clone();
                 let saved_moved = self.moved_vars.clone();
-                let mut result_ty = Type::I32;
+                let mut result_ty = Type::Unit;
                 for (i, stmt) in block.statements.iter().enumerate() {
                     let is_last = i == block.statements.len() - 1;
                     if is_last {

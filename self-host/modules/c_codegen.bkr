@@ -449,6 +449,18 @@
             return TYPE_STR;
         }
 
+        if node_type == NODE_BLOCK {
+            let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_expr_ref_handle(expr_ref));
+            let count: i64 = ast_block_ref_stmt_count(block_ref);
+            if count > 0 {
+                let last_stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, count - 1);
+                if ast_stmt_ref_kind(last_stmt_ref) == NODE_EXPR_STMT {
+                    return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(last_stmt_ref)));
+                }
+            }
+            return TYPE_VOID;
+        }
+
         if node_type == NODE_ARRAY_LIT {
             return TYPE_ARRAY;
         }
@@ -719,6 +731,29 @@
                         struct_name_idx = ast_type_ref_struct_name_idx_value(fn_ret_type_ref);
                     }
                 }
+            } else if ast_expr_ref_kind(init_ref) == NODE_BLOCK {
+                let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_expr_ref_handle(init_ref));
+                let count: i64 = ast_block_ref_stmt_count(block_ref);
+                if count > 0 {
+                    let last_stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, count - 1);
+                    if ast_stmt_ref_kind(last_stmt_ref) == NODE_EXPR_STMT {
+                        let last_expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(last_stmt_ref));
+                        let le_kind: i64 = ast_expr_ref_kind(last_expr_ref);
+                        if le_kind == NODE_STRUCT_LIT {
+                            kind = TYPE_STRUCT;
+                            struct_name_idx = ast_struct_lit_ref_name_idx(last_expr_ref);
+                        } else if le_kind == NODE_IDENT {
+                            let s_idx: i64 = cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(last_expr_ref));
+                            if s_idx >= 0 {
+                                kind = TYPE_STRUCT;
+                                struct_name_idx = s_idx;
+                            }
+                        } else if le_kind == NODE_CALL && cgen_is_struct_name_ref(state, ast_call_ref_name_idx(last_expr_ref)) {
+                            kind = TYPE_STRUCT;
+                            struct_name_idx = ast_call_ref_name_idx(last_expr_ref);
+                        }
+                    }
+                }
             }
         }
 
@@ -755,7 +790,11 @@
             let is_last = i == count - 1;
 
             if is_last && stmt_type == NODE_EXPR_STMT {
-                result = result + result_name + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(stmt_ref))) + "; ";
+                if result_name != "" {
+                    result = result + result_name + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(stmt_ref))) + "; ";
+                } else {
+                    result = result + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(stmt_ref))) + "; ";
+                }
             } else if stmt_type == NODE_LET {
                 result = result + gen_c_inline_let_ref(state, stmt_ref);
             } else if stmt_type == NODE_ASSIGN {
@@ -1139,6 +1178,41 @@
         if node_type == NODE_STR_LIT {
             let raw = ast_expr_ref_value(expr_ref) as str;
             return c_escape_string(raw);
+        }
+
+        if node_type == NODE_BLOCK {
+            let res_var = "_blk_res";
+            let blk_kind: i64 = infer_c_expr_ref_type(state, expr_ref);
+            let c_ty = type_to_c(blk_kind);
+            if blk_kind == TYPE_STRUCT {
+                let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_expr_ref_handle(expr_ref));
+                let count: i64 = ast_block_ref_stmt_count(block_ref);
+                if count > 0 {
+                    let last_stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, count - 1);
+                    if ast_stmt_ref_kind(last_stmt_ref) == NODE_EXPR_STMT {
+                        let last_expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(last_stmt_ref));
+                        let le_kind: i64 = ast_expr_ref_kind(last_expr_ref);
+                        let s_idx: i64 = -1;
+                        if le_kind == NODE_STRUCT_LIT {
+                            s_idx = ast_struct_lit_ref_name_idx(last_expr_ref);
+                        } else if le_kind == NODE_IDENT {
+                            s_idx = cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(last_expr_ref));
+                        } else if le_kind == NODE_CALL && cgen_is_struct_name_ref(state, ast_call_ref_name_idx(last_expr_ref)) {
+                            s_idx = ast_call_ref_name_idx(last_expr_ref);
+                        }
+                        if s_idx >= 0 {
+                            c_ty = name_to_c_ref(state, s_idx);
+                        }
+                    }
+                }
+            }
+            if blk_kind == TYPE_VOID {
+                return "({ " + gen_c_inline_node_result(state, "", ast_node_ref_from_handle(ast_expr_ref_handle(expr_ref))) + "; })";
+            }
+            if blk_kind == TYPE_STRUCT {
+                return "({ " + c_ty + " " + res_var + "; " + gen_c_inline_node_result(state, res_var, ast_node_ref_from_handle(ast_expr_ref_handle(expr_ref))) + res_var + "; })";
+            }
+            return "({ " + c_ty + " " + res_var + " = 0; " + gen_c_inline_node_result(state, res_var, ast_node_ref_from_handle(ast_expr_ref_handle(expr_ref))) + res_var + "; })";
         }
 
         if node_type == NODE_ARRAY_REPEAT {
@@ -1632,6 +1706,29 @@
                         if ast_type_ref_is_some(fn_ret_type_ref) && ast_type_ref_kind_value(fn_ret_type_ref) == TYPE_STRUCT {
                             kind = TYPE_STRUCT;
                             struct_name_idx = ast_type_ref_struct_name_idx_value(fn_ret_type_ref);
+                        }
+                    }
+                } else if ast_expr_ref_kind(init_ref) == NODE_BLOCK {
+                    let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_expr_ref_handle(init_ref));
+                    let count: i64 = ast_block_ref_stmt_count(block_ref);
+                    if count > 0 {
+                        let last_stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, count - 1);
+                        if ast_stmt_ref_kind(last_stmt_ref) == NODE_EXPR_STMT {
+                            let last_expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(last_stmt_ref));
+                            let le_kind: i64 = ast_expr_ref_kind(last_expr_ref);
+                            if le_kind == NODE_STRUCT_LIT {
+                                kind = TYPE_STRUCT;
+                                struct_name_idx = ast_struct_lit_ref_name_idx(last_expr_ref);
+                            } else if le_kind == NODE_IDENT {
+                                let s_idx: i64 = cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(last_expr_ref));
+                                if s_idx >= 0 {
+                                    kind = TYPE_STRUCT;
+                                    struct_name_idx = s_idx;
+                                }
+                            } else if le_kind == NODE_CALL && cgen_is_struct_name_ref(state, ast_call_ref_name_idx(last_expr_ref)) {
+                                kind = TYPE_STRUCT;
+                                struct_name_idx = ast_call_ref_name_idx(last_expr_ref);
+                            }
                         }
                     }
                 }

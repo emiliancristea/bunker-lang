@@ -177,6 +177,7 @@ primary_expr = {
     struct_literal |
     literal |
     path_expr |
+    block |
     identifier
 }
 path_expr = { identifier ~ "::" ~ identifier }

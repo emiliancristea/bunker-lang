@@ -1847,6 +1847,8 @@
         } else if kind == NODE_INDEX {
             state = typecheck_scan_loop_control_expr_handle(state, ast_index_ref_base_handle(expr_ref), scope, loop_depth);
             state = typecheck_scan_loop_control_expr_handle(state, ast_index_ref_expr_handle(expr_ref), scope, loop_depth);
+        } else if kind == NODE_BLOCK {
+            state = typecheck_scan_loop_control_block_ref(state, ast_block_ref_from_node_ref(ast_node_ref_from_expr_ref(expr_ref)), scope, loop_depth);
         } else if kind == NODE_MATCH {
             state = typecheck_scan_loop_control_expr_handle(state, ast_match_ref_scrutinee_handle(expr_ref), scope, loop_depth);
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
@@ -2311,6 +2313,9 @@
                 ast_index_ref_base_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_index_ref_expr_handle(expr_ref), scope, expected_return_kind);
+        } else if kind == NODE_BLOCK {
+            state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
+                ast_block_ref_from_node_ref(ast_node_ref_from_expr_ref(expr_ref)), scope, expected_return_kind);
         } else if kind == NODE_MATCH {
             let scrutinee_ref: AstExprRef = ast_expr_ref_from_handle(ast_match_ref_scrutinee_handle(expr_ref));
             let scrutinee_kind: i64 = typecheck_expr_ref_kind(cstate, scrutinee_ref);

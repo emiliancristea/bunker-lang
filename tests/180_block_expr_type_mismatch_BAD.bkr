@@ -1,0 +1,13 @@
+// Test 180: Block Expression Type Mismatch (Q-260, L-006)
+// Purpose: Ensure typechecker rejects block expression when yielded type does not match annotation.
+// Expected: Typecheck error (Annotation type mismatch / Expected i32, found str)
+
+kernel BlockExprTypeMismatchBad {
+    fn main() -> i32 {
+        let x: i32 = {
+            let s: str = "hello";
+            s;
+        };
+        return 0;
+    }
+}

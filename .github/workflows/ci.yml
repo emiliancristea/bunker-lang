@@ -2697,6 +2697,37 @@ jobs:
             exit 1
           fi
 
+      - name: Verify 179_expression_blocks fixture executes in JIT
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/179_expression_blocks.bkr
+
+      - name: Compile 179_expression_blocks through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/179_expression_blocks.bkr \
+            -o /tmp/179_expression_blocks.c
+          test -s /tmp/179_expression_blocks.c
+          grep -q "BUNKER_AST_JSON" /tmp/179_expression_blocks.c
+          grep -q '"has_diagnostics":false' /tmp/179_expression_blocks.c
+
+      - name: Verify 180_block_expr_type_mismatch_BAD rejected by bunker-cli
+        timeout-minutes: 2
+        run: |
+          if ./bunker-cli/target/release/bunker-cli check tests/180_block_expr_type_mismatch_BAD.bkr; then
+            echo "Expected 180_block_expr_type_mismatch_BAD to fail"
+            exit 1
+          fi
+
+      - name: Verify 181_block_expr_void_as_value_BAD rejected by bunker-cli
+        timeout-minutes: 2
+        run: |
+          if ./bunker-cli/target/release/bunker-cli check tests/181_block_expr_void_as_value_BAD.bkr; then
+            echo "Expected 181_block_expr_void_as_value_BAD to fail"
+            exit 1
+          fi
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

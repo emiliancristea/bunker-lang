@@ -1295,6 +1295,9 @@ fn build_primary_expr(pair: Pair<Rule>) -> Result<Expr, String> {
             Rule::literal => {
                 return build_literal(inner);
             }
+            Rule::block => {
+                return Ok(Expr::Block(build_block(inner)?));
+            }
             Rule::path_expr | Rule::identifier => {
                 return Ok(Expr::Ident(inner.as_str().to_string()));
             }

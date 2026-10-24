@@ -596,6 +596,11 @@
             return parse_match_expr_ref(p);
         }
 
+        if tok == TOK_LBRACE {
+            let block_ref: AstBlockRef = parse_block_ref(p);
+            return ast_expr_ref_from_handle(ast_block_ref_handle(block_ref));
+        }
+
         if tok == TOK_INT {
             let val_idx = parser_peek_value_ref(p);
             let val = parser_get_value_ref(p, val_idx);

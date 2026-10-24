@@ -131,6 +131,7 @@ $expectedResults = @{
     "170_typed_hashmap_str_keys" = 42
     "173_struct_methods" = 42
     "176_struct_update_tuple_struct" = 42
+    "179_expression_blocks" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -339,7 +340,8 @@ if (-not $JitOnly) {
         "tests\169_typed_vec_complete.bkr",
         "tests\170_typed_hashmap_str_keys.bkr",
         "tests\173_struct_methods.bkr",
-        "tests\176_struct_update_tuple_struct.bkr"
+        "tests\176_struct_update_tuple_struct.bkr",
+        "tests\179_expression_blocks.bkr"
     )
 
     $subsetOk = $true

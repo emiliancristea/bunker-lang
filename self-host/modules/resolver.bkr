@@ -573,6 +573,8 @@
         } else if kind == NODE_INDEX {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_index_ref_base_handle(expr_ref)), scope, bindings);
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_index_ref_expr_handle(expr_ref)), scope, bindings);
+        } else if kind == NODE_BLOCK {
+            state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_block_ref_from_node_ref(expr_node_ref), scope, bindings, resolver_empty_i64_vec());
         } else if kind == NODE_MATCH {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_match_ref_scrutinee_handle(expr_ref)), scope, bindings);
             let patterns_ref: AstPatternListRef = ast_match_ref_patterns_ref(expr_ref);
