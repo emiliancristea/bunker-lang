@@ -1,0 +1,10 @@
+// Test 158: Unannotated Vec Constructor Diagnostic (Q-252, T-008)
+// Purpose: Ensure `let v = vec_new();` without explicit Vec<T> annotation is rejected.
+// Expected: `bunker check` fails.
+
+kernel UnannotatedVecCtorBad {
+    fn main() -> i32 {
+        let v = vec_new();
+        return 0;
+    }
+}

@@ -415,6 +415,81 @@ impl TypeChecker {
                     return Ok(None);
                 }
 
+                // Check for Result constructor without type annotation
+                if ty.is_none() {
+                    let is_unannotated_result = match value {
+                        Expr::Call { func, .. } => {
+                            if let Expr::Ident(fname) = func.as_ref() {
+                                fname == "result_ok" || fname == "result_err" || fname == "Ok" || fname == "Err"
+                            } else {
+                                false
+                            }
+                        }
+                        _ => false,
+                    };
+                    if is_unannotated_result {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Cannot infer type of '{}': Result constructor requires explicit Result<T, E> type annotation or contextual type",
+                                name
+                            ),
+                            location: context.to_string(),
+                        });
+                        self.variables.insert(
+                            name.clone(),
+                            Type::Result(Box::new(Type::I64), Box::new(Type::Str)),
+                        );
+                        return Ok(None);
+                    }
+                }
+
+                // Check for collection constructor (vec_new, hashmap_new) without type annotation
+                if ty.is_none() {
+                    let is_vec = match value {
+                        Expr::Call { func, .. } => {
+                            if let Expr::Ident(fname) = func.as_ref() {
+                                fname == "vec_new"
+                            } else {
+                                false
+                            }
+                        }
+                        _ => false,
+                    };
+                    let is_map = match value {
+                        Expr::Call { func, .. } => {
+                            if let Expr::Ident(fname) = func.as_ref() {
+                                fname == "hashmap_new"
+                            } else {
+                                false
+                            }
+                        }
+                        _ => false,
+                    };
+                    if is_vec || is_map {
+                        let cname = if is_vec { "Vec" } else { "HashMap" };
+                        let annot = if is_vec { "Vec<T>" } else { "HashMap<K, V>" };
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Cannot infer type of '{}': {} constructor requires explicit {} type annotation or contextual type",
+                                name, cname, annot
+                            ),
+                            location: context.to_string(),
+                        });
+                        if is_vec {
+                            self.variables.insert(
+                                name.clone(),
+                                Type::Vec(Box::new(Type::I64)),
+                            );
+                        } else {
+                            self.variables.insert(
+                                name.clone(),
+                                Type::HashMap(Box::new(Type::Str), Box::new(Type::I64)),
+                            );
+                        }
+                        return Ok(None);
+                    }
+                }
+
                 let resolved_hint = ty.as_ref().map(|t| self.resolve_alias(t));
                 let inferred = self.infer_expr_with_hint(value, context, resolved_hint.as_ref())?;
 
@@ -891,8 +966,49 @@ impl TypeChecker {
                         location: context.to_string(),
                     });
                 }
-                let then_ty = self.infer_expr(then_expr, context)?;
-                let else_ty = self.infer_expr(else_expr, context)?;
+                let then_ty = self.infer_expr_with_hint(then_expr, context, expected)?;
+                let else_hint = expected.or(Some(&then_ty));
+                let else_ty = self.infer_expr_with_hint(else_expr, context, else_hint)?;
+                let (then_ty, else_ty) = if matches!(then_expr.as_ref(), Expr::None) && matches!(else_ty, Type::Option(_)) {
+                    let re_then = self.infer_expr_with_hint(then_expr, context, Some(&else_ty))?;
+                    (re_then, else_ty)
+                } else if matches!(else_expr.as_ref(), Expr::None) && matches!(then_ty, Type::Option(_)) {
+                    let re_else = self.infer_expr_with_hint(else_expr, context, Some(&then_ty))?;
+                    (then_ty, re_else)
+                } else if matches!(then_expr.as_ref(), Expr::Array(elements) if elements.is_empty()) && matches!(else_ty, Type::Array(_, _)) {
+                    let re_then = self.infer_expr_with_hint(then_expr, context, Some(&else_ty))?;
+                    (re_then, else_ty)
+                } else if matches!(else_expr.as_ref(), Expr::Array(elements) if elements.is_empty()) && matches!(then_ty, Type::Array(_, _)) {
+                    let re_else = self.infer_expr_with_hint(else_expr, context, Some(&then_ty))?;
+                    (then_ty, re_else)
+                } else if !self.types_compatible(&then_ty, &else_ty) {
+                    if self.types_compatible(&else_ty, &then_ty) {
+                        let re_then = self.infer_expr_with_hint(then_expr, context, Some(&else_ty))?;
+                        (re_then, else_ty)
+                    } else if let (Type::Result(ok_t, err_t), Type::Result(ok_e, err_e)) = (&then_ty, &else_ty) {
+                        let unified_ok = if ok_t.as_ref() != &Type::I32 || ok_e.as_ref() == &Type::I32 { ok_t.clone() } else { ok_e.clone() };
+                        let unified_err = if err_t.as_ref() != &Type::I32 || err_e.as_ref() == &Type::I32 { err_t.clone() } else { err_e.clone() };
+                        let unified = Type::Result(unified_ok, unified_err);
+                        let re_then = self.infer_expr_with_hint(then_expr, context, Some(&unified))?;
+                        let re_else = self.infer_expr_with_hint(else_expr, context, Some(&unified))?;
+                        (re_then, re_else)
+                    } else {
+                        (then_ty, else_ty)
+                    }
+                } else if let (Type::Result(ok_t, err_t), Type::Result(ok_e, err_e)) = (&then_ty, &else_ty) {
+                    if err_t != err_e || ok_t != ok_e {
+                        let unified_ok = if ok_t.as_ref() != &Type::I32 || ok_e.as_ref() == &Type::I32 { ok_t.clone() } else { ok_e.clone() };
+                        let unified_err = if err_t.as_ref() != &Type::I32 || err_e.as_ref() == &Type::I32 { err_t.clone() } else { err_e.clone() };
+                        let unified = Type::Result(unified_ok, unified_err);
+                        let re_then = self.infer_expr_with_hint(then_expr, context, Some(&unified))?;
+                        let re_else = self.infer_expr_with_hint(else_expr, context, Some(&unified))?;
+                        (re_then, re_else)
+                    } else {
+                        (then_ty, else_ty)
+                    }
+                } else {
+                    (then_ty, else_ty)
+                };
                 if !self.types_compatible(&then_ty, &else_ty) && !self.types_compatible(&else_ty, &then_ty) {
                     self.errors.push(TypeError {
                         message: format!(
@@ -1034,16 +1150,23 @@ impl TypeChecker {
                             let saved = self.variables.clone();
                             let saved_moved = self.moved_vars.clone();
                             self.bind_pattern(&arm.pattern, &expr_ty);
-                            let arm_ty = self.infer_expr(e, context)?;
+                            let arm_hint = expected.or(match_result.as_ref());
+                            let arm_ty = self.infer_expr_with_hint(e, context, arm_hint)?;
                             self.variables = saved;
                             self.moved_vars = saved_moved;
                             if arm_ty != Type::Never {
                                 if let Some(existing) = &match_result {
                                     if !self.types_compatible(existing, &arm_ty) && !self.types_compatible(&arm_ty, existing) {
-                                        self.errors.push(TypeError {
-                                            message: format!("Match arms have incompatible types: {:?} vs {:?}", existing, arm_ty),
-                                            location: context.to_string(),
-                                        });
+                                        if let (Type::Result(ok_t, err_t), Type::Result(ok_e, err_e)) = (existing, &arm_ty) {
+                                            let unified_ok = if ok_t.as_ref() != &Type::I32 || ok_e.as_ref() == &Type::I32 { ok_t.clone() } else { ok_e.clone() };
+                                            let unified_err = if err_t.as_ref() != &Type::I32 || err_e.as_ref() == &Type::I32 { err_t.clone() } else { err_e.clone() };
+                                            match_result = Some(Type::Result(unified_ok, unified_err));
+                                        } else {
+                                            self.errors.push(TypeError {
+                                                message: format!("Match arms have incompatible types: {:?} vs {:?}", existing, arm_ty),
+                                                location: context.to_string(),
+                                            });
+                                        }
                                     }
                                 } else {
                                     match_result = Some(arm_ty);
@@ -1079,7 +1202,7 @@ impl TypeChecker {
                     let is_last = i == block.statements.len() - 1;
                     if is_last {
                         if let Stmt::Expr(e) = stmt {
-                            result_ty = self.infer_expr(e, context)?;
+                            result_ty = self.infer_expr_with_hint(e, context, expected)?;
                             continue;
                         }
                     }
@@ -1592,7 +1715,7 @@ impl TypeChecker {
                     name, &arg_types, expected,
                 ))
             }
-            "result_ok" => {
+            "result_ok" | "Ok" => {
                 self.check_builtin_arity("result_ok expects 1 argument (value)", args, 1, context);
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
                 if let (Some(Type::Result(ok_ty, _)), Some(value_ty)) =
@@ -1612,7 +1735,7 @@ impl TypeChecker {
                     name, &arg_types, expected,
                 ))
             }
-            "result_err" => {
+            "result_err" | "Err" => {
                 self.check_builtin_arity("result_err expects 1 argument (error)", args, 1, context);
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
                 if let (Some(Type::Result(_, err_ty)), Some(value_ty)) =

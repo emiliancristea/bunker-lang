@@ -2442,6 +2442,61 @@ jobs:
           grep -q '"kind":"builtin_argument_type_mismatch"' /tmp/154_builtin_arg_type_mismatch_BAD.c
           grep -q "Change argument 1 for builtin strlen to match the expected type" /tmp/154_builtin_arg_type_mismatch_BAD.c
 
+      - name: Verify 155_inference_constructors fixture executes in JIT
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/155_inference_constructors.bkr
+
+      - name: Compile 155_inference_constructors through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/155_inference_constructors.bkr \
+            -o /tmp/155_inference_constructors.c
+          test -s /tmp/155_inference_constructors.c
+          grep -q "BUNKER_AST_JSON" /tmp/155_inference_constructors.c
+          grep -q '"has_diagnostics":false' /tmp/155_inference_constructors.c
+
+      - name: Compile 156_unannotated_none_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/156_unannotated_none_BAD.bkr \
+            -o /tmp/156_unannotated_none_BAD.c
+          test -s /tmp/156_unannotated_none_BAD.c
+          grep -q '"kind":"ambiguous_none"' /tmp/156_unannotated_none_BAD.c
+          grep -q "Add an Option<T> annotation so the None payload type is known" /tmp/156_unannotated_none_BAD.c
+
+      - name: Compile 157_unannotated_result_ctor_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/157_unannotated_result_ctor_BAD.bkr \
+            -o /tmp/157_unannotated_result_ctor_BAD.c
+          test -s /tmp/157_unannotated_result_ctor_BAD.c
+          grep -q '"kind":"ambiguous_result_constructor"' /tmp/157_unannotated_result_ctor_BAD.c
+          grep -q "Add a Result<T,E> annotation so both Ok and Err payload types are known" /tmp/157_unannotated_result_ctor_BAD.c
+
+      - name: Compile 158_unannotated_vec_ctor_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/158_unannotated_vec_ctor_BAD.bkr \
+            -o /tmp/158_unannotated_vec_ctor_BAD.c
+          test -s /tmp/158_unannotated_vec_ctor_BAD.c
+          grep -q '"kind":"ambiguous_collection_constructor"' /tmp/158_unannotated_vec_ctor_BAD.c
+          grep -q "Add a Vec<T> or HashMap<K,V> annotation so collection types are known" /tmp/158_unannotated_vec_ctor_BAD.c
+
+      - name: Compile 159_unannotated_map_ctor_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/159_unannotated_map_ctor_BAD.bkr \
+            -o /tmp/159_unannotated_map_ctor_BAD.c
+          test -s /tmp/159_unannotated_map_ctor_BAD.c
+          grep -q '"kind":"ambiguous_collection_constructor"' /tmp/159_unannotated_map_ctor_BAD.c
+          grep -q "Add a Vec<T> or HashMap<K,V> annotation so collection types are known" /tmp/159_unannotated_map_ctor_BAD.c
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

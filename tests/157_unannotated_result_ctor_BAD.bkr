@@ -1,0 +1,10 @@
+// Test 157: Unannotated Result Constructor Diagnostic (Q-252, T-008)
+// Purpose: Ensure `let res = Ok(42);` without explicit Result<T, E> annotation is rejected.
+// Expected: `bunker check` fails.
+
+kernel UnannotatedResultCtorBad {
+    fn main() -> i32 {
+        let res = Ok(42);
+        return 0;
+    }
+}

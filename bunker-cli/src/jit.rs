@@ -1714,6 +1714,8 @@ impl KernelJit {
             ("vec_clear", vec_clear_func),
             ("result_ok", result_ok_func),
             ("result_err", result_err_func),
+            ("Ok", result_ok_func),
+            ("Err", result_err_func),
             ("result_is_ok", result_is_ok_func),
             ("result_is_err", result_is_err_func),
             ("result_unwrap", result_unwrap_func),

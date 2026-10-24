@@ -429,7 +429,7 @@
             let name_idx: i64 = ast_expr_ref_name_idx(expr_ref);
             let raw: str = name_from_table(names, name_idx);
             if raw == "None" {
-                return TYPE_I64;
+                return TYPE_OPTION;
             }
             return cgen_lookup_name_type_ref(state, name_idx);
         }
@@ -1160,11 +1160,11 @@
                 let arg_expr: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0));
                 return "bkr_len((bkr_str)(intptr_t)(" + gen_c_expr_ref(state, arg_expr) + "))";
             }
-            if raw == "result_ok" && arg_count == 1 {
+            if (raw == "result_ok" || raw == "Ok") && arg_count == 1 {
                 let arg: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
                 return "bkr_result_ok(" + arg + ")";
             }
-            if raw == "result_err" && arg_count == 1 {
+            if (raw == "result_err" || raw == "Err") && arg_count == 1 {
                 let arg2: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
                 return "bkr_result_err(" + arg2 + ")";
             }

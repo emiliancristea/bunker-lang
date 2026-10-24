@@ -366,8 +366,26 @@ static TYPECHECK_BUILTINS: &[TypecheckBuiltinSpec] = &[
         return_type: BuiltinReturnType::ResultI64I64,
     },
     TypecheckBuiltinSpec {
+        name: "Ok",
+        arity_error: "Ok expects 1 argument (value)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Any,
+            type_error: "",
+        }],
+        return_type: BuiltinReturnType::ResultI64I64,
+    },
+    TypecheckBuiltinSpec {
         name: "result_err",
         arity_error: "result_err expects 1 argument (error)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Any,
+            type_error: "",
+        }],
+        return_type: BuiltinReturnType::ResultI64I64,
+    },
+    TypecheckBuiltinSpec {
+        name: "Err",
+        arity_error: "Err expects 1 argument (error)",
         params: &[BuiltinParamSpec {
             rule: BuiltinArgRule::Any,
             type_error: "",
@@ -759,7 +777,17 @@ static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
         return_type: Some(RuntimeBuiltinType::I64),
     },
     RuntimeBuiltinSpec {
+        name: "Ok",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
         name: "result_err",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "Err",
         params: &[RuntimeBuiltinType::I64],
         return_type: Some(RuntimeBuiltinType::I64),
     },
@@ -912,7 +940,7 @@ pub fn infer_special_builtin_call_type(
             Some(ast::Type::HashMap(key, _)) => ast::Type::Vec(Box::new(key.as_ref().clone())),
             _ => ast::Type::I64,
         }),
-        "result_ok" => {
+        "result_ok" | "Ok" => {
             let ok_ty = arg_types.first().cloned().unwrap_or(ast::Type::I64);
             let err_ty = match expected {
                 Some(ast::Type::Result(_, err)) => err.as_ref().clone(),
@@ -920,7 +948,7 @@ pub fn infer_special_builtin_call_type(
             };
             Some(ast::Type::Result(Box::new(ok_ty), Box::new(err_ty)))
         }
-        "result_err" => {
+        "result_err" | "Err" => {
             let ok_ty = match expected {
                 Some(ast::Type::Result(ok, _)) => ok.as_ref().clone(),
                 _ => ast::Type::I32,

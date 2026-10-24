@@ -401,7 +401,7 @@
             return false;
         }
         let raw: str = ast_report_name(names, ast_call_ref_name_idx(expr_ref));
-        return raw == "result_ok" || raw == "result_err";
+        return raw == "result_ok" || raw == "result_err" || raw == "Ok" || raw == "Err";
     }
 
     fn typecheck_expr_handle_is_result_constructor(names: Vec<str>, expr_value: i64) -> bool {

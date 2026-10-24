@@ -1,0 +1,10 @@
+// Test 156: Unannotated None Diagnostic (Q-252, T-008)
+// Purpose: Ensure `let opt = None;` without explicit Option<T> annotation is rejected.
+// Expected: `bunker check` fails.
+
+kernel UnannotatedNoneBad {
+    fn main() -> i32 {
+        let opt = None;
+        return 0;
+    }
+}
