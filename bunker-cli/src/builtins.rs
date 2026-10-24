@@ -822,6 +822,20 @@ static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
         return_type: Some(RuntimeBuiltinType::I64),
     },
     RuntimeBuiltinSpec {
+        name: "hashmap_new_str",
+        params: &[],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "hashmap_insert_str",
+        params: &[
+            RuntimeBuiltinType::I64,
+            RuntimeBuiltinType::I64,
+            RuntimeBuiltinType::I64,
+        ],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
         name: "hashmap_new",
         params: &[],
         return_type: Some(RuntimeBuiltinType::I64),

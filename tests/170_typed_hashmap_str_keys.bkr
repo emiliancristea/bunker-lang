@@ -1,0 +1,94 @@
+// Test 170: Typed HashMap with String Keys (Q-257, D-010)
+// Purpose: Ensure HashMap<str, V> preserves key and value types, string equality/hashing, and all operations.
+// Expected: JIT returns 42
+
+kernel TypedHashMapStrKeys {
+    fn main() -> i32 {
+        let map: HashMap<str, i32> = hashmap_new();
+
+        if !hashmap_insert(map, "alpha", 100) {
+            return 1;
+        }
+        if !hashmap_insert(map, "beta", 200) {
+            return 2;
+        }
+        if !hashmap_insert(map, "gamma", 300) {
+            return 3;
+        }
+
+        if hashmap_len(map) != 3 {
+            return 4;
+        }
+
+        let v1: i32 = hashmap_get(map, "alpha");
+        if v1 != 100 {
+            return 5;
+        }
+        let v2: i32 = hashmap_get(map, "beta");
+        if v2 != 200 {
+            return 6;
+        }
+        let v3: i32 = hashmap_get(map, "gamma");
+        if v3 != 300 {
+            return 7;
+        }
+
+        // Test update existing string key
+        if !hashmap_insert(map, "beta", 250) {
+            return 8;
+        }
+        let v2_up: i32 = hashmap_get(map, "beta");
+        if v2_up != 250 {
+            return 9;
+        }
+        if hashmap_len(map) != 3 {
+            return 10;
+        }
+
+        // Test contains
+        if !hashmap_contains(map, "alpha") {
+            return 11;
+        }
+        if hashmap_contains(map, "delta") {
+            return 12;
+        }
+
+        // Test hashmap_get_opt
+        let opt_found: Option<i32> = hashmap_get_opt(map, "gamma");
+        let found_val: i32 = match opt_found {
+            Some(x) => x;
+            None => 0;
+        };
+        if found_val != 300 {
+            return 13;
+        }
+
+        let opt_missing: Option<i32> = hashmap_get_opt(map, "not_there");
+        let miss_val: i32 = match opt_missing {
+            Some(x) => x;
+            None => -1;
+        };
+        if miss_val != -1 {
+            return 14;
+        }
+
+        // Test hashmap_keys returning Vec<str>
+        let keys: Vec<str> = hashmap_keys(map);
+        if vec_len(keys) != 3 {
+            return 15;
+        }
+
+        // Test removal
+        if !hashmap_remove(map, "alpha") {
+            return 16;
+        }
+        if hashmap_contains(map, "alpha") {
+            return 17;
+        }
+        if hashmap_len(map) != 2 {
+            return 18;
+        }
+
+        return 42;
+    }
+}

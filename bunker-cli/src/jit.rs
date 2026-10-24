@@ -861,7 +861,7 @@ extern "C" fn bunker_result_value(result_ptr: i64) -> i64 {
 // Entry layout: [key: i64][value: i64][hash: i64][occupied: i64]
 // Using open addressing with linear probing
 
-const HASHMAP_HEADER_SIZE: i64 = 24; // capacity + length + entries_ptr
+const HASHMAP_HEADER_SIZE: i64 = 32; // capacity + length + entries_ptr + key_type
 const HASHMAP_ENTRY_SIZE: i64 = 32; // key + value + hash + occupied
 const HASHMAP_INITIAL_CAPACITY: i64 = 16;
 
@@ -874,6 +874,43 @@ fn hash_i64(key: i64) -> i64 {
         h = h.wrapping_mul(0x100000001b3);
     }
     h as i64
+}
+
+fn hash_str(s: &str) -> i64 {
+    let mut h = 0xcbf29ce484222325u64;
+    for b in s.as_bytes() {
+        h ^= *b as u64;
+        h = h.wrapping_mul(0x100000001b3);
+    }
+    h as i64
+}
+
+unsafe fn hashmap_get_key_hash(key_type: i64, key: i64) -> i64 {
+    if key_type == 1 {
+        if let Some(s) = read_bunker_string(key) {
+            hash_str(&s)
+        } else {
+            0
+        }
+    } else {
+        hash_i64(key)
+    }
+}
+
+unsafe fn hashmap_key_eq(key_type: i64, k1: i64, k2: i64) -> bool {
+    if key_type == 1 {
+        if k1 == k2 {
+            return true;
+        }
+        let s1 = read_bunker_string(k1);
+        let s2 = read_bunker_string(k2);
+        match (s1, s2) {
+            (Some(a), Some(b)) => a == b,
+            _ => false,
+        }
+    } else {
+        k1 == k2
+    }
 }
 
 /// Create a new empty HashMap.
@@ -899,9 +936,20 @@ extern "C" fn bunker_hashmap_new() -> i64 {
         *(header_ptr as *mut i64) = HASHMAP_INITIAL_CAPACITY; // capacity
         *((header_ptr as *mut i64).offset(1)) = 0; // length
         *((header_ptr as *mut i64).offset(2)) = entries_ptr as i64; // entries_ptr
+        *((header_ptr as *mut i64).offset(3)) = 0; // key_type (default 0 = int)
     }
 
     header_ptr as i64
+}
+
+extern "C" fn bunker_hashmap_new_str() -> i64 {
+    let ptr = bunker_hashmap_new();
+    if ptr != 0 {
+        unsafe {
+            *((ptr as *mut i64).offset(3)) = 1;
+        }
+    }
+    ptr
 }
 
 /// Insert a key-value pair into the HashMap. Returns 1 on success.
@@ -914,6 +962,7 @@ extern "C" fn bunker_hashmap_insert(map_ptr: i64, key: i64, value: i64) -> i64 {
         let capacity = *(map_ptr as *const i64);
         let length = *((map_ptr as *const i64).offset(1));
         let entries_ptr = *((map_ptr as *const i64).offset(2)) as *mut i64;
+        let key_type = *((map_ptr as *const i64).offset(3));
 
         // Check if we need to grow (load factor > 0.75)
         if length * 4 >= capacity * 3 {
@@ -925,7 +974,7 @@ extern "C" fn bunker_hashmap_insert(map_ptr: i64, key: i64, value: i64) -> i64 {
             return bunker_hashmap_insert(map_ptr, key, value);
         }
 
-        let hash = hash_i64(key);
+        let hash = hashmap_get_key_hash(key_type, key);
         let mut idx = (hash & (capacity - 1)) as isize;
 
         // Linear probing
@@ -944,7 +993,7 @@ extern "C" fn bunker_hashmap_insert(map_ptr: i64, key: i64, value: i64) -> i64 {
                 // Update length
                 *((map_ptr as *mut i64).offset(1)) = length + 1;
                 return 1;
-            } else if *entry_ptr == key {
+            } else if hashmap_key_eq(key_type, *entry_ptr, key) {
                 // Key already exists - update value
                 *entry_ptr.offset(1) = value;
                 return 1;
@@ -954,6 +1003,15 @@ extern "C" fn bunker_hashmap_insert(map_ptr: i64, key: i64, value: i64) -> i64 {
             idx = (idx + 1) & (capacity as isize - 1);
         }
     }
+}
+
+extern "C" fn bunker_hashmap_insert_str(map_ptr: i64, key: i64, value: i64) -> i64 {
+    if map_ptr != 0 {
+        unsafe {
+            *((map_ptr as *mut i64).offset(3)) = 1;
+        }
+    }
+    bunker_hashmap_insert(map_ptr, key, value)
 }
 
 /// Grow the HashMap when load factor exceeds threshold.
@@ -968,6 +1026,7 @@ extern "C" fn bunker_hashmap_grow(map_ptr: i64) -> i64 {
         let old_entries_size = old_capacity * HASHMAP_ENTRY_SIZE;
         let old_entries_layout =
             std::alloc::Layout::from_size_align(old_entries_size as usize, 8).unwrap();
+        let key_type = *((map_ptr as *const i64).offset(3));
 
         let new_capacity = old_capacity * 2;
         let new_entries_size = new_capacity * HASHMAP_ENTRY_SIZE;
@@ -994,7 +1053,7 @@ extern "C" fn bunker_hashmap_grow(map_ptr: i64) -> i64 {
                 let value = *entry_ptr.offset(1);
 
                 // Insert into new table (call without recursion risk since we doubled capacity)
-                let hash = hash_i64(key);
+                let hash = hashmap_get_key_hash(key_type, key);
                 let mut idx = (hash & (new_capacity - 1)) as isize;
 
                 loop {
@@ -1032,8 +1091,9 @@ extern "C" fn bunker_hashmap_get(map_ptr: i64, key: i64) -> i64 {
     unsafe {
         let capacity = *(map_ptr as *const i64);
         let entries_ptr = *((map_ptr as *const i64).offset(2)) as *const i64;
+        let key_type = *((map_ptr as *const i64).offset(3));
 
-        let hash = hash_i64(key);
+        let hash = hashmap_get_key_hash(key_type, key);
         let mut idx = (hash & (capacity - 1)) as isize;
         let start_idx = idx;
 
@@ -1045,7 +1105,7 @@ extern "C" fn bunker_hashmap_get(map_ptr: i64, key: i64) -> i64 {
             if occupied == 0 {
                 // Empty slot - key not found
                 return 0;
-            } else if *entry_ptr == key {
+            } else if hashmap_key_eq(key_type, *entry_ptr, key) {
                 // Found the key
                 return *entry_ptr.offset(1);
             }
@@ -1068,8 +1128,9 @@ extern "C" fn bunker_hashmap_contains(map_ptr: i64, key: i64) -> i64 {
     unsafe {
         let capacity = *(map_ptr as *const i64);
         let entries_ptr = *((map_ptr as *const i64).offset(2)) as *const i64;
+        let key_type = *((map_ptr as *const i64).offset(3));
 
-        let hash = hash_i64(key);
+        let hash = hashmap_get_key_hash(key_type, key);
         let mut idx = (hash & (capacity - 1)) as isize;
         let start_idx = idx;
 
@@ -1080,7 +1141,7 @@ extern "C" fn bunker_hashmap_contains(map_ptr: i64, key: i64) -> i64 {
 
             if occupied == 0 {
                 return 0;
-            } else if *entry_ptr == key {
+            } else if hashmap_key_eq(key_type, *entry_ptr, key) {
                 return 1;
             }
 
@@ -1101,8 +1162,9 @@ extern "C" fn bunker_hashmap_remove(map_ptr: i64, key: i64) -> i64 {
     unsafe {
         let capacity = *(map_ptr as *const i64);
         let entries_ptr = *((map_ptr as *const i64).offset(2)) as *mut i64;
+        let key_type = *((map_ptr as *const i64).offset(3));
 
-        let hash = hash_i64(key);
+        let hash = hashmap_get_key_hash(key_type, key);
         let mut idx = (hash & (capacity - 1)) as isize;
         let start_idx = idx;
 
@@ -1113,7 +1175,7 @@ extern "C" fn bunker_hashmap_remove(map_ptr: i64, key: i64) -> i64 {
 
             if occupied == 0 {
                 return 0;
-            } else if *entry_ptr == key {
+            } else if hashmap_key_eq(key_type, *entry_ptr, key) {
                 // Mark as deleted (set occupied to 0)
                 *entry_ptr.offset(3) = 0;
 
@@ -1132,7 +1194,6 @@ extern "C" fn bunker_hashmap_remove(map_ptr: i64, key: i64) -> i64 {
     }
 }
 
-/// Get the number of entries in the HashMap.
 extern "C" fn bunker_hashmap_len(map_ptr: i64) -> i64 {
     if map_ptr == 0 {
         return 0;
@@ -1211,7 +1272,8 @@ extern "C" fn bunker_hashmap_get_opt(map_ptr: i64, key: i64) -> i64 {
     unsafe {
         let capacity = *(map_ptr as *const i64);
         let entries_ptr = *((map_ptr as *const i64).offset(2)) as *const i64;
-        let hash = hash_i64(key);
+        let key_type = *((map_ptr as *const i64).offset(3));
+        let hash = hashmap_get_key_hash(key_type, key);
         let mut idx = (hash & (capacity - 1)) as isize;
         let start_idx = idx;
 
@@ -1221,7 +1283,7 @@ extern "C" fn bunker_hashmap_get_opt(map_ptr: i64, key: i64) -> i64 {
             let occupied = *entry_ptr.offset(3);
             if occupied == 0 {
                 return 0;
-            } else if *entry_ptr == key {
+            } else if hashmap_key_eq(key_type, *entry_ptr, key) {
                 let val = *entry_ptr.offset(1);
                 return bunker_option_some(val);
             }
@@ -1617,6 +1679,8 @@ impl KernelJit {
         builder.symbol("bunker_hashmap_clear", bunker_hashmap_clear as *const u8);
         builder.symbol("bunker_hashmap_keys", bunker_hashmap_keys as *const u8);
         builder.symbol("bunker_hashmap_get_opt", bunker_hashmap_get_opt as *const u8);
+        builder.symbol("bunker_hashmap_new_str", bunker_hashmap_new_str as *const u8);
+        builder.symbol("bunker_hashmap_insert_str", bunker_hashmap_insert_str as *const u8);
         builder.symbol("bunker_vec_get_opt", bunker_vec_get_opt as *const u8);
         builder.symbol("bunker_vec_pop_opt", bunker_vec_pop_opt as *const u8);
         builder.symbol("bunker_read_file_result", bunker_read_file_result as *const u8);
@@ -1675,6 +1739,8 @@ impl KernelJit {
         let hashmap_clear_func = declare_hashmap_clear_func(&mut module)?;
         let hashmap_keys_func = declare_hashmap_keys_func(&mut module)?;
         let hashmap_get_opt_func = declare_hashmap_get_opt_func(&mut module)?;
+        let hashmap_new_str_func = declare_hashmap_new_str_func(&mut module)?;
+        let hashmap_insert_str_func = declare_hashmap_insert_str_func(&mut module)?;
         let vec_get_opt_func = declare_vec_get_opt_func(&mut module)?;
         let vec_pop_opt_func = declare_vec_pop_opt_func(&mut module)?;
         let read_file_result_func = declare_read_file_result_func(&mut module)?;
@@ -1731,6 +1797,8 @@ impl KernelJit {
             ("hashmap_clear", hashmap_clear_func),
             ("hashmap_keys", hashmap_keys_func),
             ("hashmap_get_opt", hashmap_get_opt_func),
+            ("hashmap_new_str", hashmap_new_str_func),
+            ("hashmap_insert_str", hashmap_insert_str_func),
             ("vec_get_opt", vec_get_opt_func),
             ("vec_pop_opt", vec_pop_opt_func),
             ("read_file_result", read_file_result_func),
@@ -2258,7 +2326,37 @@ fn compile_stmt_inline(
 ) -> Result<()> {
     match stmt {
         ast::Stmt::Let { name, ty, value } => {
-            let mut val = compile_expr_inline(
+            let val_opt = if let ast::Expr::Call { func, args } = value {
+                if let ast::Expr::Ident(fn_name) = func.as_ref() {
+                    if fn_name == "hashmap_new" && args.is_empty() {
+                        if let Some(ast::Type::HashMap(key_ty, _)) = ty {
+                            if matches!(key_ty.as_ref(), ast::Type::Str) {
+                                if let Some(&func_id) = functions.get("hashmap_new_str") {
+                                    let func_ref = module.declare_func_in_func(func_id, builder.func);
+                                    let call = builder.ins().call(func_ref, &[]);
+                                    Some(builder.inst_results(call)[0])
+                                } else {
+                                    None
+                                }
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                None
+            };
+            let mut val = if let Some(v) = val_opt {
+                v
+            } else {
+                compile_expr_inline(
                 builder,
                 module,
                 alloc_func,
@@ -2272,7 +2370,8 @@ fn compile_stmt_inline(
                 var_index,
                 defer_stack,
                 value,
-            )?;
+            )?
+            };
             let var = Variable::new(*var_index as usize);
             *var_index += 1;
 
@@ -4194,7 +4293,17 @@ fn compile_expr_inline(
                         }
                     }
                 }
-                if let Some(&func_id) = functions.get(name) {
+                let resolved_name = if name == "hashmap_insert" && args.len() == 3 {
+                    let key_ty = infer_expr_type(&args[1], var_types, structs, fn_sigs);
+                    if matches!(key_ty, ast::Type::Str) {
+                        "hashmap_insert_str"
+                    } else {
+                        name.as_str()
+                    }
+                } else {
+                    name.as_str()
+                };
+                if let Some(&func_id) = functions.get(resolved_name) {
                     let (param_types, has_return) = {
                         let decl = module.declarations().get_function_decl(func_id);
                         (
@@ -5944,6 +6053,27 @@ fn declare_hashmap_new_func(module: &mut JITModule) -> Result<FuncId> {
     module
         .declare_function("bunker_hashmap_new", Linkage::Import, &sig)
         .map_err(|e| anyhow!("Failed to declare runtime bunker_hashmap_new: {}", e))
+}
+
+fn declare_hashmap_new_str_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.returns.push(AbiParam::new(types::I64)); // hashmap ptr
+
+    module
+        .declare_function("bunker_hashmap_new_str", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_hashmap_new_str: {}", e))
+}
+
+fn declare_hashmap_insert_str_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64)); // map ptr
+    sig.params.push(AbiParam::new(types::I64)); // key
+    sig.params.push(AbiParam::new(types::I64)); // value
+    sig.returns.push(AbiParam::new(types::I64)); // success (1 or 0)
+
+    module
+        .declare_function("bunker_hashmap_insert_str", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_hashmap_insert_str: {}", e))
 }
 
 fn declare_hashmap_insert_func(module: &mut JITModule) -> Result<FuncId> {

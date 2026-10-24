@@ -560,6 +560,7 @@ typedef struct {
     BkrHashEntry** buckets;
     bkr_i64 size;
     bkr_i64 count;
+    bkr_i64 key_type; /* 0 = int, 1 = str */
 } BkrHashMap;
 
 static inline bkr_i64 bkr_hash(bkr_i64 key) {
@@ -568,11 +569,42 @@ static inline bkr_i64 bkr_hash(bkr_i64 key) {
     return h;
 }
 
-static inline bkr_i64 hashmap_new(void) {
+static inline bkr_i64 bkr_hash_str(bkr_str s) {
+    if (!s) return 0;
+    bkr_i64 h = 5381;
+    unsigned char* p = (unsigned char*)s;
+    while (*p) {
+        h = ((h << 5) + h) + *p;
+        p++;
+    }
+    if (h < 0) h = -h;
+    return h;
+}
+
+static inline bkr_bool bkr_hashmap_key_eq(bkr_i64 key_type, bkr_i64 k1, bkr_i64 k2) {
+    if (key_type == 1) {
+        bkr_str s1 = (bkr_str)(intptr_t)k1;
+        bkr_str s2 = (bkr_str)(intptr_t)k2;
+        if (s1 == s2) return BKR_TRUE;
+        if (!s1 || !s2) return BKR_FALSE;
+        return strcmp(s1, s2) == 0 ? BKR_TRUE : BKR_FALSE;
+    }
+    return k1 == k2 ? BKR_TRUE : BKR_FALSE;
+}
+
+static inline bkr_i64 bkr_hashmap_key_hash(bkr_i64 key_type, bkr_i64 key) {
+    if (key_type == 1) {
+        return bkr_hash_str((bkr_str)(intptr_t)key);
+    }
+    return bkr_hash(key);
+}
+
+static inline bkr_i64 hashmap_new_typed(bkr_i64 key_type) {
     BkrHashMap* m = (BkrHashMap*)bkr_arena_alloc(sizeof(BkrHashMap), sizeof(void*));
     if (!m) return 0;
     m->size = 64;
     m->count = 0;
+    m->key_type = key_type;
     m->buckets = (BkrHashEntry**)bkr_arena_alloc(sizeof(BkrHashEntry*) * (size_t)m->size, sizeof(void*));
     if (m->buckets) {
         memset(m->buckets, 0, sizeof(BkrHashEntry*) * (size_t)m->size);
@@ -580,14 +612,22 @@ static inline bkr_i64 hashmap_new(void) {
     return (bkr_i64)(intptr_t)m;
 }
 
+static inline bkr_i64 hashmap_new(void) {
+    return hashmap_new_typed(0);
+}
+
+static inline bkr_i64 hashmap_new_str(void) {
+    return hashmap_new_typed(1);
+}
+
 static inline bkr_bool hashmap_insert(bkr_i64 handle, bkr_i64 key, bkr_i64 value) {
     BkrHashMap* m = (BkrHashMap*)(intptr_t)handle;
     if (!m || !m->buckets) return BKR_FALSE;
-    bkr_i64 idx = bkr_hash(key) % m->size;
+    bkr_i64 idx = bkr_hashmap_key_hash(m->key_type, key) % m->size;
 
     BkrHashEntry* existing = m->buckets[idx];
     while (existing) {
-        if (existing->key == key) {
+        if (bkr_hashmap_key_eq(m->key_type, existing->key, key)) {
             existing->value = value;
             return BKR_TRUE;
         }
@@ -604,14 +644,20 @@ static inline bkr_bool hashmap_insert(bkr_i64 handle, bkr_i64 key, bkr_i64 value
     return BKR_TRUE;
 }
 
+static inline bkr_bool hashmap_insert_str(bkr_i64 handle, bkr_i64 key, bkr_i64 value) {
+    BkrHashMap* m = (BkrHashMap*)(intptr_t)handle;
+    if (m) m->key_type = 1;
+    return hashmap_insert(handle, key, value);
+}
+
 static inline bkr_i64 hashmap_get(bkr_i64 handle, bkr_i64 key) {
     BkrHashMap* m = (BkrHashMap*)(intptr_t)handle;
     if (!m || !m->buckets) return 0;
-    bkr_i64 idx = bkr_hash(key) % m->size;
+    bkr_i64 idx = bkr_hashmap_key_hash(m->key_type, key) % m->size;
 
     BkrHashEntry* e = m->buckets[idx];
     while (e) {
-        if (e->key == key) return e->value;
+        if (bkr_hashmap_key_eq(m->key_type, e->key, key)) return e->value;
         e = e->next;
     }
     return 0;
@@ -620,11 +666,11 @@ static inline bkr_i64 hashmap_get(bkr_i64 handle, bkr_i64 key) {
 static inline bkr_bool hashmap_contains(bkr_i64 handle, bkr_i64 key) {
     BkrHashMap* m = (BkrHashMap*)(intptr_t)handle;
     if (!m || !m->buckets) return BKR_FALSE;
-    bkr_i64 idx = bkr_hash(key) % m->size;
+    bkr_i64 idx = bkr_hashmap_key_hash(m->key_type, key) % m->size;
 
     BkrHashEntry* e = m->buckets[idx];
     while (e) {
-        if (e->key == key) return BKR_TRUE;
+        if (bkr_hashmap_key_eq(m->key_type, e->key, key)) return BKR_TRUE;
         e = e->next;
     }
     return BKR_FALSE;
@@ -633,12 +679,12 @@ static inline bkr_bool hashmap_contains(bkr_i64 handle, bkr_i64 key) {
 static inline bkr_bool hashmap_remove(bkr_i64 handle, bkr_i64 key) {
     BkrHashMap* m = (BkrHashMap*)(intptr_t)handle;
     if (!m || !m->buckets) return BKR_FALSE;
-    bkr_i64 idx = bkr_hash(key) % m->size;
+    bkr_i64 idx = bkr_hashmap_key_hash(m->key_type, key) % m->size;
 
     BkrHashEntry* prev = NULL;
     BkrHashEntry* e = m->buckets[idx];
     while (e) {
-        if (e->key == key) {
+        if (bkr_hashmap_key_eq(m->key_type, e->key, key)) {
             if (prev) {
                 prev->next = e->next;
             } else {
@@ -668,6 +714,20 @@ static inline bkr_i64 hashmap_keys(bkr_i64 handle) {
         i++;
     }
     return keys;
+}
+
+static inline bkr_i64 hashmap_len(bkr_i64 handle) {
+    BkrHashMap* m = (BkrHashMap*)(intptr_t)handle;
+    if (!m) return 0;
+    return m->count;
+}
+
+static inline bkr_i32 hashmap_clear(bkr_i64 handle) {
+    BkrHashMap* m = (BkrHashMap*)(intptr_t)handle;
+    if (!m || !m->buckets) return 0;
+    memset(m->buckets, 0, sizeof(BkrHashEntry*) * (size_t)m->size);
+    m->count = 0;
+    return 0;
 }
 
 /* ============================================
@@ -752,10 +812,10 @@ static inline bkr_i64 bkr_option_some(bkr_i64 val) {
 static inline bkr_i64 bkr_hashmap_get_opt(bkr_i64 handle, bkr_i64 key) {
     BkrHashMap* m = (BkrHashMap*)(intptr_t)handle;
     if (!m || !m->buckets) return 0;
-    bkr_i64 idx = bkr_hash(key) % m->size;
+    bkr_i64 idx = bkr_hashmap_key_hash(m->key_type, key) % m->size;
     BkrHashEntry* e = m->buckets[idx];
     while (e) {
-        if (e->key == key) return bkr_option_some(e->value);
+        if (bkr_hashmap_key_eq(m->key_type, e->key, key)) return bkr_option_some(e->value);
         e = e->next;
     }
     return 0;

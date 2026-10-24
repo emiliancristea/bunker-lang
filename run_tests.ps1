@@ -331,7 +331,9 @@ if (-not $JitOnly) {
         "tests\36_kernel_type_cast.bkr",
         "tests\161_cast_safety_rules.bkr",
         "tests\164_user_defined_adt_option_result.bkr",
-        "tests\167_nested_structs_arrays.bkr"
+        "tests\167_nested_structs_arrays.bkr",
+        "tests\169_typed_vec_complete.bkr",
+        "tests\170_typed_hashmap_str_keys.bkr"
     )
 
     $subsetOk = $true

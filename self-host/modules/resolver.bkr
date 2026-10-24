@@ -244,6 +244,8 @@
         if name == "hashmap_contains" { return true; }
         if name == "hashmap_remove" { return true; }
         if name == "hashmap_keys" { return true; }
+        if name == "hashmap_len" { return true; }
+        if name == "hashmap_clear" { return true; }
         if name == "char_at" { return true; }
         if name == "char_code" { return true; }
         if name == "char_code_at" { return true; }

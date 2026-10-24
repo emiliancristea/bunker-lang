@@ -2587,6 +2587,54 @@ jobs:
           grep -q '"kind":"struct_field_type_mismatch"' /tmp/168_invalid_nested_struct_field_BAD.c
           grep -q "Change field pos for struct Transform to match the declared field type." /tmp/168_invalid_nested_struct_field_BAD.c
 
+      - name: Verify 169_typed_vec_complete fixture executes in JIT
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/169_typed_vec_complete.bkr
+
+      - name: Compile 169_typed_vec_complete through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/169_typed_vec_complete.bkr \
+            -o /tmp/169_typed_vec_complete.c
+          test -s /tmp/169_typed_vec_complete.c
+          grep -q "BUNKER_AST_JSON" /tmp/169_typed_vec_complete.c
+          grep -q '"has_diagnostics":false' /tmp/169_typed_vec_complete.c
+
+      - name: Verify 170_typed_hashmap_str_keys fixture executes in JIT
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/170_typed_hashmap_str_keys.bkr
+
+      - name: Compile 170_typed_hashmap_str_keys through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/170_typed_hashmap_str_keys.bkr \
+            -o /tmp/170_typed_hashmap_str_keys.c
+          test -s /tmp/170_typed_hashmap_str_keys.c
+          grep -q "BUNKER_AST_JSON" /tmp/170_typed_hashmap_str_keys.c
+          grep -q '"has_diagnostics":false' /tmp/170_typed_hashmap_str_keys.c
+
+      - name: Verify 171_typed_vec_get_type_mismatch_BAD rejected by self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/171_typed_vec_get_type_mismatch_BAD.bkr \
+            -o /tmp/171_typed_vec_get_type_mismatch_BAD.c
+          test -s /tmp/171_typed_vec_get_type_mismatch_BAD.c
+          grep -q '"kind":"annotation_type_mismatch"' /tmp/171_typed_vec_get_type_mismatch_BAD.c
+          grep -q "Change the initializer for s or update the declared local type." /tmp/171_typed_vec_get_type_mismatch_BAD.c
+
+      - name: Verify 172_typed_hashmap_val_type_mismatch_BAD rejected by bunker-cli
+        timeout-minutes: 2
+        run: |
+          if ./bunker-cli/target/release/bunker-cli check tests/172_typed_hashmap_val_type_mismatch_BAD.bkr; then
+            echo "Expected 172_typed_hashmap_val_type_mismatch_BAD to fail"
+            exit 1
+          fi
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

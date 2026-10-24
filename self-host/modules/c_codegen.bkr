@@ -220,6 +220,8 @@
         if raw == "hashmap_contains" { return "hashmap_contains"; }
         if raw == "hashmap_remove" { return "hashmap_remove"; }
         if raw == "hashmap_keys" { return "hashmap_keys"; }
+        if raw == "hashmap_len" { return "hashmap_len"; }
+        if raw == "hashmap_clear" { return "hashmap_clear"; }
         if raw == "char_at" { return "char_at"; }
         if raw == "char_code" { return "char_code"; }
         if raw == "char_code_at" { return "char_code_at"; }
@@ -293,6 +295,8 @@
         if raw == "hashmap_contains" { return TYPE_BOOL; }
         if raw == "hashmap_remove" { return TYPE_BOOL; }
         if raw == "hashmap_keys" { return TYPE_I64; }
+        if raw == "hashmap_len" { return TYPE_I64; }
+        if raw == "hashmap_clear" { return TYPE_I32; }
         if raw == "char_code" { return TYPE_I64; }
         if raw == "char_code_at" { return TYPE_I64; }
         if raw == "parse_int" { return TYPE_I64; }
@@ -965,6 +969,17 @@
     }
 
     fn gen_c_init_expr_for_type_ref(state: CgenStateRef, type_node: i64, init_ref: AstExprRef) -> str {
+        if ast_optional_is_some(type_node) && type_node_kind_ref(ast_type_ref_from_handle(type_node)) == TYPE_MAP {
+            let key_kind: i64 = ast_type_ref_generic_payload(ast_type_ref_from_handle(type_node));
+            if key_kind == TYPE_STR && ast_expr_ref_kind(init_ref) == NODE_CALL {
+                let name_idx: i64 = ast_call_ref_name_idx(init_ref);
+                let names: Vec<str> = cgen_names_ref(state);
+                let call_name: str = name_from_table(names, name_idx);
+                if call_name == "hashmap_new" {
+                    return "hashmap_new_str()";
+                }
+            }
+        }
         let result = gen_c_expr_ref(state, init_ref);
         if ast_optional_is_some(type_node) && type_node_kind_ref(ast_type_ref_from_handle(type_node)) == TYPE_STR && is_raw_payload_call_ref(state, init_ref) {
             return "(bkr_str)(intptr_t)(" + result + ")";
@@ -1255,9 +1270,32 @@
             }
             if raw == "hashmap_insert" && arg_count == 3 {
                 let map_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
-                let key: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                let key_expr: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1));
+                let key_kind: i64 = infer_c_expr_ref_type(state, key_expr);
+                let key: str = gen_c_i64_arg_ref(state, key_expr);
                 let value3: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 2)));
+                if key_kind == TYPE_STR {
+                    return "hashmap_insert_str(" + map_handle + ", " + key + ", " + value3 + ")";
+                }
                 return "hashmap_insert(" + map_handle + ", " + key + ", " + value3 + ")";
+            }
+            if raw == "hashmap_get" && arg_count == 2 {
+                let map_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let key_expr: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1));
+                let key: str = gen_c_i64_arg_ref(state, key_expr);
+                return "hashmap_get(" + map_handle + ", " + key + ")";
+            }
+            if raw == "hashmap_contains" && arg_count == 2 {
+                let map_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let key_expr: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1));
+                let key: str = gen_c_i64_arg_ref(state, key_expr);
+                return "hashmap_contains(" + map_handle + ", " + key + ")";
+            }
+            if raw == "hashmap_remove" && arg_count == 2 {
+                let map_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let key_expr: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1));
+                let key: str = gen_c_i64_arg_ref(state, key_expr);
+                return "hashmap_remove(" + map_handle + ", " + key + ")";
             }
             if raw == "result_is_ok" && arg_count == 1 {
                 let arg3: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));

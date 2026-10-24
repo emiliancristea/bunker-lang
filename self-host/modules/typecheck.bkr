@@ -507,6 +507,8 @@
         if name == "hashmap_contains" { return 2; }
         if name == "hashmap_remove" { return 2; }
         if name == "hashmap_keys" { return 1; }
+        if name == "hashmap_len" { return 1; }
+        if name == "hashmap_clear" { return 1; }
         if name == "result_ok" { return 1; }
         if name == "result_err" { return 1; }
         if name == "result_is_ok" { return 1; }
@@ -574,14 +576,12 @@
         if name == "vec_len" && index == 0 { return TYPE_I64; }
         if name == "vec_pop" && index == 0 { return TYPE_I64; }
         if name == "hashmap_insert" && index == 0 { return TYPE_I64; }
-        if name == "hashmap_insert" && index == 1 { return TYPE_I64; }
         if name == "hashmap_get" && index == 0 { return TYPE_I64; }
-        if name == "hashmap_get" && index == 1 { return TYPE_I64; }
         if name == "hashmap_contains" && index == 0 { return TYPE_I64; }
-        if name == "hashmap_contains" && index == 1 { return TYPE_I64; }
         if name == "hashmap_remove" && index == 0 { return TYPE_I64; }
-        if name == "hashmap_remove" && index == 1 { return TYPE_I64; }
         if name == "hashmap_keys" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_len" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_clear" && index == 0 { return TYPE_I64; }
         if name == "result_is_ok" && index == 0 { return TYPE_I64; }
         if name == "result_is_err" && index == 0 { return TYPE_I64; }
         if name == "result_unwrap" && index == 0 { return TYPE_I64; }
@@ -613,7 +613,6 @@
         if name == "write_file_result" && index == 1 { return TYPE_STR; }
         if name == "parse_int_result" && index == 0 { return TYPE_STR; }
         if name == "hashmap_get_opt" && index == 0 { return TYPE_I64; }
-        if name == "hashmap_get_opt" && index == 1 { return TYPE_I64; }
         if name == "vec_get_opt" && index == 0 { return TYPE_I64; }
         if name == "vec_get_opt" && index == 1 { return TYPE_I64; }
         if name == "vec_pop_opt" && index == 0 { return TYPE_I64; }

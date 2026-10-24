@@ -1758,16 +1758,39 @@ impl TypeChecker {
             "hashmap_get_opt" => {
                 self.check_builtin_arity("hashmap_get_opt expects 2 arguments (map, key)", args, 2, context);
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(map_ty) = arg_types.first() {
+                    self.check_hashmap_handle_type("hashmap_get_opt", map_ty, context);
+                    if let (Type::HashMap(key, _), Some(key_ty)) = (map_ty, arg_types.get(1)) {
+                        if !self.types_compatible(key, key_ty) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "hashmap_get_opt key type mismatch: expected {:?}, got {:?}",
+                                    key, key_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
                 Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
             }
             "vec_get_opt" => {
                 self.check_builtin_arity("vec_get_opt expects 2 arguments (vec, index)", args, 2, context);
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_get_opt", vec_ty, context);
+                }
+                if let Some(index_ty) = arg_types.get(1) {
+                    self.check_vec_index_type("vec_get_opt", index_ty, context);
+                }
                 Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
             }
             "vec_pop_opt" => {
                 self.check_builtin_arity("vec_pop_opt expects 1 argument (vec)", args, 1, context);
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_pop_opt", vec_ty, context);
+                }
                 Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
             }
             "read_file_result" => {
