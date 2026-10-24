@@ -505,7 +505,7 @@
         if kind == NODE_IDENT {
             let name_idx: i64 = ast_expr_ref_name_idx(expr_ref);
             let name = ast_report_name(names, name_idx);
-            if name != "None" && !resolver_i64_vec_contains(bindings, name_idx) && !resolver_has_const_name_ref(kernel_ref, name_idx) && !resolver_has_enum_name_ref(kernel_ref, name_idx) {
+            if name != "None" && !resolver_i64_vec_contains(bindings, name_idx) && !resolver_has_const_name_ref(kernel_ref, name_idx) && !resolver_has_enum_name_ref(kernel_ref, name_idx) && str_index_of(name, "::") < 0 {
                 state = resolver_append_unresolved_node_with_related_ref(state, name, scope, "identifier", expr_node_ref,
                     "local, parameter, for binding, pattern binding, or constant",
                     resolver_known_consts_json_ref(kernel_ref, names));

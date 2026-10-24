@@ -2009,11 +2009,79 @@ fn register_runtime_builtin(
     Ok(())
 }
 
+#[derive(Debug, Clone, PartialEq)]
+enum ConstVal {
+    Int(i64),
+    Float(f64),
+    Bool(bool),
+    Str(String),
+}
+
+fn eval_const_expr(expr: &ast::Expr, evaluated: &HashMap<String, ConstVal>) -> Option<ConstVal> {
+    match expr {
+        ast::Expr::Literal(lit) => match lit {
+            ast::Literal::Int(n) => Some(ConstVal::Int(*n)),
+            ast::Literal::Float(f) => Some(ConstVal::Float(*f)),
+            ast::Literal::Bool(b) => Some(ConstVal::Bool(*b)),
+            ast::Literal::String(s) => Some(ConstVal::Str(s.clone())),
+            _ => None,
+        },
+        ast::Expr::Ident(name) => evaluated.get(name).cloned(),
+        ast::Expr::Unary { op, expr } => {
+            let inner = eval_const_expr(expr, evaluated)?;
+            match (op, inner) {
+                (ast::UnaryOp::Neg, ConstVal::Int(n)) => Some(ConstVal::Int(-n)),
+                (ast::UnaryOp::Neg, ConstVal::Float(f)) => Some(ConstVal::Float(-f)),
+                (ast::UnaryOp::Not, ConstVal::Bool(b)) => Some(ConstVal::Bool(!b)),
+                _ => None,
+            }
+        }
+        ast::Expr::Binary { op, left, right } => {
+            let l = eval_const_expr(left, evaluated)?;
+            let r = eval_const_expr(right, evaluated)?;
+            match (op, l, r) {
+                (ast::BinaryOp::Add, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a + b)),
+                (ast::BinaryOp::Sub, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a - b)),
+                (ast::BinaryOp::Mul, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a * b)),
+                (ast::BinaryOp::Div, ConstVal::Int(a), ConstVal::Int(b)) if b != 0 => Some(ConstVal::Int(a / b)),
+                (ast::BinaryOp::Mod, ConstVal::Int(a), ConstVal::Int(b)) if b != 0 => Some(ConstVal::Int(a % b)),
+                (ast::BinaryOp::Shl, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a << (b as u32))),
+                (ast::BinaryOp::Shr, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a >> (b as u32))),
+                (ast::BinaryOp::BitAnd, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a & b)),
+                (ast::BinaryOp::BitOr, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a | b)),
+                (ast::BinaryOp::BitXor, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a ^ b)),
+                (ast::BinaryOp::Add, ConstVal::Float(a), ConstVal::Float(b)) => Some(ConstVal::Float(a + b)),
+                (ast::BinaryOp::Sub, ConstVal::Float(a), ConstVal::Float(b)) => Some(ConstVal::Float(a - b)),
+                (ast::BinaryOp::Mul, ConstVal::Float(a), ConstVal::Float(b)) => Some(ConstVal::Float(a * b)),
+                (ast::BinaryOp::Div, ConstVal::Float(a), ConstVal::Float(b)) => Some(ConstVal::Float(a / b)),
+                (ast::BinaryOp::Add, ConstVal::Str(a), ConstVal::Str(b)) => Some(ConstVal::Str(format!("{}{}", a, b))),
+                (ast::BinaryOp::Eq, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a == b)),
+                (ast::BinaryOp::Ne, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a != b)),
+                (ast::BinaryOp::Lt, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a < b)),
+                (ast::BinaryOp::Le, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a <= b)),
+                (ast::BinaryOp::Gt, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a > b)),
+                (ast::BinaryOp::Ge, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a >= b)),
+                (ast::BinaryOp::And, ConstVal::Bool(a), ConstVal::Bool(b)) => Some(ConstVal::Bool(a && b)),
+                (ast::BinaryOp::Or, ConstVal::Bool(a), ConstVal::Bool(b)) => Some(ConstVal::Bool(a || b)),
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+
 impl KernelJit {
     pub fn from_file(file: &ast::File) -> Result<Self> {
         let mut jit = Self::new()?;
         for kernel in &file.kernels {
-            jit.compile_kernel(kernel)?;
+            jit.collect_kernel_declarations(kernel)?;
+        }
+        for kernel in &file.kernels {
+            jit.declare_kernel_functions(kernel)?;
+        }
+        for kernel in &file.kernels {
+            jit.define_kernel_functions(kernel)?;
         }
         jit.finalize_definitions()?;
         Ok(jit)
@@ -2319,8 +2387,16 @@ impl KernelJit {
         })
     }
 
+        #[allow(dead_code)]
+        #[allow(dead_code)]
     fn compile_kernel(&mut self, kernel: &ast::Kernel) -> Result<()> {
-        // First pass: collect struct definitions and constants
+        self.collect_kernel_declarations(kernel)?;
+        self.declare_kernel_functions(kernel)?;
+        self.define_kernel_functions(kernel)?;
+        Ok(())
+    }
+
+    fn collect_kernel_declarations(&mut self, kernel: &ast::Kernel) -> Result<()> {
         for item in &kernel.items {
             match item {
                 ast::KernelItem::Struct(s) => {
@@ -2337,9 +2413,10 @@ impl KernelJit {
                 _ => {}
             }
         }
+        Ok(())
+    }
 
-        // Second pass: collect signatures + declare all runtime functions
-        // (comptime functions are evaluated at compile time, not compiled to native code)
+    fn declare_kernel_functions(&mut self, kernel: &ast::Kernel) -> Result<()> {
         for item in &kernel.items {
             if let ast::KernelItem::Function(func) = item {
                 let params: Vec<_> = func.params.iter().map(|p| p.ty.clone()).collect();
@@ -2347,23 +2424,24 @@ impl KernelJit {
                     .insert(func.name.clone(), (params.clone(), func.return_type.clone()));
                 self.fn_sigs
                     .insert(format!("{}::{}", kernel.name, func.name), (params, func.return_type.clone()));
-                let func_id = self.declare_function(func)?;
+                let func_id = self.declare_function(&kernel.name, func)?;
                 self.functions
                     .insert(format!("{}::{}", kernel.name, func.name), func_id);
             }
         }
-
-        // Third pass: define all runtime functions
-        for item in &kernel.items {
-            if let ast::KernelItem::Function(func) = item {
-                self.compile_function(func)?;
-            }
-        }
-
         Ok(())
     }
 
-    fn declare_function(&mut self, func: &ast::Function) -> Result<FuncId> {
+    fn define_kernel_functions(&mut self, kernel: &ast::Kernel) -> Result<()> {
+        for item in &kernel.items {
+            if let ast::KernelItem::Function(func) = item {
+                self.compile_function(&kernel.name, func)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn declare_function(&mut self, kernel_name: &str, func: &ast::Function) -> Result<FuncId> {
         let mut sig = self.module.make_signature();
 
         for param in &func.params {
@@ -2376,6 +2454,12 @@ impl KernelJit {
             }
         }
 
+        let symbol_name = if func.name == "main" {
+            "main".to_string()
+        } else {
+            format!("{}::{}", kernel_name, func.name)
+        };
+
         let linkage = if func.name == "main" {
             Linkage::Export
         } else {
@@ -2384,17 +2468,20 @@ impl KernelJit {
 
         let func_id = self
             .module
-            .declare_function(&func.name, linkage, &sig)
-            .map_err(|e| anyhow!("Failed to declare function {}: {}", func.name, e))?;
+            .declare_function(&symbol_name, linkage, &sig)
+            .map_err(|e| anyhow!("Failed to declare function {}: {}", symbol_name, e))?;
 
+        self.functions.insert(format!("{}::{}", kernel_name, func.name), func_id);
         self.functions.insert(func.name.clone(), func_id);
         Ok(func_id)
     }
 
-    fn compile_function(&mut self, func: &ast::Function) -> Result<()> {
+    fn compile_function(&mut self, kernel_name: &str, func: &ast::Function) -> Result<()> {
+        let qualified_fn = format!("{}::{}", kernel_name, func.name);
         let func_id = *self
             .functions
-            .get(&func.name)
+            .get(&qualified_fn)
+            .or_else(|| self.functions.get(&func.name))
             .ok_or_else(|| anyhow!("Function {} not declared", func.name))?;
 
         self.ctx.func.signature = self
@@ -2432,32 +2519,61 @@ impl KernelJit {
                 var_types.insert(param.name.clone(), param.ty.clone());
             }
 
-            // Initialize constants as variables
-            for (name, (ty, value)) in &self.constants {
-                let cr_type = convert_ast_type(ty);
-                let var = Variable::new(var_index as usize);
-                var_index += 1;
-                builder.declare_var(var, cr_type);
+            // Scoped function map for body compilation: local unqualified calls within this kernel resolve locally
+            let mut scoped_functions = self.functions.clone();
+            let kernel_prefix = format!("{}::", kernel_name);
+            for (fname, &fid) in &self.functions {
+                if let Some(short_name) = fname.strip_prefix(&kernel_prefix) {
+                    scoped_functions.insert(short_name.to_string(), fid);
+                }
+            }
 
-                // Compile constant value - for now, only handle literals
-                if let ast::Expr::Literal(lit) = value {
-                    let val = match lit {
-                        ast::Literal::Int(n) => builder.ins().iconst(cr_type, *n),
-                        ast::Literal::Float(f) => {
+            // Iteratively evaluate all constants
+            let mut evaluated_constants: HashMap<String, ConstVal> = HashMap::new();
+            let mut changed = true;
+            while changed {
+                changed = false;
+                for (name, (_, expr)) in &self.constants {
+                    if !evaluated_constants.contains_key(name) {
+                        if let Some(val) = eval_const_expr(expr, &evaluated_constants) {
+                            evaluated_constants.insert(name.clone(), val);
+                            changed = true;
+                        }
+                    }
+                }
+            }
+
+            // Initialize constants as variables
+            for (name, (ty, _)) in &self.constants {
+                if let Some(val) = evaluated_constants.get(name) {
+                    let cr_type = convert_ast_type(ty);
+                    let var = Variable::new(var_index as usize);
+                    var_index += 1;
+                    builder.declare_var(var, cr_type);
+
+                    let cr_val = match val {
+                        ConstVal::Int(n) => builder.ins().iconst(cr_type, *n),
+                        ConstVal::Float(f) => {
                             if cr_type == types::F64 {
                                 builder.ins().f64const(*f)
                             } else {
                                 builder.ins().f32const(*f as f32)
                             }
                         }
-                        ast::Literal::Bool(b) => {
-                            builder.ins().iconst(types::I32, if *b { 1 } else { 0 })
+                        ConstVal::Bool(b) => {
+                            builder.ins().iconst(cr_type, if *b { 1 } else { 0 })
                         }
-                        _ => continue, // Skip non-simple constants
+                        ConstVal::Str(s) => {
+                            compile_string_literal(&mut builder, &mut self.module, self.alloc_func, s)?
+                        }
                     };
-                    builder.def_var(var, val);
+                    builder.def_var(var, cr_val);
                     variables.insert(name.clone(), var);
                     var_types.insert(name.clone(), ty.clone());
+                    if let Some(short_name) = name.strip_prefix(&kernel_prefix) {
+                        variables.insert(short_name.to_string(), var);
+                        var_types.insert(short_name.to_string(), ty.clone());
+                    }
                 }
             }
 
@@ -2469,7 +2585,7 @@ impl KernelJit {
                 self.alloc_func,
                 self.arena_push_func,
                 self.arena_pop_func,
-                &self.functions,
+                &scoped_functions,
                 &self.structs,
                 &self.fn_sigs,
                 &mut variables,

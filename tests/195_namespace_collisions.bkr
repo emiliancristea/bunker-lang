@@ -1,0 +1,37 @@
+// Test 195: Namespace Collision Avoidance
+// Purpose: Verify modules avoid collisions when identical symbol names exist across kernels.
+// Expected: Exits with return code 42.
+
+kernel Alpha {
+    pub const VAL: i32 = 20;
+
+    pub fn compute() -> i32 {
+        // Local call should resolve locally without collision
+        return VAL + helper();
+    }
+
+    fn helper() -> i32 {
+        return 1;
+    }
+}
+
+kernel Beta {
+    pub const VAL: i32 = 20;
+
+    pub fn compute() -> i32 {
+        // Local call should resolve locally without collision
+        return VAL + helper();
+    }
+
+    fn helper() -> i32 {
+        return 1;
+    }
+}
+
+kernel Main {
+    fn main() -> i32 {
+        let a: i32 = Alpha::compute();
+        let b: i32 = Beta::compute();
+        return a + b;
+    }
+}

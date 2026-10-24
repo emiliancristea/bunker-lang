@@ -1,0 +1,22 @@
+// Test 196: Ambiguous Symbol (Negative Test)
+// Purpose: Verify unqualified call to a symbol declared across multiple modules is rejected.
+// Expected: Type error: Ambiguous reference to 'duplicate_func': declared in multiple modules ('ModA', 'ModB')
+
+kernel ModA {
+    pub fn duplicate_func() -> i32 {
+        return 10;
+    }
+}
+
+kernel ModB {
+    pub fn duplicate_func() -> i32 {
+        return 20;
+    }
+}
+
+kernel Main {
+    fn main() -> i32 {
+        // Unqualified call is ambiguous and must be rejected
+        return duplicate_func();
+    }
+}

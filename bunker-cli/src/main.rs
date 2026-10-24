@@ -437,9 +437,7 @@ fn build_file(
 
         let mut compiler = Compiler::new()?;
 
-        for kernel in &ast.kernels {
-            compiler.compile_kernel(kernel)?;
-        }
+        compiler.compile_file(&ast)?;
 
         for shell in &ast.shells {
             compiler.compile_shell(shell)?;

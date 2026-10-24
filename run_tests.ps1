@@ -136,6 +136,9 @@ $expectedResults = @{
     "185_higher_order_functions" = 42
     "188_vec_hashmap_combinators" = 42
     "190_visibility_and_mutability" = 42
+    "194_constants_across_modules" = 42
+    "195_namespace_collisions" = 42
+    "197_forward_reference_modules" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)

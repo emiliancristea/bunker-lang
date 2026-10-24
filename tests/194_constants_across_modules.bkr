@@ -1,0 +1,34 @@
+// Test 194: Constants Across Modules
+// Purpose: Verify compile-time evaluated constants across modules, negative numbers, expressions, and cross-kernel references.
+// Expected: Exits with return code 42.
+
+kernel MathConstants {
+    pub const BASE: i32 = 10 * 2;
+    pub const NEG_TEN: i32 = -10;
+    pub const PI_APPROX: f64 = 3.14159;
+    pub const IS_ENABLED: bool = true;
+    pub const GREETING: str = "hello";
+    pub const COMBINED: i32 = BASE + 22;
+}
+
+kernel CalcModule {
+    pub const FACTOR: i32 = 2;
+
+    pub fn compute_value() -> i32 {
+        let val: i32 = MathConstants::COMBINED;
+        return val;
+    }
+}
+
+kernel Main {
+    fn main() -> i32 {
+        let result: i32 = CalcModule::compute_value();
+        if !MathConstants::IS_ENABLED {
+            return 1;
+        }
+        if MathConstants::NEG_TEN != -10 {
+            return 2;
+        }
+        return result;
+    }
+}

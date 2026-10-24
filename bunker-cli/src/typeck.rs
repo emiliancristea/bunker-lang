@@ -47,6 +47,10 @@ pub struct TypeChecker {
     current_kernel: String,
     // Symbol visibility: symbol_name -> (declaring_kernel, is_pub)
     symbol_visibility: HashMap<String, (String, bool)>,
+    // Declaring kernels for each symbol: symbol_name -> Vec<declaring_kernel>
+    declaring_kernels: HashMap<String, Vec<String>>,
+    // Registered kernels to avoid double-registration
+    registered_kernels: HashSet<String>,
     // Strict mutability mode
     pub strict_mutability: bool,
 }
@@ -153,6 +157,8 @@ impl TypeChecker {
             var_mutability: HashMap::new(),
             current_kernel: String::new(),
             symbol_visibility: HashMap::new(),
+            declaring_kernels: HashMap::new(),
+            registered_kernels: HashSet::new(),
             strict_mutability: true,
         };
         // Register built-in functions
@@ -170,6 +176,13 @@ impl TypeChecker {
     }
 
     pub fn check_visibility(&mut self, symbol_name: &str, context: &str) {
+        if !self.current_kernel.is_empty() && !symbol_name.contains("::") {
+            let local_symbol = format!("{}::{}", self.current_kernel, symbol_name);
+            if self.symbol_visibility.contains_key(&local_symbol) {
+                // Symbol belongs to the current kernel; private access within the same kernel is allowed
+                return;
+            }
+        }
         if let Some((declaring_kernel, is_pub)) = self.symbol_visibility.get(symbol_name) {
             if !is_pub && declaring_kernel != &self.current_kernel && !self.current_kernel.is_empty() {
                 self.errors.push(TypeError {
@@ -240,8 +253,8 @@ impl TypeChecker {
         }
     }
 
-    pub fn check_kernel(&mut self, kernel: &ast::Kernel) -> Result<Vec<TypeError>> {
-        // Pre-pass: collect all type aliases and validate uniqueness
+    pub fn register_kernel_declarations(&mut self, kernel: &ast::Kernel) {
+        // Collect all type aliases
         for item in &kernel.items {
             if let ast::KernelItem::TypeAlias(a) = item {
                 if self.type_aliases.contains_key(&a.name) {
@@ -251,46 +264,17 @@ impl TypeChecker {
                     });
                 }
                 self.type_aliases.insert(a.name.clone(), a.target.clone());
+                self.type_aliases.insert(format!("{}::{}", kernel.name, a.name), a.target.clone());
+                self.symbol_visibility.insert(a.name.clone(), (kernel.name.clone(), a.is_pub));
+                self.symbol_visibility.insert(format!("{}::{}", kernel.name, a.name), (kernel.name.clone(), a.is_pub));
+                self.declaring_kernels.entry(a.name.clone()).or_default().push(kernel.name.clone());
             }
         }
 
-        // Check for cyclic aliases
-        for name in self.type_aliases.keys() {
-            let mut visited = HashSet::new();
-            let mut curr = name.clone();
-            visited.insert(curr.clone());
-            while let Some(Type::Named(next)) = self.type_aliases.get(&curr) {
-                if visited.contains(next) {
-                    self.errors.push(TypeError {
-                        message: format!("Cyclic type alias detected involving '{}'", name),
-                        location: name.clone(),
-                    });
-                    break;
-                }
-                visited.insert(next.clone());
-                curr = next.clone();
-            }
-        }
-        self.current_kernel = kernel.name.clone();
-        // First pass: collect all struct, enum, and function signatures
+        // Collect struct, enum, function signatures, and constants
         for item in &kernel.items {
             match item {
-                ast::KernelItem::TypeAlias(a) => {
-                    self.symbol_visibility.insert(a.name.clone(), (kernel.name.clone(), a.is_pub));
-                    self.symbol_visibility.insert(format!("{}::{}", kernel.name, a.name), (kernel.name.clone(), a.is_pub));
-                    if self.structs.contains_key(&a.name) {
-                        self.errors.push(TypeError {
-                            message: format!("Name '{}' is already declared as a struct", a.name),
-                            location: a.name.clone(),
-                        });
-                    }
-                    if self.enums.contains_key(&a.name) {
-                        self.errors.push(TypeError {
-                            message: format!("Name '{}' is already declared as an enum", a.name),
-                            location: a.name.clone(),
-                        });
-                    }
-                }
+                ast::KernelItem::TypeAlias(_) => {}
                 ast::KernelItem::Struct(s) => {
                     let fields: Vec<(String, Type)> = s
                         .fields
@@ -313,6 +297,7 @@ impl TypeChecker {
                     self.symbol_visibility.insert(format!("{}::{}", kernel.name, s.name), (kernel.name.clone(), s.is_pub));
                     self.structs.insert(s.name.clone(), fields.clone());
                     self.structs.insert(format!("{}::{}", kernel.name, s.name), fields);
+                    self.declaring_kernels.entry(s.name.clone()).or_default().push(kernel.name.clone());
                 }
                 ast::KernelItem::Enum(e) => {
                     if self.structs.contains_key(&e.name) {
@@ -355,6 +340,7 @@ impl TypeChecker {
                         .collect();
                     self.enum_payloads.insert(e.name.clone(), payloads.clone());
                     self.enum_payloads.insert(format!("{}::{}", kernel.name, e.name), payloads);
+                    self.declaring_kernels.entry(e.name.clone()).or_default().push(kernel.name.clone());
                 }
                 ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f) => {
                     self.symbol_visibility.insert(f.name.clone(), (kernel.name.clone(), f.is_pub));
@@ -364,6 +350,7 @@ impl TypeChecker {
                         .insert(f.name.clone(), (param_types.clone(), f.return_type.as_ref().map(|t| self.resolve_alias(t))));
                     self.functions
                         .insert(format!("{}::{}", kernel.name, f.name), (param_types, f.return_type.as_ref().map(|t| self.resolve_alias(t))));
+                    self.declaring_kernels.entry(f.name.clone()).or_default().push(kernel.name.clone());
                 }
                 ast::KernelItem::Const(c) => {
                     self.symbol_visibility.insert(c.name.clone(), (kernel.name.clone(), c.is_pub));
@@ -372,9 +359,35 @@ impl TypeChecker {
                     self.constants.insert(format!("{}::{}", kernel.name, c.name));
                     self.variables.insert(c.name.clone(), self.resolve_alias(&c.ty));
                     self.variables.insert(format!("{}::{}", kernel.name, c.name), self.resolve_alias(&c.ty));
+                    self.declaring_kernels.entry(c.name.clone()).or_default().push(kernel.name.clone());
                 }
             }
         }
+    }
+
+    pub fn check_kernel(&mut self, kernel: &ast::Kernel) -> Result<Vec<TypeError>> {
+        if self.registered_kernels.insert(kernel.name.clone()) {
+            self.register_kernel_declarations(kernel);
+        }
+
+        // Check for cyclic aliases
+        for name in self.type_aliases.keys() {
+            let mut visited = HashSet::new();
+            let mut curr = name.clone();
+            visited.insert(curr.clone());
+            while let Some(Type::Named(next)) = self.type_aliases.get(&curr) {
+                if visited.contains(next) {
+                    self.errors.push(TypeError {
+                        message: format!("Cyclic type alias detected involving '{}'", name),
+                        location: name.clone(),
+                    });
+                    break;
+                }
+                visited.insert(next.clone());
+                curr = next.clone();
+            }
+        }
+        self.current_kernel = kernel.name.clone();
 
         // Second pass: type check constants and function bodies
         for item in &kernel.items {
@@ -812,6 +825,19 @@ impl TypeChecker {
             Expr::Literal(lit) => Ok(self.literal_type(lit)),
             Expr::Ident(name) => {
                 self.check_visibility(name, context);
+                if !name.contains("::") && name != "main" {
+                    if let Some(kernels) = self.declaring_kernels.get(name) {
+                        if kernels.len() > 1 && !kernels.contains(&self.current_kernel) && !self.current_kernel.is_empty() {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Ambiguous reference to symbol '{}' declared in multiple modules: {}. Please qualify with module name (e.g. '{}::{}')",
+                                    name, kernels.join(", "), kernels[0], name
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
                 // Check for use-after-move
                 if self.moved_vars.contains(name) {
                     let moved_at = self
@@ -830,14 +856,15 @@ impl TypeChecker {
                     return Ok(Type::I32); // fallback
                 }
 
-                if let Some(ty) = self.variables.get(name) {
-                    Ok(ty.clone())
-                } else if let Some((param_types, ret_ty)) = self.functions.get(name).cloned() {
+                let qualified_name = format!("{}::{}", self.current_kernel, name);
+                if let Some(ty) = self.variables.get(&qualified_name).cloned().or_else(|| self.variables.get(name).cloned()) {
+                    Ok(ty)
+                } else if let Some((param_types, ret_ty)) = self.functions.get(&qualified_name).cloned().or_else(|| self.functions.get(name).cloned()) {
                     Ok(Type::Fn(
                         param_types,
                         Box::new(ret_ty.unwrap_or(Type::I32)),
                     ))
-                } else if self.enums.contains_key(name) {
+                } else if self.enums.contains_key(&qualified_name) || self.enums.contains_key(name) {
                     self.errors.push(TypeError {
                         message: format!(
                             "Cannot use enum type '{}' as a value; construct a variant like '{}.Variant'",
@@ -925,11 +952,25 @@ impl TypeChecker {
                 }
                 if let Expr::Ident(name) = func.as_ref() {
                     self.check_visibility(name, context);
+                    if !name.contains("::") && name != "main" {
+                        if let Some(kernels) = self.declaring_kernels.get(name) {
+                            if kernels.len() > 1 && !kernels.contains(&self.current_kernel) && !self.current_kernel.is_empty() {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Ambiguous reference to symbol '{}' declared in multiple modules: {}. Please qualify with module name (e.g. '{}::{}')",
+                                        name, kernels.join(", "), kernels[0], name
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                        }
+                    }
                     if let Some(ty) = self.check_builtin_call(name, args, context, expected)? {
                         return Ok(ty);
                     }
 
-                    if let Some(struct_fields) = self.structs.get(name).cloned() {
+                    let qualified_name = format!("{}::{}", self.current_kernel, name);
+                    if let Some(struct_fields) = self.structs.get(&qualified_name).cloned().or_else(|| self.structs.get(name).cloned()) {
                         if args.len() != struct_fields.len() {
                             self.errors.push(TypeError {
                                 message: format!(
@@ -956,7 +997,7 @@ impl TypeChecker {
                         return Ok(Type::Named(name.clone()));
                     }
 
-                    if let Some(var_ty) = self.variables.get(name).cloned() {
+                    if let Some(var_ty) = self.variables.get(&qualified_name).cloned().or_else(|| self.variables.get(name).cloned()) {
                         let var_ty = self.resolve_alias(&var_ty);
                         if let Type::Fn(param_types, ret_ty) = var_ty {
                             if args.len() != param_types.len() {
@@ -986,7 +1027,7 @@ impl TypeChecker {
                         }
                     }
 
-                    if let Some((param_types, ret_ty)) = self.functions.get(name).cloned() {
+                    if let Some((param_types, ret_ty)) = self.functions.get(&qualified_name).cloned().or_else(|| self.functions.get(name).cloned()) {
                         // Check argument count
                         if args.len() != param_types.len() {
                             self.errors.push(TypeError {
@@ -3751,6 +3792,14 @@ pub fn check_file_with_strict_mutability(
     let mut checker = TypeChecker::new();
     checker.strict_mutability = strict_mutability;
 
+    // Pass 1: register all kernel declarations across all kernels
+    for kernel in &file.kernels {
+        if checker.registered_kernels.insert(kernel.name.clone()) {
+            checker.register_kernel_declarations(kernel);
+        }
+    }
+
+    // Pass 2: typecheck all kernels
     for kernel in &file.kernels {
         let before = checker.errors.len();
         checker.check_kernel(kernel)?;
