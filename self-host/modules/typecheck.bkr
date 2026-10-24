@@ -473,6 +473,29 @@
         if name == "bkr_tuple_get" { return 2; }
         if name == "args_count" { return 0; }
         if name == "arg_at" { return 1; }
+        if name == "strlen" { return 1; }
+        if name == "char_code" { return 1; }
+        if name == "char_code_at" { return 2; }
+        if name == "char_at" { return 2; }
+        if name == "substring" { return 3; }
+        if name == "contains" { return 2; }
+        if name == "starts_with" { return 2; }
+        if name == "ends_with" { return 2; }
+        if name == "trim" { return 1; }
+        if name == "int_to_string" { return 1; }
+        if name == "from_char_code" { return 1; }
+        if name == "join_lines" { return 1; }
+        if name == "parse_int" { return 1; }
+        if name == "hashmap_get_opt" { return 2; }
+        if name == "vec_get_opt" { return 2; }
+        if name == "vec_pop_opt" { return 1; }
+        if name == "read_file_result" { return 1; }
+        if name == "write_file_result" { return 2; }
+        if name == "parse_int_result" { return 1; }
+        if name == "Ok" { return 1; }
+        if name == "Err" { return 1; }
+        if name == "panic" { return 1; }
+        if name == "assert" { return 1; }
         return -1;
     }
 
@@ -519,6 +542,36 @@
         if name == "result_tag" && index == 0 { return TYPE_I64; }
         if name == "result_value" && index == 0 { return TYPE_I64; }
         if name == "arg_at" && index == 0 { return TYPE_I64; }
+        if name == "strlen" && index == 0 { return TYPE_STR; }
+        if name == "char_code" && index == 0 { return TYPE_STR; }
+        if name == "char_code_at" && index == 0 { return TYPE_STR; }
+        if name == "char_code_at" && index == 1 { return TYPE_I64; }
+        if name == "char_at" && index == 0 { return TYPE_STR; }
+        if name == "char_at" && index == 1 { return TYPE_I64; }
+        if name == "substring" && index == 0 { return TYPE_STR; }
+        if name == "substring" && index == 1 { return TYPE_I64; }
+        if name == "substring" && index == 2 { return TYPE_I64; }
+        if name == "contains" && index == 0 { return TYPE_STR; }
+        if name == "contains" && index == 1 { return TYPE_STR; }
+        if name == "starts_with" && index == 0 { return TYPE_STR; }
+        if name == "starts_with" && index == 1 { return TYPE_STR; }
+        if name == "ends_with" && index == 0 { return TYPE_STR; }
+        if name == "ends_with" && index == 1 { return TYPE_STR; }
+        if name == "trim" && index == 0 { return TYPE_STR; }
+        if name == "int_to_string" && index == 0 { return TYPE_I64; }
+        if name == "from_char_code" && index == 0 { return TYPE_I64; }
+        if name == "parse_int" && index == 0 { return TYPE_STR; }
+        if name == "read_file_result" && index == 0 { return TYPE_STR; }
+        if name == "write_file_result" && index == 0 { return TYPE_STR; }
+        if name == "write_file_result" && index == 1 { return TYPE_STR; }
+        if name == "parse_int_result" && index == 0 { return TYPE_STR; }
+        if name == "hashmap_get_opt" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_get_opt" && index == 1 { return TYPE_I64; }
+        if name == "vec_get_opt" && index == 0 { return TYPE_I64; }
+        if name == "vec_get_opt" && index == 1 { return TYPE_I64; }
+        if name == "vec_pop_opt" && index == 0 { return TYPE_I64; }
+        if name == "panic" && index == 0 { return TYPE_STR; }
+        if name == "assert" && index == 0 { return TYPE_BOOL; }
         return TYPE_UNKNOWN;
     }
 
@@ -872,7 +925,20 @@
 
     fn typecheck_check_field_access_base_ref(state: Vec<str>, cstate: CgenStateRef,
                                              expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let field_name: i64 = ast_field_access_ref_name_idx(expr_ref);
+        let names: Vec<str> = cgen_names_ref(cstate);
+        let fname_str: str = name_from_table(names, field_name);
+        if fname_str == "0" || fname_str == "1" || fname_str == "2" || fname_str == "3" {
+            return state;
+        }
         let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_field_access_ref_base_handle(expr_ref));
+        if ast_expr_ref_kind(base_ref) == NODE_IDENT {
+            let enum_name: str = name_from_table(names, ast_expr_ref_name_idx(base_ref));
+            let tag: i64 = cgen_enum_variant_tag_ref(cstate, enum_name, fname_str);
+            if tag >= 0 {
+                return state;
+            }
+        }
         let base_kind: i64 = typecheck_expr_ref_kind(cstate, base_ref);
         if base_kind == TYPE_UNKNOWN {
             return state;

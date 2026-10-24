@@ -576,7 +576,15 @@
             if builtin_kind != TYPE_UNKNOWN {
                 return builtin_kind;
             }
-            return cgen_lookup_fn_type_ref(state, name_idx);
+            let fn_type: i64 = cgen_lookup_fn_type_ref(state, name_idx);
+            if fn_type != TYPE_UNKNOWN {
+                return fn_type;
+            }
+            let fn_ret_type_ref: AstTypeRef = cgen_lookup_fn_ret_type_info_ref(state, name_idx);
+            if ast_type_ref_is_some(fn_ret_type_ref) {
+                return ast_type_ref_kind_value(fn_ret_type_ref);
+            }
+            return TYPE_UNKNOWN;
         }
 
         return TYPE_UNKNOWN;

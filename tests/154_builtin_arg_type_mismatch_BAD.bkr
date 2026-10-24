@@ -1,0 +1,10 @@
+// Test 154: Builtin Call Argument Type Mismatch Diagnostic
+// Purpose: Ensure builtin calls with incompatible argument types are rejected.
+// Expected: `bunker check` fails.
+
+kernel BuiltinArgTypeBad {
+    fn main() -> i64 {
+        let x = strlen(12345);
+        return x;
+    }
+}

@@ -2387,6 +2387,61 @@ jobs:
           grep -q '"kind":"ambiguous_empty_array"' /tmp/149_unannotated_empty_array_BAD.c
           grep -q "Add a type annotation so the empty array element type is known" /tmp/149_unannotated_empty_array_BAD.c
 
+      - name: Verify 150_call_result_inference fixture executes in JIT
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/150_call_result_inference.bkr
+
+      - name: Compile call result inference fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/150_call_result_inference.bkr \
+            -o /tmp/150_call_result_inference.c
+          test -s /tmp/150_call_result_inference.c
+          grep -q "BUNKER_AST_JSON" /tmp/150_call_result_inference.c
+          grep -q '"has_diagnostics":false' /tmp/150_call_result_inference.c
+
+      - name: Compile 151_call_arity_mismatch_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/151_call_arity_mismatch_BAD.bkr \
+            -o /tmp/151_call_arity_mismatch_BAD.c
+          test -s /tmp/151_call_arity_mismatch_BAD.c
+          grep -q '"kind":"call_argument_count_mismatch"' /tmp/151_call_arity_mismatch_BAD.c
+          grep -q "Call add with exactly 2 argument(s)" /tmp/151_call_arity_mismatch_BAD.c
+
+      - name: Compile 152_call_arg_type_mismatch_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/152_call_arg_type_mismatch_BAD.bkr \
+            -o /tmp/152_call_arg_type_mismatch_BAD.c
+          test -s /tmp/152_call_arg_type_mismatch_BAD.c
+          grep -q '"kind":"call_argument_type_mismatch"' /tmp/152_call_arg_type_mismatch_BAD.c
+          grep -q "Change argument 2 for scale to match parameter factor" /tmp/152_call_arg_type_mismatch_BAD.c
+
+      - name: Compile 153_builtin_arity_mismatch_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/153_builtin_arity_mismatch_BAD.bkr \
+            -o /tmp/153_builtin_arity_mismatch_BAD.c
+          test -s /tmp/153_builtin_arity_mismatch_BAD.c
+          grep -q '"kind":"builtin_argument_count_mismatch"' /tmp/153_builtin_arity_mismatch_BAD.c
+          grep -q "Call builtin strlen with exactly 1 argument(s)" /tmp/153_builtin_arity_mismatch_BAD.c
+
+      - name: Compile 154_builtin_arg_type_mismatch_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/154_builtin_arg_type_mismatch_BAD.bkr \
+            -o /tmp/154_builtin_arg_type_mismatch_BAD.c
+          test -s /tmp/154_builtin_arg_type_mismatch_BAD.c
+          grep -q '"kind":"builtin_argument_type_mismatch"' /tmp/154_builtin_arg_type_mismatch_BAD.c
+          grep -q "Change argument 1 for builtin strlen to match the expected type" /tmp/154_builtin_arg_type_mismatch_BAD.c
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

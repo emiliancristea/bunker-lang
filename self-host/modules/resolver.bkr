@@ -253,6 +253,16 @@
         if name == "ends_with" { return true; }
         if name == "trim" { return true; }
         if name == "parse_int" { return true; }
+        if name == "parse_int_result" { return true; }
+        if name == "read_file_result" { return true; }
+        if name == "write_file_result" { return true; }
+        if name == "hashmap_get_opt" { return true; }
+        if name == "vec_get_opt" { return true; }
+        if name == "vec_pop_opt" { return true; }
+        if name == "Ok" { return true; }
+        if name == "Err" { return true; }
+        if name == "panic" { return true; }
+        if name == "assert" { return true; }
         if name == "int_to_string" { return true; }
         if name == "from_char_code" { return true; }
         if name == "join_lines" { return true; }
