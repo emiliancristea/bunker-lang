@@ -538,6 +538,16 @@
         if name == "hashmap_get_opt" { return 2; }
         if name == "vec_get_opt" { return 2; }
         if name == "vec_pop_opt" { return 1; }
+        if name == "vec_contains" { return 2; }
+        if name == "vec_is_empty" { return 1; }
+        if name == "vec_clone" { return 1; }
+        if name == "vec_reverse" { return 1; }
+        if name == "hashmap_is_empty" { return 1; }
+        if name == "hashmap_values" { return 1; }
+        if name == "vec_map" { return 2; }
+        if name == "vec_filter" { return 2; }
+        if name == "vec_fold" { return 3; }
+        if name == "vec_find" { return 2; }
         if name == "read_file_result" { return 1; }
         if name == "write_file_result" { return 2; }
         if name == "parse_int_result" { return 1; }
@@ -633,6 +643,16 @@
         if name == "vec_get_opt" && index == 0 { return TYPE_I64; }
         if name == "vec_get_opt" && index == 1 { return TYPE_I64; }
         if name == "vec_pop_opt" && index == 0 { return TYPE_I64; }
+        if name == "vec_contains" && index == 0 { return TYPE_I64; }
+        if name == "vec_is_empty" && index == 0 { return TYPE_I64; }
+        if name == "vec_clone" && index == 0 { return TYPE_I64; }
+        if name == "vec_reverse" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_is_empty" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_values" && index == 0 { return TYPE_I64; }
+        if name == "vec_map" && index == 0 { return TYPE_I64; }
+        if name == "vec_filter" && index == 0 { return TYPE_I64; }
+        if name == "vec_fold" && index == 0 { return TYPE_I64; }
+        if name == "vec_find" && index == 0 { return TYPE_I64; }
         if name == "panic" && index == 0 { return TYPE_STR; }
         if name == "assert" && index == 0 { return TYPE_BOOL; }
         if name == "str_index_of" && index == 0 { return TYPE_STR; }

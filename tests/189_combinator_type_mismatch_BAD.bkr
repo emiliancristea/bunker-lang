@@ -1,0 +1,15 @@
+// Test 189: Combinator Type Mismatch (BAD)
+// Expected: Typecheck failure
+
+kernel CombinatorTypeMismatchBAD {
+    fn add_one(x: str) -> i32 {
+        return 1;
+    }
+
+    fn main() -> i32 {
+        let v: Vec<i32> = vec_new();
+        vec_push(v, 10);
+        let mapped: Vec<i32> = vec_map(v, add_one);
+        return 0;
+    }
+}

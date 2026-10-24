@@ -214,6 +214,16 @@
         if raw == "vec_set" { return "vec_set"; }
         if raw == "vec_len" { return "vec_len"; }
         if raw == "vec_pop" { return "vec_pop"; }
+        if raw == "vec_contains" { return "vec_contains"; }
+        if raw == "vec_is_empty" { return "vec_is_empty"; }
+        if raw == "vec_clone" { return "vec_clone"; }
+        if raw == "vec_reverse" { return "vec_reverse"; }
+        if raw == "hashmap_is_empty" { return "hashmap_is_empty"; }
+        if raw == "hashmap_values" { return "hashmap_values"; }
+        if raw == "vec_map" { return "vec_map"; }
+        if raw == "vec_filter" { return "vec_filter"; }
+        if raw == "vec_fold" { return "vec_fold"; }
+        if raw == "vec_find" { return "vec_find"; }
         if raw == "hashmap_new" { return "hashmap_new"; }
         if raw == "hashmap_insert" { return "hashmap_insert"; }
         if raw == "hashmap_get" { return "hashmap_get"; }
@@ -340,6 +350,16 @@
         if raw == "hashmap_get_opt" { return TYPE_OPTION; }
         if raw == "vec_get_opt" { return TYPE_OPTION; }
         if raw == "vec_pop_opt" { return TYPE_OPTION; }
+        if raw == "vec_contains" { return TYPE_BOOL; }
+        if raw == "vec_is_empty" { return TYPE_BOOL; }
+        if raw == "vec_clone" { return TYPE_I64; }
+        if raw == "vec_reverse" { return TYPE_BOOL; }
+        if raw == "hashmap_is_empty" { return TYPE_BOOL; }
+        if raw == "hashmap_values" { return TYPE_I64; }
+        if raw == "vec_map" { return TYPE_I64; }
+        if raw == "vec_filter" { return TYPE_I64; }
+        if raw == "vec_fold" { return TYPE_I64; }
+        if raw == "vec_find" { return TYPE_OPTION; }
         if raw == "read_file_result" { return TYPE_RESULT; }
         if raw == "write_file_result" { return TYPE_RESULT; }
         if raw == "parse_int_result" { return TYPE_RESULT; }
@@ -1568,6 +1588,16 @@
             if raw == "vec_pop_opt" && arg_count == 1 {
                 let v_arg2: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
                 return "bkr_vec_pop_opt(" + v_arg2 + ")";
+            }
+            if raw == "vec_contains" && arg_count == 2 {
+                let vec_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let item_expr: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1));
+                let item_kind: i64 = infer_c_expr_ref_type(state, item_expr);
+                let item_arg: str = gen_c_i64_arg_ref(state, item_expr);
+                if item_kind == TYPE_STR {
+                    return "vec_contains_str(" + vec_handle + ", " + item_arg + ")";
+                }
+                return "vec_contains(" + vec_handle + ", " + item_arg + ")";
             }
             if raw == "read_file_result" && arg_count == 1 {
                 let p_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));

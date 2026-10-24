@@ -732,6 +732,193 @@ extern "C" fn bunker_vec_clear(vec_ptr: i64) {
     }
 }
 
+/// Check if the Vec contains an item (for integer/primitive/handle types). Returns 1 if found, 0 otherwise.
+extern "C" fn bunker_vec_contains(vec_ptr: i64, item: i64) -> i64 {
+    if vec_ptr == 0 {
+        return 0;
+    }
+    unsafe {
+        let header = vec_ptr as *const i64;
+        let length = *header.offset(1);
+        let data_ptr = *header.offset(2) as *const i64;
+        if length <= 0 || data_ptr.is_null() {
+            return 0;
+        }
+        for i in 0..length {
+            let val = *data_ptr.offset(i as isize);
+            if val == item {
+                return 1;
+            }
+        }
+    }
+    0
+}
+
+/// Check if the Vec contains a string item using bunker_str_eq. Returns 1 if found, 0 otherwise.
+extern "C" fn bunker_vec_contains_str(vec_ptr: i64, item: i64) -> i64 {
+    if vec_ptr == 0 {
+        return 0;
+    }
+    unsafe {
+        let header = vec_ptr as *const i64;
+        let length = *header.offset(1);
+        let data_ptr = *header.offset(2) as *const i64;
+        if length <= 0 || data_ptr.is_null() {
+            return 0;
+        }
+        for i in 0..length {
+            let val = *data_ptr.offset(i as isize);
+            if bunker_str_eq(val, item) == 1 {
+                return 1;
+            }
+        }
+    }
+    0
+}
+
+/// Check if the Vec is empty. Returns 1 if empty, 0 otherwise.
+extern "C" fn bunker_vec_is_empty(vec_ptr: i64) -> i64 {
+    if vec_ptr == 0 {
+        return 1;
+    }
+    unsafe {
+        let length = *((vec_ptr as *const i64).offset(1));
+        if length == 0 { 1 } else { 0 }
+    }
+}
+
+/// Clone a Vec into a new independent Vec.
+extern "C" fn bunker_vec_clone(vec_ptr: i64) -> i64 {
+    let new_vec = bunker_vec_new();
+    if vec_ptr == 0 || new_vec == 0 {
+        return new_vec;
+    }
+    unsafe {
+        let header = vec_ptr as *const i64;
+        let length = *header.offset(1);
+        let data_ptr = *header.offset(2) as *const i64;
+        if !data_ptr.is_null() {
+            for i in 0..length {
+                let val = *data_ptr.offset(i as isize);
+                bunker_vec_push(new_vec, val);
+            }
+        }
+    }
+    new_vec
+}
+
+/// In-place reverse the elements of a Vec. Returns 1 on success, 0 on error.
+extern "C" fn bunker_vec_reverse(vec_ptr: i64) -> i64 {
+    if vec_ptr == 0 {
+        return 0;
+    }
+    unsafe {
+        let header = vec_ptr as *mut i64;
+        let length = *header.offset(1);
+        let data_ptr = *header.offset(2) as *mut i64;
+        if length > 1 && !data_ptr.is_null() {
+            let mut i: isize = 0;
+            let mut j: isize = (length - 1) as isize;
+            while i < j {
+                let tmp = *data_ptr.offset(i);
+                *data_ptr.offset(i) = *data_ptr.offset(j);
+                *data_ptr.offset(j) = tmp;
+                i += 1;
+                j -= 1;
+            }
+        }
+    }
+    1
+}
+
+/// Map each element of a Vec using a function pointer fn(T) -> U.
+extern "C" fn bunker_vec_map(vec_ptr: i64, fn_ptr: i64) -> i64 {
+    let new_vec = bunker_vec_new();
+    if vec_ptr == 0 || fn_ptr == 0 || new_vec == 0 {
+        return new_vec;
+    }
+    unsafe {
+        let header = vec_ptr as *const i64;
+        let length = *header.offset(1);
+        let data_ptr = *header.offset(2) as *const i64;
+        let f: extern "C" fn(i64) -> i64 = std::mem::transmute(fn_ptr);
+        if !data_ptr.is_null() {
+            for i in 0..length {
+                let val = *data_ptr.offset(i as isize);
+                let mapped = f(val);
+                bunker_vec_push(new_vec, mapped);
+            }
+        }
+    }
+    new_vec
+}
+
+/// Filter elements of a Vec using a predicate function pointer fn(T) -> bool.
+extern "C" fn bunker_vec_filter(vec_ptr: i64, fn_ptr: i64) -> i64 {
+    let new_vec = bunker_vec_new();
+    if vec_ptr == 0 || fn_ptr == 0 || new_vec == 0 {
+        return new_vec;
+    }
+    unsafe {
+        let header = vec_ptr as *const i64;
+        let length = *header.offset(1);
+        let data_ptr = *header.offset(2) as *const i64;
+        let f: extern "C" fn(i64) -> i64 = std::mem::transmute(fn_ptr);
+        if !data_ptr.is_null() {
+            for i in 0..length {
+                let val = *data_ptr.offset(i as isize);
+                if f(val) != 0 {
+                    bunker_vec_push(new_vec, val);
+                }
+            }
+        }
+    }
+    new_vec
+}
+
+/// Left-fold elements of a Vec using an accumulator function pointer fn(U, T) -> U.
+extern "C" fn bunker_vec_fold(vec_ptr: i64, init: i64, fn_ptr: i64) -> i64 {
+    if vec_ptr == 0 || fn_ptr == 0 {
+        return init;
+    }
+    unsafe {
+        let header = vec_ptr as *const i64;
+        let length = *header.offset(1);
+        let data_ptr = *header.offset(2) as *const i64;
+        let f: extern "C" fn(i64, i64) -> i64 = std::mem::transmute(fn_ptr);
+        let mut acc = init;
+        if !data_ptr.is_null() {
+            for i in 0..length {
+                let val = *data_ptr.offset(i as isize);
+                acc = f(acc, val);
+            }
+        }
+        acc
+    }
+}
+
+/// Find first element of a Vec satisfying predicate fn(T) -> bool, returning Option<T>.
+extern "C" fn bunker_vec_find(vec_ptr: i64, fn_ptr: i64) -> i64 {
+    if vec_ptr == 0 || fn_ptr == 0 {
+        return 0;
+    }
+    unsafe {
+        let header = vec_ptr as *const i64;
+        let length = *header.offset(1);
+        let data_ptr = *header.offset(2) as *const i64;
+        let f: extern "C" fn(i64) -> i64 = std::mem::transmute(fn_ptr);
+        if !data_ptr.is_null() {
+            for i in 0..length {
+                let val = *data_ptr.offset(i as isize);
+                if f(val) != 0 {
+                    return bunker_option_some(val);
+                }
+            }
+        }
+    }
+    0
+}
+
 // ============================================================================
 // Result<T, E> Runtime Functions
 // ============================================================================
@@ -1244,6 +1431,48 @@ extern "C" fn bunker_hashmap_keys(map_ptr: i64) -> i64 {
             if occupied != 0 {
                 let key = *entry_ptr;
                 bunker_vec_push(vec_ptr, key);
+            }
+        }
+    }
+
+    vec_ptr
+}
+
+/// Check if the HashMap is empty. Returns 1 if empty, 0 otherwise.
+extern "C" fn bunker_hashmap_is_empty(map_ptr: i64) -> i64 {
+    if map_ptr == 0 {
+        return 1;
+    }
+    unsafe {
+        let length = *((map_ptr as *const i64).offset(1));
+        if length == 0 { 1 } else { 0 }
+    }
+}
+
+/// Get all values from the HashMap as a Vec.
+extern "C" fn bunker_hashmap_values(map_ptr: i64) -> i64 {
+    if map_ptr == 0 {
+        return bunker_vec_new();
+    }
+
+    let vec_ptr = bunker_vec_new();
+    if vec_ptr == 0 {
+        return 0;
+    }
+
+    unsafe {
+        let capacity = *(map_ptr as *const i64);
+        let entries_ptr = *((map_ptr as *const i64).offset(2)) as *const i64;
+
+        for i in 0..capacity {
+            let entry_ptr = (entries_ptr as *const u8)
+                .offset(i as isize * HASHMAP_ENTRY_SIZE as isize)
+                as *const i64;
+            let occupied = *entry_ptr.offset(3);
+
+            if occupied != 0 {
+                let val = *entry_ptr.offset(1);
+                bunker_vec_push(vec_ptr, val);
             }
         }
     }
@@ -1834,6 +2063,17 @@ impl KernelJit {
         builder.symbol("bunker_vec_get", bunker_vec_get as *const u8);
         builder.symbol("bunker_vec_set", bunker_vec_set as *const u8);
         builder.symbol("bunker_vec_clear", bunker_vec_clear as *const u8);
+        builder.symbol("bunker_vec_contains", bunker_vec_contains as *const u8);
+        builder.symbol("bunker_vec_contains_str", bunker_vec_contains_str as *const u8);
+        builder.symbol("bunker_vec_is_empty", bunker_vec_is_empty as *const u8);
+        builder.symbol("bunker_vec_clone", bunker_vec_clone as *const u8);
+        builder.symbol("bunker_vec_reverse", bunker_vec_reverse as *const u8);
+        builder.symbol("bunker_vec_map", bunker_vec_map as *const u8);
+        builder.symbol("bunker_vec_filter", bunker_vec_filter as *const u8);
+        builder.symbol("bunker_vec_fold", bunker_vec_fold as *const u8);
+        builder.symbol("bunker_vec_find", bunker_vec_find as *const u8);
+        builder.symbol("bunker_hashmap_is_empty", bunker_hashmap_is_empty as *const u8);
+        builder.symbol("bunker_hashmap_values", bunker_hashmap_values as *const u8);
         // Result operations
         builder.symbol("bunker_result_ok", bunker_result_ok as *const u8);
         builder.symbol("bunker_result_err", bunker_result_err as *const u8);
@@ -1917,6 +2157,17 @@ impl KernelJit {
         let vec_get_func = declare_vec_get_func(&mut module)?;
         let vec_set_func = declare_vec_set_func(&mut module)?;
         let vec_clear_func = declare_vec_clear_func(&mut module)?;
+        let vec_contains_func = declare_vec_contains_func(&mut module)?;
+        let vec_contains_str_func = declare_vec_contains_str_func(&mut module)?;
+        let vec_is_empty_func = declare_vec_is_empty_func(&mut module)?;
+        let vec_clone_func = declare_vec_clone_func(&mut module)?;
+        let vec_reverse_func = declare_vec_reverse_func(&mut module)?;
+        let vec_map_func = declare_vec_map_func(&mut module)?;
+        let vec_filter_func = declare_vec_filter_func(&mut module)?;
+        let vec_fold_func = declare_vec_fold_func(&mut module)?;
+        let vec_find_func = declare_vec_find_func(&mut module)?;
+        let hashmap_is_empty_func = declare_hashmap_is_empty_func(&mut module)?;
+        let hashmap_values_func = declare_hashmap_values_func(&mut module)?;
         // Result operations
         let result_ok_func = declare_result_ok_func(&mut module)?;
         let result_err_func = declare_result_err_func(&mut module)?;
@@ -1992,6 +2243,17 @@ impl KernelJit {
             ("vec_get", vec_get_func),
             ("vec_set", vec_set_func),
             ("vec_clear", vec_clear_func),
+            ("vec_contains", vec_contains_func),
+            ("vec_contains_str", vec_contains_str_func),
+            ("vec_is_empty", vec_is_empty_func),
+            ("vec_clone", vec_clone_func),
+            ("vec_reverse", vec_reverse_func),
+            ("vec_map", vec_map_func),
+            ("vec_filter", vec_filter_func),
+            ("vec_fold", vec_fold_func),
+            ("vec_find", vec_find_func),
+            ("hashmap_is_empty", hashmap_is_empty_func),
+            ("hashmap_values", hashmap_values_func),
             ("result_ok", result_ok_func),
             ("result_err", result_err_func),
             ("Ok", result_ok_func),
@@ -4534,6 +4796,13 @@ fn compile_expr_inline(
                     } else {
                         name.as_str()
                     }
+                } else if name == "vec_contains" && args.len() == 2 {
+                    let item_ty = infer_expr_type(&args[1], var_types, structs, fn_sigs);
+                    if matches!(item_ty, ast::Type::Str) {
+                        "vec_contains_str"
+                    } else {
+                        name.as_str()
+                    }
                 } else {
                     name.as_str()
                 };
@@ -6452,6 +6721,123 @@ fn declare_vec_clear_func(module: &mut JITModule) -> Result<FuncId> {
     module
         .declare_function("bunker_vec_clear", Linkage::Import, &sig)
         .map_err(|e| anyhow!("Failed to declare runtime bunker_vec_clear: {}", e))
+}
+
+fn declare_vec_contains_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64)); // vec ptr
+    sig.params.push(AbiParam::new(types::I64)); // item
+    sig.returns.push(AbiParam::new(types::I64)); // 1 if found, 0 if not
+
+    module
+        .declare_function("bunker_vec_contains", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_vec_contains: {}", e))
+}
+
+fn declare_vec_contains_str_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64)); // vec ptr
+    sig.params.push(AbiParam::new(types::I64)); // item str ptr
+    sig.returns.push(AbiParam::new(types::I64)); // 1 if found, 0 if not
+
+    module
+        .declare_function("bunker_vec_contains_str", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_vec_contains_str: {}", e))
+}
+
+fn declare_vec_is_empty_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64)); // vec ptr
+    sig.returns.push(AbiParam::new(types::I64)); // 1 if empty, 0 if not
+
+    module
+        .declare_function("bunker_vec_is_empty", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_vec_is_empty: {}", e))
+}
+
+fn declare_vec_clone_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64)); // vec ptr
+    sig.returns.push(AbiParam::new(types::I64)); // new vec ptr
+
+    module
+        .declare_function("bunker_vec_clone", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_vec_clone: {}", e))
+}
+
+fn declare_vec_reverse_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64)); // vec ptr
+    sig.returns.push(AbiParam::new(types::I64)); // 1 on success, 0 on null
+
+    module
+        .declare_function("bunker_vec_reverse", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_vec_reverse: {}", e))
+}
+
+fn declare_vec_map_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64)); // vec ptr
+    sig.params.push(AbiParam::new(types::I64)); // fn ptr
+    sig.returns.push(AbiParam::new(types::I64)); // new vec ptr
+
+    module
+        .declare_function("bunker_vec_map", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_vec_map: {}", e))
+}
+
+fn declare_vec_filter_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64)); // vec ptr
+    sig.params.push(AbiParam::new(types::I64)); // fn ptr
+    sig.returns.push(AbiParam::new(types::I64)); // new vec ptr
+
+    module
+        .declare_function("bunker_vec_filter", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_vec_filter: {}", e))
+}
+
+fn declare_vec_fold_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64)); // vec ptr
+    sig.params.push(AbiParam::new(types::I64)); // init val
+    sig.params.push(AbiParam::new(types::I64)); // fn ptr
+    sig.returns.push(AbiParam::new(types::I64)); // accumulated val
+
+    module
+        .declare_function("bunker_vec_fold", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_vec_fold: {}", e))
+}
+
+fn declare_vec_find_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64)); // vec ptr
+    sig.params.push(AbiParam::new(types::I64)); // fn ptr
+    sig.returns.push(AbiParam::new(types::I64)); // Option<T> box ptr or 0
+
+    module
+        .declare_function("bunker_vec_find", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_vec_find: {}", e))
+}
+
+fn declare_hashmap_is_empty_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64)); // map ptr
+    sig.returns.push(AbiParam::new(types::I64)); // 1 if empty, 0 if not
+
+    module
+        .declare_function("bunker_hashmap_is_empty", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_hashmap_is_empty: {}", e))
+}
+
+fn declare_hashmap_values_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64)); // map ptr
+    sig.returns.push(AbiParam::new(types::I64)); // vec ptr
+
+    module
+        .declare_function("bunker_hashmap_values", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_hashmap_values: {}", e))
 }
 
 // ============================================================================

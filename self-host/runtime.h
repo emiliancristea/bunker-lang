@@ -204,6 +204,94 @@ static inline void vec_free(bkr_i64 handle) {
     (void)handle;
 }
 
+static inline bkr_bool vec_contains(bkr_i64 handle, bkr_i64 item) {
+    BkrVec* v = (BkrVec*)(intptr_t)handle;
+    if (!v || !v->data) return BKR_FALSE;
+    for (bkr_i64 i = 0; i < v->len; i++) {
+        if (v->data[i] == item) return BKR_TRUE;
+    }
+    return BKR_FALSE;
+}
+
+static inline bkr_bool vec_contains_str(bkr_i64 handle, bkr_i64 item) {
+    BkrVec* v = (BkrVec*)(intptr_t)handle;
+    if (!v || !v->data) return BKR_FALSE;
+    bkr_str s2 = (bkr_str)(intptr_t)item;
+    for (bkr_i64 i = 0; i < v->len; i++) {
+        bkr_str s1 = (bkr_str)(intptr_t)v->data[i];
+        if (s1 == s2) return BKR_TRUE;
+        if (s1 && s2 && strcmp(s1, s2) == 0) return BKR_TRUE;
+    }
+    return BKR_FALSE;
+}
+
+static inline bkr_bool vec_is_empty(bkr_i64 handle) {
+    BkrVec* v = (BkrVec*)(intptr_t)handle;
+    return (!v || v->len == 0) ? BKR_TRUE : BKR_FALSE;
+}
+
+static inline bkr_i64 vec_clone(bkr_i64 handle) {
+    bkr_i64 new_v = vec_new();
+    BkrVec* v = (BkrVec*)(intptr_t)handle;
+    if (!v || !v->data) return new_v;
+    for (bkr_i64 i = 0; i < v->len; i++) {
+        vec_push(new_v, v->data[i]);
+    }
+    return new_v;
+}
+
+static inline bkr_bool vec_reverse(bkr_i64 handle) {
+    BkrVec* v = (BkrVec*)(intptr_t)handle;
+    if (!v || !v->data) return BKR_FALSE;
+    if (v->len > 1) {
+        bkr_i64 i = 0;
+        bkr_i64 j = v->len - 1;
+        while (i < j) {
+            bkr_i64 tmp = v->data[i];
+            v->data[i] = v->data[j];
+            v->data[j] = tmp;
+            i++;
+            j--;
+        }
+    }
+    return BKR_TRUE;
+}
+
+static inline bkr_i64 vec_map(bkr_i64 handle, bkr_i64 fn_ptr) {
+    bkr_i64 res = vec_new();
+    BkrVec* v = (BkrVec*)(intptr_t)handle;
+    if (!v || !v->data || fn_ptr == 0) return res;
+    bkr_i64 (*f)(bkr_i64) = (bkr_i64 (*)(bkr_i64))(intptr_t)fn_ptr;
+    for (bkr_i64 i = 0; i < v->len; i++) {
+        vec_push(res, f(v->data[i]));
+    }
+    return res;
+}
+
+static inline bkr_i64 vec_filter(bkr_i64 handle, bkr_i64 fn_ptr) {
+    bkr_i64 res = vec_new();
+    BkrVec* v = (BkrVec*)(intptr_t)handle;
+    if (!v || !v->data || fn_ptr == 0) return res;
+    bkr_i64 (*f)(bkr_i64) = (bkr_i64 (*)(bkr_i64))(intptr_t)fn_ptr;
+    for (bkr_i64 i = 0; i < v->len; i++) {
+        if (f(v->data[i])) {
+            vec_push(res, v->data[i]);
+        }
+    }
+    return res;
+}
+
+static inline bkr_i64 vec_fold(bkr_i64 handle, bkr_i64 init, bkr_i64 fn_ptr) {
+    BkrVec* v = (BkrVec*)(intptr_t)handle;
+    if (!v || !v->data || fn_ptr == 0) return init;
+    bkr_i64 (*f)(bkr_i64, bkr_i64) = (bkr_i64 (*)(bkr_i64, bkr_i64))(intptr_t)fn_ptr;
+    bkr_i64 acc = init;
+    for (bkr_i64 i = 0; i < v->len; i++) {
+        acc = f(acc, v->data[i]);
+    }
+    return acc;
+}
+
 /* ============================================
  * String Operations
  * ============================================ */
@@ -725,6 +813,25 @@ static inline bkr_i64 hashmap_keys(bkr_i64 handle) {
     return keys;
 }
 
+static inline bkr_bool hashmap_is_empty(bkr_i64 handle) {
+    BkrHashMap* m = (BkrHashMap*)(intptr_t)handle;
+    return (!m || m->count == 0) ? BKR_TRUE : BKR_FALSE;
+}
+
+static inline bkr_i64 hashmap_values(bkr_i64 handle) {
+    BkrHashMap* m = (BkrHashMap*)(intptr_t)handle;
+    bkr_i64 vals = vec_new();
+    if (!m || !m->buckets) return vals;
+    for (bkr_i64 i = 0; i < m->size; i++) {
+        BkrHashEntry* e = m->buckets[i];
+        while (e) {
+            vec_push(vals, e->value);
+            e = e->next;
+        }
+    }
+    return vals;
+}
+
 static inline bkr_i64 hashmap_len(bkr_i64 handle) {
     BkrHashMap* m = (BkrHashMap*)(intptr_t)handle;
     if (!m) return 0;
@@ -843,6 +950,18 @@ static inline bkr_i64 bkr_vec_pop_opt(bkr_i64 handle) {
     return bkr_option_some(v->data[v->len]);
 }
 
+static inline bkr_i64 vec_find(bkr_i64 handle, bkr_i64 fn_ptr) {
+    BkrVec* v = (BkrVec*)(intptr_t)handle;
+    if (!v || !v->data || fn_ptr == 0) return 0;
+    bkr_i64 (*f)(bkr_i64) = (bkr_i64 (*)(bkr_i64))(intptr_t)fn_ptr;
+    for (bkr_i64 i = 0; i < v->len; i++) {
+        if (f(v->data[i])) {
+            return bkr_option_some(v->data[i]);
+        }
+    }
+    return 0;
+}
+
 static inline bkr_i64 bkr_read_file_result(bkr_str path) {
     bkr_str content = bkr_read_file(path);
     if (!content) {
@@ -874,6 +993,16 @@ static inline bkr_i64 bkr_parse_int_result(bkr_str s) {
 static inline bkr_i64 hashmap_get_opt(bkr_i64 handle, bkr_i64 key) { return bkr_hashmap_get_opt(handle, key); }
 static inline bkr_i64 vec_get_opt(bkr_i64 handle, bkr_i64 index) { return bkr_vec_get_opt(handle, index); }
 static inline bkr_i64 vec_pop_opt(bkr_i64 handle) { return bkr_vec_pop_opt(handle); }
+static inline bkr_i64 bkr_vec_find(bkr_i64 handle, bkr_i64 fn_ptr) { return vec_find(handle, fn_ptr); }
+static inline bkr_bool bkr_vec_contains(bkr_i64 handle, bkr_i64 item) { return vec_contains(handle, item); }
+static inline bkr_bool bkr_vec_is_empty(bkr_i64 handle) { return vec_is_empty(handle); }
+static inline bkr_i64 bkr_vec_clone(bkr_i64 handle) { return vec_clone(handle); }
+static inline bkr_bool bkr_vec_reverse(bkr_i64 handle) { return vec_reverse(handle); }
+static inline bkr_bool bkr_hashmap_is_empty(bkr_i64 handle) { return hashmap_is_empty(handle); }
+static inline bkr_i64 bkr_hashmap_values(bkr_i64 handle) { return hashmap_values(handle); }
+static inline bkr_i64 bkr_vec_map(bkr_i64 handle, bkr_i64 fn_ptr) { return vec_map(handle, fn_ptr); }
+static inline bkr_i64 bkr_vec_filter(bkr_i64 handle, bkr_i64 fn_ptr) { return vec_filter(handle, fn_ptr); }
+static inline bkr_i64 bkr_vec_fold(bkr_i64 handle, bkr_i64 init, bkr_i64 fn_ptr) { return vec_fold(handle, init, fn_ptr); }
 static inline bkr_i64 read_file_result(bkr_str path) { return bkr_read_file_result(path); }
 static inline bkr_i64 write_file_result(bkr_str path, bkr_str content) { return bkr_write_file_result(path, content); }
 static inline bkr_i64 parse_int_result(bkr_str s) { return bkr_parse_int_result(s); }

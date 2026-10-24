@@ -79,6 +79,130 @@ pub struct RuntimeBuiltinSpec {
 
 static TYPECHECK_BUILTINS: &[TypecheckBuiltinSpec] = &[
     TypecheckBuiltinSpec {
+        name: "vec_contains",
+        arity_error: "vec_contains expects 2 arguments (vec, item)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Bool),
+    },
+    TypecheckBuiltinSpec {
+        name: "vec_is_empty",
+        arity_error: "vec_is_empty expects 1 argument (vec)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Any,
+            type_error: "",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Bool),
+    },
+    TypecheckBuiltinSpec {
+        name: "vec_clone",
+        arity_error: "vec_clone expects 1 argument (vec)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Any,
+            type_error: "",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "vec_reverse",
+        arity_error: "vec_reverse expects 1 argument (vec)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Any,
+            type_error: "",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Bool),
+    },
+    TypecheckBuiltinSpec {
+        name: "hashmap_is_empty",
+        arity_error: "hashmap_is_empty expects 1 argument (map)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Any,
+            type_error: "",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Bool),
+    },
+    TypecheckBuiltinSpec {
+        name: "hashmap_values",
+        arity_error: "hashmap_values expects 1 argument (map)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Any,
+            type_error: "",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "vec_map",
+        arity_error: "vec_map expects 2 arguments (vec, func)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "vec_filter",
+        arity_error: "vec_filter expects 2 arguments (vec, predicate)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "vec_fold",
+        arity_error: "vec_fold expects 3 arguments (vec, init, func)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "vec_find",
+        arity_error: "vec_find expects 2 arguments (vec, predicate)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Any,
+                type_error: "",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
         name: "strlen",
         arity_error: "strlen expects 1 argument",
         params: &[BuiltinParamSpec {
@@ -833,6 +957,61 @@ static TYPECHECK_BUILTINS: &[TypecheckBuiltinSpec] = &[
 
 static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
     RuntimeBuiltinSpec {
+        name: "vec_contains",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "vec_contains_str",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "vec_is_empty",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "vec_clone",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "vec_reverse",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "hashmap_is_empty",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "hashmap_values",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "vec_map",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "vec_filter",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "vec_fold",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "vec_find",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
         name: "read_file",
         params: &[RuntimeBuiltinType::Str],
         return_type: Some(RuntimeBuiltinType::Str),
@@ -1226,6 +1405,36 @@ pub fn infer_special_builtin_call_type(
             Some(ast::Type::Vec(elem)) => elem.as_ref().clone(),
             _ => ast::Type::I64,
         }),
+        "vec_clone" => match arg_types.first() {
+            Some(ast::Type::Vec(elem)) => Some(ast::Type::Vec(elem.clone())),
+            _ => expected.cloned().or(Some(ast::Type::I64)),
+        },
+        "hashmap_values" => match arg_types.first() {
+            Some(ast::Type::HashMap(_, val)) => Some(ast::Type::Vec(val.clone())),
+            _ => expected.cloned().or(Some(ast::Type::I64)),
+        },
+        "vec_map" => match arg_types.get(1) {
+            Some(ast::Type::Fn(_, ret)) => Some(ast::Type::Vec(ret.clone())),
+            _ => match expected {
+                Some(ast::Type::Vec(_)) => expected.cloned(),
+                _ => Some(ast::Type::I64),
+            },
+        },
+        "vec_filter" => match arg_types.first() {
+            Some(ast::Type::Vec(elem)) => Some(ast::Type::Vec(elem.clone())),
+            _ => expected.cloned().or(Some(ast::Type::I64)),
+        },
+        "vec_fold" => match arg_types.get(1) {
+            Some(init_ty) => Some(init_ty.clone()),
+            _ => expected.cloned().or(Some(ast::Type::I64)),
+        },
+        "vec_find" => match arg_types.first() {
+            Some(ast::Type::Vec(elem)) => Some(ast::Type::Option(elem.clone())),
+            _ => match expected {
+                Some(ast::Type::Option(_)) => expected.cloned(),
+                _ => Some(ast::Type::Option(Box::new(ast::Type::I64))),
+            },
+        },
         "hashmap_new" => Some(match expected {
             Some(ast::Type::HashMap(_, _)) => expected.cloned().unwrap_or(ast::Type::I64),
             _ => ast::Type::I64,

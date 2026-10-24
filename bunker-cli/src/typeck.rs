@@ -1741,6 +1741,203 @@ impl TypeChecker {
                 }
                 Ok(Some(Type::I32))
             }
+            "vec_contains" => {
+                self.check_builtin_arity("vec_contains expects 2 arguments (vec, item)", args, 2, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_contains", vec_ty, context);
+                    if let (Type::Vec(elem), Some(item_ty)) = (vec_ty, arg_types.get(1)) {
+                        if !self.types_compatible(elem, item_ty) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "vec_contains item type mismatch: expected {:?}, got {:?}",
+                                    elem, item_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(Some(Type::Bool))
+            }
+            "vec_is_empty" => {
+                self.check_builtin_arity("vec_is_empty expects 1 argument (vec)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_is_empty", vec_ty, context);
+                }
+                Ok(Some(Type::Bool))
+            }
+            "vec_clone" => {
+                self.check_builtin_arity("vec_clone expects 1 argument (vec)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_clone", vec_ty, context);
+                }
+                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+            }
+            "vec_reverse" => {
+                self.check_builtin_arity("vec_reverse expects 1 argument (vec)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_reverse", vec_ty, context);
+                }
+                Ok(Some(Type::Bool))
+            }
+            "vec_map" => {
+                self.check_builtin_arity("vec_map expects 2 arguments (vec, func)", args, 2, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_map", vec_ty, context);
+                }
+                if let (Some(Type::Vec(elem)), Some(fn_ty)) = (arg_types.first(), arg_types.get(1)) {
+                    match fn_ty {
+                        Type::Fn(params, ret) => {
+                            if params.len() != 1 {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_map mapper function expects 1 argument, got {}", params.len()),
+                                    location: context.to_string(),
+                                });
+                            } else if !self.types_compatible(&params[0], elem) {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_map mapper argument type mismatch: expected {:?}, got {:?}", elem, params[0]),
+                                    location: context.to_string(),
+                                });
+                            }
+                            return Ok(Some(Type::Vec(ret.clone())));
+                        }
+                        _ => {
+                            self.errors.push(TypeError {
+                                message: format!("vec_map expects function as second argument, got {:?}", fn_ty),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+            }
+            "vec_filter" => {
+                self.check_builtin_arity("vec_filter expects 2 arguments (vec, predicate)", args, 2, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_filter", vec_ty, context);
+                }
+                if let (Some(Type::Vec(elem)), Some(fn_ty)) = (arg_types.first(), arg_types.get(1)) {
+                    match fn_ty {
+                        Type::Fn(params, ret) => {
+                            if params.len() != 1 {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_filter predicate function expects 1 argument, got {}", params.len()),
+                                    location: context.to_string(),
+                                });
+                            } else if !self.types_compatible(&params[0], elem) {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_filter predicate argument type mismatch: expected {:?}, got {:?}", elem, params[0]),
+                                    location: context.to_string(),
+                                });
+                            }
+                            if !self.types_compatible(ret, &Type::Bool) {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_filter predicate return type mismatch: expected bool, got {:?}", ret),
+                                    location: context.to_string(),
+                                });
+                            }
+                            return Ok(Some(Type::Vec(elem.clone())));
+                        }
+                        _ => {
+                            self.errors.push(TypeError {
+                                message: format!("vec_filter expects function as second argument, got {:?}", fn_ty),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+            }
+            "vec_fold" => {
+                self.check_builtin_arity("vec_fold expects 3 arguments (vec, init, func)", args, 3, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_fold", vec_ty, context);
+                }
+                if let (Some(Type::Vec(elem)), Some(init_ty), Some(fn_ty)) = (arg_types.first(), arg_types.get(1), arg_types.get(2)) {
+                    match fn_ty {
+                        Type::Fn(params, ret) => {
+                            if params.len() != 2 {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_fold function expects 2 arguments, got {}", params.len()),
+                                    location: context.to_string(),
+                                });
+                            } else {
+                                if !self.types_compatible(&params[0], init_ty) {
+                                    self.errors.push(TypeError {
+                                        message: format!("vec_fold function accumulator type mismatch: expected {:?}, got {:?}", init_ty, params[0]),
+                                        location: context.to_string(),
+                                    });
+                                }
+                                if !self.types_compatible(&params[1], elem) {
+                                    self.errors.push(TypeError {
+                                        message: format!("vec_fold function item type mismatch: expected {:?}, got {:?}", elem, params[1]),
+                                        location: context.to_string(),
+                                    });
+                                }
+                            }
+                            if !self.types_compatible(ret, init_ty) {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_fold function return type mismatch: expected {:?}, got {:?}", init_ty, ret),
+                                    location: context.to_string(),
+                                });
+                            }
+                            return Ok(Some(init_ty.clone()));
+                        }
+                        _ => {
+                            self.errors.push(TypeError {
+                                message: format!("vec_fold expects function as third argument, got {:?}", fn_ty),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+            }
+            "vec_find" => {
+                self.check_builtin_arity("vec_find expects 2 arguments (vec, predicate)", args, 2, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_find", vec_ty, context);
+                }
+                if let (Some(Type::Vec(elem)), Some(fn_ty)) = (arg_types.first(), arg_types.get(1)) {
+                    match fn_ty {
+                        Type::Fn(params, ret) => {
+                            if params.len() != 1 {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_find predicate function expects 1 argument, got {}", params.len()),
+                                    location: context.to_string(),
+                                });
+                            } else if !self.types_compatible(&params[0], elem) {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_find predicate argument type mismatch: expected {:?}, got {:?}", elem, params[0]),
+                                    location: context.to_string(),
+                                });
+                            }
+                            if !self.types_compatible(ret, &Type::Bool) {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_find predicate return type mismatch: expected bool, got {:?}", ret),
+                                    location: context.to_string(),
+                                });
+                            }
+                            return Ok(Some(Type::Option(elem.clone())));
+                        }
+                        _ => {
+                            self.errors.push(TypeError {
+                                message: format!("vec_find expects function as second argument, got {:?}", fn_ty),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+            }
             "hashmap_new" => {
                 self.check_builtin_arity("hashmap_new expects 0 arguments", args, 0, context);
                 match expected {
@@ -1873,6 +2070,22 @@ impl TypeChecker {
                 Ok(builtins::infer_special_builtin_call_type(
                     name, &arg_types, expected,
                 ))
+            }
+            "hashmap_is_empty" => {
+                self.check_builtin_arity("hashmap_is_empty expects 1 argument (map)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(map_ty) = arg_types.first() {
+                    self.check_hashmap_handle_type("hashmap_is_empty", map_ty, context);
+                }
+                Ok(Some(Type::Bool))
+            }
+            "hashmap_values" => {
+                self.check_builtin_arity("hashmap_values expects 1 argument (map)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(map_ty) = arg_types.first() {
+                    self.check_hashmap_handle_type("hashmap_values", map_ty, context);
+                }
+                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
             }
             "result_ok" | "Ok" => {
                 self.check_builtin_arity("result_ok expects 1 argument (value)", args, 1, context);

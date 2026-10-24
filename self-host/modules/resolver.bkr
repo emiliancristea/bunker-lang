@@ -278,6 +278,16 @@
         if name == "hashmap_get_opt" { return true; }
         if name == "vec_get_opt" { return true; }
         if name == "vec_pop_opt" { return true; }
+        if name == "vec_contains" { return true; }
+        if name == "vec_is_empty" { return true; }
+        if name == "vec_clone" { return true; }
+        if name == "vec_reverse" { return true; }
+        if name == "hashmap_is_empty" { return true; }
+        if name == "hashmap_values" { return true; }
+        if name == "vec_map" { return true; }
+        if name == "vec_filter" { return true; }
+        if name == "vec_fold" { return true; }
+        if name == "vec_find" { return true; }
         if name == "Ok" { return true; }
         if name == "Err" { return true; }
         if name == "panic" { return true; }
