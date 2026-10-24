@@ -1,0 +1,15 @@
+// Test 145 (BAD): Unreachable Pattern After Catch-all
+// Purpose: Verify rejection when a match arm appears after an unguarded catch-all pattern.
+// Expected: Rejected by typechecker for unreachable match arm.
+
+kernel UnreachablePatternCatchallBad {
+    fn main() -> i64 {
+        let x: i64 = 42;
+        let res: i64 = match x {
+            1 => 10;
+            _ => 20;
+            2 => 30;
+        };
+        return res;
+    }
+}

@@ -1,0 +1,120 @@
+// Test 144: Comprehensive Pattern Type Checking
+// Purpose: Verify pattern type checking across bool, Option, Result,
+// unit-enum, payload-enum, tuple, struct, integer, and string patterns.
+// Expected: Returns 42
+
+kernel PatternTypeChecking {
+    enum Color {
+        Red,
+        Green,
+        Blue,
+    }
+
+    enum Shape {
+        Circle(i64),
+        Rect(i64, i64),
+        Point,
+    }
+
+    struct Point2D {
+        x: i64,
+        y: i64,
+    }
+
+    fn check_bool(b: bool) -> i64 {
+        let res: i64 = match b {
+            true => 5;
+            false => 2;
+        };
+        return res;
+    }
+
+    fn check_option(o: Option<i64>) -> i64 {
+        let res: i64 = match o {
+            Some(x) => x + 1;
+            None => 0;
+        };
+        return res;
+    }
+
+    fn check_result(r: Result<i64, str>) -> i64 {
+        let res: i64 = match r {
+            Ok(x) => x * 2;
+            Err(e) => 0;
+        };
+        return res;
+    }
+
+    fn check_unit_enum(c: Color) -> i64 {
+        let res: i64 = match c {
+            Color.Red => 10;
+            Color.Green => 20;
+            Color.Blue => 30;
+        };
+        return res;
+    }
+
+    fn check_payload_enum(s: Shape) -> i64 {
+        let res: i64 = match s {
+            Shape.Circle(r) => r;
+            Shape.Rect(w, h) => w + h;
+            Shape.Point => 0;
+        };
+        return res;
+    }
+
+    fn check_tuple(t: (i64, i64)) -> i64 {
+        let res: i64 = match t {
+            (a, b) => a + b;
+        };
+        return res;
+    }
+
+    fn check_struct(p: Point2D) -> i64 {
+        let res: i64 = match p {
+            Point2D { x, y } => x + y;
+        };
+        return res;
+    }
+
+    fn check_scalar(n: i64) -> i64 {
+        let res: i64 = match n {
+            1 => 10;
+            2 => 20;
+            _ => 3;
+        };
+        return res;
+    }
+
+    fn check_nested_opt(val: Option<Option<i64>>) -> i64 {
+        let res: i64 = match val {
+            Some(Some(x)) => x + 1;
+            Some(None) => 1;
+            None => 0;
+        };
+        return res;
+    }
+
+    fn main() -> i64 {
+        let v1 = check_bool(true);                         // 5
+        let v2 = check_option(Some(3));                     // 4
+        let v3 = check_result(result_ok(4));                // 8
+        let v4 = check_unit_enum(Color.Red);                // 10
+        let v5 = check_payload_enum(Shape.Rect(2, 2));      // 4
+        let v6 = check_tuple((3, 3));                       // 6
+        let v7 = check_struct(Point2D { x: 1, y: 1 });      // 2
+        let v8 = check_scalar(99);                          // 3
+        let v9 = check_nested_opt(Some(Some(1)));           // 2
+        // Total: 5 - 4 + 8 + 10 + 4 + 6 + 2 + (3 * 2) + (2 + 1) = 42
+        // 5 - 4 = 1
+        // 1 + 8 = 9
+        // 9 + 10 = 19
+        // 19 + 4 = 23
+        // 23 + 6 = 29
+        // 29 + 2 = 31
+        // 31 + 6 = 37
+        // 37 + 3 = 40
+        // Need + 2 -> 42
+        return (v1 - v2 + v3 + v4 + v5 + v6 + v7 + (v8 * 2) + (v9 + 1)) + 2;
+    }
+}

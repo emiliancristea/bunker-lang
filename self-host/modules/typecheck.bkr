@@ -937,10 +937,25 @@
     fn typecheck_pattern_expected_kind(pattern_ref: AstPatternRef) -> i64 {
         let pattern_kind: i64 = ast_pattern_ref_kind(pattern_ref);
         if pattern_kind == PAT_TUPLE { return TYPE_I64; }
-        if pattern_kind == PAT_STRUCT { return TYPE_I64; }
+        if pattern_kind == PAT_STRUCT { return TYPE_STRUCT; }
         if pattern_kind == PAT_INT { return TYPE_I64; }
         if pattern_kind == PAT_BOOL { return TYPE_BOOL; }
+        if pattern_kind == PAT_SOME || pattern_kind == PAT_NONE { return TYPE_OPTION; }
+        if pattern_kind == PAT_RESULT_OK || pattern_kind == PAT_RESULT_ERR { return TYPE_RESULT; }
         return TYPE_UNKNOWN;
+    }
+
+    fn typecheck_pattern_kinds_compatible(scrutinee_kind: i64, expected_kind: i64) -> bool {
+        if scrutinee_kind == TYPE_UNKNOWN || expected_kind == TYPE_UNKNOWN {
+            return true;
+        }
+        if scrutinee_kind == expected_kind {
+            return true;
+        }
+        if typecheck_is_integer_kind(scrutinee_kind) && typecheck_is_integer_kind(expected_kind) {
+            return true;
+        }
+        return false;
     }
 
     fn typecheck_check_match_patterns_ref(state: Vec<str>, patterns_ref: AstPatternListRef,
@@ -949,7 +964,7 @@
         while i < ast_pattern_list_ref_count(patterns_ref) {
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             let expected_kind: i64 = typecheck_pattern_expected_kind(pattern_ref);
-            if expected_kind != TYPE_UNKNOWN && !typecheck_value_kinds_compatible(scrutinee_kind, expected_kind) {
+            if expected_kind != TYPE_UNKNOWN && !typecheck_pattern_kinds_compatible(scrutinee_kind, expected_kind) {
                 state = resolver_state_append(state,
                     typecheck_diagnostic_span_json_with_type_context("match_pattern_type_mismatch",
                         "BKR_SELF_TYPE_MISMATCH",
@@ -1008,11 +1023,13 @@
                 repair_hint));
     }
 
-    fn typecheck_check_match_pattern_semantics_ref(state: Vec<str>, patterns_ref: AstPatternListRef,
+    fn typecheck_check_match_pattern_semantics_ref(state: Vec<str>, guards_ref: AstI64ListRef,
+                                                   patterns_ref: AstPatternListRef,
                                                    scope: str) -> Vec<str> {
         let catch_all_seen: bool = false;
         let i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
+            let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             if catch_all_seen {
                 state = typecheck_append_match_pattern_semantic_ref(state,
@@ -1024,23 +1041,28 @@
                     "previous catch-all pattern already matches",
                     "Remove this arm or move it before the catch-all pattern.");
             } else {
-                let j: i64 = 0;
-                while j < i {
-                    let previous_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, j);
-                    if typecheck_patterns_same_literal_ref(previous_ref, pattern_ref) {
-                        state = typecheck_append_match_pattern_semantic_ref(state,
-                            "duplicate_match_pattern",
-                            "match pattern " + int_to_string(i + 1),
-                            scope,
-                            pattern_ref,
-                            "unique match pattern",
-                            ast_pattern_kind_name(ast_pattern_ref_kind(pattern_ref)),
-                            "Remove the duplicate pattern or merge its arm with the first occurrence.");
+                if !has_guard {
+                    let j: i64 = 0;
+                    while j < i {
+                        let prev_has_guard: bool = j < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, j) != 0;
+                        if !prev_has_guard {
+                            let previous_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, j);
+                            if typecheck_patterns_same_literal_ref(previous_ref, pattern_ref) {
+                                state = typecheck_append_match_pattern_semantic_ref(state,
+                                    "duplicate_match_pattern",
+                                    "match pattern " + int_to_string(i + 1),
+                                    scope,
+                                    pattern_ref,
+                                    "unique match pattern",
+                                    ast_pattern_kind_name(ast_pattern_ref_kind(pattern_ref)),
+                                    "Remove the duplicate pattern or merge its arm with the first occurrence.");
+                            }
+                        }
+                        j = j + 1;
                     }
-                    j = j + 1;
-                }
-                if typecheck_pattern_is_catch_all_ref(pattern_ref) {
-                    catch_all_seen = true;
+                    if typecheck_pattern_is_catch_all_ref(pattern_ref) {
+                        catch_all_seen = true;
+                    }
                 }
             }
             i = i + 1;
@@ -1135,7 +1157,8 @@
                 "Add the missing boolean pattern arm or a catch-all pattern."));
     }
 
-    fn typecheck_check_bool_match_redundancy_ref(state: Vec<str>, patterns_ref: AstPatternListRef,
+    fn typecheck_check_bool_match_redundancy_ref(state: Vec<str>, guards_ref: AstI64ListRef,
+                                                 patterns_ref: AstPatternListRef,
                                                  scrutinee_kind: i64, scope: str) -> Vec<str> {
         if scrutinee_kind != TYPE_BOOL {
             return state;
@@ -1145,6 +1168,7 @@
         let exhausted: bool = false;
         let i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
+            let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             if exhausted {
                 state = typecheck_append_match_pattern_semantic_ref(state,
@@ -1156,14 +1180,16 @@
                     "previous bool patterns already cover true and false",
                     "Remove this arm or move it before the exhaustive bool patterns.");
             }
-            if ast_pattern_ref_kind(pattern_ref) == PAT_BOOL && ast_pattern_ref_value(pattern_ref) == 1 {
-                covers_true = true;
-            }
-            if ast_pattern_ref_kind(pattern_ref) == PAT_BOOL && ast_pattern_ref_value(pattern_ref) == 0 {
-                covers_false = true;
-            }
-            if covers_true && covers_false {
-                exhausted = true;
+            if !has_guard {
+                if ast_pattern_ref_kind(pattern_ref) == PAT_BOOL && ast_pattern_ref_value(pattern_ref) == 1 {
+                    covers_true = true;
+                }
+                if ast_pattern_ref_kind(pattern_ref) == PAT_BOOL && ast_pattern_ref_value(pattern_ref) == 0 {
+                    covers_false = true;
+                }
+                if covers_true && covers_false {
+                    exhausted = true;
+                }
             }
             i = i + 1;
         }
@@ -1201,7 +1227,8 @@
                 "Add the missing Option pattern arm or a catch-all pattern."));
     }
 
-    fn typecheck_check_option_match_redundancy_ref(state: Vec<str>, patterns_ref: AstPatternListRef,
+    fn typecheck_check_option_match_redundancy_ref(state: Vec<str>, guards_ref: AstI64ListRef,
+                                                   patterns_ref: AstPatternListRef,
                                                    scope: str) -> Vec<str> {
         if !typecheck_match_patterns_contain_option_ref(patterns_ref) {
             return state;
@@ -1211,6 +1238,7 @@
         let exhausted: bool = false;
         let i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
+            let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             if exhausted {
                 state = typecheck_append_match_pattern_semantic_ref(state,
@@ -1222,16 +1250,18 @@
                     "previous Option patterns already cover Some and None",
                     "Remove this arm or move it before the exhaustive Option patterns.");
             }
-            if ast_pattern_ref_kind(pattern_ref) == PAT_SOME {
-                if ast_pattern_ref_aux(pattern_ref) == 0 {
-                    covers_some = true;
+            if !has_guard {
+                if ast_pattern_ref_kind(pattern_ref) == PAT_SOME {
+                    if ast_pattern_ref_aux(pattern_ref) == 0 {
+                        covers_some = true;
+                    }
                 }
-            }
-            if ast_pattern_ref_kind(pattern_ref) == PAT_NONE {
-                covers_none = true;
-            }
-            if covers_some && covers_none {
-                exhausted = true;
+                if ast_pattern_ref_kind(pattern_ref) == PAT_NONE {
+                    covers_none = true;
+                }
+                if covers_some && covers_none {
+                    exhausted = true;
+                }
             }
             i = i + 1;
         }
@@ -1303,7 +1333,8 @@
                 "Add the missing Result pattern arm or a catch-all pattern."));
     }
 
-    fn typecheck_check_result_match_redundancy_ref(state: Vec<str>, patterns_ref: AstPatternListRef,
+    fn typecheck_check_result_match_redundancy_ref(state: Vec<str>, guards_ref: AstI64ListRef,
+                                                   patterns_ref: AstPatternListRef,
                                                    scope: str) -> Vec<str> {
         if !typecheck_match_patterns_contain_result_ref(patterns_ref) {
             return state;
@@ -1313,6 +1344,7 @@
         let exhausted: bool = false;
         let i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
+            let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             if exhausted {
                 state = typecheck_append_match_pattern_semantic_ref(state,
@@ -1324,18 +1356,20 @@
                     "previous Result patterns already cover Ok and Err",
                     "Remove this arm or move it before the exhaustive Result patterns.");
             }
-            if ast_pattern_ref_kind(pattern_ref) == PAT_RESULT_OK {
-                if ast_pattern_ref_aux(pattern_ref) == 0 {
-                    covers_ok = true;
+            if !has_guard {
+                if ast_pattern_ref_kind(pattern_ref) == PAT_RESULT_OK {
+                    if ast_pattern_ref_aux(pattern_ref) == 0 {
+                        covers_ok = true;
+                    }
                 }
-            }
-            if ast_pattern_ref_kind(pattern_ref) == PAT_RESULT_ERR {
-                if ast_pattern_ref_aux(pattern_ref) == 0 {
-                    covers_err = true;
+                if ast_pattern_ref_kind(pattern_ref) == PAT_RESULT_ERR {
+                    if ast_pattern_ref_aux(pattern_ref) == 0 {
+                        covers_err = true;
+                    }
                 }
-            }
-            if covers_ok && covers_err {
-                exhausted = true;
+                if covers_ok && covers_err {
+                    exhausted = true;
+                }
             }
             i = i + 1;
         }
@@ -1482,6 +1516,7 @@
     }
 
     fn typecheck_check_enum_match_redundancy_ref(state: Vec<str>, kernel_ref: AstNodeRef,
+                                                guards_ref: AstI64ListRef,
                                                 patterns_ref: AstPatternListRef,
                                                 scope: str) -> Vec<str> {
         if !typecheck_match_patterns_contain_enum_variant_ref(patterns_ref) {
@@ -1504,6 +1539,7 @@
         let exhausted: bool = false;
         let i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
+            let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             if exhausted {
                 state = typecheck_append_match_pattern_semantic_ref(state,
@@ -1515,19 +1551,21 @@
                     "previous enum patterns already cover every declared variant",
                     "Remove this arm or move it before the exhaustive enum patterns.");
             }
-            if ast_pattern_ref_kind(pattern_ref) == PAT_ENUM_VARIANT {
-                let variant_idx: i64 = ast_pattern_ref_aux(pattern_ref);
-                if ast_pattern_ref_value(pattern_ref) == enum_name_idx {
-                    if typecheck_enum_variant_is_declared_ref(variants_ref, variant_idx) {
-                        if !typecheck_match_patterns_cover_enum_variant_before_ref(patterns_ref,
-                                enum_name_idx, variant_idx, i) {
-                            covered = covered + 1;
+            if !has_guard {
+                if ast_pattern_ref_kind(pattern_ref) == PAT_ENUM_VARIANT {
+                    let variant_idx: i64 = ast_pattern_ref_aux(pattern_ref);
+                    if ast_pattern_ref_value(pattern_ref) == enum_name_idx {
+                        if typecheck_enum_variant_is_declared_ref(variants_ref, variant_idx) {
+                            if !typecheck_match_patterns_cover_enum_variant_before_ref(patterns_ref,
+                                    enum_name_idx, variant_idx, i) {
+                                covered = covered + 1;
+                            }
                         }
                     }
                 }
-            }
-            if covered >= variant_count {
-                exhausted = true;
+                if covered >= variant_count {
+                    exhausted = true;
+                }
             }
             i = i + 1;
         }
@@ -2020,7 +2058,8 @@
             let scrutinee_kind: i64 = typecheck_expr_ref_kind(cstate, scrutinee_ref);
             state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
                 scrutinee_ref, scope, expected_return_kind);
-            state = typecheck_check_match_pattern_semantics_ref(state,
+            let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
+            state = typecheck_check_match_pattern_semantics_ref(state, guards_ref,
                 ast_match_ref_patterns_ref(expr_ref), scope);
             state = typecheck_check_match_patterns_ref(state, ast_match_ref_patterns_ref(expr_ref),
                 scrutinee_kind, scope);
@@ -2034,15 +2073,14 @@
                 ast_match_ref_patterns_ref(expr_ref), scope);
             state = typecheck_check_scalar_match_exhaustiveness_ref(state, expr_ref,
                 ast_match_ref_patterns_ref(expr_ref), scrutinee_kind, scope);
-            state = typecheck_check_bool_match_redundancy_ref(state,
+            state = typecheck_check_bool_match_redundancy_ref(state, guards_ref,
                 ast_match_ref_patterns_ref(expr_ref), scrutinee_kind, scope);
-            state = typecheck_check_option_match_redundancy_ref(state,
+            state = typecheck_check_option_match_redundancy_ref(state, guards_ref,
                 ast_match_ref_patterns_ref(expr_ref), scope);
-            state = typecheck_check_result_match_redundancy_ref(state,
+            state = typecheck_check_result_match_redundancy_ref(state, guards_ref,
                 ast_match_ref_patterns_ref(expr_ref), scope);
-            state = typecheck_check_enum_match_redundancy_ref(state, kernel_ref,
+            state = typecheck_check_enum_match_redundancy_ref(state, kernel_ref, guards_ref,
                 ast_match_ref_patterns_ref(expr_ref), scope);
-            let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
             let k: i64 = 0;
             while k < ast_i64_list_ref_count(guards_ref) {
                 let guard_h: i64 = ast_i64_list_ref_get(guards_ref, k);

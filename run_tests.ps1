@@ -119,6 +119,7 @@ $expectedResults = @{
     "138_never_type" = 42
     "139_nested_patterns" = 42
     "140_exhaustive_matches" = 42
+    "144_pattern_type_checking" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)

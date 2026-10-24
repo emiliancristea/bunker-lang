@@ -308,14 +308,20 @@
         if raw == "read_file" { return TYPE_STR; }
         if raw == "write_file" { return TYPE_BOOL; }
         if raw == "file_exists" { return TYPE_BOOL; }
-        if raw == "result_ok" { return TYPE_I64; }
-        if raw == "result_err" { return TYPE_I64; }
+        if raw == "result_ok" { return TYPE_RESULT; }
+        if raw == "result_err" { return TYPE_RESULT; }
         if raw == "result_is_ok" { return TYPE_BOOL; }
         if raw == "result_is_err" { return TYPE_BOOL; }
         if raw == "result_unwrap" { return TYPE_I64; }
         if raw == "result_unwrap_err" { return TYPE_I64; }
         if raw == "result_tag" { return TYPE_I64; }
         if raw == "result_value" { return TYPE_I64; }
+        if raw == "hashmap_get_opt" { return TYPE_OPTION; }
+        if raw == "vec_get_opt" { return TYPE_OPTION; }
+        if raw == "vec_pop_opt" { return TYPE_OPTION; }
+        if raw == "read_file_result" { return TYPE_RESULT; }
+        if raw == "write_file_result" { return TYPE_RESULT; }
+        if raw == "parse_int_result" { return TYPE_RESULT; }
         if raw == "bkr_tuple2" { return TYPE_I64; }
         if raw == "bkr_tuple3" { return TYPE_I64; }
         if raw == "bkr_tuple_get" { return TYPE_I64; }
@@ -547,7 +553,10 @@
                 return TYPE_NEVER;
             }
             if raw == "Some" {
-                return TYPE_I64;
+                return TYPE_OPTION;
+            }
+            if raw == "Ok" || raw == "Err" {
+                return TYPE_RESULT;
             }
             let builtin_kind: i64 = builtin_return_type(raw);
             if builtin_kind != TYPE_UNKNOWN {

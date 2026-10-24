@@ -1147,7 +1147,7 @@ jobs:
           grep -q 'fn typecheck_check_enum_match_redundancy_ref' "$typecheck"
           grep -q 'previous bool patterns already cover true and false' "$typecheck"
           grep -q 'previous Option patterns already cover Some and None' "$typecheck"
-          grep -q 'previous unit-enum patterns already cover every declared variant' "$typecheck"
+          grep -q 'previous enum patterns already cover every declared variant' "$typecheck"
           grep -q 'json_field_bool("finite_match_redundancy_checks", true)' "$typecheck"
           grep -q 'fn typecheck_check_array_element_types_ref' "$typecheck"
           grep -q 'array_element_type_mismatch' "$typecheck"
@@ -2316,6 +2316,51 @@ jobs:
           test -s /tmp/143_scalar_match_nonexhaustive_BAD.c
           grep -q '"kind":"non_exhaustive_match"' /tmp/143_scalar_match_nonexhaustive_BAD.c
           grep -q "missing catch-all pattern" /tmp/143_scalar_match_nonexhaustive_BAD.c
+
+      - name: Verify 144_pattern_type_checking fixture executes in JIT
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/144_pattern_type_checking.bkr
+
+      - name: Compile pattern type checking fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/144_pattern_type_checking.bkr \
+            -o /tmp/144_pattern_type_checking.c
+          test -s /tmp/144_pattern_type_checking.c
+          grep -q "BUNKER_AST_JSON" /tmp/144_pattern_type_checking.c
+          grep -q '"has_diagnostics":false' /tmp/144_pattern_type_checking.c
+
+      - name: Compile 145_unreachable_pattern_catchall_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/145_unreachable_pattern_catchall_BAD.bkr \
+            -o /tmp/145_unreachable_pattern_catchall_BAD.c
+          test -s /tmp/145_unreachable_pattern_catchall_BAD.c
+          grep -q '"kind":"unreachable_match_pattern"' /tmp/145_unreachable_pattern_catchall_BAD.c
+          grep -q "previous catch-all pattern already matches" /tmp/145_unreachable_pattern_catchall_BAD.c
+
+      - name: Compile 146_unreachable_pattern_finite_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/146_unreachable_pattern_finite_BAD.bkr \
+            -o /tmp/146_unreachable_pattern_finite_BAD.c
+          test -s /tmp/146_unreachable_pattern_finite_BAD.c
+          grep -q '"kind":"unreachable_match_pattern"' /tmp/146_unreachable_pattern_finite_BAD.c
+          grep -q "previous bool patterns already cover true and false" /tmp/146_unreachable_pattern_finite_BAD.c
+
+      - name: Compile 147_duplicate_match_pattern_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/147_duplicate_match_pattern_BAD.bkr \
+            -o /tmp/147_duplicate_match_pattern_BAD.c
+          test -s /tmp/147_duplicate_match_pattern_BAD.c
+          grep -q '"kind":"duplicate_match_pattern"' /tmp/147_duplicate_match_pattern_BAD.c
+          grep -q "Remove the duplicate pattern or merge its arm" /tmp/147_duplicate_match_pattern_BAD.c
 
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2

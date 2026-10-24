@@ -609,11 +609,10 @@ impl TypeChecker {
                     self.variables = saved;
                     self.moved_vars = saved_moved;
                 }
+                self.check_match_semantics(arms, context);
                 self.check_enum_match(&expr_ty, arms, context);
                 self.check_option_match(&expr_ty, arms, context);
                 self.check_result_match(&expr_ty, arms, context);
-                self.check_bool_match(&expr_ty, arms, context);
-                self.check_scalar_match(&expr_ty, arms, context);
                 self.check_bool_match(&expr_ty, arms, context);
                 self.check_scalar_match(&expr_ty, arms, context);
                 Ok(None)
@@ -998,6 +997,7 @@ impl TypeChecker {
                         self.moved_vars = saved_moved;
                     }
                 }
+                self.check_match_semantics(arms, context);
                 self.check_enum_match(&expr_ty, arms, context);
                 self.check_option_match(&expr_ty, arms, context);
                 self.check_result_match(&expr_ty, arms, context);
@@ -1802,7 +1802,17 @@ impl TypeChecker {
 
         let mut seen = HashSet::new();
         let mut has_wildcard = false;
+        let mut exhausted = false;
         for arm in arms {
+            if exhausted {
+                self.errors.push(TypeError {
+                    message: format!(
+                        "Unreachable match arm: previous enum patterns already cover every declared variant of '{}'",
+                        enum_name
+                    ),
+                    location: context.to_string(),
+                });
+            }
             if arm.guard.is_some() {
                 continue;
             }
@@ -1824,8 +1834,12 @@ impl TypeChecker {
                 }
                 ast::Pattern::Ident(_) => {
                     has_wildcard = true;
+                    exhausted = true;
                 }
                 _ => {}
+            }
+            if variants.iter().all(|v| seen.contains(v)) {
+                exhausted = true;
             }
         }
 
@@ -1859,7 +1873,14 @@ impl TypeChecker {
         let mut seen_irrefutable_ok = false;
         let mut seen_irrefutable_err = false;
         let mut has_wildcard = false;
+        let mut exhausted = false;
         for arm in arms {
+            if exhausted {
+                self.errors.push(TypeError {
+                    message: "Unreachable match arm: previous Result patterns already cover Ok and Err".to_string(),
+                    location: context.to_string(),
+                });
+            }
             if arm.guard.is_some() {
                 continue;
             }
@@ -1890,8 +1911,12 @@ impl TypeChecker {
                 }
                 ast::Pattern::Ident(_) => {
                     has_wildcard = true;
+                    exhausted = true;
                 }
                 _ => {}
+            }
+            if seen_irrefutable_ok && seen_irrefutable_err {
+                exhausted = true;
             }
         }
         if has_wildcard {
@@ -1925,7 +1950,14 @@ impl TypeChecker {
         let mut seen_none = false;
         let mut seen_irrefutable_some = false;
         let mut has_wildcard = false;
+        let mut exhausted = false;
         for arm in arms {
+            if exhausted {
+                self.errors.push(TypeError {
+                    message: "Unreachable match arm: previous Option patterns already cover Some and None".to_string(),
+                    location: context.to_string(),
+                });
+            }
             if arm.guard.is_some() {
                 continue;
             }
@@ -1953,8 +1985,12 @@ impl TypeChecker {
                 }
                 ast::Pattern::Ident(_) => {
                     has_wildcard = true;
+                    exhausted = true;
                 }
                 _ => {}
+            }
+            if seen_irrefutable_some && seen_none {
+                exhausted = true;
             }
         }
         if has_wildcard {
@@ -1986,29 +2022,64 @@ impl TypeChecker {
         let mut seen_true = false;
         let mut seen_false = false;
         let mut has_wildcard = false;
+        let mut exhausted = false;
         for arm in arms {
+            if exhausted {
+                self.errors.push(TypeError {
+                    message: "Unreachable match arm: previous boolean patterns already cover true and false".to_string(),
+                    location: context.to_string(),
+                });
+            }
             if arm.guard.is_some() {
                 continue;
             }
             match &arm.pattern {
                 ast::Pattern::Bool(b) => {
                     if *b {
+                        if seen_true {
+                            self.errors.push(TypeError {
+                                message: "Duplicate match pattern 'true'".to_string(),
+                                location: context.to_string(),
+                            });
+                        }
                         seen_true = true;
                     } else {
+                        if seen_false {
+                            self.errors.push(TypeError {
+                                message: "Duplicate match pattern 'false'".to_string(),
+                                location: context.to_string(),
+                            });
+                        }
                         seen_false = true;
                     }
                 }
                 ast::Pattern::Literal(Literal::Bool(b)) => {
                     if *b {
+                        if seen_true {
+                            self.errors.push(TypeError {
+                                message: "Duplicate match pattern 'true'".to_string(),
+                                location: context.to_string(),
+                            });
+                        }
                         seen_true = true;
                     } else {
+                        if seen_false {
+                            self.errors.push(TypeError {
+                                message: "Duplicate match pattern 'false'".to_string(),
+                                location: context.to_string(),
+                            });
+                        }
                         seen_false = true;
                     }
                 }
                 ast::Pattern::Ident(_) => {
                     has_wildcard = true;
+                    exhausted = true;
                 }
                 _ => {}
+            }
+            if seen_true && seen_false {
+                exhausted = true;
             }
         }
         if has_wildcard {
@@ -2051,6 +2122,47 @@ impl TypeChecker {
                 ),
                 location: context.to_string(),
             });
+        }
+    }
+
+    fn check_match_semantics(&mut self, arms: &[ast::MatchArm], context: &str) {
+        let mut catch_all_seen = false;
+        let mut seen_int_literals: Vec<i64> = Vec::new();
+        let mut seen_str_literals: Vec<String> = Vec::new();
+        for arm in arms {
+            if catch_all_seen {
+                self.errors.push(TypeError {
+                    message: "Unreachable match arm: previous catch-all pattern already matches all values".to_string(),
+                    location: context.to_string(),
+                });
+            } else if arm.guard.is_none() {
+                match &arm.pattern {
+                    ast::Pattern::Literal(Literal::Int(n)) => {
+                        if seen_int_literals.contains(n) {
+                            self.errors.push(TypeError {
+                                message: format!("Duplicate match pattern '{}'", n),
+                                location: context.to_string(),
+                            });
+                        } else {
+                            seen_int_literals.push(*n);
+                        }
+                    }
+                    ast::Pattern::Literal(Literal::String(s)) => {
+                        if seen_str_literals.contains(s) {
+                            self.errors.push(TypeError {
+                                message: format!("Duplicate match pattern '\"{}\"'", s),
+                                location: context.to_string(),
+                            });
+                        } else {
+                            seen_str_literals.push(s.clone());
+                        }
+                    }
+                    ast::Pattern::Ident(_) => {
+                        catch_all_seen = true;
+                    }
+                    _ => {}
+                }
+            }
         }
     }
 
