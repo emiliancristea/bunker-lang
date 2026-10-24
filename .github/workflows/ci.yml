@@ -2547,6 +2547,21 @@ jobs:
           grep -q '"kind":"cast_type_mismatch"' /tmp/163_invalid_array_cast_BAD.c
           grep -q "Cast between compatible numeric types, bool, or between i64 and handle types." /tmp/163_invalid_array_cast_BAD.c
 
+      - name: Verify 164_user_defined_adt_option_result fixture executes in JIT
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/164_user_defined_adt_option_result.bkr
+
+      - name: Compile 164_user_defined_adt_option_result through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/164_user_defined_adt_option_result.bkr \
+            -o /tmp/164_user_defined_adt_option_result.c
+          test -s /tmp/164_user_defined_adt_option_result.c
+          grep -q "BUNKER_AST_JSON" /tmp/164_user_defined_adt_option_result.c
+          grep -q '"has_diagnostics":false' /tmp/164_user_defined_adt_option_result.c
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |
