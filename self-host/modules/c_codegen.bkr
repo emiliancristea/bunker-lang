@@ -413,11 +413,7 @@
         }
 
         if node_type == NODE_ARRAY_LIT {
-            let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
-            if ast_node_list_ref_count(elements_ref) > 0 {
-                return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(elements_ref, 0)));
-            }
-            return TYPE_UNKNOWN;
+            return TYPE_ARRAY;
         }
 
         if node_type == NODE_STRUCT_LIT {
@@ -435,8 +431,7 @@
         }
 
         if node_type == NODE_ARRAY_REPEAT {
-            let elem_ref: AstExprRef = ast_array_repeat_ref_elem_ref(expr_ref);
-            return infer_c_expr_ref_type(state, elem_ref);
+            return TYPE_ARRAY;
         }
 
         if node_type == NODE_INDEX {

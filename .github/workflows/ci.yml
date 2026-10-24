@@ -2562,6 +2562,31 @@ jobs:
           grep -q "BUNKER_AST_JSON" /tmp/164_user_defined_adt_option_result.c
           grep -q '"has_diagnostics":false' /tmp/164_user_defined_adt_option_result.c
 
+      - name: Verify 167_nested_structs_arrays fixture executes in JIT
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/167_nested_structs_arrays.bkr
+
+      - name: Compile 167_nested_structs_arrays through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/167_nested_structs_arrays.bkr \
+            -o /tmp/167_nested_structs_arrays.c
+          test -s /tmp/167_nested_structs_arrays.c
+          grep -q "BUNKER_AST_JSON" /tmp/167_nested_structs_arrays.c
+          grep -q '"has_diagnostics":false' /tmp/167_nested_structs_arrays.c
+
+      - name: Verify 168_invalid_nested_struct_field_BAD rejected by self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/168_invalid_nested_struct_field_BAD.bkr \
+            -o /tmp/168_invalid_nested_struct_field_BAD.c
+          test -s /tmp/168_invalid_nested_struct_field_BAD.c
+          grep -q '"kind":"struct_field_type_mismatch"' /tmp/168_invalid_nested_struct_field_BAD.c
+          grep -q "Change field pos for struct Transform to match the declared field type." /tmp/168_invalid_nested_struct_field_BAD.c
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

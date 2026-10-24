@@ -126,6 +126,7 @@ $expectedResults = @{
     "160_user_defined_enums_adt" = 42
     "161_cast_safety_rules" = 42
     "164_user_defined_adt_option_result" = 42
+    "167_nested_structs_arrays" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -329,7 +330,8 @@ if (-not $JitOnly) {
         "tests\160_user_defined_enums_adt.bkr",
         "tests\36_kernel_type_cast.bkr",
         "tests\161_cast_safety_rules.bkr",
-        "tests\164_user_defined_adt_option_result.bkr"
+        "tests\164_user_defined_adt_option_result.bkr",
+        "tests\167_nested_structs_arrays.bkr"
     )
 
     $subsetOk = $true
