@@ -139,6 +139,7 @@ $expectedResults = @{
     "194_constants_across_modules" = 42
     "195_namespace_collisions" = 42
     "197_forward_reference_modules" = 42
+    "198_attribute_semantics" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)

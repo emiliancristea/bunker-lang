@@ -1,5 +1,6 @@
 #[derive(Debug, Clone, PartialEq)]
 pub struct File {
+    pub attributes: Vec<Attribute>,
     pub kernels: Vec<Kernel>,
     pub shells: Vec<Shell>,
     pub views: Vec<View>,
@@ -12,6 +13,7 @@ pub struct File {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Kernel {
     pub name: String,
+    pub attributes: Vec<Attribute>,
     pub items: Vec<KernelItem>,
 }
 
@@ -29,6 +31,7 @@ pub enum KernelItem {
 pub struct TypeAliasDef {
     pub name: String,
     pub is_pub: bool,
+    pub attributes: Vec<Attribute>,
     pub target: Type,
 }
 
@@ -46,6 +49,7 @@ pub struct Function {
 pub struct StructDef {
     pub name: String,
     pub is_pub: bool,
+    pub attributes: Vec<Attribute>,
     pub fields: Vec<StructField>,
     pub is_tuple: bool,
 }
@@ -66,6 +70,7 @@ pub struct EnumVariantDecl {
 pub struct EnumDef {
     pub name: String,
     pub is_pub: bool,
+    pub attributes: Vec<Attribute>,
     pub variants: Vec<EnumVariantDecl>,
 }
 
@@ -82,6 +87,7 @@ impl EnumDef {
 pub struct ConstDef {
     pub name: String,
     pub is_pub: bool,
+    pub attributes: Vec<Attribute>,
     pub ty: Type,
     pub value: Expr,
 }
@@ -98,6 +104,34 @@ pub enum Attribute {
     UnsafeTrust,
     Requires(Expr),
     Ensures(Expr),
+    Inline(Option<String>),
+    Deprecated(Option<String>),
+    MustUse(Option<String>),
+    Test,
+    Version(String),
+    Other {
+        name: String,
+        args: Vec<Expr>,
+        value: Option<String>,
+    },
+}
+
+impl Attribute {
+    #[allow(dead_code)]
+    pub fn name(&self) -> &str {
+        match self {
+            Attribute::Verified => "verified",
+            Attribute::UnsafeTrust => "unsafe_trust",
+            Attribute::Requires(_) => "requires",
+            Attribute::Ensures(_) => "ensures",
+            Attribute::Inline(_) => "inline",
+            Attribute::Deprecated(_) => "deprecated",
+            Attribute::MustUse(_) => "must_use",
+            Attribute::Test => "test",
+            Attribute::Version(_) => "version",
+            Attribute::Other { name, .. } => name.as_str(),
+        }
+    }
 }
 
 // ====================

@@ -4,6 +4,7 @@ use pest::iterators::Pair;
 
 pub fn build_ast(pair: Pair<Rule>) -> Result<File, String> {
     let mut file = File {
+        attributes: vec![],
         kernels: vec![],
         shells: vec![],
         views: vec![],
@@ -11,6 +12,9 @@ pub fn build_ast(pair: Pair<Rule>) -> Result<File, String> {
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::inner_attribute => {
+                file.attributes.push(build_attribute(inner)?);
+            }
             Rule::kernel_block => {
                 file.kernels.push(build_kernel(inner)?);
             }
@@ -30,10 +34,14 @@ pub fn build_ast(pair: Pair<Rule>) -> Result<File, String> {
 
 fn build_kernel(pair: Pair<Rule>) -> Result<Kernel, String> {
     let mut name = String::new();
+    let mut attributes = vec![];
     let mut items = vec![];
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::attribute => {
+                attributes.push(build_attribute(inner)?);
+            }
             Rule::identifier => {
                 name = inner.as_str().to_string();
             }
@@ -46,7 +54,7 @@ fn build_kernel(pair: Pair<Rule>) -> Result<Kernel, String> {
         }
     }
 
-    Ok(Kernel { name, items })
+    Ok(Kernel { name, attributes, items })
 }
 
 fn build_kernel_item(pair: Pair<Rule>) -> Result<Option<KernelItem>, String> {
@@ -128,39 +136,118 @@ fn build_function(pair: Pair<Rule>) -> Result<Function, String> {
 }
 
 fn build_attribute(pair: Pair<Rule>) -> Result<Attribute, String> {
-    for inner in pair.into_inner() {
-        if inner.as_rule() != Rule::attribute_inner {
-            continue;
-        }
+    let mut attr_name = String::new();
+    let mut args = vec![];
+    let mut value = None;
 
-        let text = inner.as_str();
-        if text == "verified" {
-            return Ok(Attribute::Verified);
-        } else if text == "unsafe_trust" {
-            return Ok(Attribute::UnsafeTrust);
-        } else {
-            for attr_inner in inner.into_inner() {
-                match attr_inner.as_rule() {
-                    Rule::requires_attr => {
-                        for expr_pair in attr_inner.into_inner() {
-                            if expr_pair.as_rule() == Rule::expr {
-                                return Ok(Attribute::Requires(build_expr(expr_pair)?));
+    for inner in pair.into_inner() {
+        if inner.as_rule() == Rule::attribute_body {
+            for part in inner.into_inner() {
+                match part.as_rule() {
+                    Rule::attribute_name => {
+                        attr_name = part.as_str().to_string();
+                    }
+                    Rule::attribute_args => {
+                        for arg_pair in part.into_inner() {
+                            if arg_pair.as_rule() == Rule::attribute_arg {
+                                for expr_pair in arg_pair.into_inner() {
+                                    if expr_pair.as_rule() == Rule::expr {
+                                        args.push(build_expr(expr_pair)?);
+                                    }
+                                }
                             }
                         }
                     }
-                    Rule::ensures_attr => {
-                        for expr_pair in attr_inner.into_inner() {
-                            if expr_pair.as_rule() == Rule::expr {
-                                return Ok(Attribute::Ensures(build_expr(expr_pair)?));
-                            }
-                        }
+                    Rule::string_literal => {
+                        let s = part.as_str();
+                        let unquoted = if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
+                            &s[1..s.len() - 1]
+                        } else {
+                            s
+                        };
+                        value = Some(unquoted.to_string());
+                    }
+                    Rule::identifier | Rule::integer => {
+                        value = Some(part.as_str().to_string());
                     }
                     _ => {}
                 }
             }
         }
     }
-    Err("Unknown attribute".to_string())
+
+    match attr_name.as_str() {
+        "verified" => Ok(Attribute::Verified),
+        "unsafe_trust" => Ok(Attribute::UnsafeTrust),
+        "test" => Ok(Attribute::Test),
+        "requires" => {
+            if args.is_empty() {
+                Err("requires attribute missing expression".to_string())
+            } else {
+                Ok(Attribute::Requires(args.remove(0)))
+            }
+        }
+        "ensures" => {
+            if args.is_empty() {
+                Err("ensures attribute missing expression".to_string())
+            } else {
+                Ok(Attribute::Ensures(args.remove(0)))
+            }
+        }
+        "inline" => {
+            let mode = if let Some(first) = args.first() {
+                match first {
+                    Expr::Ident(s) => Some(s.clone()),
+                    Expr::Literal(Literal::String(s)) => Some(s.clone()),
+                    _ => None,
+                }
+            } else {
+                value.clone()
+            };
+            Ok(Attribute::Inline(mode))
+        }
+        "deprecated" => {
+            let msg = if let Some(first) = args.first() {
+                match first {
+                    Expr::Literal(Literal::String(s)) => Some(s.clone()),
+                    _ => None,
+                }
+            } else {
+                value.clone()
+            };
+            Ok(Attribute::Deprecated(msg))
+        }
+        "must_use" => {
+            let msg = if let Some(first) = args.first() {
+                match first {
+                    Expr::Literal(Literal::String(s)) => Some(s.clone()),
+                    _ => None,
+                }
+            } else {
+                value.clone()
+            };
+            Ok(Attribute::MustUse(msg))
+        }
+        "version" => {
+            let ver = if let Some(val) = value {
+                val
+            } else if let Some(first) = args.first() {
+                match first {
+                    Expr::Literal(Literal::String(s)) => s.clone(),
+                    Expr::Ident(s) => s.clone(),
+                    _ => "".to_string(),
+                }
+            } else {
+                "".to_string()
+            };
+            Ok(Attribute::Version(ver))
+        }
+        _ => Ok(Attribute::Other {
+            name: attr_name,
+            args,
+            value,
+        }),
+    }
 }
 
 fn build_param_list(pair: Pair<Rule>) -> Result<Vec<Param>, String> {
@@ -346,11 +433,15 @@ fn build_type(pair: Pair<Rule>) -> Result<Type, String> {
 fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
     let mut name = String::new();
     let mut is_pub = false;
+    let mut attributes = vec![];
     let mut fields = vec![];
     let mut is_tuple = false;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::attribute => {
+                attributes.push(build_attribute(inner)?);
+            }
             Rule::visibility => {
                 is_pub = true;
             }
@@ -385,16 +476,20 @@ fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
         }
     }
 
-    Ok(StructDef { name, is_pub, fields, is_tuple })
+    Ok(StructDef { name, is_pub, attributes, fields, is_tuple })
 }
 
 fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
     let mut name = String::new();
     let mut is_pub = false;
+    let mut attributes = vec![];
     let mut variants = vec![];
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::attribute => {
+                attributes.push(build_attribute(inner)?);
+            }
             Rule::visibility => {
                 is_pub = true;
             }
@@ -430,7 +525,7 @@ fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
         }
     }
 
-    Ok(EnumDef { name, is_pub, variants })
+    Ok(EnumDef { name, is_pub, attributes, variants })
 }
 
 fn build_struct_field(pair: Pair<Rule>) -> Result<StructField, String> {
@@ -455,11 +550,15 @@ fn build_struct_field(pair: Pair<Rule>) -> Result<StructField, String> {
 fn build_const(pair: Pair<Rule>) -> Result<ConstDef, String> {
     let mut name = String::new();
     let mut is_pub = false;
+    let mut attributes = vec![];
     let mut ty = Type::I32;
     let mut value = Expr::Literal(Literal::Int(0));
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::attribute => {
+                attributes.push(build_attribute(inner)?);
+            }
             Rule::visibility => {
                 is_pub = true;
             }
@@ -476,16 +575,20 @@ fn build_const(pair: Pair<Rule>) -> Result<ConstDef, String> {
         }
     }
 
-    Ok(ConstDef { name, is_pub, ty, value })
+    Ok(ConstDef { name, is_pub, attributes, ty, value })
 }
 
 fn build_type_alias(pair: Pair<Rule>) -> Result<TypeAliasDef, String> {
     let mut name = String::new();
     let mut is_pub = false;
+    let mut attributes = vec![];
     let mut target = None;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::attribute => {
+                attributes.push(build_attribute(inner)?);
+            }
             Rule::visibility => {
                 is_pub = true;
             }
@@ -500,7 +603,7 @@ fn build_type_alias(pair: Pair<Rule>) -> Result<TypeAliasDef, String> {
     }
 
     let target = target.ok_or_else(|| format!("type alias '{}' missing target type", name))?;
-    Ok(TypeAliasDef { name, is_pub, target })
+    Ok(TypeAliasDef { name, is_pub, attributes, target })
 }
 
 fn build_block(pair: Pair<Rule>) -> Result<Block, String> {

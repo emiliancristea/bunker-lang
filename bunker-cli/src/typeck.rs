@@ -51,6 +51,12 @@ pub struct TypeChecker {
     declaring_kernels: HashMap<String, Vec<String>>,
     // Registered kernels to avoid double-registration
     registered_kernels: HashSet<String>,
+    // Functions marked with #[must_use] (optional message)
+    must_use_functions: HashMap<String, Option<String>>,
+    // Symbols marked with #[deprecated] (optional message)
+    deprecated_symbols: HashMap<String, Option<String>>,
+    // Detected or validated language version
+    pub language_version: Option<String>,
     // Strict mutability mode
     pub strict_mutability: bool,
 }
@@ -159,6 +165,9 @@ impl TypeChecker {
             symbol_visibility: HashMap::new(),
             declaring_kernels: HashMap::new(),
             registered_kernels: HashSet::new(),
+            must_use_functions: HashMap::new(),
+            deprecated_symbols: HashMap::new(),
+            language_version: None,
             strict_mutability: true,
         };
         // Register built-in functions
@@ -173,6 +182,40 @@ impl TypeChecker {
         tc.functions
             .insert("assert".to_string(), (vec![Type::Bool], None));
         tc
+    }
+
+    pub fn check_attributes(&mut self, attributes: &[ast::Attribute], context: &str) {
+        for attr in attributes {
+            match attr {
+                ast::Attribute::Verified
+                | ast::Attribute::UnsafeTrust
+                | ast::Attribute::Requires(_)
+                | ast::Attribute::Ensures(_)
+                | ast::Attribute::Inline(_)
+                | ast::Attribute::Deprecated(_)
+                | ast::Attribute::MustUse(_)
+                | ast::Attribute::Test => {}
+                ast::Attribute::Version(ref ver) => {
+                    if ver != "0.1" && ver != "1.0" && ver != "2026" {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Unsupported language version '{}', expected '0.1' or '1.0'",
+                                ver
+                            ),
+                            location: context.to_string(),
+                        });
+                    } else if self.language_version.is_none() {
+                        self.language_version = Some(ver.clone());
+                    }
+                }
+                ast::Attribute::Other { name, .. } => {
+                    self.errors.push(TypeError {
+                        message: format!("Unsupported attribute '{}'", name),
+                        location: context.to_string(),
+                    });
+                }
+            }
+        }
     }
 
     pub fn check_visibility(&mut self, symbol_name: &str, context: &str) {
@@ -254,9 +297,11 @@ impl TypeChecker {
     }
 
     pub fn register_kernel_declarations(&mut self, kernel: &ast::Kernel) {
+        self.check_attributes(&kernel.attributes, &kernel.name);
         // Collect all type aliases
         for item in &kernel.items {
             if let ast::KernelItem::TypeAlias(a) = item {
+                self.check_attributes(&a.attributes, &a.name);
                 if self.type_aliases.contains_key(&a.name) {
                     self.errors.push(TypeError {
                         message: format!("Duplicate type alias '{}'", a.name),
@@ -276,6 +321,13 @@ impl TypeChecker {
             match item {
                 ast::KernelItem::TypeAlias(_) => {}
                 ast::KernelItem::Struct(s) => {
+                    self.check_attributes(&s.attributes, &s.name);
+                    for attr in &s.attributes {
+                        if let ast::Attribute::Deprecated(msg) = attr {
+                            self.deprecated_symbols.insert(s.name.clone(), msg.clone());
+                            self.deprecated_symbols.insert(format!("{}::{}", kernel.name, s.name), msg.clone());
+                        }
+                    }
                     let fields: Vec<(String, Type)> = s
                         .fields
                         .iter()
@@ -300,6 +352,13 @@ impl TypeChecker {
                     self.declaring_kernels.entry(s.name.clone()).or_default().push(kernel.name.clone());
                 }
                 ast::KernelItem::Enum(e) => {
+                    self.check_attributes(&e.attributes, &e.name);
+                    for attr in &e.attributes {
+                        if let ast::Attribute::Deprecated(msg) = attr {
+                            self.deprecated_symbols.insert(e.name.clone(), msg.clone());
+                            self.deprecated_symbols.insert(format!("{}::{}", kernel.name, e.name), msg.clone());
+                        }
+                    }
                     if self.structs.contains_key(&e.name) {
                         self.errors.push(TypeError {
                             message: format!("Name '{}' is already declared as a struct", e.name),
@@ -343,6 +402,17 @@ impl TypeChecker {
                     self.declaring_kernels.entry(e.name.clone()).or_default().push(kernel.name.clone());
                 }
                 ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f) => {
+                    self.check_attributes(&f.attributes, &f.name);
+                    for attr in &f.attributes {
+                        if let ast::Attribute::MustUse(msg) = attr {
+                            self.must_use_functions.insert(f.name.clone(), msg.clone());
+                            self.must_use_functions.insert(format!("{}::{}", kernel.name, f.name), msg.clone());
+                        }
+                        if let ast::Attribute::Deprecated(msg) = attr {
+                            self.deprecated_symbols.insert(f.name.clone(), msg.clone());
+                            self.deprecated_symbols.insert(format!("{}::{}", kernel.name, f.name), msg.clone());
+                        }
+                    }
                     self.symbol_visibility.insert(f.name.clone(), (kernel.name.clone(), f.is_pub));
                     self.symbol_visibility.insert(format!("{}::{}", kernel.name, f.name), (kernel.name.clone(), f.is_pub));
                     let param_types: Vec<Type> = f.params.iter().map(|p| self.resolve_alias(&p.ty)).collect();
@@ -353,6 +423,13 @@ impl TypeChecker {
                     self.declaring_kernels.entry(f.name.clone()).or_default().push(kernel.name.clone());
                 }
                 ast::KernelItem::Const(c) => {
+                    self.check_attributes(&c.attributes, &c.name);
+                    for attr in &c.attributes {
+                        if let ast::Attribute::Deprecated(msg) = attr {
+                            self.deprecated_symbols.insert(c.name.clone(), msg.clone());
+                            self.deprecated_symbols.insert(format!("{}::{}", kernel.name, c.name), msg.clone());
+                        }
+                    }
                     self.symbol_visibility.insert(c.name.clone(), (kernel.name.clone(), c.is_pub));
                     self.symbol_visibility.insert(format!("{}::{}", kernel.name, c.name), (kernel.name.clone(), c.is_pub));
                     self.constants.insert(c.name.clone());
@@ -757,6 +834,36 @@ impl TypeChecker {
             }
             Stmt::Expr(expr) => {
                 let ty = self.infer_expr(expr, context)?;
+                if let Expr::Call { func, .. } = expr {
+                    let called_name = match func.as_ref() {
+                        Expr::Ident(name) => Some(name.clone()),
+                        Expr::Field { field, .. } => Some(field.clone()),
+                        _ => None,
+                    };
+                    if let Some(name) = called_name {
+                        let short_name = name.split("::").last().unwrap_or(&name);
+                        if let Some(reason) = self
+                            .must_use_functions
+                            .get(&name)
+                            .or_else(|| self.must_use_functions.get(short_name))
+                        {
+                            let msg = match reason {
+                                Some(r) => format!(
+                                    "Unused return value from function '{}' marked with #[must_use]: {}",
+                                    name, r
+                                ),
+                                None => format!(
+                                    "Unused return value from function '{}' marked with #[must_use]",
+                                    name
+                                ),
+                            };
+                            self.errors.push(TypeError {
+                                message: msg,
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
                 Ok(Some(ty))
             }
             Stmt::Match { expr, arms } => {
@@ -825,6 +932,21 @@ impl TypeChecker {
             Expr::Literal(lit) => Ok(self.literal_type(lit)),
             Expr::Ident(name) => {
                 self.check_visibility(name, context);
+                let short_name = name.split("::").last().unwrap_or(name);
+                if let Some(reason) = self
+                    .deprecated_symbols
+                    .get(name)
+                    .or_else(|| self.deprecated_symbols.get(short_name))
+                {
+                    let msg = match reason {
+                        Some(r) => format!("Use of deprecated symbol '{}': {}", name, r),
+                        None => format!("Use of deprecated symbol '{}'", name),
+                    };
+                    self.errors.push(TypeError {
+                        message: msg,
+                        location: context.to_string(),
+                    });
+                }
                 if !name.contains("::") && name != "main" {
                     if let Some(kernels) = self.declaring_kernels.get(name) {
                         if kernels.len() > 1 && !kernels.contains(&self.current_kernel) && !self.current_kernel.is_empty() {
@@ -952,6 +1074,21 @@ impl TypeChecker {
                 }
                 if let Expr::Ident(name) = func.as_ref() {
                     self.check_visibility(name, context);
+                    let short_name = name.split("::").last().unwrap_or(name);
+                    if let Some(reason) = self
+                        .deprecated_symbols
+                        .get(name)
+                        .or_else(|| self.deprecated_symbols.get(short_name))
+                    {
+                        let msg = match reason {
+                            Some(r) => format!("Use of deprecated function '{}': {}", name, r),
+                            None => format!("Use of deprecated function '{}'", name),
+                        };
+                        self.errors.push(TypeError {
+                            message: msg,
+                            location: context.to_string(),
+                        });
+                    }
                     if !name.contains("::") && name != "main" {
                         if let Some(kernels) = self.declaring_kernels.get(name) {
                             if kernels.len() > 1 && !kernels.contains(&self.current_kernel) && !self.current_kernel.is_empty() {
@@ -3792,12 +3929,20 @@ pub fn check_file_with_strict_mutability(
     let mut checker = TypeChecker::new();
     checker.strict_mutability = strict_mutability;
 
+    // Validate file-level attributes and language version
+    checker.check_attributes(&file.attributes, "file");
+    if checker.language_version.is_none() {
+        checker.language_version = Some("1.0".to_string());
+    }
+    all_errors.extend(checker.errors.drain(..));
+
     // Pass 1: register all kernel declarations across all kernels
     for kernel in &file.kernels {
         if checker.registered_kernels.insert(kernel.name.clone()) {
             checker.register_kernel_declarations(kernel);
         }
     }
+    all_errors.extend(checker.errors.drain(..));
 
     // Pass 2: typecheck all kernels
     for kernel in &file.kernels {
