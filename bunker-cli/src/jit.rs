@@ -4358,6 +4358,74 @@ fn compile_expr_inline(
                 } else {
                     Err(anyhow!("Undefined function: {}", name))
                 }
+            } else if let ast::Expr::Field { expr, field } = func.as_ref() {
+                let base_ty = infer_expr_type(expr, var_types, structs, fn_sigs);
+                let struct_name = match &base_ty {
+                    ast::Type::Named(name) => Some(name.clone()),
+                    _ => None,
+                };
+                if let Some(sname) = struct_name {
+                    let method_name = format!("{}::{}", sname, field);
+                    if let Some(&func_id) = functions.get(&method_name) {
+                        let (param_types, has_return) = {
+                            let decl = module.declarations().get_function_decl(func_id);
+                            (
+                                decl.signature
+                                    .params
+                                    .iter()
+                                    .map(|p| p.value_type)
+                                    .collect::<Vec<_>>(),
+                                !decl.signature.returns.is_empty(),
+                            )
+                        };
+
+                        let func_ref = module.declare_func_in_func(func_id, builder.func);
+                        let mut full_args = vec![expr.as_ref().clone()];
+                        full_args.extend(args.iter().cloned());
+
+                        let mut arg_vals = vec![];
+                        for (i, arg) in full_args.iter().enumerate() {
+                            let Some(param_ty) = param_types.get(i).copied() else {
+                                return Err(anyhow!(
+                                    "Too many arguments in call to {} (expected {}, got {})",
+                                    method_name,
+                                    param_types.len(),
+                                    full_args.len()
+                                ));
+                            };
+
+                            let val = compile_expr_inline(
+                                builder,
+                                module,
+                                alloc_func,
+                                arena_push_func,
+                                arena_pop_func,
+                                functions,
+                                structs,
+                                fn_sigs,
+                                variables,
+                                var_types,
+                                var_index,
+                                defer_stack,
+                                arg,
+                            )?;
+                            arg_vals.push(cast_value(builder, val, param_ty));
+                        }
+
+                        let call = builder.ins().call(func_ref, &arg_vals);
+                        let results = builder.inst_results(call);
+
+                        if !has_return || results.is_empty() {
+                            Ok(builder.ins().iconst(types::I32, 0))
+                        } else {
+                            Ok(results[0])
+                        }
+                    } else {
+                        Err(anyhow!("Undefined method: {}", method_name))
+                    }
+                } else {
+                    Err(anyhow!("Cannot call method '{}' on non-struct type {:?}", field, base_ty))
+                }
             } else {
                 Err(anyhow!("Invalid function call"))
             }
@@ -5310,6 +5378,14 @@ fn infer_expr_type(
                 }
                 if let Some((_, ret)) = fn_sigs.get(name) {
                     return ret.clone().unwrap_or(ast::Type::I32);
+                }
+            } else if let ast::Expr::Field { expr: recv, field } = func.as_ref() {
+                let base_ty = infer_expr_type(recv, var_types, structs, fn_sigs);
+                if let ast::Type::Named(struct_name) = &base_ty {
+                    let method_name = format!("{}::{}", struct_name, field);
+                    if let Some((_, ret)) = fn_sigs.get(&method_name) {
+                        return ret.clone().unwrap_or(ast::Type::I32);
+                    }
                 }
             }
             ast::Type::I32

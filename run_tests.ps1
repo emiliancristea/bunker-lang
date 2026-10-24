@@ -127,6 +127,9 @@ $expectedResults = @{
     "161_cast_safety_rules" = 42
     "164_user_defined_adt_option_result" = 42
     "167_nested_structs_arrays" = 42
+    "169_typed_vec_complete" = 42
+    "170_typed_hashmap_str_keys" = 42
+    "173_struct_methods" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -333,7 +336,8 @@ if (-not $JitOnly) {
         "tests\164_user_defined_adt_option_result.bkr",
         "tests\167_nested_structs_arrays.bkr",
         "tests\169_typed_vec_complete.bkr",
-        "tests\170_typed_hashmap_str_keys.bkr"
+        "tests\170_typed_hashmap_str_keys.bkr",
+        "tests\173_struct_methods.bkr"
     )
 
     $subsetOk = $true

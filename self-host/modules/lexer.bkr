@@ -191,6 +191,7 @@
                 if !handled && c == 62 && c2 == 62 { tok_type = TOK_SHR; pos = pos + 2; handled = true; }
                 if !handled && c == 38 && c2 == 38 { tok_type = TOK_AND; pos = pos + 2; handled = true; }
                 if !handled && c == 124 && c2 == 124 { tok_type = TOK_OR; pos = pos + 2; handled = true; }
+                if !handled && c == 58 && c2 == 58 { tok_type = TOK_COLON_COLON; pos = pos + 2; handled = true; }
                 if handled {
                     vec_push(tokens, tok_type);
                     vec_push(tokens, start);

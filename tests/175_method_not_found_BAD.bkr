@@ -1,0 +1,16 @@
+// Test 175: Method Not Found on Struct (Q-258, D-004, T-020)
+// Purpose: Ensure typechecker rejects calling a method that is not defined on the struct.
+// Expected: Typecheck error (No method found on struct)
+
+kernel MethodNotFoundBad {
+    struct Point {
+        x: i32,
+        y: i32
+    }
+
+    fn main() -> i32 {
+        let p: Point = Point { x: 1, y: 2 };
+        let z: i32 = p.unknown_method();
+        return 0;
+    }
+}

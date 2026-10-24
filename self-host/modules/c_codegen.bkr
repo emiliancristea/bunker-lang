@@ -563,6 +563,30 @@
             return TYPE_UNKNOWN;
         }
 
+        if node_type == NODE_METHOD_CALL {
+            let receiver_ref: AstExprRef = ast_method_call_ref_receiver_ref(expr_ref);
+            let struct_name_idx: i64 = -1;
+            if ast_expr_ref_kind(receiver_ref) == NODE_IDENT {
+                struct_name_idx = cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(receiver_ref));
+            }
+            if struct_name_idx >= 0 {
+                let names: Vec<str> = cgen_names_ref(state);
+                let struct_name: str = name_from_table(names, struct_name_idx);
+                let method_name: str = name_from_table(names, ast_method_call_ref_method_name_idx(expr_ref));
+                let full_name: str = struct_name + "::" + method_name;
+                let full_name_idx: i64 = cgen_intern_name_ref(state, full_name);
+                let fn_type: i64 = cgen_lookup_fn_type_ref(state, full_name_idx);
+                if fn_type != TYPE_UNKNOWN {
+                    return fn_type;
+                }
+                let fn_ret_type_ref: AstTypeRef = cgen_lookup_fn_ret_type_info_ref(state, full_name_idx);
+                if ast_type_ref_is_some(fn_ret_type_ref) {
+                    return ast_type_ref_kind_value(fn_ret_type_ref);
+                }
+            }
+            return TYPE_UNKNOWN;
+        }
+
         if node_type == NODE_CALL {
             let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
             let names: Vec<str> = cgen_names_ref(state);
@@ -1193,6 +1217,33 @@
 
         if node_type == NODE_MATCH {
             return gen_c_match_expr_ref(state, expr_ref);
+        }
+
+        if node_type == NODE_METHOD_CALL {
+            let receiver_ref: AstExprRef = ast_method_call_ref_receiver_ref(expr_ref);
+            let struct_name_idx: i64 = -1;
+            if ast_expr_ref_kind(receiver_ref) == NODE_IDENT {
+                struct_name_idx = cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(receiver_ref));
+            }
+            let names: Vec<str> = cgen_names_ref(state);
+            let struct_name: str = "";
+            if struct_name_idx >= 0 {
+                struct_name = name_from_table(names, struct_name_idx);
+            }
+            let method_name: str = name_from_table(names, ast_method_call_ref_method_name_idx(expr_ref));
+            let full_name: str = struct_name + "::" + method_name;
+            let full_name_idx: i64 = cgen_intern_name_ref(state, full_name);
+            let fn_c_name: str = name_to_c_ref(state, full_name_idx);
+            let receiver_c: str = gen_c_expr_ref(state, receiver_ref);
+            let args_ref: AstNodeListRef = ast_method_call_ref_args_ref(expr_ref);
+            let arg_count: i64 = ast_node_list_ref_count(args_ref);
+            let arg_str: str = receiver_c;
+            let j: i64 = 0;
+            while j < arg_count {
+                arg_str = arg_str + ", " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, j)));
+                j = j + 1;
+            }
+            return fn_c_name + "(" + arg_str + ")";
         }
 
         if node_type == NODE_CALL {

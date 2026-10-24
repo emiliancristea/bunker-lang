@@ -1,0 +1,11 @@
+// Test 174: Method Call on Non-Struct (Q-258, D-004, T-020)
+// Purpose: Ensure typechecker rejects method calls on non-struct types.
+// Expected: Typecheck error (Cannot call method on non-struct type)
+
+kernel MethodOnNonStructBad {
+    fn main() -> i32 {
+        let x: i32 = 10;
+        let y: i32 = x.foo();
+        return 0;
+    }
+}

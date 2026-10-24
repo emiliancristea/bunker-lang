@@ -61,6 +61,14 @@
         args: i64
     }
 
+    struct AstMethodCall {
+        start: i64,
+        end: i64,
+        receiver: i64,
+        method_name_idx: i64,
+        args: i64
+    }
+
     struct AstIndex {
         start: i64,
         end: i64,
@@ -1266,6 +1274,34 @@
         return ast_call_args_ref(ast_expr_node_from_ref(expr_ref));
     }
 
+    fn ast_method_call_receiver_handle(node: Vec<i64>) -> i64 {
+        return ast_field(node, 1);
+    }
+
+    fn ast_method_call_ref_receiver_handle(expr_ref: AstExprRef) -> i64 {
+        return ast_method_call_receiver_handle(ast_expr_node_from_ref(expr_ref));
+    }
+
+    fn ast_method_call_ref_receiver_ref(expr_ref: AstExprRef) -> AstExprRef {
+        return ast_expr_ref_from_handle(ast_method_call_receiver_handle(ast_expr_node_from_ref(expr_ref)));
+    }
+
+    fn ast_method_call_method_name_idx(node: Vec<i64>) -> i64 {
+        return ast_field(node, 2);
+    }
+
+    fn ast_method_call_ref_method_name_idx(expr_ref: AstExprRef) -> i64 {
+        return ast_method_call_method_name_idx(ast_expr_node_from_ref(expr_ref));
+    }
+
+    fn ast_method_call_args_ref(node: Vec<i64>) -> AstNodeListRef {
+        return ast_field_node_list_ref(node, 3);
+    }
+
+    fn ast_method_call_ref_args_ref(expr_ref: AstExprRef) -> AstNodeListRef {
+        return ast_method_call_args_ref(ast_expr_node_from_ref(expr_ref));
+    }
+
     fn ast_array_elements(node: Vec<i64>) -> Vec<i64> {
         return ast_node_list_from_ref(ast_array_elements_ref(node));
     }
@@ -1340,6 +1376,10 @@
 
     fn ast_field_access_ref_base_handle(expr_ref: AstExprRef) -> i64 {
         return ast_field_base_handle(ast_expr_node_from_ref(expr_ref));
+    }
+
+    fn ast_field_access_ref_base_ref(expr_ref: AstExprRef) -> AstExprRef {
+        return ast_expr_ref_from_handle(ast_field_access_ref_base_handle(expr_ref));
     }
 
     fn ast_field_name_idx(node: Vec<i64>) -> i64 {
@@ -2592,8 +2632,64 @@
         return ast_expr_node_from_ref(ast_call_ref(name_idx, ast_node_list_ref_from_list(args)));
     }
 
+    fn ast_method_call_record(receiver: i64, method_name_idx: i64, args: i64) -> AstMethodCall {
+        return AstMethodCall {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            receiver: receiver,
+            method_name_idx: method_name_idx,
+            args: args
+        };
+    }
+
+    fn ast_method_call_pack(call: AstMethodCall) -> Vec<i64> {
+        let node: Vec<i64> = vec_new();
+        vec_push(node, NODE_METHOD_CALL);
+        vec_push(node, call.start);
+        vec_push(node, call.end);
+        vec_push(node, call.receiver);
+        vec_push(node, call.method_name_idx);
+        vec_push(node, call.args);
+        return node;
+    }
+
+    fn ast_method_call_unpack(node: Vec<i64>) -> AstMethodCall {
+        let receiver: i64 = 0;
+        let method_name_idx: i64 = 0;
+        let args: i64 = 0;
+        if vec_len(node) > AST_NODE_DATA_START {
+            receiver = vec_get(node, AST_NODE_DATA_START);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 1 {
+            method_name_idx = vec_get(node, AST_NODE_DATA_START + 1);
+        }
+        if vec_len(node) > AST_NODE_DATA_START + 2 {
+            args = vec_get(node, AST_NODE_DATA_START + 2);
+        }
+        return AstMethodCall {
+            start: vec_get(node, AST_NODE_SPAN_START_INDEX),
+            end: vec_get(node, AST_NODE_SPAN_END_INDEX),
+            receiver: receiver,
+            method_name_idx: method_name_idx,
+            args: args
+        };
+    }
+
+    fn ast_method_call_ref(receiver_ref: AstExprRef, method_name_idx: i64, args_ref: AstNodeListRef) -> AstExprRef {
+        let rec: AstMethodCall = ast_method_call_record(ast_expr_ref_handle(receiver_ref), method_name_idx, ast_node_list_ref_handle(args_ref));
+        return ast_expr_ref_from_handle(ast_method_call_pack(rec) as i64);
+    }
+
+    fn ast_method_call(receiver: Vec<i64>, method_name_idx: i64, args: Vec<i64>) -> Vec<i64> {
+        return ast_expr_node_from_ref(ast_method_call_ref(ast_expr_ref_from_node(receiver), method_name_idx, ast_node_list_ref_from_list(args)));
+    }
+
     fn ast_ident_ref(name_idx: i64) -> AstExprRef {
         return ast_atom_expr_ref(NodeKind.Ident, name_idx);
+    }
+
+    fn ast_ident_ref_name_idx(ident_ref: AstExprRef) -> i64 {
+        return ast_expr_ref_name_idx(ident_ref);
     }
 
     fn ast_ident(name_idx: i64) -> Vec<i64> {

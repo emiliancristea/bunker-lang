@@ -19,13 +19,14 @@ kernel_item = { function | struct_def | enum_def | const_def | comptime_fn | typ
 
 function = { 
     attribute* ~ 
-    "fn" ~ identifier ~ "(" ~ param_list? ~ ")" ~ 
+    "fn" ~ fn_name ~ "(" ~ param_list? ~ ")" ~ 
     ("->" ~ type_expr)? ~ 
     block 
 }
+fn_name = { identifier ~ (("::" | ".") ~ identifier)? }
 
 comptime_fn = {
-    "comptime" ~ "fn" ~ identifier ~ "(" ~ param_list? ~ ")" ~
+    "comptime" ~ "fn" ~ fn_name ~ "(" ~ param_list? ~ ")" ~
     ("->" ~ type_expr)? ~
     block
 }
@@ -41,8 +42,10 @@ const_def = { "const" ~ identifier ~ ":" ~ type_expr ~ "=" ~ expr ~ ";" }
 
 type_alias_def = { "type" ~ identifier ~ "=" ~ type_expr ~ ";" }
 
-param_list = { param ~ ("," ~ param)* }
-param = { identifier ~ ":" ~ type_expr }
+param_list = { param ~ ("," ~ param)* ~ ","? }
+param = { self_param | typed_param }
+self_param = { "self" ~ (":" ~ type_expr)? }
+typed_param = { identifier ~ ":" ~ type_expr }
 
 // ====================
 // SHELL LAYER
@@ -171,8 +174,10 @@ primary_expr = {
     array_literal |
     struct_literal |
     literal |
+    path_expr |
     identifier
 }
+path_expr = { identifier ~ "::" ~ identifier }
 
 unit_literal = { "(" ~ ")" }
 tuple_literal = { "(" ~ expr ~ ("," ~ expr)+ ~ ","? ~ ")" }

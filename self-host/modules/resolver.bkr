@@ -483,6 +483,16 @@
                     "local, parameter, for binding, pattern binding, or constant",
                     resolver_known_consts_json_ref(kernel_ref, names));
             }
+        } else if kind == NODE_METHOD_CALL {
+            let receiver_ref: AstExprRef = ast_method_call_ref_receiver_ref(expr_ref);
+            state = resolver_expr_ref_diagnostics(state, kernel_ref, names, receiver_ref, scope, bindings);
+            let args_ref: AstNodeListRef = ast_method_call_ref_args_ref(expr_ref);
+            let i: i64 = 0;
+            while i < ast_node_list_ref_count(args_ref) {
+                let arg_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_node_ref(arg_ref), scope, bindings);
+                i = i + 1;
+            }
         } else if kind == NODE_CALL {
             let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
             let name = ast_report_name(names, name_idx);

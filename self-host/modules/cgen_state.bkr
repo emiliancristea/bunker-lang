@@ -114,6 +114,20 @@
         return vec_get(cgen_state_from_ref(state_ref), 3) as Vec<str>;
     }
 
+    fn cgen_intern_name_ref(state_ref: CgenStateRef, text: str) -> i64 {
+        let names: Vec<str> = cgen_names_ref(state_ref);
+        let i: i64 = 0;
+        let count: i64 = vec_len(names);
+        while i < count {
+            if vec_get(names, i) == text {
+                return i;
+            }
+            i = i + 1;
+        }
+        vec_push(names, text);
+        return count;
+    }
+
     fn cgen_local_names(state: Vec<i64>) -> Vec<i64> {
         return cgen_local_names_ref(cgen_state_ref_from_state(state));
     }

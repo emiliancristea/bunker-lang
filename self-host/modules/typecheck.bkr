@@ -1777,7 +1777,16 @@
     fn typecheck_scan_loop_control_expr_ref(state: Vec<str>, expr_ref: AstExprRef,
                                             scope: str, loop_depth: i64) -> Vec<str> {
         let kind: i64 = ast_expr_ref_kind(expr_ref);
-        if kind == NODE_CALL {
+        if kind == NODE_METHOD_CALL {
+            state = typecheck_scan_loop_control_expr_ref(state, ast_method_call_ref_receiver_ref(expr_ref), scope, loop_depth);
+            let args_ref: AstNodeListRef = ast_method_call_ref_args_ref(expr_ref);
+            let i: i64 = 0;
+            while i < ast_node_list_ref_count(args_ref) {
+                state = typecheck_scan_loop_control_expr_ref(state,
+                    ast_expr_ref_from_node_ref(ast_node_list_ref_get_ref(args_ref, i)), scope, loop_depth);
+                i = i + 1;
+            }
+        } else if kind == NODE_CALL {
             let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
@@ -2071,7 +2080,28 @@
                                       cstate: CgenStateRef, expr_ref: AstExprRef, scope: str,
                                       expected_return_kind: i64) -> Vec<str> {
         let kind: i64 = ast_expr_ref_kind(expr_ref);
-        if kind == NODE_CALL {
+        if kind == NODE_METHOD_CALL {
+            let receiver_ref: AstExprRef = ast_method_call_ref_receiver_ref(expr_ref);
+            let recv_kind: i64 = typecheck_expr_ref_kind(cstate, receiver_ref);
+            if recv_kind != TYPE_STRUCT {
+                let hint: str = "Methods can only be invoked on struct instances.";
+                state = typecheck_maybe_append_value_mismatch_ref(state, "invalid_method_call_target",
+                    "receiver", scope, ast_node_ref_from_expr_ref(receiver_ref), TYPE_STRUCT, recv_kind, hint);
+            }
+            state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
+                receiver_ref, scope, expected_return_kind);
+            let args_ref: AstNodeListRef = ast_method_call_ref_args_ref(expr_ref);
+            let i: i64 = 0;
+            while i < ast_node_list_ref_count(args_ref) {
+                let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+                let arg_expr_ref: AstExprRef = ast_expr_ref_from_node_ref(arg_node_ref);
+                state = typecheck_check_void_value_ref(state, cstate, arg_expr_ref,
+                    "method argument " + int_to_string(i + 1), scope);
+                state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
+                    arg_expr_ref, scope, expected_return_kind);
+                i = i + 1;
+            }
+        } else if kind == NODE_CALL {
             state = typecheck_check_call_arguments_ref(state, kernel_ref, names, cstate, expr_ref, scope);
             let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
             let i: i64 = 0;

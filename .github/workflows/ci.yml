@@ -2635,6 +2635,37 @@ jobs:
             exit 1
           fi
 
+      - name: Verify 173_struct_methods fixture executes in JIT
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/173_struct_methods.bkr
+
+      - name: Compile 173_struct_methods through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/173_struct_methods.bkr \
+            -o /tmp/173_struct_methods.c
+          test -s /tmp/173_struct_methods.c
+          grep -q "BUNKER_AST_JSON" /tmp/173_struct_methods.c
+          grep -q '"has_diagnostics":false' /tmp/173_struct_methods.c
+
+      - name: Verify 174_method_call_on_non_struct_BAD rejected by bunker-cli
+        timeout-minutes: 2
+        run: |
+          if ./bunker-cli/target/release/bunker-cli check tests/174_method_call_on_non_struct_BAD.bkr; then
+            echo "Expected 174_method_call_on_non_struct_BAD to fail"
+            exit 1
+          fi
+
+      - name: Verify 175_method_not_found_BAD rejected by bunker-cli
+        timeout-minutes: 2
+        run: |
+          if ./bunker-cli/target/release/bunker-cli check tests/175_method_not_found_BAD.bkr; then
+            echo "Expected 175_method_not_found_BAD to fail"
+            exit 1
+          fi
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

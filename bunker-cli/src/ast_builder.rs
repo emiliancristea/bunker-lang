@@ -88,8 +88,8 @@ fn build_function(pair: Pair<Rule>) -> Result<Function, String> {
             Rule::attribute => {
                 attributes.push(build_attribute(inner)?);
             }
-            Rule::identifier => {
-                name = inner.as_str().to_string();
+            Rule::fn_name | Rule::identifier => {
+                name = inner.as_str().replace('.', "::");
             }
             Rule::param_list => {
                 params = build_param_list(inner)?;
@@ -101,6 +101,15 @@ fn build_function(pair: Pair<Rule>) -> Result<Function, String> {
                 body = build_block(inner)?;
             }
             _ => {}
+        }
+    }
+
+    if name.contains("::") {
+        let struct_name = name.split("::").next().unwrap_or("").to_string();
+        for param in &mut params {
+            if param.name == "self" && (param.ty == Type::Named("".to_string()) || param.ty == Type::I32) {
+                param.ty = Type::Named(struct_name.clone());
+            }
         }
     }
 
@@ -161,10 +170,31 @@ fn build_param_list(pair: Pair<Rule>) -> Result<Vec<Param>, String> {
 
 fn build_param(pair: Pair<Rule>) -> Result<Param, String> {
     let mut name = String::new();
-    let mut ty = Type::I32;
+    let mut ty = Type::Named("".to_string());
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::self_param => {
+                name = "self".to_string();
+                for sub in inner.into_inner() {
+                    if sub.as_rule() == Rule::type_expr {
+                        ty = build_type(sub)?;
+                    }
+                }
+            }
+            Rule::typed_param => {
+                for sub in inner.into_inner() {
+                    match sub.as_rule() {
+                        Rule::identifier => {
+                            name = sub.as_str().to_string();
+                        }
+                        Rule::type_expr => {
+                            ty = build_type(sub)?;
+                        }
+                        _ => {}
+                    }
+                }
+            }
             Rule::identifier => {
                 name = inner.as_str().to_string();
             }
@@ -1219,7 +1249,7 @@ fn build_primary_expr(pair: Pair<Rule>) -> Result<Expr, String> {
             Rule::literal => {
                 return build_literal(inner);
             }
-            Rule::identifier => {
+            Rule::path_expr | Rule::identifier => {
                 return Ok(Expr::Ident(inner.as_str().to_string()));
             }
             _ => {}

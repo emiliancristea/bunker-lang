@@ -45,6 +45,7 @@
         if kind == NodeKind.StructLit { return "struct literal"; }
         if kind == NodeKind.Match { return "match expression"; }
         if kind == NodeKind.TypeAlias { return "type alias"; }
+        if kind == NodeKind.MethodCall { return "method call"; }
         return "node " + int_to_string(kind);
     }
 
@@ -114,6 +115,7 @@
         if kind == TokenKind.Comma { return ","; }
         if kind == TokenKind.Semicolon { return ";"; }
         if kind == TokenKind.Colon { return ":"; }
+        if kind == TokenKind.ColonColon { return "::"; }
         if kind == TokenKind.Question { return "?"; }
         return "token " + int_to_string(kind);
     }
@@ -182,7 +184,7 @@
            kind == NodeKind.IntLit || kind == NodeKind.BoolLit || kind == NodeKind.StrLit ||
            kind == NodeKind.Ternary || kind == NodeKind.FloatLit || kind == NodeKind.ArrayLit ||
            kind == NodeKind.Index || kind == NodeKind.FieldAccess || kind == NodeKind.StructLit ||
-           kind == NodeKind.Match || kind == NodeKind.ArrayRepeat || kind == NodeKind.Try || kind == NodeKind.Cast {
+           kind == NodeKind.Match || kind == NodeKind.ArrayRepeat || kind == NodeKind.Try || kind == NodeKind.Cast || kind == NodeKind.MethodCall {
             return AST_CAT_EXPR;
         }
         if kind == NodeKind.TypeTag {

@@ -790,6 +790,57 @@ impl TypeChecker {
                                 .check_enum_payload_constructor(type_name, field, args, context);
                         }
                     }
+                    let base_ty = self.infer_expr(expr, context)?;
+                    let struct_name = match &base_ty {
+                        Type::Named(name) => Some(name.clone()),
+                        _ => None,
+                    };
+                    if let Some(sname) = struct_name {
+                        let method_name = format!("{}::{}", sname, field);
+                        if let Some((param_types, ret_ty)) = self.functions.get(&method_name).cloned() {
+                            let mut full_args = vec![expr.as_ref().clone()];
+                            full_args.extend(args.iter().cloned());
+                            if full_args.len() != param_types.len() {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Method {} on struct {} expects {} arguments (including self), got {}",
+                                        field,
+                                        sname,
+                                        param_types.len() - 1,
+                                        args.len()
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                            for (i, (arg, expected)) in full_args.iter().zip(param_types.iter()).enumerate() {
+                                let actual = self.infer_expr_with_hint(arg, context, Some(expected))?;
+                                if !self.types_compatible(expected, &actual) {
+                                    self.errors.push(TypeError {
+                                        message: format!(
+                                            "Argument {} type mismatch: expected {:?}, got {:?}",
+                                            if i == 0 { "receiver self".to_string() } else { (i - 1).to_string() },
+                                            expected,
+                                            actual
+                                        ),
+                                        location: context.to_string(),
+                                    });
+                                }
+                            }
+                            return Ok(ret_ty.unwrap_or(Type::Unit));
+                        } else {
+                            self.errors.push(TypeError {
+                                message: format!("No method '{}' found on struct '{}'", field, sname),
+                                location: context.to_string(),
+                            });
+                            return Ok(Type::I32);
+                        }
+                    } else {
+                        self.errors.push(TypeError {
+                            message: format!("Cannot call method '{}' on non-struct type {:?}", field, base_ty),
+                            location: context.to_string(),
+                        });
+                        return Ok(Type::I32);
+                    }
                 }
                 if let Expr::Ident(name) = func.as_ref() {
                     if let Some(ty) = self.check_builtin_call(name, args, context, expected)? {

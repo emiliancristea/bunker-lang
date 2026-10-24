@@ -378,6 +378,12 @@
             result = result + comma +
                 json_field_str("op", token_name(ast_unary_ref_op(expr_ref))) + comma +
                 json_field_raw("operand", ast_report_expr_handle_json(names, ast_unary_ref_operand_handle(expr_ref)));
+        } else if kind == NODE_METHOD_CALL {
+            let expr_ref: AstExprRef = ast_expr_ref_from_node_ref(node_ref);
+            result = result + comma +
+                json_field_raw("receiver", ast_report_expr_handle_json(names, ast_method_call_ref_receiver_handle(expr_ref))) + comma +
+                json_field_str("method", ast_report_name(names, ast_method_call_ref_method_name_idx(expr_ref))) + comma +
+                json_field_raw("args", ast_report_node_array_json_ref(names, ast_method_call_ref_args_ref(expr_ref)));
         } else if kind == NODE_CALL {
             let expr_ref: AstExprRef = ast_expr_ref_from_node_ref(node_ref);
             result = result + comma +

@@ -122,6 +122,7 @@
         Colon,
         Question,
         FatArrow,
+        ColonColon,
     }
 
     const TOK_EOF: i64 = TokenKind.Eof;
@@ -190,6 +191,7 @@
     const TOK_COLON: i64 = TokenKind.Colon;
     const TOK_QUESTION: i64 = TokenKind.Question;
     const TOK_FAT_ARROW: i64 = TokenKind.FatArrow;
+    const TOK_COLON_COLON: i64 = TokenKind.ColonColon;
 
     // ===== AST Node Kinds =====
     // Declaration order is the stored numeric tag. Unused slots keep historical values.
@@ -233,6 +235,7 @@
         Match,
         Enum,
         TypeAlias,
+        MethodCall,
     }
 
     const NODE_KERNEL: i64 = NodeKind.Kernel;
@@ -273,6 +276,7 @@
     const NODE_MATCH: i64 = NodeKind.Match;
     const NODE_ENUM: i64 = NodeKind.Enum;
     const NODE_TYPE_ALIAS: i64 = NodeKind.TypeAlias;
+    const NODE_METHOD_CALL: i64 = NodeKind.MethodCall;
 
     // ===== AST Category Constants =====
     const AST_CAT_UNKNOWN: i64 = 0;
