@@ -346,6 +346,19 @@
         return false;
     }
 
+    fn resolver_has_enum_name_ref(kernel_ref: AstNodeRef, name_idx: i64) -> bool {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_ENUM && ast_enum_ref_name_idx(item_ref) == name_idx {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
     fn resolver_struct_has_field(kernel: Vec<i64>, struct_name_idx: i64, field_name_idx: i64) -> bool {
         return resolver_struct_has_field_ref(ast_node_ref_from_node(kernel), struct_name_idx, field_name_idx);
     }
@@ -388,7 +401,7 @@
                                      type_ref: AstTypeRef, scope: str) -> Vec<str> {
         if ast_type_ref_kind_value(type_ref) == TYPE_STRUCT {
             let name_idx: i64 = ast_type_ref_struct_name_idx_value(type_ref);
-            if !resolver_has_struct_name_ref(kernel_ref, name_idx) && !resolver_has_type_alias_name_ref(kernel_ref, name_idx) {
+            if !resolver_has_struct_name_ref(kernel_ref, name_idx) && !resolver_has_type_alias_name_ref(kernel_ref, name_idx) && !resolver_has_enum_name_ref(kernel_ref, name_idx) {
                 state = resolver_append_unresolved_node_with_related_ref(state,
                     ast_report_name(names, name_idx),
                     scope,
@@ -433,6 +446,12 @@
             if b2 >= 0 { vec_push(bindings, b2); }
             if b3 >= 0 { vec_push(bindings, b3); }
         }
+        if kind == PAT_ENUM_VARIANT {
+            let b1 = ast_pattern_ref_bind(pattern_ref);
+            let b2 = ast_pattern_ref_bind2(pattern_ref);
+            if b1 >= 0 { vec_push(bindings, b1); }
+            if b2 >= 0 { vec_push(bindings, b2); }
+        }
         return state;
     }
 
@@ -457,7 +476,7 @@
         if kind == NODE_IDENT {
             let name_idx: i64 = ast_expr_ref_name_idx(expr_ref);
             let name = ast_report_name(names, name_idx);
-            if name != "None" && !resolver_i64_vec_contains(bindings, name_idx) && !resolver_has_const_name_ref(kernel_ref, name_idx) {
+            if name != "None" && !resolver_i64_vec_contains(bindings, name_idx) && !resolver_has_const_name_ref(kernel_ref, name_idx) && !resolver_has_enum_name_ref(kernel_ref, name_idx) {
                 state = resolver_append_unresolved_node_with_related_ref(state, name, scope, "identifier", expr_node_ref,
                     "local, parameter, for binding, pattern binding, or constant",
                     resolver_known_consts_json_ref(kernel_ref, names));

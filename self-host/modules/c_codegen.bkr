@@ -855,9 +855,14 @@
                 let enum_name: str = name_from_table(names, value);
                 let variant_name: str = name_from_table(names, ast_pattern_ref_aux(pattern_ref));
                 let p0_kind: i64 = cgen_enum_variant_payload_kind_ref(state, enum_name, variant_name, 0);
-                if p0_kind == TYPE_STR {
+                if cgen_enum_has_string_payload_ref(state, enum_name) {
                     let bind2_idx: i64 = ast_pattern_ref_bind2(pattern_ref);
-                    let res: str = "bkr_str " + name_to_c_ref(state, bind_idx) + " = (bkr_str)(intptr_t)bkr_enum_field(" + value_name + ", 0); ";
+                    let res: str = "";
+                    if p0_kind == TYPE_STR {
+                        res = "bkr_str " + name_to_c_ref(state, bind_idx) + " = (bkr_str)(intptr_t)bkr_enum_field(" + value_name + ", 0); ";
+                    } else {
+                        res = "bkr_i64 " + name_to_c_ref(state, bind_idx) + " = bkr_enum_field(" + value_name + ", 0); ";
+                    }
                     if bind2_idx >= 0 {
                         let p1_kind: i64 = cgen_enum_variant_payload_kind_ref(state, enum_name, variant_name, 1);
                         if p1_kind == TYPE_STR {
@@ -1066,6 +1071,40 @@
             let op: i64 = ast_binary_ref_op(expr_ref);
             let left_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref));
             let right_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_right_handle(expr_ref));
+
+            if op == TOK_BIT_OR {
+                if ast_expr_ref_kind(right_ref) == NODE_FIELD_ACCESS {
+                    let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_field_access_ref_base_handle(right_ref));
+                    let field_name: i64 = ast_field_access_ref_name_idx(right_ref);
+                    let names: Vec<str> = cgen_names_ref(state);
+                    if ast_expr_ref_kind(base_ref) == NODE_IDENT {
+                        let enum_name: str = name_from_table(names, ast_expr_ref_name_idx(base_ref));
+                        let variant_name: str = name_from_table(names, field_name);
+                        let tag: i64 = cgen_enum_variant_tag_ref(state, enum_name, variant_name);
+                        if tag >= 0 && cgen_enum_has_string_payload_ref(state, enum_name) {
+                            if ast_expr_ref_kind(left_ref) == NODE_BINARY {
+                                let l_op: i64 = ast_binary_ref_op(left_ref);
+                                if l_op == TOK_SHL {
+                                    let payload_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(left_ref));
+                                    let p_arg: str = gen_c_expr_ref(state, payload_ref);
+                                    return "bkr_enum_payload1(" + int_to_string(tag) + ", (bkr_i64)(intptr_t)(" + p_arg + "))";
+                                }
+                                if l_op == TOK_BIT_OR {
+                                    let f0_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(left_ref));
+                                    let f1_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_right_handle(left_ref));
+                                    if ast_expr_ref_kind(f0_ref) == NODE_BINARY && ast_expr_ref_kind(f1_ref) == NODE_BINARY {
+                                        let p0_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(f0_ref));
+                                        let p1_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(f1_ref));
+                                        let p0_arg: str = gen_c_expr_ref(state, p0_ref);
+                                        let p1_arg: str = gen_c_expr_ref(state, p1_ref);
+                                        return "bkr_enum_payload2(" + int_to_string(tag) + ", (bkr_i64)(intptr_t)(" + p0_arg + "), (bkr_i64)(intptr_t)(" + p1_arg + "))";
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             if op == TOK_EQ || op == TOK_NE {
                 let left_kind: i64 = infer_c_expr_ref_type(state, left_ref);

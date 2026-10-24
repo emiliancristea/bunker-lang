@@ -2497,6 +2497,21 @@ jobs:
           grep -q '"kind":"ambiguous_collection_constructor"' /tmp/159_unannotated_map_ctor_BAD.c
           grep -q "Add a Vec<T> or HashMap<K,V> annotation so collection types are known" /tmp/159_unannotated_map_ctor_BAD.c
 
+      - name: Verify 160_user_defined_enums_adt fixture executes in JIT
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/160_user_defined_enums_adt.bkr
+
+      - name: Compile 160_user_defined_enums_adt through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/160_user_defined_enums_adt.bkr \
+            -o /tmp/160_user_defined_enums_adt.c
+          test -s /tmp/160_user_defined_enums_adt.c
+          grep -q "BUNKER_AST_JSON" /tmp/160_user_defined_enums_adt.c
+          grep -q '"has_diagnostics":false' /tmp/160_user_defined_enums_adt.c
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

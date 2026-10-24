@@ -89,10 +89,28 @@
         return ast_optional_none();
     }
 
+    fn typecheck_is_kernel_enum_name(kernel_ref: AstNodeRef, name_idx: i64) -> bool {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_ENUM {
+                if ast_enum_ref_name_idx(item_ref) == name_idx {
+                    return true;
+                }
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
     fn typecheck_resolve_type_ref_kind(kernel_ref: AstNodeRef, type_ref: AstTypeRef) -> i64 {
         let kind: i64 = ast_type_ref_kind_value(type_ref);
         if kind == TYPE_STRUCT {
             let name_idx: i64 = ast_type_ref_struct_name_idx_value(type_ref);
+            if typecheck_is_kernel_enum_name(kernel_ref, name_idx) {
+                return TYPE_I64;
+            }
             let alias_target: i64 = typecheck_find_type_alias_target_handle(kernel_ref, name_idx);
             if ast_optional_is_some(alias_target) {
                 return typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(alias_target));
@@ -902,6 +920,28 @@
         return state;
     }
 
+    fn typecheck_is_enum_construction_ref(cstate: CgenStateRef, expr_ref: AstExprRef) -> bool {
+        if ast_expr_ref_kind(expr_ref) != NODE_BINARY {
+            return false;
+        }
+        if ast_binary_ref_op(expr_ref) != TOK_BIT_OR {
+            return false;
+        }
+        let right_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_right_handle(expr_ref));
+        if ast_expr_ref_kind(right_ref) != NODE_FIELD_ACCESS {
+            return false;
+        }
+        let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_field_access_ref_base_handle(right_ref));
+        if ast_expr_ref_kind(base_ref) != NODE_IDENT {
+            return false;
+        }
+        let names: Vec<str> = cgen_names_ref(cstate);
+        let enum_name: str = name_from_table(names, ast_expr_ref_name_idx(base_ref));
+        let variant_name: str = name_from_table(names, ast_field_access_ref_name_idx(right_ref));
+        let tag: i64 = cgen_enum_variant_tag_ref(cstate, enum_name, variant_name);
+        return tag >= 0;
+    }
+
     fn typecheck_check_unary_operand_ref(state: Vec<str>, cstate: CgenStateRef,
                                          expr_ref: AstExprRef, scope: str) -> Vec<str> {
         let op: i64 = ast_unary_ref_op(expr_ref);
@@ -1553,6 +1593,11 @@
     fn typecheck_check_scalar_match_exhaustiveness_ref(state: Vec<str>, expr_ref: AstExprRef,
                                                        patterns_ref: AstPatternListRef,
                                                        scrutinee_kind: i64, scope: str) -> Vec<str> {
+        if typecheck_match_patterns_contain_enum_variant_ref(patterns_ref) ||
+           typecheck_match_patterns_contain_option_ref(patterns_ref) ||
+           typecheck_match_patterns_contain_result_ref(patterns_ref) {
+            return state;
+        }
         if !typecheck_is_numeric_kind(scrutinee_kind) && scrutinee_kind != TYPE_STR {
             return state;
         }
@@ -2042,6 +2087,28 @@
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_field_access_ref_base_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_BINARY {
+            if typecheck_is_enum_construction_ref(cstate, expr_ref) {
+                let left_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref));
+                if ast_expr_ref_kind(left_ref) == NODE_BINARY {
+                    let l_op: i64 = ast_binary_ref_op(left_ref);
+                    if l_op == TOK_SHL {
+                        let payload_handle: i64 = ast_binary_ref_left_handle(left_ref);
+                        return typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
+                            payload_handle, scope, expected_return_kind);
+                    }
+                    if l_op == TOK_BIT_OR {
+                        let f0_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(left_ref));
+                        let f1_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_right_handle(left_ref));
+                        if ast_expr_ref_kind(f0_ref) == NODE_BINARY && ast_expr_ref_kind(f1_ref) == NODE_BINARY {
+                            state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
+                                ast_binary_ref_left_handle(f0_ref), scope, expected_return_kind);
+                            return typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
+                                ast_binary_ref_left_handle(f1_ref), scope, expected_return_kind);
+                        }
+                    }
+                }
+                return state;
+            }
             state = typecheck_check_binary_operands_ref(state, cstate, expr_ref, scope);
             state = typecheck_check_void_value_ref(state, cstate,
                 ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref)),
