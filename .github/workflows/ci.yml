@@ -2362,6 +2362,31 @@ jobs:
           grep -q '"kind":"duplicate_match_pattern"' /tmp/147_duplicate_match_pattern_BAD.c
           grep -q "Remove the duplicate pattern or merge its arm" /tmp/147_duplicate_match_pattern_BAD.c
 
+      - name: Verify 148_local_type_inference fixture executes in JIT
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/148_local_type_inference.bkr
+
+      - name: Compile local type inference fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/148_local_type_inference.bkr \
+            -o /tmp/148_local_type_inference.c
+          test -s /tmp/148_local_type_inference.c
+          grep -q "BUNKER_AST_JSON" /tmp/148_local_type_inference.c
+          grep -q '"has_diagnostics":false' /tmp/148_local_type_inference.c
+
+      - name: Compile 149_unannotated_empty_array_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/149_unannotated_empty_array_BAD.bkr \
+            -o /tmp/149_unannotated_empty_array_BAD.c
+          test -s /tmp/149_unannotated_empty_array_BAD.c
+          grep -q '"kind":"ambiguous_empty_array"' /tmp/149_unannotated_empty_array_BAD.c
+          grep -q "Add a type annotation so the empty array element type is known" /tmp/149_unannotated_empty_array_BAD.c
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

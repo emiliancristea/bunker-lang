@@ -401,6 +401,20 @@ impl TypeChecker {
                     return Ok(None);
                 }
 
+                // Check for empty array without type annotation
+                if ty.is_none() && matches!(value, Expr::Array(elements) if elements.is_empty()) {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Cannot infer type of '{}': empty array requires explicit [T; N] type annotation",
+                            name
+                        ),
+                        location: context.to_string(),
+                    });
+                    self.variables
+                        .insert(name.clone(), Type::Array(Box::new(Type::I32), 0));
+                    return Ok(None);
+                }
+
                 let resolved_hint = ty.as_ref().map(|t| self.resolve_alias(t));
                 let inferred = self.infer_expr_with_hint(value, context, resolved_hint.as_ref())?;
 
@@ -896,7 +910,15 @@ impl TypeChecker {
             }
         Expr::Array(elements) => {
                 if elements.is_empty() {
-                    Ok(Type::Array(Box::new(Type::I32), 0))
+                    if let Some(Type::Array(elem_ty, _)) = expected {
+                        Ok(Type::Array(elem_ty.clone(), 0))
+                    } else {
+                        self.errors.push(TypeError {
+                            message: "Empty array requires explicit type annotation".to_string(),
+                            location: context.to_string(),
+                        });
+                        Ok(Type::Array(Box::new(Type::I32), 0))
+                    }
                 } else {
                     let elem_ty = self.infer_expr(&elements[0], context)?;
                     for (i, elem) in elements.iter().skip(1).enumerate() {
@@ -1053,25 +1075,15 @@ impl TypeChecker {
                 let saved = self.variables.clone();
                 let saved_moved = self.moved_vars.clone();
                 let mut result_ty = Type::I32;
-                for stmt in &block.statements {
-                    match stmt {
-                        Stmt::Let { name, ty, value } => {
-                            let resolved_hint = ty.as_ref().map(|t| self.resolve_alias(t));
-                            let inferred =
-                                self.infer_expr_with_hint(value, context, resolved_hint.as_ref())?;
-                            if let Some(declared) = ty {
-                                self.variables.insert(name.clone(), self.resolve_alias(declared));
-                            } else {
-                                self.variables.insert(name.clone(), inferred);
-                            }
-                        }
-                        Stmt::Expr(e) => {
+                for (i, stmt) in block.statements.iter().enumerate() {
+                    let is_last = i == block.statements.len() - 1;
+                    if is_last {
+                        if let Stmt::Expr(e) = stmt {
                             result_ty = self.infer_expr(e, context)?;
-                        }
-                        _ => {
-                            self.check_stmt(stmt, context)?;
+                            continue;
                         }
                     }
+                    self.check_stmt(stmt, context)?;
                 }
                 self.variables = saved;
                 self.moved_vars = saved_moved;

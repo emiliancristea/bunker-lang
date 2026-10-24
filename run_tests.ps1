@@ -120,6 +120,7 @@ $expectedResults = @{
     "139_nested_patterns" = 42
     "140_exhaustive_matches" = 42
     "144_pattern_type_checking" = 42
+    "148_local_type_inference" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)

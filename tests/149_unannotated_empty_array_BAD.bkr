@@ -1,0 +1,10 @@
+// Test 149: Unannotated Empty Array Diagnostic
+// Purpose: Ensure `let arr = [];` without an explicit [T; N] annotation is rejected.
+// Expected: `bunker check` fails.
+
+kernel EmptyArrayBad {
+    fn main() -> i32 {
+        let arr = [];
+        return 0;
+    }
+}

@@ -1,0 +1,117 @@
+// Test 148: Comprehensive Local Type Inference
+// Milestone Q-250 / T-006: Let bindings infer robustly for all supported expressions.
+// Expected: Returns 42
+
+kernel LocalTypeInference {
+    struct Point {
+        x: i64,
+        y: i64,
+    }
+
+    fn add_nums(x: i64, y: i64) -> i64 {
+        return x + y;
+    }
+
+    fn fallible(fail: bool) -> Result<i64, str> {
+        if fail {
+            return result_err("fail");
+        }
+        return result_ok(8);
+    }
+
+    fn test_try() -> Result<i64, str> {
+        let unwrapped = fallible(false)?;
+        return result_ok(unwrapped);
+    }
+
+    fn main() -> i64 {
+        // 1. Primitive literals
+        let a = 10;
+        let b = 2.5;
+        let c = true;
+        let s = "bkr";
+        let u = ();
+
+        // 2. Aggregates
+        let pt = Point { x: 5, y: 15 };
+        let tup = (7, 14);
+        let arr = [1, 2, 3];
+        let rep = [4; 3];
+
+        // 3. Projections
+        let px = pt.x;
+        let py = pt.y;
+        let t0 = tup.0;
+        let t1 = tup.1;
+        let a0 = arr[0];
+        let a2 = arr[2];
+        let r0 = rep[0];
+
+        // 4. Arithmetic and unary
+        let sum = a + 5;
+        let neg = -a;
+        let not_c = !c;
+
+        // 5. Ternary, match, and block expressions
+        let tern = c ? 12 : 0;
+        let matched = match a {
+            10 => 20;
+            _ => 0;
+        };
+        let blk = if true {
+            let tmp = 3;
+            tmp * 4;
+        } else {
+            0;
+        };
+
+        // 6. Calls and try operator
+        let call_res = add_nums(10, 2);
+        let try_opt = test_try();
+        let try_res = match try_opt {
+            Ok(v) => v;
+            Err(e) => 0;
+        };
+
+        // 7. Copy
+        let cp = copy pt;
+        let cpx = cp.x;
+
+        // Invariants verification
+        if not_c {
+            return 1;
+        }
+        if b < 2.0 {
+            return 2;
+        }
+        if neg != -10 {
+            return 3;
+        }
+        if cpx != 5 {
+            return 4;
+        }
+        if matched != 20 {
+            return 5;
+        }
+        if blk != 12 {
+            return 6;
+        }
+        if sum != 15 {
+            return 7;
+        }
+        if t1 != 14 {
+            return 8;
+        }
+        if a0 != 1 {
+            return 9;
+        }
+
+        // Final arithmetic combination = 42
+        let part1 = px + py; // 20
+        let part2 = t0 + a2; // 10
+        let part3 = tern - r0; // 8
+        let part4 = call_res - try_res; // 4
+
+        return part1 + part2 + part3 + part4; // 42
+    }
+}
