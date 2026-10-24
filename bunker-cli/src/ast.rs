@@ -1,6 +1,7 @@
 #[derive(Debug, Clone, PartialEq)]
 pub struct File {
     pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
     pub kernels: Vec<Kernel>,
     pub shells: Vec<Shell>,
     pub views: Vec<View>,
@@ -14,6 +15,7 @@ pub struct File {
 pub struct Kernel {
     pub name: String,
     pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
     pub items: Vec<KernelItem>,
 }
 
@@ -32,6 +34,7 @@ pub struct TypeAliasDef {
     pub name: String,
     pub is_pub: bool,
     pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
     pub target: Type,
 }
 
@@ -40,6 +43,7 @@ pub struct Function {
     pub name: String,
     pub is_pub: bool,
     pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
     pub params: Vec<Param>,
     pub return_type: Option<Type>,
     pub body: Block,
@@ -50,6 +54,7 @@ pub struct StructDef {
     pub name: String,
     pub is_pub: bool,
     pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
     pub fields: Vec<StructField>,
     pub is_tuple: bool,
 }
@@ -71,6 +76,7 @@ pub struct EnumDef {
     pub name: String,
     pub is_pub: bool,
     pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
     pub variants: Vec<EnumVariantDecl>,
 }
 
@@ -88,6 +94,7 @@ pub struct ConstDef {
     pub name: String,
     pub is_pub: bool,
     pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
     pub ty: Type,
     pub value: Expr,
 }
@@ -109,6 +116,7 @@ pub enum Attribute {
     MustUse(Option<String>),
     Test,
     Version(String),
+    Doc(String),
     Other {
         name: String,
         args: Vec<Expr>,
@@ -129,6 +137,7 @@ impl Attribute {
             Attribute::MustUse(_) => "must_use",
             Attribute::Test => "test",
             Attribute::Version(_) => "version",
+            Attribute::Doc(_) => "doc",
             Attribute::Other { name, .. } => name.as_str(),
         }
     }

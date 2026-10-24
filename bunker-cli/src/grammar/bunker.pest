@@ -5,9 +5,9 @@
 // TOP-LEVEL STRUCTURE
 // ====================
 
-file = { SOI ~ inner_attribute* ~ (kernel_block | shell_block | view_block)* ~ EOI }
+file = { SOI ~ (inner_attribute | inner_doc_comment)* ~ (kernel_block | shell_block | view_block)* ~ EOI }
 
-kernel_block = { attribute* ~ "kernel" ~ identifier ~ "{" ~ kernel_item* ~ "}" }
+kernel_block = { (attribute | doc_comment)* ~ "kernel" ~ identifier ~ "{" ~ inner_doc_comment* ~ kernel_item* ~ "}" }
 shell_block  = { "shell" ~ identifier ~ "{" ~ shell_item* ~ "}" }
 view_block   = { "view" ~ identifier ~ "{" ~ view_item* ~ "}" }
 
@@ -21,7 +21,7 @@ visibility = { "pub" }
 mut_kw = { "mut" }
 
 function = { 
-    attribute* ~ 
+    (attribute | doc_comment)* ~ 
     visibility? ~
     "fn" ~ fn_name ~ "(" ~ param_list? ~ ")" ~ 
     ("->" ~ type_expr)? ~ 
@@ -30,25 +30,25 @@ function = {
 fn_name = { identifier ~ (("::" | ".") ~ identifier)? }
 
 comptime_fn = {
-    attribute* ~
+    (attribute | doc_comment)* ~
     visibility? ~
     "comptime" ~ "fn" ~ fn_name ~ "(" ~ param_list? ~ ")" ~
     ("->" ~ type_expr)? ~
     block
 }
 
-struct_def = { attribute* ~ visibility? ~ "struct" ~ identifier ~ (struct_body_fields | struct_body_tuple) }
+struct_def = { (attribute | doc_comment)* ~ visibility? ~ "struct" ~ identifier ~ (struct_body_fields | struct_body_tuple) }
 struct_body_fields = { "{" ~ struct_field* ~ "}" }
 struct_body_tuple = { "(" ~ (type_expr ~ ("," ~ type_expr)* ~ ","?)? ~ ")" ~ ";"? }
-struct_field = { identifier ~ ":" ~ type_expr ~ ","? }
+struct_field = { doc_comment* ~ identifier ~ ":" ~ type_expr ~ ","? }
 
-enum_def = { attribute* ~ visibility? ~ "enum" ~ identifier ~ "{" ~ enum_variant_list? ~ "}" }
+enum_def = { (attribute | doc_comment)* ~ visibility? ~ "enum" ~ identifier ~ "{" ~ enum_variant_list? ~ "}" }
 enum_variant_list = { enum_variant ~ ("," ~ enum_variant)* ~ ","? }
-enum_variant = { identifier ~ ("(" ~ type_expr ~ ("," ~ type_expr)* ~ ")")? }
+enum_variant = { doc_comment* ~ identifier ~ ("(" ~ type_expr ~ ("," ~ type_expr)* ~ ")")? }
 
-const_def = { attribute* ~ visibility? ~ "const" ~ identifier ~ ":" ~ type_expr ~ "=" ~ expr ~ ";" }
+const_def = { (attribute | doc_comment)* ~ visibility? ~ "const" ~ identifier ~ ":" ~ type_expr ~ "=" ~ expr ~ ";" }
 
-type_alias_def = { attribute* ~ visibility? ~ "type" ~ identifier ~ "=" ~ type_expr ~ ";" }
+type_alias_def = { (attribute | doc_comment)* ~ visibility? ~ "type" ~ identifier ~ "=" ~ type_expr ~ ";" }
 
 param_list = { param ~ ("," ~ param)* ~ ","? }
 param = { self_param | typed_param }
@@ -88,8 +88,11 @@ target_attr = { "#[target(" ~ ("graphics" | "embedded") ~ ")]" }
 property = { identifier ~ ":" ~ expr ~ ";" }
 
 // ====================
-// ATTRIBUTES
+// ATTRIBUTES & DOC COMMENTS
 // ====================
+
+inner_doc_comment = ${ ("//!" ~ (!"\n" ~ ANY)*) | ("/*!" ~ (!"*/" ~ ANY)* ~ "*/") }
+doc_comment = ${ ("///" ~ (!"\n" ~ ANY)*) | ("/**" ~ (!"*/" ~ ANY)* ~ "*/") }
 
 inner_attribute = { "#![" ~ attribute_body ~ "]" }
 attribute = { "#[" ~ attribute_body ~ "]" }
@@ -107,19 +110,21 @@ attribute_arg = { expr }
 block = { "{" ~ statement* ~ "}" }
 
 statement = {
-    let_stmt |
-    return_stmt |
-    if_stmt |
-    for_stmt |
-    while_stmt |
-    loop_stmt |
-    break_stmt |
-    continue_stmt |
-    match_stmt |
-    defer_stmt |
-    send_stmt |
-    assign_stmt |
-    expr_stmt
+    doc_comment* ~ (
+        let_stmt |
+        return_stmt |
+        if_stmt |
+        for_stmt |
+        while_stmt |
+        loop_stmt |
+        break_stmt |
+        continue_stmt |
+        match_stmt |
+        defer_stmt |
+        send_stmt |
+        assign_stmt |
+        expr_stmt
+    )
 }
 
 assign_stmt = { assign_target ~ "=" ~ expr ~ ";" }
@@ -314,4 +319,7 @@ hex_color = @{ "#" ~ ASCII_HEX_DIGIT{6} }
 identifier = @{ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
-COMMENT = _{ "//" ~ (!"\n" ~ ANY)* | "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
+COMMENT = _{
+    ("//" ~ !("/" | "!") ~ (!"\n" ~ ANY)*)
+  | ("/*" ~ !("*" | "!") ~ (!"*/" ~ ANY)* ~ "*/")
+}

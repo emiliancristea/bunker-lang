@@ -2,18 +2,42 @@ use crate::ast::*;
 use crate::parser::Rule;
 use pest::iterators::Pair;
 
+fn clean_doc_line(s: &str) -> String {
+    let trimmed = s.trim();
+    if let Some(rest) = trimmed.strip_prefix("/// ") {
+        rest.to_string()
+    } else if let Some(rest) = trimmed.strip_prefix("///") {
+        rest.to_string()
+    } else if let Some(rest) = trimmed.strip_prefix("//! ") {
+        rest.to_string()
+    } else if let Some(rest) = trimmed.strip_prefix("//!") {
+        rest.to_string()
+    } else if let Some(rest) = trimmed.strip_prefix("/**") {
+        rest.strip_suffix("*/").unwrap_or(rest).trim().to_string()
+    } else if let Some(rest) = trimmed.strip_prefix("/*!") {
+        rest.strip_suffix("*/").unwrap_or(rest).trim().to_string()
+    } else {
+        trimmed.to_string()
+    }
+}
+
 pub fn build_ast(pair: Pair<Rule>) -> Result<File, String> {
     let mut file = File {
         attributes: vec![],
+        doc: None,
         kernels: vec![],
         shells: vec![],
         views: vec![],
     };
+    let mut doc_lines = vec![];
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::inner_attribute => {
                 file.attributes.push(build_attribute(inner)?);
+            }
+            Rule::inner_doc_comment => {
+                doc_lines.push(clean_doc_line(inner.as_str()));
             }
             Rule::kernel_block => {
                 file.kernels.push(build_kernel(inner)?);
@@ -29,18 +53,26 @@ pub fn build_ast(pair: Pair<Rule>) -> Result<File, String> {
         }
     }
 
+    if !doc_lines.is_empty() {
+        file.doc = Some(doc_lines.join("\n"));
+    }
+
     Ok(file)
 }
 
 fn build_kernel(pair: Pair<Rule>) -> Result<Kernel, String> {
     let mut name = String::new();
     let mut attributes = vec![];
+    let mut doc_lines = vec![];
     let mut items = vec![];
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::attribute => {
                 attributes.push(build_attribute(inner)?);
+            }
+            Rule::doc_comment | Rule::inner_doc_comment => {
+                doc_lines.push(clean_doc_line(inner.as_str()));
             }
             Rule::identifier => {
                 name = inner.as_str().to_string();
@@ -54,7 +86,17 @@ fn build_kernel(pair: Pair<Rule>) -> Result<Kernel, String> {
         }
     }
 
-    Ok(Kernel { name, attributes, items })
+    let mut doc = if doc_lines.is_empty() { None } else { Some(doc_lines.join("\n")) };
+    if doc.is_none() {
+        for attr in &attributes {
+            if let Attribute::Doc(text) = attr {
+                doc = Some(text.clone());
+                break;
+            }
+        }
+    }
+
+    Ok(Kernel { name, attributes, doc, items })
 }
 
 fn build_kernel_item(pair: Pair<Rule>) -> Result<Option<KernelItem>, String> {
@@ -88,6 +130,7 @@ fn build_function(pair: Pair<Rule>) -> Result<Function, String> {
     let mut name = String::new();
     let mut is_pub = false;
     let mut attributes = vec![];
+    let mut doc_lines = vec![];
     let mut params = vec![];
     let mut return_type = None;
     let mut body = Block { statements: vec![] };
@@ -99,6 +142,9 @@ fn build_function(pair: Pair<Rule>) -> Result<Function, String> {
             }
             Rule::attribute => {
                 attributes.push(build_attribute(inner)?);
+            }
+            Rule::doc_comment => {
+                doc_lines.push(clean_doc_line(inner.as_str()));
             }
             Rule::fn_name | Rule::identifier => {
                 name = inner.as_str().replace('.', "::");
@@ -125,10 +171,21 @@ fn build_function(pair: Pair<Rule>) -> Result<Function, String> {
         }
     }
 
+    let mut doc = if doc_lines.is_empty() { None } else { Some(doc_lines.join("\n")) };
+    if doc.is_none() {
+        for attr in &attributes {
+            if let Attribute::Doc(text) = attr {
+                doc = Some(text.clone());
+                break;
+            }
+        }
+    }
+
     Ok(Function {
         name,
         is_pub,
         attributes,
+        doc,
         params,
         return_type,
         body,
@@ -227,6 +284,20 @@ fn build_attribute(pair: Pair<Rule>) -> Result<Attribute, String> {
                 value.clone()
             };
             Ok(Attribute::MustUse(msg))
+        }
+        "doc" => {
+            let doc_text = if let Some(val) = value {
+                val
+            } else if let Some(first) = args.first() {
+                match first {
+                    Expr::Literal(Literal::String(s)) => s.clone(),
+                    Expr::Ident(s) => s.clone(),
+                    _ => "".to_string(),
+                }
+            } else {
+                "".to_string()
+            };
+            Ok(Attribute::Doc(doc_text))
         }
         "version" => {
             let ver = if let Some(val) = value {
@@ -434,6 +505,7 @@ fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
     let mut name = String::new();
     let mut is_pub = false;
     let mut attributes = vec![];
+    let mut doc_lines = vec![];
     let mut fields = vec![];
     let mut is_tuple = false;
 
@@ -441,6 +513,9 @@ fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
         match inner.as_rule() {
             Rule::attribute => {
                 attributes.push(build_attribute(inner)?);
+            }
+            Rule::doc_comment => {
+                doc_lines.push(clean_doc_line(inner.as_str()));
             }
             Rule::visibility => {
                 is_pub = true;
@@ -476,19 +551,33 @@ fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
         }
     }
 
-    Ok(StructDef { name, is_pub, attributes, fields, is_tuple })
+    let mut doc = if doc_lines.is_empty() { None } else { Some(doc_lines.join("\n")) };
+    if doc.is_none() {
+        for attr in &attributes {
+            if let Attribute::Doc(text) = attr {
+                doc = Some(text.clone());
+                break;
+            }
+        }
+    }
+
+    Ok(StructDef { name, is_pub, attributes, doc, fields, is_tuple })
 }
 
 fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
     let mut name = String::new();
     let mut is_pub = false;
     let mut attributes = vec![];
+    let mut doc_lines = vec![];
     let mut variants = vec![];
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::attribute => {
                 attributes.push(build_attribute(inner)?);
+            }
+            Rule::doc_comment => {
+                doc_lines.push(clean_doc_line(inner.as_str()));
             }
             Rule::visibility => {
                 is_pub = true;
@@ -525,7 +614,17 @@ fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
         }
     }
 
-    Ok(EnumDef { name, is_pub, attributes, variants })
+    let mut doc = if doc_lines.is_empty() { None } else { Some(doc_lines.join("\n")) };
+    if doc.is_none() {
+        for attr in &attributes {
+            if let Attribute::Doc(text) = attr {
+                doc = Some(text.clone());
+                break;
+            }
+        }
+    }
+
+    Ok(EnumDef { name, is_pub, attributes, doc, variants })
 }
 
 fn build_struct_field(pair: Pair<Rule>) -> Result<StructField, String> {
@@ -551,6 +650,7 @@ fn build_const(pair: Pair<Rule>) -> Result<ConstDef, String> {
     let mut name = String::new();
     let mut is_pub = false;
     let mut attributes = vec![];
+    let mut doc_lines = vec![];
     let mut ty = Type::I32;
     let mut value = Expr::Literal(Literal::Int(0));
 
@@ -558,6 +658,9 @@ fn build_const(pair: Pair<Rule>) -> Result<ConstDef, String> {
         match inner.as_rule() {
             Rule::attribute => {
                 attributes.push(build_attribute(inner)?);
+            }
+            Rule::doc_comment => {
+                doc_lines.push(clean_doc_line(inner.as_str()));
             }
             Rule::visibility => {
                 is_pub = true;
@@ -575,19 +678,33 @@ fn build_const(pair: Pair<Rule>) -> Result<ConstDef, String> {
         }
     }
 
-    Ok(ConstDef { name, is_pub, attributes, ty, value })
+    let mut doc = if doc_lines.is_empty() { None } else { Some(doc_lines.join("\n")) };
+    if doc.is_none() {
+        for attr in &attributes {
+            if let Attribute::Doc(text) = attr {
+                doc = Some(text.clone());
+                break;
+            }
+        }
+    }
+
+    Ok(ConstDef { name, is_pub, attributes, doc, ty, value })
 }
 
 fn build_type_alias(pair: Pair<Rule>) -> Result<TypeAliasDef, String> {
     let mut name = String::new();
     let mut is_pub = false;
     let mut attributes = vec![];
+    let mut doc_lines = vec![];
     let mut target = None;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::attribute => {
                 attributes.push(build_attribute(inner)?);
+            }
+            Rule::doc_comment => {
+                doc_lines.push(clean_doc_line(inner.as_str()));
             }
             Rule::visibility => {
                 is_pub = true;
@@ -603,7 +720,17 @@ fn build_type_alias(pair: Pair<Rule>) -> Result<TypeAliasDef, String> {
     }
 
     let target = target.ok_or_else(|| format!("type alias '{}' missing target type", name))?;
-    Ok(TypeAliasDef { name, is_pub, attributes, target })
+    let mut doc = if doc_lines.is_empty() { None } else { Some(doc_lines.join("\n")) };
+    if doc.is_none() {
+        for attr in &attributes {
+            if let Attribute::Doc(text) = attr {
+                doc = Some(text.clone());
+                break;
+            }
+        }
+    }
+
+    Ok(TypeAliasDef { name, is_pub, attributes, doc, target })
 }
 
 fn build_block(pair: Pair<Rule>) -> Result<Block, String> {

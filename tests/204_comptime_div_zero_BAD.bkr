@@ -1,0 +1,14 @@
+// Test 204: Comptime Division by Zero (Negative Test)
+// Purpose: Verify comptime evaluation that attempts division by zero is rejected with structured diagnostic.
+// Expected: Type error: Comptime evaluation of 'div_zero' failed: comptime: division by zero
+
+kernel Main {
+    comptime fn div_zero() -> i32 {
+        return 100 / 0;
+    }
+
+    fn main() -> i32 {
+        let bad = div_zero();
+        return bad;
+    }
+}

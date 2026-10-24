@@ -194,7 +194,8 @@ impl TypeChecker {
                 | ast::Attribute::Inline(_)
                 | ast::Attribute::Deprecated(_)
                 | ast::Attribute::MustUse(_)
-                | ast::Attribute::Test => {}
+                | ast::Attribute::Test
+                | ast::Attribute::Doc(_) => {}
                 ast::Attribute::Version(ref ver) => {
                     if ver != "0.1" && ver != "1.0" && ver != "2026" {
                         self.errors.push(TypeError {
@@ -3935,6 +3936,16 @@ pub fn check_file_with_strict_mutability(
         checker.language_version = Some("1.0".to_string());
     }
     all_errors.extend(checker.errors.drain(..));
+
+    // Validate comptime evaluation and collect diagnostics
+    let mut file_clone = file.clone();
+    let comptime_stats = crate::comptime::fold_comptime_calls(&mut file_clone);
+    for err in comptime_stats.errors {
+        all_errors.push(TypeError {
+            message: err,
+            location: "comptime".to_string(),
+        });
+    }
 
     // Pass 1: register all kernel declarations across all kernels
     for kernel in &file.kernels {
