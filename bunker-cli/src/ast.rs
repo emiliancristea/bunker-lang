@@ -393,5 +393,6 @@ pub enum Type {
     HashMap(Box<Type>, Box<Type>), // HashMap<K, V>
     Array(Box<Type>, usize),
     Ref { mutable: bool, ty: Box<Type> },
+    Fn(Vec<Type>, Box<Type>),
     Named(String),
 }

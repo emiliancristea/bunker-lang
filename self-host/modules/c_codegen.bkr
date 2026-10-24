@@ -145,7 +145,7 @@
         if kind == TYPE_BOOL { return "bkr_bool"; }
         if kind == TYPE_STR { return "bkr_str"; }
         if kind == TYPE_VOID || kind == TYPE_NEVER { return "void"; }
-        if kind == TYPE_VEC || kind == TYPE_MAP || kind == TYPE_OPTION || kind == TYPE_RESULT { return "bkr_i64"; }
+        if kind == TYPE_VEC || kind == TYPE_MAP || kind == TYPE_OPTION || kind == TYPE_RESULT || kind == TYPE_FN { return "bkr_i64"; }
         return "bkr_i64";
     }
 
@@ -670,6 +670,10 @@
             let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
             if cgen_is_struct_name_ref(state, name_idx) {
                 return TYPE_STRUCT;
+            }
+            let name_kind: i64 = cgen_lookup_name_type_ref(state, name_idx);
+            if name_kind == TYPE_FN {
+                return TYPE_I64;
             }
             let names: Vec<str> = cgen_names_ref(state);
             let raw: str = name_from_table(names, name_idx);
@@ -1723,7 +1727,12 @@
                 }
             }
             let name: str = name_to_c_ref(state, name_idx);
-            let result = name + "(";
+            let result = "";
+            if cgen_lookup_name_type_ref(state, name_idx) == TYPE_FN {
+                result = "((bkr_i64 (*)())" + name + ")(";
+            } else {
+                result = name + "(";
+            }
             let i: i64 = 0;
             while i < arg_count {
                 if i > 0 { result = result + ", "; }

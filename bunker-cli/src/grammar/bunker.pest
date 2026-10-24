@@ -260,6 +260,7 @@ type_expr = {
     hashmap_type |
     array_type |
     ref_type |
+    fn_type |
     base_type
 }
 
@@ -272,6 +273,9 @@ vec_type = { "Vec<" ~ type_expr ~ ">" }
 hashmap_type = { "HashMap<" ~ type_expr ~ "," ~ type_expr ~ ">" }
 array_type = { "[" ~ type_expr ~ ";" ~ integer ~ "]" }
 ref_type = { "&" ~ "mut"? ~ type_expr }
+fn_type = { "fn" ~ "(" ~ fn_params? ~ ")" ~ fn_ret? }
+fn_params = { type_expr ~ ("," ~ type_expr)* ~ ","? }
+fn_ret = { "->" ~ type_expr }
 base_type = {
     "i32" | "i64" | "f32" | "f64" |
     "bool" | "str" | "vec3" | "vec2" |

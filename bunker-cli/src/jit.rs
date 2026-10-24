@@ -4038,6 +4038,9 @@ fn compile_expr_inline(
         ast::Expr::Ident(name) => {
             if let Some(&var) = variables.get(name) {
                 Ok(builder.use_var(var))
+            } else if let Some(&func_id) = functions.get(name) {
+                let func_ref = module.declare_func_in_func(func_id, builder.func);
+                Ok(builder.ins().func_addr(types::I64, func_ref))
             } else {
                 Err(anyhow!("Undefined variable: {}", name))
             }
@@ -4559,7 +4562,59 @@ fn compile_expr_inline(
                     }
                     return Ok(ptr);
                 }
-                if let Some(&func_id) = functions.get(resolved_name) {
+                if let Some(&var) = variables.get(name) {
+                    let callee_val = builder.use_var(var);
+                    let (param_types, ret_ty, has_return) = match var_types.get(name) {
+                        Some(ast::Type::Fn(params, ret)) => {
+                            let p_tys = params.iter().map(convert_ast_type).collect::<Vec<_>>();
+                            let r_ty = convert_ast_type(ret);
+                            let has_ret = !matches!(ret.as_ref(), ast::Type::Unit | ast::Type::Never);
+                            (p_tys, r_ty, has_ret)
+                        }
+                        _ => {
+                            let p_tys = vec![types::I64; args.len()];
+                            (p_tys, types::I64, true)
+                        }
+                    };
+
+                    let mut arg_vals = vec![];
+                    for (i, arg) in args.iter().enumerate() {
+                        let param_ty = param_types.get(i).copied().unwrap_or(types::I64);
+                        let val = compile_expr_inline(
+                            builder,
+                            module,
+                            alloc_func,
+                            arena_push_func,
+                            arena_pop_func,
+                            functions,
+                            structs,
+                            fn_sigs,
+                            variables,
+                            var_types,
+                            var_index,
+                            defer_stack,
+                            arg,
+                        )?;
+                        arg_vals.push(cast_value(builder, val, param_ty));
+                    }
+
+                    let mut sig = module.make_signature();
+                    for &p_ty in &param_types {
+                        sig.params.push(AbiParam::new(p_ty));
+                    }
+                    if has_return {
+                        sig.returns.push(AbiParam::new(ret_ty));
+                    }
+                    let sig_ref = builder.func.import_signature(sig);
+                    let call = builder.ins().call_indirect(sig_ref, callee_val, &arg_vals);
+                    let results = builder.inst_results(call);
+
+                    if !has_return || results.is_empty() {
+                        Ok(builder.ins().iconst(types::I32, 0))
+                    } else {
+                        Ok(results[0])
+                    }
+                } else if let Some(&func_id) = functions.get(resolved_name) {
                     let (param_types, has_return) = {
                         let decl = module.declarations().get_function_decl(func_id);
                         (
@@ -4683,7 +4738,72 @@ fn compile_expr_inline(
                     Err(anyhow!("Cannot call method '{}' on non-struct type {:?}", field, base_ty))
                 }
             } else {
-                Err(anyhow!("Invalid function call"))
+                let callee_val = compile_expr_inline(
+                    builder,
+                    module,
+                    alloc_func,
+                    arena_push_func,
+                    arena_pop_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    defer_stack,
+                    func,
+                )?;
+                let func_ty = infer_expr_type(func, var_types, structs, fn_sigs);
+                let (param_types, ret_ty, has_return) = match func_ty {
+                    ast::Type::Fn(params, ret) => {
+                        let p_tys = params.iter().map(convert_ast_type).collect::<Vec<_>>();
+                        let r_ty = convert_ast_type(&ret);
+                        let has_ret = !matches!(ret.as_ref(), ast::Type::Unit | ast::Type::Never);
+                        (p_tys, r_ty, has_ret)
+                    }
+                    _ => {
+                        let p_tys = vec![types::I64; args.len()];
+                        (p_tys, types::I64, true)
+                    }
+                };
+
+                let mut arg_vals = vec![];
+                for (i, arg) in args.iter().enumerate() {
+                    let param_ty = param_types.get(i).copied().unwrap_or(types::I64);
+                    let val = compile_expr_inline(
+                        builder,
+                        module,
+                        alloc_func,
+                        arena_push_func,
+                        arena_pop_func,
+                        functions,
+                        structs,
+                        fn_sigs,
+                        variables,
+                        var_types,
+                        var_index,
+                        defer_stack,
+                        arg,
+                    )?;
+                    arg_vals.push(cast_value(builder, val, param_ty));
+                }
+
+                let mut sig = module.make_signature();
+                for &p_ty in &param_types {
+                    sig.params.push(AbiParam::new(p_ty));
+                }
+                if has_return {
+                    sig.returns.push(AbiParam::new(ret_ty));
+                }
+                let sig_ref = builder.func.import_signature(sig);
+                let call = builder.ins().call_indirect(sig_ref, callee_val, &arg_vals);
+                let results = builder.inst_results(call);
+
+                if !has_return || results.is_empty() {
+                    Ok(builder.ins().iconst(types::I32, 0))
+                } else {
+                    Ok(results[0])
+                }
             }
         }
         ast::Expr::Index { expr: arr, index } => {
@@ -5595,7 +5715,15 @@ fn infer_expr_type(
             ast::Literal::String(_) => ast::Type::Str,
             ast::Literal::HexColor(_) => ast::Type::I32,
         },
-        ast::Expr::Ident(name) => var_types.get(name).cloned().unwrap_or(ast::Type::I32),
+        ast::Expr::Ident(name) => {
+            if let Some(ty) = var_types.get(name) {
+                ty.clone()
+            } else if let Some((params, ret)) = fn_sigs.get(name) {
+                ast::Type::Fn(params.clone(), Box::new(ret.clone().unwrap_or(ast::Type::I32)))
+            } else {
+                ast::Type::I32
+            }
+        },
         ast::Expr::Unary { op, expr } => {
             let inner = infer_expr_type(expr, var_types, structs, fn_sigs);
             match op {
@@ -5647,6 +5775,11 @@ fn infer_expr_type(
                 if structs.contains_key(name) {
                     return ast::Type::Named(name.clone());
                 }
+                if let Some(ty) = var_types.get(name) {
+                    if let ast::Type::Fn(_, ret) = ty {
+                        return (**ret).clone();
+                    }
+                }
                 let arg_types = if let ast::Expr::Call { args, .. } = expr {
                     args.iter()
                         .map(|arg| infer_expr_type(arg, var_types, structs, fn_sigs))
@@ -5668,6 +5801,11 @@ fn infer_expr_type(
                     if let Some((_, ret)) = fn_sigs.get(&method_name) {
                         return ret.clone().unwrap_or(ast::Type::I32);
                     }
+                }
+            } else {
+                let func_ty = infer_expr_type(func, var_types, structs, fn_sigs);
+                if let ast::Type::Fn(_, ret) = func_ty {
+                    return (*ret).clone();
                 }
             }
             ast::Type::I32

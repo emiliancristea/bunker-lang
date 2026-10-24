@@ -294,6 +294,30 @@ fn build_type(pair: Pair<Rule>) -> Result<Type, String> {
                     ty: Box::new(inner_type),
                 });
             }
+            Rule::fn_type => {
+                let mut params = Vec::new();
+                let mut ret_type = Type::Unit;
+                for fn_inner in inner.into_inner() {
+                    match fn_inner.as_rule() {
+                        Rule::fn_params => {
+                            for param_inner in fn_inner.into_inner() {
+                                if param_inner.as_rule() == Rule::type_expr {
+                                    params.push(build_type(param_inner)?);
+                                }
+                            }
+                        }
+                        Rule::fn_ret => {
+                            for ret_inner in fn_inner.into_inner() {
+                                if ret_inner.as_rule() == Rule::type_expr {
+                                    ret_type = build_type(ret_inner)?;
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                return Ok(Type::Fn(params, Box::new(ret_type)));
+            }
             Rule::base_type => {
                 let text = inner.as_str();
                 return Ok(match text {

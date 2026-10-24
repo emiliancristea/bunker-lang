@@ -271,6 +271,27 @@
             parser_expect_ref(p, TOK_RBRACKET);
             return parser_set_type_ref_span_from_start(p, ast_type_array_ref(ast_type_ref_kind_value(elem_type_ref), len_value), start);
         }
+        if tok == TOK_FN {
+            parser_advance_ref(p);
+            parser_expect_ref(p, TOK_LPAREN);
+            if parser_peek_ref(p) != TOK_RPAREN {
+                let _p0 = parse_type_ref(p);
+                while parser_peek_ref(p) == TOK_COMMA {
+                    parser_advance_ref(p);
+                    if parser_peek_ref(p) != TOK_RPAREN {
+                        let _pn = parse_type_ref(p);
+                    }
+                }
+            }
+            parser_expect_ref(p, TOK_RPAREN);
+            if parser_peek_ref(p) == TOK_ARROW {
+                parser_advance_ref(p);
+                let ret_ref: AstTypeRef = parse_type_ref(p);
+                let ret_kind: i64 = ast_type_ref_kind_value(ret_ref);
+                return parser_set_type_ref_span_from_start(p, ast_type_generic_ref(TypeKind.Fn, ret_kind, 0), start);
+            }
+            return parser_set_type_ref_span_from_start(p, ast_type_generic_ref(TypeKind.Fn, TYPE_VOID, 0), start);
+        }
         if tok == TOK_NOT { parser_advance_ref(p); return parser_set_type_ref_span_from_start(p, ast_type_ref(TYPE_NEVER), start); }
         if tok == TOK_I32 { kind = TYPE_I32; parser_advance_ref(p); consumed = true; }
         if tok == TOK_I64 { kind = TYPE_I64; parser_advance_ref(p); consumed = true; }

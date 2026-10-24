@@ -145,6 +145,7 @@
         if kind == TypeKind.Option { return "Option"; }
         if kind == TypeKind.Result { return "Result"; }
         if kind == TypeKind.Never { return "!"; }
+        if kind == TypeKind.Fn { return "fn"; }
         if kind == TYPE_UNKNOWN { return "unknown"; }
         return "type " + int_to_string(kind);
     }

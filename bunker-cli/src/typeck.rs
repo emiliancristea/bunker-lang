@@ -200,6 +200,12 @@ impl TypeChecker {
                         ty: Box::new(self.resolve_alias(ty)),
                     };
                 }
+                Type::Fn(params, ret) => {
+                    return Type::Fn(
+                        params.iter().map(|p| self.resolve_alias(p)).collect(),
+                        Box::new(self.resolve_alias(ret)),
+                    );
+                }
                 _ => return current,
             }
         }
@@ -756,6 +762,11 @@ impl TypeChecker {
 
                 if let Some(ty) = self.variables.get(name) {
                     Ok(ty.clone())
+                } else if let Some((param_types, ret_ty)) = self.functions.get(name).cloned() {
+                    Ok(Type::Fn(
+                        param_types,
+                        Box::new(ret_ty.unwrap_or(Type::I32)),
+                    ))
                 } else if self.enums.contains_key(name) {
                     self.errors.push(TypeError {
                         message: format!(
@@ -874,6 +885,36 @@ impl TypeChecker {
                         return Ok(Type::Named(name.clone()));
                     }
 
+                    if let Some(var_ty) = self.variables.get(name).cloned() {
+                        let var_ty = self.resolve_alias(&var_ty);
+                        if let Type::Fn(param_types, ret_ty) = var_ty {
+                            if args.len() != param_types.len() {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Function {} expects {} arguments, got {}",
+                                        name,
+                                        param_types.len(),
+                                        args.len()
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                            for (i, (arg, expected_ty)) in args.iter().zip(param_types.iter()).enumerate() {
+                                let actual = self.infer_expr_with_hint(arg, context, Some(expected_ty))?;
+                                if !self.types_compatible(expected_ty, &actual) {
+                                    self.errors.push(TypeError {
+                                        message: format!(
+                                            "Argument {} type mismatch: expected {:?}, got {:?}",
+                                            i, expected_ty, actual
+                                        ),
+                                        location: context.to_string(),
+                                    });
+                                }
+                            }
+                            return Ok(*ret_ty);
+                        }
+                    }
+
                     if let Some((param_types, ret_ty)) = self.functions.get(name).cloned() {
                         // Check argument count
                         if args.len() != param_types.len() {
@@ -910,11 +951,39 @@ impl TypeChecker {
                         Ok(Type::I32)
                     }
                 } else {
-                    self.errors.push(TypeError {
-                        message: "Invalid function call target".to_string(),
-                        location: context.to_string(),
-                    });
-                    Ok(Type::I32)
+                    let callee_ty = self.infer_expr(func, context)?;
+                    let callee_ty = self.resolve_alias(&callee_ty);
+                    if let Type::Fn(param_types, ret_ty) = callee_ty {
+                        if args.len() != param_types.len() {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Function expects {} arguments, got {}",
+                                    param_types.len(),
+                                    args.len()
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                        for (i, (arg, expected_ty)) in args.iter().zip(param_types.iter()).enumerate() {
+                            let actual = self.infer_expr_with_hint(arg, context, Some(expected_ty))?;
+                            if !self.types_compatible(expected_ty, &actual) {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Argument {} type mismatch: expected {:?}, got {:?}",
+                                        i, expected_ty, actual
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                        }
+                        Ok(*ret_ty)
+                    } else {
+                        self.errors.push(TypeError {
+                            message: "Invalid function call target".to_string(),
+                            location: context.to_string(),
+                        });
+                        Ok(Type::I32)
+                    }
                 }
             }
             Expr::Index { expr, index } => {
@@ -2035,6 +2104,7 @@ impl TypeChecker {
         match ty {
             Type::Tuple(elem_types) => elem_types.iter().all(|t| self.is_copy_type(t)),
             Type::Never | Type::Unit | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool => true,
+            Type::Fn(_, _) => true,
             Type::Named(name) => self.enums.contains_key(name),
             _ => false,
         }
@@ -2875,6 +2945,13 @@ impl TypeChecker {
         if let (Type::HashMap(key1, value1), Type::HashMap(key2, value2)) = (expected, actual) {
             return self.types_compatible(key1, key2) && self.types_compatible(value1, value2);
         }
+        // Fn types with compatible parameter and return types
+        if let (Type::Fn(p1, r1), Type::Fn(p2, r2)) = (expected, actual) {
+            if p1.len() == p2.len() {
+                return p1.iter().zip(p2.iter()).all(|(a, b)| self.types_compatible(a, b))
+                    && self.types_compatible(r1, r2);
+            }
+        }
         false
     }
 }
@@ -3215,6 +3292,12 @@ pub fn lower_type_aliases(file: &mut ast::File) {
                 }
             }
             ast::Type::Ref { ty: inner, .. } => resolve_ty(inner, aliases),
+            ast::Type::Fn(params, ret) => {
+                for p in params {
+                    resolve_ty(p, aliases);
+                }
+                resolve_ty(ret, aliases);
+            }
             _ => {}
         }
     }

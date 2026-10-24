@@ -1,0 +1,14 @@
+// Test 187 (BAD): Function call arity mismatch on function pointer variable
+// Calling fn(i32) -> i32 with 2 arguments
+
+kernel FnArityMismatchBad {
+    fn double(x: i32) -> i32 {
+        return x * 2;
+    }
+
+    fn main() -> i32 {
+        let f: fn(i32) -> i32 = double;
+        let res = f(10, 20);
+        return res;
+    }
+}

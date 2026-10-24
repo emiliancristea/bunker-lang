@@ -1,0 +1,17 @@
+// Test 186 (BAD): Function type mismatch rejected at typecheck time
+// Passing fn(i32) -> i32 where fn(i32, i32) -> i32 is required
+
+kernel FnTypeMismatchBad {
+    fn double(x: i32) -> i32 {
+        return x * 2;
+    }
+
+    fn apply_binary(f: fn(i32, i32) -> i32, a: i32, b: i32) -> i32 {
+        return f(a, b);
+    }
+
+    fn main() -> i32 {
+        let res = apply_binary(double, 10, 20);
+        return res;
+    }
+}
