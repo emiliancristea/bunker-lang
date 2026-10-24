@@ -1504,11 +1504,10 @@ fn match_bindings(pattern: &ast::Pattern, value: &Value) -> Option<HashMap<Strin
             }
             Some(bindings)
         }
-        ast::Pattern::Some(name) => match value {
+        ast::Pattern::Some(sub_pat) => match value {
             Value::Option(Some(inner)) => {
-                if name != "_" {
-                    bindings.insert(name.clone(), inner.as_ref().clone());
-                }
+                let sub_bindings = match_bindings(sub_pat, inner)?;
+                bindings.extend(sub_bindings);
                 Some(bindings)
             }
             _ => None,

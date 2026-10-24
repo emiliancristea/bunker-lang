@@ -651,16 +651,37 @@
             return "BKR_TRUE";
         }
         if kind == PAT_SOME {
-            return "((" + value_name + " & 1) != 0)";
+            let base_cond: str = "((" + value_name + " & 1) != 0)";
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                let sub_cond: str = gen_c_match_condition_ref(state, "(" + value_name + " >> 1)", sub_pat);
+                return "(" + base_cond + " && " + sub_cond + ")";
+            }
+            return base_cond;
         }
         if kind == PAT_NONE {
             return "(" + value_name + " == 0)";
         }
         if kind == PAT_RESULT_OK {
-            return "(bkr_result_is_ok(" + value_name + ") == BKR_TRUE)";
+            let base_cond: str = "(bkr_result_is_ok(" + value_name + ") == BKR_TRUE)";
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                let sub_cond: str = gen_c_match_condition_ref(state, "bkr_result_unwrap(" + value_name + ")", sub_pat);
+                return "(" + base_cond + " && " + sub_cond + ")";
+            }
+            return base_cond;
         }
         if kind == PAT_RESULT_ERR {
-            return "(bkr_result_is_err(" + value_name + ") == BKR_TRUE)";
+            let base_cond: str = "(bkr_result_is_err(" + value_name + ") == BKR_TRUE)";
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                let sub_cond: str = gen_c_match_condition_ref(state, "bkr_result_unwrap_err(" + value_name + ")", sub_pat);
+                return "(" + base_cond + " && " + sub_cond + ")";
+            }
+            return base_cond;
         }
         if kind == PAT_TUPLE || kind == PAT_STRUCT {
             return "BKR_TRUE";
@@ -695,13 +716,43 @@
             return type_to_c(scrutinee_kind) + " " + name_to_c_ref(state, value) + " = " + value_name + "; ";
         }
         if kind == PAT_SOME {
-            return "bkr_i64 " + name_to_c_ref(state, value) + " = (" + value_name + " >> 1); ";
+            let res: str = "";
+            if value >= 0 {
+                res = res + "bkr_i64 " + name_to_c_ref(state, value) + " = (" + value_name + " >> 1); ";
+            }
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                let inner_expr: str = "(" + value_name + " >> 1)";
+                res = res + gen_c_match_bindings_ref(state, inner_expr, sub_pat, TYPE_I64);
+            }
+            return res;
         }
         if kind == PAT_RESULT_OK {
-            return "bkr_i64 " + name_to_c_ref(state, value) + " = bkr_result_unwrap(" + value_name + "); ";
+            let res: str = "";
+            if value >= 0 {
+                res = res + "bkr_i64 " + name_to_c_ref(state, value) + " = bkr_result_unwrap(" + value_name + "); ";
+            }
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                let inner_expr: str = "bkr_result_unwrap(" + value_name + ")";
+                res = res + gen_c_match_bindings_ref(state, inner_expr, sub_pat, TYPE_I64);
+            }
+            return res;
         }
         if kind == PAT_RESULT_ERR {
-            return "bkr_i64 " + name_to_c_ref(state, value) + " = bkr_result_unwrap_err(" + value_name + "); ";
+            let res: str = "";
+            if value >= 0 {
+                res = res + "bkr_i64 " + name_to_c_ref(state, value) + " = bkr_result_unwrap_err(" + value_name + "); ";
+            }
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                let inner_expr: str = "bkr_result_unwrap_err(" + value_name + ")";
+                res = res + gen_c_match_bindings_ref(state, inner_expr, sub_pat, TYPE_I64);
+            }
+            return res;
         }
         if kind == PAT_TUPLE {
             let bind1: i64 = ast_pattern_ref_bind(pattern_ref);

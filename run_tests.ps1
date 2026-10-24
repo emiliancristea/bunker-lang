@@ -117,6 +117,7 @@ $expectedResults = @{
     "136_generic_collections_self_host" = 42
     "137_type_aliases" = 42
     "138_never_type" = 42
+    "139_nested_patterns" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)

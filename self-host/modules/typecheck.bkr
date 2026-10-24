@@ -1207,7 +1207,9 @@
                     "Remove this arm or move it before the exhaustive Option patterns.");
             }
             if ast_pattern_ref_kind(pattern_ref) == PAT_SOME {
-                covers_some = true;
+                if ast_pattern_ref_aux(pattern_ref) == 0 {
+                    covers_some = true;
+                }
             }
             if ast_pattern_ref_kind(pattern_ref) == PAT_NONE {
                 covers_none = true;
@@ -1300,10 +1302,14 @@
                     "Remove this arm or move it before the exhaustive Result patterns.");
             }
             if ast_pattern_ref_kind(pattern_ref) == PAT_RESULT_OK {
-                covers_ok = true;
+                if ast_pattern_ref_aux(pattern_ref) == 0 {
+                    covers_ok = true;
+                }
             }
             if ast_pattern_ref_kind(pattern_ref) == PAT_RESULT_ERR {
-                covers_err = true;
+                if ast_pattern_ref_aux(pattern_ref) == 0 {
+                    covers_err = true;
+                }
             }
             if covers_ok && covers_err {
                 exhausted = true;

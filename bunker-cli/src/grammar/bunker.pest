@@ -214,14 +214,19 @@ tuple_pattern = { "(" ~ pattern ~ ("," ~ pattern)+ ~ ","? ~ ")" }
 struct_pattern = { identifier ~ "{" ~ (struct_field_pattern ~ ("," ~ struct_field_pattern)* ~ ","?)? ~ "}" }
 struct_field_pattern = { identifier ~ (":" ~ pattern)? }
 
+option_some_pattern = { ("Option.")? ~ "Some" ~ "(" ~ pattern ~ ")" }
+result_ok_pattern = { ("Result.")? ~ "Ok" ~ "(" ~ pattern ~ ")" }
+result_err_pattern = { ("Result.")? ~ "Err" ~ "(" ~ pattern ~ ")" }
+
 pattern = {
     "()" |
     tuple_pattern |
     struct_pattern |
-    "Some(" ~ ( "()" | identifier ) ~ ")" |
+    option_some_pattern |
+    "Option.None" |
     "None" |
-    "Ok(" ~ ( "()" | identifier ) ~ ")" |
-    "Err(" ~ ( "()" | identifier ) ~ ")" |
+    result_ok_pattern |
+    result_err_pattern |
     "true" |
     "false" |
     enum_variant_pattern |

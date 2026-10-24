@@ -233,7 +233,7 @@ pub enum Pattern {
         name: String,
         fields: Vec<(String, Pattern)>,
     },
-    Some(String),
+    Some(Box<Pattern>),
     None,
     Bool(bool),
     Literal(Literal),
@@ -248,8 +248,8 @@ pub enum Pattern {
         bindings: Vec<String>,
         types: Vec<Type>,
     },
-    ResultOk(String),
-    ResultErr(String),
+    ResultOk(Box<Pattern>),
+    ResultErr(Box<Pattern>),
 }
 
 // ====================

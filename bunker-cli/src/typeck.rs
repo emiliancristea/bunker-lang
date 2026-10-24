@@ -41,6 +41,15 @@ pub struct TypeChecker {
     moved_locations: HashMap<String, String>,
 }
 
+fn pattern_is_irrefutable(pat: &ast::Pattern) -> bool {
+    match pat {
+        ast::Pattern::Ident(_) | ast::Pattern::Unit => true,
+        ast::Pattern::Tuple(sub_pats) => sub_pats.iter().all(pattern_is_irrefutable),
+        ast::Pattern::Struct { fields, .. } => fields.iter().all(|(_, p)| pattern_is_irrefutable(p)),
+        _ => false,
+    }
+}
+
 impl TypeChecker {
     pub fn new() -> Self {
         let mut tc = Self {
@@ -1764,27 +1773,38 @@ impl TypeChecker {
         if !matches!(expr_ty, Type::Result(_, _)) {
             return;
         }
-        let mut seen = HashSet::new();
+        let mut seen_ok = false;
+        let mut seen_err = false;
+        let mut seen_irrefutable_ok = false;
+        let mut seen_irrefutable_err = false;
         let mut has_wildcard = false;
         for arm in arms {
             if arm.guard.is_some() {
                 continue;
             }
             match &arm.pattern {
-                ast::Pattern::ResultOk(_) => {
-                    if !seen.insert("Ok") {
+                ast::Pattern::ResultOk(sub_pat) => {
+                    if seen_irrefutable_ok {
                         self.errors.push(TypeError {
                             message: "Duplicate match pattern 'Result.Ok'".to_string(),
                             location: context.to_string(),
                         });
                     }
+                    seen_ok = true;
+                    if pattern_is_irrefutable(sub_pat) {
+                        seen_irrefutable_ok = true;
+                    }
                 }
-                ast::Pattern::ResultErr(_) => {
-                    if !seen.insert("Err") {
+                ast::Pattern::ResultErr(sub_pat) => {
+                    if seen_irrefutable_err {
                         self.errors.push(TypeError {
                             message: "Duplicate match pattern 'Result.Err'".to_string(),
                             location: context.to_string(),
                         });
+                    }
+                    seen_err = true;
+                    if pattern_is_irrefutable(sub_pat) {
+                        seen_irrefutable_err = true;
                     }
                 }
                 ast::Pattern::Ident(_) => {
@@ -1797,10 +1817,10 @@ impl TypeChecker {
             return;
         }
         let mut missing = Vec::new();
-        if !seen.contains("Ok") {
+        if !seen_ok {
             missing.push("Result.Ok");
         }
-        if !seen.contains("Err") {
+        if !seen_err {
             missing.push("Result.Err");
         }
         if !missing.is_empty() {
@@ -1818,28 +1838,35 @@ impl TypeChecker {
         if !matches!(expr_ty, Type::Option(_)) {
             return;
         }
-        let mut seen = HashSet::new();
+        let mut seen_some = false;
+        let mut seen_none = false;
+        let mut seen_irrefutable_some = false;
         let mut has_wildcard = false;
         for arm in arms {
             if arm.guard.is_some() {
                 continue;
             }
             match &arm.pattern {
-                ast::Pattern::Some(_) => {
-                    if !seen.insert("Some") {
+                ast::Pattern::Some(sub_pat) => {
+                    if seen_irrefutable_some {
                         self.errors.push(TypeError {
                             message: "Duplicate match pattern 'Some'".to_string(),
                             location: context.to_string(),
                         });
                     }
+                    seen_some = true;
+                    if pattern_is_irrefutable(sub_pat) {
+                        seen_irrefutable_some = true;
+                    }
                 }
                 ast::Pattern::None => {
-                    if !seen.insert("None") {
+                    if seen_none {
                         self.errors.push(TypeError {
                             message: "Duplicate match pattern 'None'".to_string(),
                             location: context.to_string(),
                         });
                     }
+                    seen_none = true;
                 }
                 ast::Pattern::Ident(_) => {
                     has_wildcard = true;
@@ -1851,10 +1878,10 @@ impl TypeChecker {
             return;
         }
         let mut missing = Vec::new();
-        if !seen.contains("Some") {
+        if !seen_some {
             missing.push("Some");
         }
-        if !seen.contains("None") {
+        if !seen_none {
             missing.push("None");
         }
         if !missing.is_empty() {
@@ -1907,9 +1934,9 @@ impl TypeChecker {
                     }
                 }
             }
-            ast::Pattern::Some(name) if name != "_" => {
+            ast::Pattern::Some(sub_pat) => {
                 if let Type::Option(inner) = expr_ty {
-                    self.variables.insert(name.clone(), inner.as_ref().clone());
+                    self.bind_pattern(sub_pat, inner);
                 }
             }
             ast::Pattern::EnumVariant {
@@ -1927,14 +1954,14 @@ impl TypeChecker {
                     }
                 }
             }
-            ast::Pattern::ResultOk(name) if name != "_" => {
+            ast::Pattern::ResultOk(sub_pat) => {
                 if let Type::Result(ok_ty, _) = expr_ty {
-                    self.variables.insert(name.clone(), ok_ty.as_ref().clone());
+                    self.bind_pattern(sub_pat, ok_ty);
                 }
             }
-            ast::Pattern::ResultErr(name) if name != "_" => {
+            ast::Pattern::ResultErr(sub_pat) => {
                 if let Type::Result(_, err_ty) = expr_ty {
-                    self.variables.insert(name.clone(), err_ty.as_ref().clone());
+                    self.bind_pattern(sub_pat, err_ty);
                 }
             }
             _ => {}
@@ -2151,8 +2178,10 @@ impl TypeChecker {
                     }
                 }
             }
-            ast::Pattern::Some(_) => {
-                if !matches!(expr_ty, Type::Option(_)) {
+            ast::Pattern::Some(sub_pat) => {
+                if let Type::Option(inner) = expr_ty {
+                    self.check_pattern_type(sub_pat, inner, context);
+                } else {
                     self.errors.push(TypeError {
                         message: format!("Some pattern cannot match non-Option type {:?}", expr_ty),
                         location: context.to_string(),
@@ -2252,8 +2281,23 @@ impl TypeChecker {
                 }
             }
             ast::Pattern::EnumPayload { .. } => {}
-            ast::Pattern::ResultOk(_) | ast::Pattern::ResultErr(_) => {
-                if !matches!(expr_ty, Type::Result(_, _)) {
+            ast::Pattern::ResultOk(sub_pat) => {
+                if let Type::Result(ok_ty, _) = expr_ty {
+                    self.check_pattern_type(sub_pat, ok_ty, context);
+                } else {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Result pattern cannot match expression of non-Result type {:?}",
+                            expr_ty
+                        ),
+                        location: context.to_string(),
+                    });
+                }
+            }
+            ast::Pattern::ResultErr(sub_pat) => {
+                if let Type::Result(_, err_ty) = expr_ty {
+                    self.check_pattern_type(sub_pat, err_ty, context);
+                } else {
                     self.errors.push(TypeError {
                         message: format!(
                             "Result pattern cannot match expression of non-Result type {:?}",
@@ -2377,6 +2421,18 @@ fn lower_pattern(
         for (_, sub_pat) in fields {
             lower_pattern(sub_pat, enums);
         }
+        return;
+    }
+    if let ast::Pattern::Some(sub_pat) = pattern {
+        lower_pattern(sub_pat, enums);
+        return;
+    }
+    if let ast::Pattern::ResultOk(sub_pat) = pattern {
+        lower_pattern(sub_pat, enums);
+        return;
+    }
+    if let ast::Pattern::ResultErr(sub_pat) = pattern {
+        lower_pattern(sub_pat, enums);
         return;
     }
     let ast::Pattern::EnumVariant {

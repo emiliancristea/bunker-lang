@@ -581,11 +581,8 @@ impl ComptimeEvaluator {
                 }
                 Some(bindings)
             }
-            (ast::Pattern::Some(name), ComptimeValue::Some(inner)) => {
-                if name != "_" {
-                    bindings.insert(name.clone(), inner.as_ref().clone());
-                }
-                Some(bindings)
+            (ast::Pattern::Some(sub_pat), ComptimeValue::Some(inner)) => {
+                self.match_pattern(sub_pat, inner)
             }
             (ast::Pattern::None, ComptimeValue::None) => Some(bindings),
             (ast::Pattern::EnumVariant { .. }, _) => None,
@@ -833,11 +830,16 @@ fn fold_expr(expr: &mut Expr, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
             fold_expr(start, eval, stats);
             fold_expr(end, eval, stats);
         }
-        Expr::Try(inner) => {
-            fold_expr(inner, eval, stats);
-        }
-        Expr::Cast { expr: inner, .. } => {
-            fold_expr(inner, eval, stats);
+        Expr::Try(inner) => {
+
+            fold_expr(inner, eval, stats);
+
+        }
+
+        Expr::Cast { expr: inner, .. } => {
+
+            fold_expr(inner, eval, stats);
+
         }
         // Terminals - no children to fold
         Expr::Unit | Expr::Literal(_) | Expr::Ident(_) | Expr::None => {}

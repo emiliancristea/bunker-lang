@@ -2255,6 +2255,21 @@ jobs:
           grep -q '"type_kind":"!"' /tmp/138_never_type.c
           grep -q '"has_diagnostics":false' /tmp/138_never_type.c
 
+      - name: Run nested patterns acceptance test (JIT)
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/139_nested_patterns.bkr
+
+      - name: Compile nested patterns fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/139_nested_patterns.bkr \
+            -o /tmp/139_nested_patterns.c
+          test -s /tmp/139_nested_patterns.c
+          grep -q "BUNKER_AST_JSON" /tmp/139_nested_patterns.c
+          grep -q '"has_diagnostics":false' /tmp/139_nested_patterns.c
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |

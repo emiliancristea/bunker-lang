@@ -427,9 +427,15 @@
                 let raw_variant = parser_get_name_ref(p, variant_idx);
                 let bind_idx: i64 = -1;
                 let bind2_idx: i64 = -1;
+                let sub_pat_handle: i64 = 0;
                 if parser_peek_ref(p) == TOK_LPAREN {
                     parser_advance_ref(p);
-                    bind_idx = parser_expect_name(p);
+                    let sub_pat: AstPatternRef = parse_match_pattern_ref(p);
+                    if ast_pattern_ref_kind(sub_pat) == PAT_BIND {
+                        bind_idx = ast_pattern_ref_value(sub_pat);
+                    } else {
+                        sub_pat_handle = ast_pattern_ref_handle(sub_pat);
+                    }
                     if parser_peek_ref(p) == TOK_COMMA {
                         parser_advance_ref(p);
                         bind2_idx = parser_expect_name(p);
@@ -438,7 +444,7 @@
                 }
                 if raw_name == "Option" {
                     if raw_variant == "Some" {
-                        return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_SOME, bind_idx), start);
+                        return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new2(PAT_SOME, bind_idx, sub_pat_handle), start);
                     }
                     if raw_variant == "None" {
                         return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_NONE, 0), start);
@@ -446,10 +452,10 @@
                 }
                 if raw_name == "Result" {
                     if raw_variant == "Ok" {
-                        return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_RESULT_OK, bind_idx), start);
+                        return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new2(PAT_RESULT_OK, bind_idx, sub_pat_handle), start);
                     }
                     if raw_variant == "Err" {
-                        return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_RESULT_ERR, bind_idx), start);
+                        return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new2(PAT_RESULT_ERR, bind_idx, sub_pat_handle), start);
                     }
                 }
                 return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new4(PAT_ENUM_VARIANT, name_idx, variant_idx, bind_idx, bind2_idx), start);
@@ -461,9 +467,16 @@
 
             if raw_name == "Some" && parser_peek_ref(p) == TOK_LPAREN {
                 parser_advance_ref(p);
-                let bind_idx = parser_expect_name(p);
+                let sub_pat: AstPatternRef = parse_match_pattern_ref(p);
                 parser_expect_ref(p, TOK_RPAREN);
-                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_SOME, bind_idx), start);
+                let bind_idx: i64 = -1;
+                let aux_idx: i64 = 0;
+                if ast_pattern_ref_kind(sub_pat) == PAT_BIND {
+                    bind_idx = ast_pattern_ref_value(sub_pat);
+                } else {
+                    aux_idx = ast_pattern_ref_handle(sub_pat);
+                }
+                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new2(PAT_SOME, bind_idx, aux_idx), start);
             }
 
             if raw_name == "None" {
@@ -472,16 +485,30 @@
 
             if raw_name == "Ok" && parser_peek_ref(p) == TOK_LPAREN {
                 parser_advance_ref(p);
-                let bind_idx = parser_expect_name(p);
+                let sub_pat: AstPatternRef = parse_match_pattern_ref(p);
                 parser_expect_ref(p, TOK_RPAREN);
-                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_RESULT_OK, bind_idx), start);
+                let bind_idx: i64 = -1;
+                let aux_idx: i64 = 0;
+                if ast_pattern_ref_kind(sub_pat) == PAT_BIND {
+                    bind_idx = ast_pattern_ref_value(sub_pat);
+                } else {
+                    aux_idx = ast_pattern_ref_handle(sub_pat);
+                }
+                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new2(PAT_RESULT_OK, bind_idx, aux_idx), start);
             }
 
             if raw_name == "Err" && parser_peek_ref(p) == TOK_LPAREN {
                 parser_advance_ref(p);
-                let bind_idx = parser_expect_name(p);
+                let sub_pat: AstPatternRef = parse_match_pattern_ref(p);
                 parser_expect_ref(p, TOK_RPAREN);
-                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_RESULT_ERR, bind_idx), start);
+                let bind_idx: i64 = -1;
+                let aux_idx: i64 = 0;
+                if ast_pattern_ref_kind(sub_pat) == PAT_BIND {
+                    bind_idx = ast_pattern_ref_value(sub_pat);
+                } else {
+                    aux_idx = ast_pattern_ref_handle(sub_pat);
+                }
+                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new2(PAT_RESULT_ERR, bind_idx, aux_idx), start);
             }
 
             return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_BIND, name_idx), start);

@@ -671,20 +671,8 @@ fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
     if text == "()" {
         return Ok(Pattern::Unit);
     }
-    if text.starts_with("Some(") && text.ends_with(')') {
-        let inner = &text[5..text.len() - 1].trim();
-        return Ok(Pattern::Some(inner.to_string()));
-    }
-    if text == "None" {
+    if text == "None" || text == "Option.None" {
         return Ok(Pattern::None);
-    }
-    if text.starts_with("Ok(") && text.ends_with(')') {
-        let inner = &text[3..text.len() - 1].trim();
-        return Ok(Pattern::ResultOk(inner.to_string()));
-    }
-    if text.starts_with("Err(") && text.ends_with(')') {
-        let inner = &text[4..text.len() - 1].trim();
-        return Ok(Pattern::ResultErr(inner.to_string()));
     }
     if text == "true" {
         return Ok(Pattern::Bool(true));
@@ -737,6 +725,27 @@ fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
                     fields,
                 });
             }
+            Rule::option_some_pattern => {
+                for pat_inner in inner.into_inner() {
+                    if pat_inner.as_rule() == Rule::pattern {
+                        return Ok(Pattern::Some(Box::new(build_pattern(pat_inner)?)));
+                    }
+                }
+            }
+            Rule::result_ok_pattern => {
+                for pat_inner in inner.into_inner() {
+                    if pat_inner.as_rule() == Rule::pattern {
+                        return Ok(Pattern::ResultOk(Box::new(build_pattern(pat_inner)?)));
+                    }
+                }
+            }
+            Rule::result_err_pattern => {
+                for pat_inner in inner.into_inner() {
+                    if pat_inner.as_rule() == Rule::pattern {
+                        return Ok(Pattern::ResultErr(Box::new(build_pattern(pat_inner)?)));
+                    }
+                }
+            }
             Rule::enum_variant_pattern => {
                 let mut names = Vec::new();
                 for part in inner.into_inner() {
@@ -747,15 +756,15 @@ fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
                 if names.len() >= 2 {
                     if names[0] == "Option" {
                         if names[1] == "Some" && names.len() == 3 {
-                            return Ok(Pattern::Some(names[2].clone()));
+                            return Ok(Pattern::Some(Box::new(Pattern::Ident(names[2].clone()))));
                         } else if names[1] == "None" && names.len() == 2 {
                             return Ok(Pattern::None);
                         }
                     } else if names[0] == "Result" {
                         if names[1] == "Ok" && names.len() == 3 {
-                            return Ok(Pattern::ResultOk(names[2].clone()));
+                            return Ok(Pattern::ResultOk(Box::new(Pattern::Ident(names[2].clone()))));
                         } else if names[1] == "Err" && names.len() == 3 {
-                            return Ok(Pattern::ResultErr(names[2].clone()));
+                            return Ok(Pattern::ResultErr(Box::new(Pattern::Ident(names[2].clone()))));
                         }
                     }
                     return Ok(Pattern::EnumVariant {
