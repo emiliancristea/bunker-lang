@@ -511,6 +511,23 @@
                 return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new2(PAT_RESULT_ERR, bind_idx, aux_idx), start);
             }
 
+            if parser_peek_ref(p) == TOK_LPAREN {
+                parser_advance_ref(p);
+                let p1 = parser_expect_name(p);
+                let p2: i64 = -1;
+                let p3: i64 = -1;
+                if parser_peek_ref(p) == TOK_COMMA {
+                    parser_advance_ref(p);
+                    p2 = parser_expect_name(p);
+                    if parser_peek_ref(p) == TOK_COMMA {
+                        parser_advance_ref(p);
+                        p3 = parser_expect_name(p);
+                    }
+                }
+                parser_expect_ref(p, TOK_RPAREN);
+                return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new4(PAT_STRUCT, name_idx, p3, p1, p2), start);
+            }
+
             return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_BIND, name_idx), start);
         }
 
@@ -691,25 +708,35 @@
             let after_lbrace = parser_peek_at_ref(p, 1);
             let after_field = parser_peek_at_ref(p, 2);
             let looks_like_struct_literal = parser_peek_ref(p) == TOK_LBRACE && is_type_name &&
-                (after_lbrace == TOK_RBRACE || (is_name_token(after_lbrace) && after_field == TOK_COLON));
+                (after_lbrace == TOK_RBRACE || after_lbrace == TOK_DOT_DOT || (is_name_token(after_lbrace) && after_field == TOK_COLON));
             if looks_like_struct_literal {
                 parser_advance_ref(p);
                 let field_names: Vec<i64> = vec_new();
                 let field_values: Vec<i64> = vec_new();
                 let field_names_ref: AstI64ListRef = ast_i64_list_ref_from_list(field_names);
                 let field_values_ref: AstNodeListRef = ast_node_list_ref_from_list(field_values);
+                let base_handle: i64 = 0;
                 while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
-                    let field_name = parser_expect_name(p);
-                    parser_expect_ref(p, TOK_COLON);
-                    let field_value_ref: AstExprRef = parse_expr_ref(p);
-                    ast_i64_list_append_ref(field_names_ref, field_name);
-                    ast_node_list_append_expr_ref(field_values_ref, field_value_ref);
-                    if parser_peek_ref(p) == TOK_COMMA {
+                    if parser_peek_ref(p) == TOK_DOT_DOT {
                         parser_advance_ref(p);
+                        let base_ref: AstExprRef = parse_expr_ref(p);
+                        base_handle = ast_expr_ref_handle(base_ref);
+                        if parser_peek_ref(p) == TOK_COMMA {
+                            parser_advance_ref(p);
+                        }
+                    } else {
+                        let field_name = parser_expect_name(p);
+                        parser_expect_ref(p, TOK_COLON);
+                        let field_value_ref: AstExprRef = parse_expr_ref(p);
+                        ast_i64_list_append_ref(field_names_ref, field_name);
+                        ast_node_list_append_expr_ref(field_values_ref, field_value_ref);
+                        if parser_peek_ref(p) == TOK_COMMA {
+                            parser_advance_ref(p);
+                        }
                     }
                 }
                 parser_expect_ref(p, TOK_RBRACE);
-                return parser_set_expr_ref_span_from_start(p, ast_struct_lit_ref(name_idx, field_names_ref, field_values_ref), start);
+                return parser_set_expr_ref_span_from_start(p, ast_struct_lit_ref_with_base(name_idx, field_names_ref, field_values_ref, base_handle), start);
             }
 
             if parser_peek_ref(p) == TOK_COLON_COLON {
@@ -1417,25 +1444,45 @@
         let start = parser_current_token_start(p);
         parser_expect_ref(p, TOK_STRUCT);
         let name_idx = parser_expect_name(p);
-        parser_expect_ref(p, TOK_LBRACE);
 
         let fields: Vec<i64> = vec_new();
         let fields_ref: AstNodeListRef = ast_node_list_ref_from_list(fields);
-        while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
-            let field_start = parser_current_token_start(p);
-            let field_name = parser_expect_name(p);
-            parser_expect_ref(p, TOK_COLON);
-            let field_type_ref: AstTypeRef = parse_type_ref(p);
 
-            let field_ref: AstNodeRef = parser_set_node_ref_span(ast_field_decl_ref(field_name, field_type_ref), field_start, parser_previous_token_end(p));
-            ast_node_list_append_node_ref(fields_ref, field_ref);
-
-            if parser_peek_ref(p) == TOK_COMMA {
+        if parser_peek_ref(p) == TOK_LPAREN {
+            parser_advance_ref(p);
+            let idx: i64 = 0;
+            while parser_peek_ref(p) != TOK_RPAREN && parser_peek_ref(p) != TOK_EOF {
+                let field_start = parser_current_token_start(p);
+                let field_type_ref: AstTypeRef = parse_type_ref(p);
+                let field_name = parser_intern_ref(p, int_to_string(idx));
+                let field_ref: AstNodeRef = parser_set_node_ref_span(ast_field_decl_ref(field_name, field_type_ref), field_start, parser_previous_token_end(p));
+                ast_node_list_append_node_ref(fields_ref, field_ref);
+                idx = idx + 1;
+                if parser_peek_ref(p) == TOK_COMMA {
+                    parser_advance_ref(p);
+                }
+            }
+            parser_expect_ref(p, TOK_RPAREN);
+            if parser_peek_ref(p) == TOK_SEMICOLON {
                 parser_advance_ref(p);
             }
-        }
+        } else {
+            parser_expect_ref(p, TOK_LBRACE);
+            while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
+                let field_start = parser_current_token_start(p);
+                let field_name = parser_expect_name(p);
+                parser_expect_ref(p, TOK_COLON);
+                let field_type_ref: AstTypeRef = parse_type_ref(p);
 
-        parser_expect_ref(p, TOK_RBRACE);
+                let field_ref: AstNodeRef = parser_set_node_ref_span(ast_field_decl_ref(field_name, field_type_ref), field_start, parser_previous_token_end(p));
+                ast_node_list_append_node_ref(fields_ref, field_ref);
+
+                if parser_peek_ref(p) == TOK_COMMA {
+                    parser_advance_ref(p);
+                }
+            }
+            parser_expect_ref(p, TOK_RBRACE);
+        }
 
         let struct_ref: AstItemRef = ast_struct_ref(name_idx, fields_ref);
         return parser_set_item_ref_span_from_start(p, struct_ref, start);

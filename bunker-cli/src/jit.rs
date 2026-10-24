@@ -4303,6 +4303,31 @@ fn compile_expr_inline(
                 } else {
                     name.as_str()
                 };
+                if let Some(layout) = structs.get(name) {
+                    let ptr = emit_alloc(builder, module, alloc_func, layout.size as i64, 8)?;
+                    for (i, arg) in args.iter().enumerate() {
+                        if let Some((_fname, offset, field_ty)) = layout.fields.get(i) {
+                            let val = compile_expr_inline(
+                                builder,
+                                module,
+                                alloc_func,
+                                arena_push_func,
+                                arena_pop_func,
+                                functions,
+                                structs,
+                                fn_sigs,
+                                variables,
+                                var_types,
+                                var_index,
+                                defer_stack,
+                                arg,
+                            )?;
+                            let val = cast_value(builder, val, convert_ast_type(field_ty));
+                            builder.ins().store(MemFlags::new(), val, ptr, *offset as i32);
+                        }
+                    }
+                    return Ok(ptr);
+                }
                 if let Some(&func_id) = functions.get(resolved_name) {
                     let (param_types, has_return) = {
                         let decl = module.declarations().get_function_decl(func_id);
@@ -4757,12 +4782,35 @@ fn compile_expr_inline(
 
             Ok(ptr)
         }
-        ast::Expr::Struct { name, fields } => {
+        ast::Expr::Struct { name, fields, base } => {
             let Some(layout) = structs.get(name) else {
                 return Ok(builder.ins().iconst(types::I64, 0));
             };
 
             let ptr = emit_alloc(builder, module, alloc_func, layout.size as i64, 8)?;
+
+            if let Some(base_expr) = base {
+                let base_ptr = compile_expr_inline(
+                    builder,
+                    module,
+                    alloc_func,
+                    arena_push_func,
+                    arena_pop_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    defer_stack,
+                    base_expr,
+                )?;
+                for (_fname, offset, field_ty) in &layout.fields {
+                    let cr_ty = convert_ast_type(field_ty);
+                    let val = builder.ins().load(cr_ty, MemFlags::new(), base_ptr, *offset as i32);
+                    builder.ins().store(MemFlags::new(), val, ptr, *offset as i32);
+                }
+            }
 
             for (field_name, field_expr) in fields {
                 let Some((offset, field_ty)) = layout
@@ -5365,6 +5413,9 @@ fn infer_expr_type(
         }
         ast::Expr::Call { func, .. } => {
             if let ast::Expr::Ident(name) = func.as_ref() {
+                if structs.contains_key(name) {
+                    return ast::Type::Named(name.clone());
+                }
                 let arg_types = if let ast::Expr::Call { args, .. } = expr {
                     args.iter()
                         .map(|arg| infer_expr_type(arg, var_types, structs, fn_sigs))

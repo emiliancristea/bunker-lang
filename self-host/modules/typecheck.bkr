@@ -764,7 +764,15 @@
         if ast_item_ref_is_some(typecheck_find_const_ref(kernel_ref, name_idx)) {
             return typecheck_append_invalid_call_target_ref(state, names, scope, expr_ref, "constant declaration");
         }
-        if ast_item_ref_is_some(typecheck_find_struct_ref(kernel_ref, name_idx)) {
+        let struct_ref: AstItemRef = typecheck_find_struct_ref(kernel_ref, name_idx);
+        if ast_item_ref_is_some(struct_ref) {
+            let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(struct_ref);
+            if ast_node_list_ref_count(fields_ref) > 0 {
+                let first_f: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, 0);
+                if ast_report_name(names, ast_field_decl_ref_name_idx(first_f)) == "0" {
+                    return state;
+                }
+            }
             return typecheck_append_invalid_call_target_ref(state, names, scope, expr_ref, "struct declaration");
         }
         return state;
@@ -860,6 +868,10 @@
     fn typecheck_check_struct_literal_missing_fields_ref(state: Vec<str>, kernel_ref: AstNodeRef,
                                                          names: Vec<str>, expr_ref: AstExprRef,
                                                          scope: str) -> Vec<str> {
+        let base_handle: i64 = ast_struct_lit_ref_base_handle(expr_ref);
+        if base_handle != 0 {
+            return state;
+        }
         let struct_name_idx: i64 = ast_struct_lit_ref_name_idx(expr_ref);
         let struct_ref: AstItemRef = typecheck_find_struct_ref(kernel_ref, struct_name_idx);
         if ast_item_ref_is_none(struct_ref) {
@@ -1802,6 +1814,10 @@
                     ast_expr_ref_from_node_ref(ast_node_list_ref_get_ref(field_values_ref, i)), scope, loop_depth);
                 i = i + 1;
             }
+            let base_handle: i64 = ast_struct_lit_ref_base_handle(expr_ref);
+            if base_handle != 0 {
+                state = typecheck_scan_loop_control_expr_handle(state, base_handle, scope, loop_depth);
+            }
         } else if kind == NODE_FIELD_ACCESS {
             state = typecheck_scan_loop_control_expr_handle(state, ast_field_access_ref_base_handle(expr_ref), scope, loop_depth);
         } else if kind == NODE_BINARY {
@@ -2024,6 +2040,36 @@
         let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
         let fn_ref: AstItemRef = typecheck_find_function_ref(kernel_ref, name_idx);
         if ast_item_ref_is_none(fn_ref) {
+            let struct_ref: AstItemRef = typecheck_find_struct_ref(kernel_ref, name_idx);
+            if ast_item_ref_is_some(struct_ref) {
+                let s_name: str = ast_report_name(names, name_idx);
+                let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
+                let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(struct_ref);
+                let arg_count: i64 = ast_node_list_ref_count(args_ref);
+                let field_count: i64 = ast_node_list_ref_count(fields_ref);
+                if arg_count != field_count {
+                    let arity_hint = "Call struct constructor " + s_name + " with exactly " + int_to_string(field_count) +
+                        " argument(s), or update the struct definition.";
+                    state = typecheck_append_count_mismatch_ref(state, "call_argument_count_mismatch", s_name,
+                        scope, ast_node_ref_from_expr_ref(expr_ref), field_count, arg_count, arity_hint);
+                }
+                let i: i64 = 0;
+                while i < arg_count && i < field_count {
+                    let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, i);
+                    let field_type: i64 = ast_field_decl_ref_type_handle(field_ref);
+                    let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+                    let arg_ref: AstExprRef = ast_expr_ref_from_node_ref(arg_node_ref);
+                    let expected_kind: i64 = typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(field_type));
+                    let found_kind: i64 = typecheck_expr_ref_kind(cstate, arg_ref);
+                    let hint: str = "Change argument " + int_to_string(i + 1) + " for " + s_name +
+                        " to match field " + ast_report_name(names, ast_field_decl_ref_name_idx(field_ref)) +
+                        " or update the struct definition.";
+                    state = typecheck_maybe_append_mismatch_ref(state, "call_argument_type_mismatch", s_name,
+                        scope, arg_node_ref, expected_kind, found_kind, hint);
+                    i = i + 1;
+                }
+                return state;
+            }
             if typecheck_builtin_expected_arity(ast_report_name(names, name_idx)) < 0 {
                 state = typecheck_check_call_target_ref(state, kernel_ref, names, expr_ref, scope);
             }
@@ -2138,6 +2184,11 @@
                 state = typecheck_maybe_append_value_mismatch_ref(state, "struct_field_type_mismatch",
                     struct_name + "." + field_name, scope, field_value_ref, expected_kind, found_kind, hint);
                 i = i + 1;
+            }
+            let base_handle: i64 = ast_struct_lit_ref_base_handle(expr_ref);
+            if base_handle != 0 {
+                state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
+                    ast_expr_ref_from_handle(base_handle), scope, expected_return_kind);
             }
         } else if kind == NODE_FIELD_ACCESS {
             state = typecheck_check_field_access_base_ref(state, cstate, expr_ref, scope);

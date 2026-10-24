@@ -1,0 +1,21 @@
+// Test 177: Struct Update Base Type Mismatch (Q-259, D-005)
+// Purpose: Ensure typechecker rejects struct update when base expression does not match target struct.
+// Expected: Typecheck error (Base expression in struct update must have type 'Foo', found 'Bar')
+
+kernel StructUpdateMismatchedBaseBad {
+    struct Foo {
+        x: i32,
+        y: i32
+    }
+
+    struct Bar {
+        x: i32,
+        y: i32
+    }
+
+    fn main() -> i32 {
+        let b: Bar = Bar { x: 1, y: 2 };
+        let f: Foo = Foo { x: 10, ..b };
+        return 0;
+    }
+}

@@ -317,11 +317,33 @@ fn build_type(pair: Pair<Rule>) -> Result<Type, String> {
 fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
     let mut name = String::new();
     let mut fields = vec![];
+    let mut is_tuple = false;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::identifier => {
                 name = inner.as_str().to_string();
+            }
+            Rule::struct_body_fields => {
+                for field_pair in inner.into_inner() {
+                    if field_pair.as_rule() == Rule::struct_field {
+                        fields.push(build_struct_field(field_pair)?);
+                    }
+                }
+            }
+            Rule::struct_body_tuple => {
+                is_tuple = true;
+                let mut idx = 0;
+                for type_pair in inner.into_inner() {
+                    if type_pair.as_rule() == Rule::type_expr {
+                        let ty = build_type(type_pair)?;
+                        fields.push(StructField {
+                            name: idx.to_string(),
+                            ty,
+                        });
+                        idx += 1;
+                    }
+                }
             }
             Rule::struct_field => {
                 fields.push(build_struct_field(inner)?);
@@ -330,7 +352,7 @@ fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
         }
     }
 
-    Ok(StructDef { name, fields })
+    Ok(StructDef { name, fields, is_tuple })
 }
 
 fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
@@ -803,6 +825,30 @@ fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
                         bindings: names[2..].to_vec(),
                     });
                 }
+            }
+            Rule::tuple_struct_pattern => {
+                let mut struct_name = String::new();
+                let mut sub_pats = Vec::new();
+                for part in inner.into_inner() {
+                    match part.as_rule() {
+                        Rule::identifier => {
+                            struct_name = part.as_str().to_string();
+                        }
+                        Rule::pattern => {
+                            sub_pats.push(build_pattern(part)?);
+                        }
+                        _ => {}
+                    }
+                }
+                let fields = sub_pats
+                    .into_iter()
+                    .enumerate()
+                    .map(|(i, pat)| (i.to_string(), pat))
+                    .collect();
+                return Ok(Pattern::Struct {
+                    name: struct_name,
+                    fields,
+                });
             }
             Rule::literal => {
                 let expr = build_literal(inner)?;
@@ -1446,6 +1492,7 @@ fn build_array_literal(pair: Pair<Rule>) -> Result<Expr, String> {
 fn build_struct_literal(pair: Pair<Rule>) -> Result<Expr, String> {
     let mut name = String::new();
     let mut fields = vec![];
+    let mut base = None;
 
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -1468,11 +1515,18 @@ fn build_struct_literal(pair: Pair<Rule>) -> Result<Expr, String> {
                 }
                 fields.push((field_name, field_value));
             }
+            Rule::struct_update => {
+                for update_inner in inner.into_inner() {
+                    if update_inner.as_rule() == Rule::expr {
+                        base = Some(Box::new(build_expr(update_inner)?));
+                    }
+                }
+            }
             _ => {}
         }
     }
 
-    Ok(Expr::Struct { name, fields })
+    Ok(Expr::Struct { name, fields, base })
 }
 
 fn build_literal(pair: Pair<Rule>) -> Result<Expr, String> {

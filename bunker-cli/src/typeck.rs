@@ -847,6 +847,33 @@ impl TypeChecker {
                         return Ok(ty);
                     }
 
+                    if let Some(struct_fields) = self.structs.get(name).cloned() {
+                        if args.len() != struct_fields.len() {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Struct constructor {} expects {} arguments, got {}",
+                                    name,
+                                    struct_fields.len(),
+                                    args.len()
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                        for (i, (arg, (_fname, expected_ty))) in args.iter().zip(struct_fields.iter()).enumerate() {
+                            let actual = self.infer_expr_with_hint(arg, context, Some(expected_ty))?;
+                            if !self.types_compatible(expected_ty, &actual) {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Argument {} type mismatch: expected {:?}, got {:?}",
+                                        i, expected_ty, actual
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                        }
+                        return Ok(Type::Named(name.clone()));
+                    }
+
                     if let Some((param_types, ret_ty)) = self.functions.get(name).cloned() {
                         // Check argument count
                         if args.len() != param_types.len() {
@@ -1105,7 +1132,7 @@ impl TypeChecker {
                     Ok(Type::Array(Box::new(elem_ty), elements.len()))
                 }
             }
-            Expr::Struct { name, fields } => {
+            Expr::Struct { name, fields, base } => {
                 if let Some(struct_fields) = self.structs.get(name).cloned() {
                     for (field_name, field_expr) in fields {
                         let actual_ty = self.infer_expr(field_expr, context)?;
@@ -1126,6 +1153,18 @@ impl TypeChecker {
                                 message: format!(
                                     "Unknown field '{}' in struct {}",
                                     field_name, name
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                    if let Some(base_expr) = base {
+                        let base_ty = self.infer_expr(base_expr, context)?;
+                        if base_ty != Type::Named(name.clone()) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Base expression in struct update must have type '{}', found {:?}",
+                                    name, base_ty
                                 ),
                                 location: context.to_string(),
                             });

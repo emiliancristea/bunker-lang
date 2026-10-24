@@ -201,7 +201,8 @@
         end: i64,
         name_idx: i64,
         field_names: i64,
-        field_values: i64
+        field_values: i64,
+        base_handle: i64
     }
 
     struct AstMatch {
@@ -2541,7 +2542,19 @@
             end: AST_SPAN_UNKNOWN,
             name_idx: name_idx,
             field_names: field_names,
-            field_values: field_values
+            field_values: field_values,
+            base_handle: 0
+        };
+    }
+
+    fn ast_struct_lit_record_with_base(name_idx: i64, field_names: i64, field_values: i64, base_handle: i64) -> AstStructLit {
+        return AstStructLit {
+            start: AST_SPAN_UNKNOWN,
+            end: AST_SPAN_UNKNOWN,
+            name_idx: name_idx,
+            field_names: field_names,
+            field_values: field_values,
+            base_handle: base_handle
         };
     }
 
@@ -2553,6 +2566,7 @@
         vec_push(node, expr.name_idx);
         vec_push(node, expr.field_names);
         vec_push(node, expr.field_values);
+        vec_push(node, expr.base_handle);
         return node;
     }
 
@@ -2560,6 +2574,7 @@
         let name_idx: i64 = 0;
         let field_names: i64 = 0;
         let field_values: i64 = 0;
+        let base_handle: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             name_idx = vec_get(node, AST_NODE_DATA_START);
         }
@@ -2569,13 +2584,30 @@
         if vec_len(node) > AST_NODE_DATA_START + 2 {
             field_values = vec_get(node, AST_NODE_DATA_START + 2);
         }
+        if vec_len(node) > AST_NODE_DATA_START + 3 {
+            base_handle = vec_get(node, AST_NODE_DATA_START + 3);
+        }
         return AstStructLit {
             start: vec_get(node, AST_NODE_SPAN_START_INDEX),
             end: vec_get(node, AST_NODE_SPAN_END_INDEX),
             name_idx: name_idx,
             field_names: field_names,
-            field_values: field_values
+            field_values: field_values,
+            base_handle: base_handle
         };
+    }
+
+    fn ast_struct_lit_ref_base_handle(expr_ref: AstExprRef) -> i64 {
+        let node: Vec<i64> = ast_expr_node_from_ref(expr_ref);
+        if vec_len(node) > AST_NODE_DATA_START + 3 {
+            return vec_get(node, AST_NODE_DATA_START + 3);
+        }
+        return 0;
+    }
+
+    fn ast_struct_lit_ref_with_base(name_idx: i64, field_names_ref: AstI64ListRef, field_values_ref: AstNodeListRef, base_handle: i64) -> AstExprRef {
+        let rec: AstStructLit = ast_struct_lit_record_with_base(name_idx, ast_i64_list_ref_handle(field_names_ref), ast_node_list_ref_handle(field_values_ref), base_handle);
+        return ast_expr_ref_from_handle(ast_struct_lit_pack(rec) as i64);
     }
 
     fn ast_struct_lit_ref(name_idx: i64, field_names_ref: AstI64ListRef, field_values_ref: AstNodeListRef) -> AstExprRef {

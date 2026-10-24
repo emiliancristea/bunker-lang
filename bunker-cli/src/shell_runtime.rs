@@ -802,8 +802,13 @@ impl<'a> Executor<'a> {
                 Ok(Value::Array(values))
             }
             // Struct literal: Point { x: 1, y: 2 }
-            ast::Expr::Struct { name: _, fields } => {
+            ast::Expr::Struct { name: _, fields, base } => {
                 let mut field_values = HashMap::new();
+                if let Some(base_expr) = base {
+                    if let Value::Struct(base_fields) = self.eval_expr(base_expr, env, queue)? {
+                        field_values.extend(base_fields);
+                    }
+                }
                 for (field_name, field_expr) in fields {
                     field_values
                         .insert(field_name.clone(), self.eval_expr(field_expr, env, queue)?);

@@ -31,7 +31,9 @@ comptime_fn = {
     block
 }
 
-struct_def = { "struct" ~ identifier ~ "{" ~ struct_field* ~ "}" }
+struct_def = { "struct" ~ identifier ~ (struct_body_fields | struct_body_tuple) }
+struct_body_fields = { "{" ~ struct_field* ~ "}" }
+struct_body_tuple = { "(" ~ (type_expr ~ ("," ~ type_expr)* ~ ","?)? ~ ")" ~ ";"? }
 struct_field = { identifier ~ ":" ~ type_expr ~ ","? }
 
 enum_def = { "enum" ~ identifier ~ "{" ~ enum_variant_list? ~ "}" }
@@ -196,7 +198,8 @@ option_expr = { "Some(" ~ expr ~ ")" | "None" }
 
 array_literal = { "[" ~ (array_repeat | (expr ~ ("," ~ expr)*)?) ~ "]" }
 array_repeat = { expr ~ ";" ~ integer }
-struct_literal = { identifier ~ "{" ~ (struct_init ~ ("," ~ struct_init)*)? ~ "}" }
+struct_update = { ".." ~ expr }
+struct_literal = { identifier ~ "{" ~ ((struct_init ~ ("," ~ struct_init)* ~ ("," ~ struct_update)?) | struct_update)? ~ ","? ~ "}" }
 struct_init = { identifier ~ ":" ~ expr }
 
 // ====================
@@ -235,10 +238,12 @@ pattern = {
     "true" |
     "false" |
     enum_variant_pattern |
+    tuple_struct_pattern |
     literal |
     identifier
 }
 enum_variant_pattern = { identifier ~ "." ~ identifier ~ ("(" ~ identifier ~ ("," ~ identifier)* ~ ")")? }
+tuple_struct_pattern = { identifier ~ "(" ~ (pattern ~ ("," ~ pattern)* ~ ","?)? ~ ")" }
 
 // ====================
 // TYPES

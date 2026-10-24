@@ -1,0 +1,62 @@
+// Test 176: Struct Update Syntax and Tuple Structs (Q-259, D-005, D-006)
+// Purpose: Verify functional struct update syntax (Point { x: 10, ..base } and Point { ..base })
+//          and tuple structs (struct Pair(i32, i32), constructor Pair(20, 22), indexing pair.0,
+//          and pattern matching match pair { Pair(a, b) => ... }).
+// Expected: JIT returns 42
+
+kernel StructUpdateTupleStructTest {
+    struct Point {
+        x: i32,
+        y: i32,
+        z: i32
+    }
+
+    struct Pair(i32, i32);
+    struct Triple(i32, i32, i32);
+
+    fn main() -> i32 {
+        // 1. Struct functional update with explicit overrides
+        let p1: Point = Point { x: 1, y: 2, z: 3 };
+        let p2: Point = Point { x: 10, ..p1 };
+        if p2.x != 10 || p2.y != 2 || p2.z != 3 {
+            return 1;
+        }
+
+        // 2. Struct update with all fields from base
+        let p3: Point = Point { ..p2 };
+        if p3.x != 10 || p3.y != 2 || p3.z != 3 {
+            return 2;
+        }
+
+        // 3. Tuple struct constructor call and field indexing
+        let pair: Pair = Pair(20, 22);
+        let s1: i32 = pair.0 + pair.1;
+        if s1 != 42 {
+            return 3;
+        }
+
+        // 4. Tuple struct pattern matching
+        let s2: i32 = match pair {
+            Pair(a, b) => a + b;
+        };
+        if s2 != 42 {
+            return 4;
+        }
+
+        // 5. 3-element tuple struct constructor, indexing, and match
+        let trip: Triple = Triple(10, 12, 20);
+        let s3: i32 = trip.0 + trip.1 + trip.2;
+        if s3 != 42 {
+            return 5;
+        }
+
+        let s4: i32 = match trip {
+            Triple(a, b, c) => a + b + c;
+        };
+        if s4 != 42 {
+            return 6;
+        }
+
+        return s2;
+    }
+}

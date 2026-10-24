@@ -44,6 +44,7 @@ pub struct Function {
 pub struct StructDef {
     pub name: String,
     pub fields: Vec<StructField>,
+    pub is_tuple: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -312,6 +313,7 @@ pub enum Expr {
     Struct {
         name: String,
         fields: Vec<(String, Expr)>,
+        base: Option<Box<Expr>>,
     },
     Copy(Box<Expr>),
     /// Range expression: `start..end` (exclusive) or `start..=end` (inclusive)

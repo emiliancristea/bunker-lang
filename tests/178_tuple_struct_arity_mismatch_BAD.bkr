@@ -1,0 +1,12 @@
+// Test 178: Tuple Struct Constructor Arity Mismatch (Q-259, D-006)
+// Purpose: Ensure typechecker rejects tuple struct constructor calls with incorrect argument count.
+// Expected: Typecheck error (Function 'Pair' expected 2 arguments, found 3)
+
+kernel TupleStructArityMismatchBad {
+    struct Pair(i32, i32);
+
+    fn main() -> i32 {
+        let p: Pair = Pair(1, 2, 3);
+        return 0;
+    }
+}

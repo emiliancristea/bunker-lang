@@ -496,7 +496,7 @@
         } else if kind == NODE_CALL {
             let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
             let name = ast_report_name(names, name_idx);
-            if !resolver_is_builtin_call(name) && !resolver_has_function_name_ref(kernel_ref, name_idx) {
+            if !resolver_is_builtin_call(name) && !resolver_has_function_name_ref(kernel_ref, name_idx) && !resolver_has_struct_name_ref(kernel_ref, name_idx) {
                 state = resolver_append_unresolved_node_with_related_ref(state, name, scope, "function_call", expr_node_ref,
                     "declared function or supported bootstrap builtin",
                     resolver_known_functions_json_ref(kernel_ref, names));
@@ -537,6 +537,10 @@
                 let field_value_ref: AstNodeRef = ast_node_list_ref_get_ref(field_values_ref, i);
                 state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_node_ref(field_value_ref), scope, bindings);
                 i = i + 1;
+            }
+            let base_handle: i64 = ast_struct_lit_ref_base_handle(expr_ref);
+            if base_handle != 0 {
+                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(base_handle), scope, bindings);
             }
         } else if kind == NODE_FIELD_ACCESS {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_field_access_ref_base_handle(expr_ref)), scope, bindings);

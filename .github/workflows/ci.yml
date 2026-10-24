@@ -2666,6 +2666,37 @@ jobs:
             exit 1
           fi
 
+      - name: Verify 176_struct_update_tuple_struct fixture executes in JIT
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/176_struct_update_tuple_struct.bkr
+
+      - name: Compile 176_struct_update_tuple_struct through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/176_struct_update_tuple_struct.bkr \
+            -o /tmp/176_struct_update_tuple_struct.c
+          test -s /tmp/176_struct_update_tuple_struct.c
+          grep -q "BUNKER_AST_JSON" /tmp/176_struct_update_tuple_struct.c
+          grep -q '"has_diagnostics":false' /tmp/176_struct_update_tuple_struct.c
+
+      - name: Verify 177_struct_update_mismatched_base_BAD rejected by bunker-cli
+        timeout-minutes: 2
+        run: |
+          if ./bunker-cli/target/release/bunker-cli check tests/177_struct_update_mismatched_base_BAD.bkr; then
+            echo "Expected 177_struct_update_mismatched_base_BAD to fail"
+            exit 1
+          fi
+
+      - name: Verify 178_tuple_struct_arity_mismatch_BAD rejected by bunker-cli
+        timeout-minutes: 2
+        run: |
+          if ./bunker-cli/target/release/bunker-cli check tests/178_tuple_struct_arity_mismatch_BAD.bkr; then
+            echo "Expected 178_tuple_struct_arity_mismatch_BAD to fail"
+            exit 1
+          fi
+
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |
