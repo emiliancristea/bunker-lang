@@ -1,0 +1,10 @@
+// Test 183: Stdlib String Type Mismatch (Negative Test)
+// Purpose: Verify passing integer to str_to_upper is rejected with structured type diagnostic.
+// Expected: Compilation fails with type mismatch error.
+
+kernel StdlibStringTypeMismatchBad {
+    fn main() -> i32 {
+        let x: str = str_to_upper(123);
+        return 0;
+    }
+}

@@ -545,6 +545,23 @@
         if name == "Err" { return 1; }
         if name == "panic" { return 1; }
         if name == "assert" { return 1; }
+        if name == "str_index_of" { return 2; }
+        if name == "str_replace" { return 3; }
+        if name == "str_split" { return 2; }
+        if name == "str_to_upper" { return 1; }
+        if name == "str_to_lower" { return 1; }
+        if name == "str_repeat" { return 2; }
+        if name == "path_join" { return 2; }
+        if name == "path_dir" { return 1; }
+        if name == "path_base" { return 1; }
+        if name == "path_ext" { return 1; }
+        if name == "path_is_abs" { return 1; }
+        if name == "env_var" { return 1; }
+        if name == "env_get" { return 1; }
+        if name == "env_set" { return 2; }
+        if name == "env_has" { return 1; }
+        if name == "time_now_ms" { return 0; }
+        if name == "time_now_unix" { return 0; }
         return -1;
     }
 
@@ -618,6 +635,28 @@
         if name == "vec_pop_opt" && index == 0 { return TYPE_I64; }
         if name == "panic" && index == 0 { return TYPE_STR; }
         if name == "assert" && index == 0 { return TYPE_BOOL; }
+        if name == "str_index_of" && index == 0 { return TYPE_STR; }
+        if name == "str_index_of" && index == 1 { return TYPE_STR; }
+        if name == "str_replace" && index == 0 { return TYPE_STR; }
+        if name == "str_replace" && index == 1 { return TYPE_STR; }
+        if name == "str_replace" && index == 2 { return TYPE_STR; }
+        if name == "str_split" && index == 0 { return TYPE_STR; }
+        if name == "str_split" && index == 1 { return TYPE_STR; }
+        if name == "str_to_upper" && index == 0 { return TYPE_STR; }
+        if name == "str_to_lower" && index == 0 { return TYPE_STR; }
+        if name == "str_repeat" && index == 0 { return TYPE_STR; }
+        if name == "str_repeat" && index == 1 { return TYPE_I64; }
+        if name == "path_join" && index == 0 { return TYPE_STR; }
+        if name == "path_join" && index == 1 { return TYPE_STR; }
+        if name == "path_dir" && index == 0 { return TYPE_STR; }
+        if name == "path_base" && index == 0 { return TYPE_STR; }
+        if name == "path_ext" && index == 0 { return TYPE_STR; }
+        if name == "path_is_abs" && index == 0 { return TYPE_STR; }
+        if name == "env_var" && index == 0 { return TYPE_STR; }
+        if name == "env_get" && index == 0 { return TYPE_STR; }
+        if name == "env_set" && index == 0 { return TYPE_STR; }
+        if name == "env_set" && index == 1 { return TYPE_STR; }
+        if name == "env_has" && index == 0 { return TYPE_STR; }
         return TYPE_UNKNOWN;
     }
 

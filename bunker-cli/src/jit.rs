@@ -1386,6 +1386,186 @@ extern "C" fn bunker_parse_int_result(str_ptr: i64) -> i64 {
     }
 }
 
+extern "C" fn bunker_str_index_of(str_ptr: i64, needle_ptr: i64) -> i64 {
+    let s = unsafe { read_bunker_string(str_ptr) };
+    let needle = unsafe { read_bunker_string(needle_ptr) };
+    match (s, needle) {
+        (Some(s), Some(needle)) => match s.find(&needle) {
+            Some(idx) => idx as i64,
+            None => -1,
+        },
+        _ => -1,
+    }
+}
+
+extern "C" fn bunker_str_replace(str_ptr: i64, from_ptr: i64, to_ptr: i64) -> i64 {
+    let s = unsafe { read_bunker_string(str_ptr) }.unwrap_or_default();
+    let from = unsafe { read_bunker_string(from_ptr) }.unwrap_or_default();
+    let to = unsafe { read_bunker_string(to_ptr) }.unwrap_or_default();
+    let replaced = s.replace(&from, &to);
+    alloc_bunker_string(&replaced)
+}
+
+extern "C" fn bunker_str_split(str_ptr: i64, delim_ptr: i64) -> i64 {
+    let s = unsafe { read_bunker_string(str_ptr) }.unwrap_or_default();
+    let delim = unsafe { read_bunker_string(delim_ptr) }.unwrap_or_default();
+    let vec_ptr = bunker_vec_new();
+    if delim.is_empty() {
+        for ch in s.chars() {
+            let part_ptr = alloc_bunker_string(&ch.to_string());
+            bunker_vec_push(vec_ptr, part_ptr);
+        }
+    } else {
+        for part in s.split(&delim) {
+            let part_ptr = alloc_bunker_string(part);
+            bunker_vec_push(vec_ptr, part_ptr);
+        }
+    }
+    vec_ptr
+}
+
+extern "C" fn bunker_str_to_upper(str_ptr: i64) -> i64 {
+    let s = unsafe { read_bunker_string(str_ptr) }.unwrap_or_default();
+    alloc_bunker_string(&s.to_ascii_uppercase())
+}
+
+extern "C" fn bunker_str_to_lower(str_ptr: i64) -> i64 {
+    let s = unsafe { read_bunker_string(str_ptr) }.unwrap_or_default();
+    alloc_bunker_string(&s.to_ascii_lowercase())
+}
+
+extern "C" fn bunker_str_repeat(str_ptr: i64, count: i64) -> i64 {
+    if count <= 0 {
+        return alloc_bunker_string("");
+    }
+    let s = unsafe { read_bunker_string(str_ptr) }.unwrap_or_default();
+    alloc_bunker_string(&s.repeat(count as usize))
+}
+
+extern "C" fn bunker_path_join(a_ptr: i64, b_ptr: i64) -> i64 {
+    let a = unsafe { read_bunker_string(a_ptr) }.unwrap_or_default();
+    let b = unsafe { read_bunker_string(b_ptr) }.unwrap_or_default();
+    let a_clean = a.trim_end_matches(|c| c == '/' || c == '\\');
+    let b_clean = b.trim_start_matches(|c| c == '/' || c == '\\');
+    let joined = if a_clean.is_empty() {
+        b_clean.to_string()
+    } else if b_clean.is_empty() {
+        a_clean.to_string()
+    } else {
+        format!("{}/{}", a_clean, b_clean)
+    };
+    alloc_bunker_string(&joined)
+}
+
+extern "C" fn bunker_path_dir(path_ptr: i64) -> i64 {
+    let p = unsafe { read_bunker_string(path_ptr) }.unwrap_or_default();
+    let last_slash = p.rfind(|c| c == '/' || c == '\\');
+    let dir = match last_slash {
+        Some(idx) => &p[..idx],
+        None => "",
+    };
+    alloc_bunker_string(dir)
+}
+
+extern "C" fn bunker_path_base(path_ptr: i64) -> i64 {
+    let p = unsafe { read_bunker_string(path_ptr) }.unwrap_or_default();
+    let last_slash = p.rfind(|c| c == '/' || c == '\\');
+    let base = match last_slash {
+        Some(idx) => &p[idx + 1..],
+        None => &p[..],
+    };
+    alloc_bunker_string(base)
+}
+
+extern "C" fn bunker_path_ext(path_ptr: i64) -> i64 {
+    let p = unsafe { read_bunker_string(path_ptr) }.unwrap_or_default();
+    let base = match p.rfind(|c| c == '/' || c == '\\') {
+        Some(idx) => &p[idx + 1..],
+        None => &p[..],
+    };
+    let ext = match base.rfind('.') {
+        Some(idx) if idx > 0 && idx + 1 < base.len() => &base[idx + 1..],
+        _ => "",
+    };
+    alloc_bunker_string(ext)
+}
+
+extern "C" fn bunker_path_is_abs(path_ptr: i64) -> i64 {
+    let p = unsafe { read_bunker_string(path_ptr) }.unwrap_or_default();
+    if p.is_empty() {
+        return 0;
+    }
+    let bytes = p.as_bytes();
+    let is_abs = bytes[0] == b'/' || bytes[0] == b'\\' || (bytes.len() >= 2 && bytes[1] == b':');
+    if is_abs { 1 } else { 0 }
+}
+
+extern "C" fn bunker_env_var(key_ptr: i64) -> i64 {
+    let key = unsafe { read_bunker_string(key_ptr) };
+    let Some(key) = key else {
+        let err_ptr = alloc_bunker_string("null key");
+        return bunker_result_err(err_ptr);
+    };
+    match std::env::var(&key) {
+        Ok(val) => {
+            let ok_ptr = alloc_bunker_string(&val);
+            bunker_result_ok(ok_ptr)
+        }
+        Err(e) => {
+            let err_ptr = alloc_bunker_string(&e.to_string());
+            bunker_result_err(err_ptr)
+        }
+    }
+}
+
+extern "C" fn bunker_env_get(key_ptr: i64) -> i64 {
+    let key = unsafe { read_bunker_string(key_ptr) };
+    let Some(key) = key else {
+        return 0; // None
+    };
+    match std::env::var(&key) {
+        Ok(val) => {
+            let ok_ptr = alloc_bunker_string(&val);
+            bunker_option_some(ok_ptr)
+        }
+        Err(_) => 0, // None
+    }
+}
+
+extern "C" fn bunker_env_set(key_ptr: i64, val_ptr: i64) -> i64 {
+    let key = unsafe { read_bunker_string(key_ptr) };
+    let val = unsafe { read_bunker_string(val_ptr) };
+    if let (Some(key), Some(val)) = (key, val) {
+        std::env::set_var(&key, &val);
+        1
+    } else {
+        0
+    }
+}
+
+extern "C" fn bunker_env_has(key_ptr: i64) -> i64 {
+    let key = unsafe { read_bunker_string(key_ptr) };
+    if let Some(key) = key {
+        if std::env::var(&key).is_ok() { 1 } else { 0 }
+    } else {
+        0
+    }
+}
+
+extern "C" fn bunker_time_now_ms() -> i64 {
+    match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(d) => d.as_millis() as i64,
+        Err(_) => 0,
+    }
+}
+
+extern "C" fn bunker_time_now_unix() -> i64 {
+    match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
+        Ok(d) => d.as_secs() as i64,
+        Err(_) => 0,
+    }
+}
+
 // Free function to convert types (kept in sync with object codegen)
 fn convert_ast_type(ty: &ast::Type) -> types::Type {
     match ty {
@@ -1686,6 +1866,23 @@ impl KernelJit {
         builder.symbol("bunker_read_file_result", bunker_read_file_result as *const u8);
         builder.symbol("bunker_write_file_result", bunker_write_file_result as *const u8);
         builder.symbol("bunker_parse_int_result", bunker_parse_int_result as *const u8);
+        builder.symbol("bunker_str_index_of", bunker_str_index_of as *const u8);
+        builder.symbol("bunker_str_replace", bunker_str_replace as *const u8);
+        builder.symbol("bunker_str_split", bunker_str_split as *const u8);
+        builder.symbol("bunker_str_to_upper", bunker_str_to_upper as *const u8);
+        builder.symbol("bunker_str_to_lower", bunker_str_to_lower as *const u8);
+        builder.symbol("bunker_str_repeat", bunker_str_repeat as *const u8);
+        builder.symbol("bunker_path_join", bunker_path_join as *const u8);
+        builder.symbol("bunker_path_dir", bunker_path_dir as *const u8);
+        builder.symbol("bunker_path_base", bunker_path_base as *const u8);
+        builder.symbol("bunker_path_ext", bunker_path_ext as *const u8);
+        builder.symbol("bunker_path_is_abs", bunker_path_is_abs as *const u8);
+        builder.symbol("bunker_env_var", bunker_env_var as *const u8);
+        builder.symbol("bunker_env_get", bunker_env_get as *const u8);
+        builder.symbol("bunker_env_set", bunker_env_set as *const u8);
+        builder.symbol("bunker_env_has", bunker_env_has as *const u8);
+        builder.symbol("bunker_time_now_ms", bunker_time_now_ms as *const u8);
+        builder.symbol("bunker_time_now_unix", bunker_time_now_unix as *const u8);
 
         let mut module = JITModule::new(builder);
         let alloc_func = declare_alloc_func(&mut module)?;
@@ -1746,6 +1943,23 @@ impl KernelJit {
         let read_file_result_func = declare_read_file_result_func(&mut module)?;
         let write_file_result_func = declare_write_file_result_func(&mut module)?;
         let parse_int_result_func = declare_parse_int_result_func(&mut module)?;
+        let str_index_of_func = declare_str_index_of_func(&mut module)?;
+        let str_replace_func = declare_str_replace_func(&mut module)?;
+        let str_split_func = declare_str_split_func(&mut module)?;
+        let str_to_upper_func = declare_str_to_upper_func(&mut module)?;
+        let str_to_lower_func = declare_str_to_lower_func(&mut module)?;
+        let str_repeat_func = declare_str_repeat_func(&mut module)?;
+        let path_join_func = declare_path_join_func(&mut module)?;
+        let path_dir_func = declare_path_dir_func(&mut module)?;
+        let path_base_func = declare_path_base_func(&mut module)?;
+        let path_ext_func = declare_path_ext_func(&mut module)?;
+        let path_is_abs_func = declare_path_is_abs_func(&mut module)?;
+        let env_var_func = declare_env_var_func(&mut module)?;
+        let env_get_func = declare_env_get_func(&mut module)?;
+        let env_set_func = declare_env_set_func(&mut module)?;
+        let env_has_func = declare_env_has_func(&mut module)?;
+        let time_now_ms_func = declare_time_now_ms_func(&mut module)?;
+        let time_now_unix_func = declare_time_now_unix_func(&mut module)?;
         let ctx = module.make_context();
 
         // Initialize with builtin functions
@@ -1804,6 +2018,23 @@ impl KernelJit {
             ("read_file_result", read_file_result_func),
             ("write_file_result", write_file_result_func),
             ("parse_int_result", parse_int_result_func),
+            ("str_index_of", str_index_of_func),
+            ("str_replace", str_replace_func),
+            ("str_split", str_split_func),
+            ("str_to_upper", str_to_upper_func),
+            ("str_to_lower", str_to_lower_func),
+            ("str_repeat", str_repeat_func),
+            ("path_join", path_join_func),
+            ("path_dir", path_dir_func),
+            ("path_base", path_base_func),
+            ("path_ext", path_ext_func),
+            ("path_is_abs", path_is_abs_func),
+            ("env_var", env_var_func),
+            ("env_get", env_get_func),
+            ("env_set", env_set_func),
+            ("env_has", env_has_func),
+            ("time_now_ms", time_now_ms_func),
+            ("time_now_unix", time_now_unix_func),
         ] {
             register_runtime_builtin(&mut functions, &mut fn_sigs, name, func_id)?;
         }
@@ -6332,6 +6563,164 @@ fn declare_parse_int_result_func(module: &mut JITModule) -> Result<FuncId> {
     module
         .declare_function("bunker_parse_int_result", Linkage::Import, &sig)
         .map_err(|e| anyhow!("Failed to declare runtime bunker_parse_int_result: {}", e))
+}
+
+fn declare_str_index_of_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_str_index_of", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_str_index_of: {}", e))
+}
+
+fn declare_str_replace_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_str_replace", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_str_replace: {}", e))
+}
+
+fn declare_str_split_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_str_split", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_str_split: {}", e))
+}
+
+fn declare_str_to_upper_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_str_to_upper", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_str_to_upper: {}", e))
+}
+
+fn declare_str_to_lower_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_str_to_lower", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_str_to_lower: {}", e))
+}
+
+fn declare_str_repeat_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_str_repeat", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_str_repeat: {}", e))
+}
+
+fn declare_path_join_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_path_join", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_path_join: {}", e))
+}
+
+fn declare_path_dir_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_path_dir", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_path_dir: {}", e))
+}
+
+fn declare_path_base_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_path_base", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_path_base: {}", e))
+}
+
+fn declare_path_ext_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_path_ext", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_path_ext: {}", e))
+}
+
+fn declare_path_is_abs_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I8));
+    module
+        .declare_function("bunker_path_is_abs", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_path_is_abs: {}", e))
+}
+
+fn declare_env_var_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_env_var", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_env_var: {}", e))
+}
+
+fn declare_env_get_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_env_get", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_env_get: {}", e))
+}
+
+fn declare_env_set_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I8));
+    module
+        .declare_function("bunker_env_set", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_env_set: {}", e))
+}
+
+fn declare_env_has_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I8));
+    module
+        .declare_function("bunker_env_has", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_env_has: {}", e))
+}
+
+fn declare_time_now_ms_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_time_now_ms", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_time_now_ms: {}", e))
+}
+
+fn declare_time_now_unix_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_time_now_unix", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_time_now_unix: {}", e))
 }
 
 fn emit_alloc(

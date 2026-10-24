@@ -257,6 +257,23 @@
         if name == "parse_int" { return true; }
         if name == "parse_int_result" { return true; }
         if name == "read_file_result" { return true; }
+        if name == "str_index_of" { return true; }
+        if name == "str_replace" { return true; }
+        if name == "str_split" { return true; }
+        if name == "str_to_upper" { return true; }
+        if name == "str_to_lower" { return true; }
+        if name == "str_repeat" { return true; }
+        if name == "path_join" { return true; }
+        if name == "path_dir" { return true; }
+        if name == "path_base" { return true; }
+        if name == "path_ext" { return true; }
+        if name == "path_is_abs" { return true; }
+        if name == "env_var" { return true; }
+        if name == "env_get" { return true; }
+        if name == "env_set" { return true; }
+        if name == "env_has" { return true; }
+        if name == "time_now_ms" { return true; }
+        if name == "time_now_unix" { return true; }
         if name == "write_file_result" { return true; }
         if name == "hashmap_get_opt" { return true; }
         if name == "vec_get_opt" { return true; }

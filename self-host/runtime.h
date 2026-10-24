@@ -9,6 +9,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <time.h>
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#else
+#include <sys/time.h>
+#endif
 
 /* ============================================
  * Type Definitions
@@ -868,5 +877,264 @@ static inline bkr_i64 vec_pop_opt(bkr_i64 handle) { return bkr_vec_pop_opt(handl
 static inline bkr_i64 read_file_result(bkr_str path) { return bkr_read_file_result(path); }
 static inline bkr_i64 write_file_result(bkr_str path, bkr_str content) { return bkr_write_file_result(path, content); }
 static inline bkr_i64 parse_int_result(bkr_str s) { return bkr_parse_int_result(s); }
+
+static inline bkr_i64 bkr_str_index_of(bkr_str s, bkr_str needle) {
+    if (!s || !needle) return -1;
+    const char* found = strstr(s, needle);
+    if (!found) return -1;
+    return (bkr_i64)(found - s);
+}
+
+static inline bkr_str bkr_str_replace(bkr_str s, bkr_str from, bkr_str to) {
+    if (!s) return "";
+    if (!from || from[0] == '\0') return s;
+    if (!to) to = "";
+    size_t from_len = strlen(from);
+    size_t to_len = strlen(to);
+    size_t count = 0;
+    const char* p = s;
+    while ((p = strstr(p, from)) != NULL) {
+        count++;
+        p += from_len;
+    }
+    if (count == 0) return s;
+    size_t s_len = strlen(s);
+    size_t new_len = s_len + count * to_len - count * from_len;
+    char* result = (char*)bkr_arena_alloc(new_len + 1, 1);
+    if (!result) return "";
+    char* dst = result;
+    p = s;
+    while (1) {
+        const char* next = strstr(p, from);
+        if (!next) {
+            strcpy(dst, p);
+            break;
+        }
+        size_t part_len = (size_t)(next - p);
+        memcpy(dst, p, part_len);
+        dst += part_len;
+        memcpy(dst, to, to_len);
+        dst += to_len;
+        p = next + from_len;
+    }
+    result[new_len] = '\0';
+    return result;
+}
+
+static inline bkr_i64 bkr_str_split(bkr_str s, bkr_str delim) {
+    bkr_i64 vec = vec_new();
+    if (!s) return vec;
+    if (!delim || delim[0] == '\0') {
+        size_t len = strlen(s);
+        for (size_t i = 0; i < len; i++) {
+            char* part = (char*)bkr_arena_alloc(2, 1);
+            if (part) {
+                part[0] = s[i];
+                part[1] = '\0';
+                vec_push(vec, (bkr_i64)(intptr_t)part);
+            }
+        }
+        return vec;
+    }
+    size_t delim_len = strlen(delim);
+    const char* cur = s;
+    const char* next;
+    while ((next = strstr(cur, delim)) != NULL) {
+        size_t part_len = (size_t)(next - cur);
+        char* part = (char*)bkr_arena_alloc(part_len + 1, 1);
+        if (part) {
+            memcpy(part, cur, part_len);
+            part[part_len] = '\0';
+            vec_push(vec, (bkr_i64)(intptr_t)part);
+        }
+        cur = next + delim_len;
+    }
+    size_t rem_len = strlen(cur);
+    char* part = (char*)bkr_arena_alloc(rem_len + 1, 1);
+    if (part) {
+        memcpy(part, cur, rem_len);
+        part[rem_len] = '\0';
+        vec_push(vec, (bkr_i64)(intptr_t)part);
+    }
+    return vec;
+}
+
+static inline bkr_str bkr_str_to_upper(bkr_str s) {
+    if (!s) return "";
+    size_t len = strlen(s);
+    char* result = (char*)bkr_arena_alloc(len + 1, 1);
+    if (!result) return "";
+    for (size_t i = 0; i < len; i++) {
+        char c = s[i];
+        if (c >= 'a' && c <= 'z') c = (char)(c - ('a' - 'A'));
+        result[i] = c;
+    }
+    result[len] = '\0';
+    return result;
+}
+
+static inline bkr_str bkr_str_to_lower(bkr_str s) {
+    if (!s) return "";
+    size_t len = strlen(s);
+    char* result = (char*)bkr_arena_alloc(len + 1, 1);
+    if (!result) return "";
+    for (size_t i = 0; i < len; i++) {
+        char c = s[i];
+        if (c >= 'A' && c <= 'Z') c = (char)(c + ('a' - 'A'));
+        result[i] = c;
+    }
+    result[len] = '\0';
+    return result;
+}
+
+static inline bkr_str bkr_str_repeat(bkr_str s, bkr_i64 count) {
+    if (!s || count <= 0) return "";
+    size_t len = strlen(s);
+    if (len == 0) return "";
+    size_t total = len * (size_t)count;
+    char* result = (char*)bkr_arena_alloc(total + 1, 1);
+    if (!result) return "";
+    for (bkr_i64 i = 0; i < count; i++) {
+        memcpy(result + (size_t)i * len, s, len);
+    }
+    result[total] = '\0';
+    return result;
+}
+
+static inline bkr_str bkr_path_join(bkr_str a, bkr_str b) {
+    if (!a || a[0] == '\0') return b ? b : "";
+    if (!b || b[0] == '\0') return a;
+    size_t len_a = strlen(a);
+    while (len_a > 0 && (a[len_a - 1] == '/' || a[len_a - 1] == '\\')) {
+        len_a--;
+    }
+    const char* start_b = b;
+    while (*start_b == '/' || *start_b == '\\') {
+        start_b++;
+    }
+    size_t len_b = strlen(start_b);
+    if (len_a == 0) return (char*)start_b;
+    if (len_b == 0) {
+        char* res = (char*)bkr_arena_alloc(len_a + 1, 1);
+        if (!res) return "";
+        memcpy(res, a, len_a);
+        res[len_a] = '\0';
+        return res;
+    }
+    char* res = (char*)bkr_arena_alloc(len_a + 1 + len_b + 1, 1);
+    if (!res) return "";
+    memcpy(res, a, len_a);
+    res[len_a] = '/';
+    memcpy(res + len_a + 1, start_b, len_b);
+    res[len_a + 1 + len_b] = '\0';
+    return res;
+}
+
+static inline bkr_str bkr_path_dir(bkr_str path) {
+    if (!path) return "";
+    const char* last_slash = NULL;
+    for (const char* p = path; *p; p++) {
+        if (*p == '/' || *p == '\\') last_slash = p;
+    }
+    if (!last_slash) return "";
+    size_t len = (size_t)(last_slash - path);
+    char* res = (char*)bkr_arena_alloc(len + 1, 1);
+    if (!res) return "";
+    memcpy(res, path, len);
+    res[len] = '\0';
+    return res;
+}
+
+static inline bkr_str bkr_path_base(bkr_str path) {
+    if (!path) return "";
+    const char* last_slash = NULL;
+    for (const char* p = path; *p; p++) {
+        if (*p == '/' || *p == '\\') last_slash = p;
+    }
+    if (!last_slash) return path;
+    return (char*)(last_slash + 1);
+}
+
+static inline bkr_str bkr_path_ext(bkr_str path) {
+    if (!path) return "";
+    bkr_str base = bkr_path_base(path);
+    const char* last_dot = strrchr(base, '.');
+    if (!last_dot || last_dot == base || *(last_dot + 1) == '\0') return "";
+    return (char*)(last_dot + 1);
+}
+
+static inline bkr_bool bkr_path_is_abs(bkr_str path) {
+    if (!path || path[0] == '\0') return 0;
+    if (path[0] == '/' || path[0] == '\\') return 1;
+    if (path[1] == ':') return 1;
+    return 0;
+}
+
+static inline bkr_i64 bkr_env_var(bkr_str key) {
+    if (!key) return bkr_result_err((bkr_i64)(intptr_t)"null key");
+    const char* val = getenv(key);
+    if (!val) {
+        return bkr_result_err((bkr_i64)(intptr_t)"environment variable not found");
+    }
+    return bkr_result_ok((bkr_i64)(intptr_t)val);
+}
+
+static inline bkr_i64 bkr_env_get(bkr_str key) {
+    if (!key) return 0;
+    const char* val = getenv(key);
+    if (!val) return 0;
+    return bkr_option_some((bkr_i64)(intptr_t)val);
+}
+
+static inline bkr_bool bkr_env_set(bkr_str key, bkr_str val) {
+    if (!key || !val) return 0;
+#if defined(_WIN32)
+    return _putenv_s(key, val) == 0 ? 1 : 0;
+#else
+    return setenv(key, val, 1) == 0 ? 1 : 0;
+#endif
+}
+
+static inline bkr_bool bkr_env_has(bkr_str key) {
+    if (!key) return 0;
+    return getenv(key) != NULL ? 1 : 0;
+}
+
+static inline bkr_i64 bkr_time_now_ms(void) {
+#if defined(_WIN32)
+    FILETIME ft;
+    GetSystemTimeAsFileTime(&ft);
+    ULARGE_INTEGER uli;
+    uli.LowPart = ft.dwLowDateTime;
+    uli.HighPart = ft.dwHighDateTime;
+    return (bkr_i64)((uli.QuadPart - 116444736000000000ULL) / 10000ULL);
+#else
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (bkr_i64)tv.tv_sec * 1000 + (bkr_i64)(tv.tv_usec / 1000);
+#endif
+}
+
+static inline bkr_i64 bkr_time_now_unix(void) {
+    return (bkr_i64)time(NULL);
+}
+
+static inline bkr_i64 str_index_of(bkr_str s, bkr_str needle) { return bkr_str_index_of(s, needle); }
+static inline bkr_str str_replace(bkr_str s, bkr_str from, bkr_str to) { return bkr_str_replace(s, from, to); }
+static inline bkr_i64 str_split(bkr_str s, bkr_str delim) { return bkr_str_split(s, delim); }
+static inline bkr_str str_to_upper(bkr_str s) { return bkr_str_to_upper(s); }
+static inline bkr_str str_to_lower(bkr_str s) { return bkr_str_to_lower(s); }
+static inline bkr_str str_repeat(bkr_str s, bkr_i64 count) { return bkr_str_repeat(s, count); }
+static inline bkr_str path_join(bkr_str a, bkr_str b) { return bkr_path_join(a, b); }
+static inline bkr_str path_dir(bkr_str path) { return bkr_path_dir(path); }
+static inline bkr_str path_base(bkr_str path) { return bkr_path_base(path); }
+static inline bkr_str path_ext(bkr_str path) { return bkr_path_ext(path); }
+static inline bkr_bool path_is_abs(bkr_str path) { return bkr_path_is_abs(path); }
+static inline bkr_i64 env_var(bkr_str key) { return bkr_env_var(key); }
+static inline bkr_i64 env_get(bkr_str key) { return bkr_env_get(key); }
+static inline bkr_bool env_set(bkr_str key, bkr_str val) { return bkr_env_set(key, val); }
+static inline bkr_bool env_has(bkr_str key) { return bkr_env_has(key); }
+static inline bkr_i64 time_now_ms(void) { return bkr_time_now_ms(); }
+static inline bkr_i64 time_now_unix(void) { return bkr_time_now_unix(); }
 
 #endif /* BUNKER_RUNTIME_H */

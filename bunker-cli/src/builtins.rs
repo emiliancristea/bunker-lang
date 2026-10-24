@@ -37,6 +37,9 @@ impl RuntimeBuiltinType {
 pub enum BuiltinReturnType {
     Runtime(RuntimeBuiltinType),
     ResultI64I64,
+    ResultStrStr,
+    OptionStr,
+    VecStr,
 }
 
 impl BuiltinReturnType {
@@ -45,6 +48,15 @@ impl BuiltinReturnType {
             Self::Runtime(ty) => ty.to_ast_type(),
             Self::ResultI64I64 => {
                 ast::Type::Result(Box::new(ast::Type::I64), Box::new(ast::Type::I64))
+            }
+            Self::ResultStrStr => {
+                ast::Type::Result(Box::new(ast::Type::Str), Box::new(ast::Type::Str))
+            }
+            Self::OptionStr => {
+                ast::Type::Option(Box::new(ast::Type::Str))
+            }
+            Self::VecStr => {
+                ast::Type::Vec(Box::new(ast::Type::Str))
             }
         }
     }
@@ -630,6 +642,193 @@ static TYPECHECK_BUILTINS: &[TypecheckBuiltinSpec] = &[
         }],
         return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
     },
+    TypecheckBuiltinSpec {
+        name: "str_index_of",
+        arity_error: "str_index_of expects 2 arguments (string, needle)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "str_index_of expects str",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "str_index_of expects str needle",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "str_replace",
+        arity_error: "str_replace expects 3 arguments (string, from, to)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "str_replace expects str",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "str_replace from must be str",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "str_replace to must be str",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
+    },
+    TypecheckBuiltinSpec {
+        name: "str_split",
+        arity_error: "str_split expects 2 arguments (string, delimiter)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "str_split expects str",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "str_split delimiter must be str",
+            },
+        ],
+        return_type: BuiltinReturnType::VecStr,
+    },
+    TypecheckBuiltinSpec {
+        name: "str_to_upper",
+        arity_error: "str_to_upper expects 1 argument (string)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Str,
+            type_error: "str_to_upper expects str",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
+    },
+    TypecheckBuiltinSpec {
+        name: "str_to_lower",
+        arity_error: "str_to_lower expects 1 argument (string)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Str,
+            type_error: "str_to_lower expects str",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
+    },
+    TypecheckBuiltinSpec {
+        name: "str_repeat",
+        arity_error: "str_repeat expects 2 arguments (string, count)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "str_repeat expects str",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Integer,
+                type_error: "str_repeat count must be integer",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
+    },
+    TypecheckBuiltinSpec {
+        name: "path_join",
+        arity_error: "path_join expects 2 arguments (path_a, path_b)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "path_join path_a must be str",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "path_join path_b must be str",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
+    },
+    TypecheckBuiltinSpec {
+        name: "path_dir",
+        arity_error: "path_dir expects 1 argument (path)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Str,
+            type_error: "path_dir path must be str",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
+    },
+    TypecheckBuiltinSpec {
+        name: "path_base",
+        arity_error: "path_base expects 1 argument (path)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Str,
+            type_error: "path_base path must be str",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
+    },
+    TypecheckBuiltinSpec {
+        name: "path_ext",
+        arity_error: "path_ext expects 1 argument (path)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Str,
+            type_error: "path_ext path must be str",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
+    },
+    TypecheckBuiltinSpec {
+        name: "path_is_abs",
+        arity_error: "path_is_abs expects 1 argument (path)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Str,
+            type_error: "path_is_abs path must be str",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Bool),
+    },
+    TypecheckBuiltinSpec {
+        name: "env_var",
+        arity_error: "env_var expects 1 argument (key)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Str,
+            type_error: "env_var key must be str",
+        }],
+        return_type: BuiltinReturnType::ResultStrStr,
+    },
+    TypecheckBuiltinSpec {
+        name: "env_get",
+        arity_error: "env_get expects 1 argument (key)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Str,
+            type_error: "env_get key must be str",
+        }],
+        return_type: BuiltinReturnType::OptionStr,
+    },
+    TypecheckBuiltinSpec {
+        name: "env_set",
+        arity_error: "env_set expects 2 arguments (key, value)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "env_set key must be str",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Str,
+                type_error: "env_set value must be str",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Bool),
+    },
+    TypecheckBuiltinSpec {
+        name: "env_has",
+        arity_error: "env_has expects 1 argument (key)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Str,
+            type_error: "env_has key must be str",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Bool),
+    },
+    TypecheckBuiltinSpec {
+        name: "time_now_ms",
+        arity_error: "time_now_ms expects 0 arguments",
+        params: &[],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "time_now_unix",
+        arity_error: "time_now_unix expects 0 arguments",
+        params: &[],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
 ];
 
 static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
@@ -909,6 +1108,91 @@ static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
         params: &[RuntimeBuiltinType::I64],
         return_type: Some(RuntimeBuiltinType::I64),
     },
+    RuntimeBuiltinSpec {
+        name: "str_index_of",
+        params: &[RuntimeBuiltinType::Str, RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "str_replace",
+        params: &[RuntimeBuiltinType::Str, RuntimeBuiltinType::Str, RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::Str),
+    },
+    RuntimeBuiltinSpec {
+        name: "str_split",
+        params: &[RuntimeBuiltinType::Str, RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "str_to_upper",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::Str),
+    },
+    RuntimeBuiltinSpec {
+        name: "str_to_lower",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::Str),
+    },
+    RuntimeBuiltinSpec {
+        name: "str_repeat",
+        params: &[RuntimeBuiltinType::Str, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::Str),
+    },
+    RuntimeBuiltinSpec {
+        name: "path_join",
+        params: &[RuntimeBuiltinType::Str, RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::Str),
+    },
+    RuntimeBuiltinSpec {
+        name: "path_dir",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::Str),
+    },
+    RuntimeBuiltinSpec {
+        name: "path_base",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::Str),
+    },
+    RuntimeBuiltinSpec {
+        name: "path_ext",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::Str),
+    },
+    RuntimeBuiltinSpec {
+        name: "path_is_abs",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "env_var",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "env_get",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "env_set",
+        params: &[RuntimeBuiltinType::Str, RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "env_has",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "time_now_ms",
+        params: &[],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "time_now_unix",
+        params: &[],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
 ];
 
 pub fn lookup_typecheck_builtin(name: &str) -> Option<&'static TypecheckBuiltinSpec> {
@@ -993,6 +1277,9 @@ pub fn infer_special_builtin_call_type(
         "read_file_result" => Some(ast::Type::Result(Box::new(ast::Type::Str), Box::new(ast::Type::Str))),
         "write_file_result" => Some(ast::Type::Result(Box::new(ast::Type::Bool), Box::new(ast::Type::Str))),
         "parse_int_result" => Some(ast::Type::Result(Box::new(ast::Type::I64), Box::new(ast::Type::Str))),
+        "str_split" => Some(ast::Type::Vec(Box::new(ast::Type::Str))),
+        "env_var" => Some(ast::Type::Result(Box::new(ast::Type::Str), Box::new(ast::Type::Str))),
+        "env_get" => Some(ast::Type::Option(Box::new(ast::Type::Str))),
         _ => None,
     }
 }

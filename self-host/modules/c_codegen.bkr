@@ -236,6 +236,23 @@
         if raw == "join_lines" { return "join_lines"; }
         if raw == "args_count" { return "bkr_args_count"; }
         if raw == "arg_at" { return "bkr_arg_at"; }
+        if raw == "str_index_of" { return "str_index_of"; }
+        if raw == "str_replace" { return "str_replace"; }
+        if raw == "str_split" { return "str_split"; }
+        if raw == "str_to_upper" { return "str_to_upper"; }
+        if raw == "str_to_lower" { return "str_to_lower"; }
+        if raw == "str_repeat" { return "str_repeat"; }
+        if raw == "path_join" { return "path_join"; }
+        if raw == "path_dir" { return "path_dir"; }
+        if raw == "path_base" { return "path_base"; }
+        if raw == "path_ext" { return "path_ext"; }
+        if raw == "path_is_abs" { return "path_is_abs"; }
+        if raw == "env_var" { return "env_var"; }
+        if raw == "env_get" { return "env_get"; }
+        if raw == "env_set" { return "env_set"; }
+        if raw == "env_has" { return "env_has"; }
+        if raw == "time_now_ms" { return "time_now_ms"; }
+        if raw == "time_now_unix" { return "time_now_unix"; }
         return "";
     }
 
@@ -331,6 +348,23 @@
         if raw == "bkr_tuple_get" { return TYPE_I64; }
         if raw == "args_count" { return TYPE_I64; }
         if raw == "arg_at" { return TYPE_STR; }
+        if raw == "str_index_of" { return TYPE_I64; }
+        if raw == "str_replace" { return TYPE_STR; }
+        if raw == "str_split" { return TYPE_ARRAY; }
+        if raw == "str_to_upper" { return TYPE_STR; }
+        if raw == "str_to_lower" { return TYPE_STR; }
+        if raw == "str_repeat" { return TYPE_STR; }
+        if raw == "path_join" { return TYPE_STR; }
+        if raw == "path_dir" { return TYPE_STR; }
+        if raw == "path_base" { return TYPE_STR; }
+        if raw == "path_ext" { return TYPE_STR; }
+        if raw == "path_is_abs" { return TYPE_BOOL; }
+        if raw == "env_var" { return TYPE_RESULT; }
+        if raw == "env_get" { return TYPE_OPTION; }
+        if raw == "env_set" { return TYPE_BOOL; }
+        if raw == "env_has" { return TYPE_BOOL; }
+        if raw == "time_now_ms" { return TYPE_I64; }
+        if raw == "time_now_unix" { return TYPE_I64; }
         return TYPE_UNKNOWN;
     }
 
@@ -1543,6 +1577,79 @@
             if raw == "parse_int_result" && arg_count == 1 {
                 let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
                 return "bkr_parse_int_result((bkr_str)(intptr_t)(" + s_arg + "))";
+            }
+            if raw == "str_index_of" && arg_count == 2 {
+                let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let n_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_str_index_of((bkr_str)(intptr_t)(" + s_arg + "), (bkr_str)(intptr_t)(" + n_arg + "))";
+            }
+            if raw == "str_replace" && arg_count == 3 {
+                let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let f_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                let t_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 2)));
+                return "bkr_str_replace((bkr_str)(intptr_t)(" + s_arg + "), (bkr_str)(intptr_t)(" + f_arg + "), (bkr_str)(intptr_t)(" + t_arg + "))";
+            }
+            if raw == "str_split" && arg_count == 2 {
+                let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let d_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_str_split((bkr_str)(intptr_t)(" + s_arg + "), (bkr_str)(intptr_t)(" + d_arg + "))";
+            }
+            if raw == "str_to_upper" && arg_count == 1 {
+                let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_str_to_upper((bkr_str)(intptr_t)(" + s_arg + "))";
+            }
+            if raw == "str_to_lower" && arg_count == 1 {
+                let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_str_to_lower((bkr_str)(intptr_t)(" + s_arg + "))";
+            }
+            if raw == "str_repeat" && arg_count == 2 {
+                let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let c_arg: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_str_repeat((bkr_str)(intptr_t)(" + s_arg + "), " + c_arg + ")";
+            }
+            if raw == "path_join" && arg_count == 2 {
+                let a_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let b_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_path_join((bkr_str)(intptr_t)(" + a_arg + "), (bkr_str)(intptr_t)(" + b_arg + "))";
+            }
+            if raw == "path_dir" && arg_count == 1 {
+                let p_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_path_dir((bkr_str)(intptr_t)(" + p_arg + "))";
+            }
+            if raw == "path_base" && arg_count == 1 {
+                let p_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_path_base((bkr_str)(intptr_t)(" + p_arg + "))";
+            }
+            if raw == "path_ext" && arg_count == 1 {
+                let p_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_path_ext((bkr_str)(intptr_t)(" + p_arg + "))";
+            }
+            if raw == "path_is_abs" && arg_count == 1 {
+                let p_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_path_is_abs((bkr_str)(intptr_t)(" + p_arg + "))";
+            }
+            if raw == "env_var" && arg_count == 1 {
+                let k_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_env_var((bkr_str)(intptr_t)(" + k_arg + "))";
+            }
+            if raw == "env_get" && arg_count == 1 {
+                let k_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_env_get((bkr_str)(intptr_t)(" + k_arg + "))";
+            }
+            if raw == "env_set" && arg_count == 2 {
+                let k_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let v_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_env_set((bkr_str)(intptr_t)(" + k_arg + "), (bkr_str)(intptr_t)(" + v_arg + "))";
+            }
+            if raw == "env_has" && arg_count == 1 {
+                let k_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_env_has((bkr_str)(intptr_t)(" + k_arg + "))";
+            }
+            if raw == "time_now_ms" && arg_count == 0 {
+                return "bkr_time_now_ms()";
+            }
+            if raw == "time_now_unix" && arg_count == 0 {
+                return "bkr_time_now_unix()";
             }
             if raw == "vec_push" && arg_count == 2 {
                 let vec_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));

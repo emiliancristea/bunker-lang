@@ -1,0 +1,134 @@
+// Test 182: Complete Runtime Standard Library Functions
+// Purpose: Verify comprehensive string library, path/directory APIs, environment variables, and time/date functions.
+// Expected: Returns 42
+
+kernel RuntimeStdlibComplete {
+    fn main() -> i32 {
+        // 1. String functions
+        let idx1: i64 = str_index_of("bunker language", "lang");
+        if idx1 != 7 {
+            return 1;
+        }
+
+        let idx2: i64 = str_index_of("bunker language", "notfound");
+        if idx2 != -1 {
+            return 2;
+        }
+
+        let replaced: str = str_replace("apple banana apple", "apple", "orange");
+        if replaced != "orange banana orange" {
+            return 3;
+        }
+
+        let upper: str = str_to_upper("abcXYZ");
+        if upper != "ABCXYZ" {
+            return 4;
+        }
+
+        let lower: str = str_to_lower("abcXYZ");
+        if lower != "abcxyz" {
+            return 5;
+        }
+
+        let repeated: str = str_repeat("bkr", 3);
+        if repeated != "bkrbkrbkr" {
+            return 6;
+        }
+
+        let parts: Vec<str> = str_split("alpha,beta,gamma", ",");
+        if vec_len(parts) != 3 {
+            return 7;
+        }
+        if vec_get(parts, 0) != "alpha" {
+            return 8;
+        }
+        if vec_get(parts, 1) != "beta" {
+            return 9;
+        }
+        if vec_get(parts, 2) != "gamma" {
+            return 10;
+        }
+
+        // 2. Path & directory functions
+        let joined: str = path_join("src/modules", "driver.bkr");
+        if joined != "src/modules/driver.bkr" {
+            return 11;
+        }
+
+        let dir: str = path_dir("src/modules/driver.bkr");
+        if dir != "src/modules" {
+            return 12;
+        }
+
+        let base: str = path_base("src/modules/driver.bkr");
+        if base != "driver.bkr" {
+            return 13;
+        }
+
+        let ext: str = path_ext("src/modules/driver.bkr");
+        if ext != "bkr" {
+            return 14;
+        }
+
+        let abs_pos: bool = path_is_abs("/usr/local/bin");
+        if !abs_pos {
+            return 15;
+        }
+
+        let abs_neg: bool = path_is_abs("relative/path/test");
+        if abs_neg {
+            return 16;
+        }
+
+        // 3. Environment variables
+        let set_ok: bool = env_set("BKR_TEST_VAR_261", "active_42");
+        if !set_ok {
+            return 17;
+        }
+
+        let has_var: bool = env_has("BKR_TEST_VAR_261");
+        if !has_var {
+            return 18;
+        }
+
+        let opt_var: Option<str> = env_get("BKR_TEST_VAR_261");
+        let opt_matched: bool = match opt_var {
+            Some(v) => v == "active_42";
+            None => false;
+        };
+        if !opt_matched {
+            return 19;
+        }
+
+        let res_var: Result<str, str> = env_var("BKR_TEST_VAR_261");
+        let res_matched: bool = match res_var {
+            Ok(v) => v == "active_42";
+            Err(_) => false;
+        };
+        if !res_matched {
+            return 20;
+        }
+
+        let missing_opt: Option<str> = env_get("NON_EXISTENT_VAR_DEFINITELY_12345");
+        let missing_ok: bool = match missing_opt {
+            Some(_) => false;
+            None => true;
+        };
+        if !missing_ok {
+            return 21;
+        }
+
+        // 4. Time functions
+        let t_ms: i64 = time_now_ms();
+        if t_ms <= 1000000000000 {
+            return 22;
+        }
+
+        let t_unix: i64 = time_now_unix();
+        if t_unix <= 1000000000 {
+            return 23;
+        }
+
+        return 42;
+    }
+}

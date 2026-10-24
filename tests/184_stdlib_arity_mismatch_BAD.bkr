@@ -1,0 +1,10 @@
+// Test 184: Stdlib Builtin Arity Mismatch (Negative Test)
+// Purpose: Verify calling path_join with 1 argument instead of 2 is rejected with structured arity diagnostic.
+// Expected: Compilation fails with arity mismatch error.
+
+kernel StdlibArityMismatchBad {
+    fn main() -> i32 {
+        let p: str = path_join("single_argument");
+        return 0;
+    }
+}
