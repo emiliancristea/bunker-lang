@@ -1,0 +1,14 @@
+// Test 143 (BAD): Non-exhaustive scalar integer match
+// Purpose: Reject integer matches that lack a catch-all or wildcard arm.
+// Expected: Type error for missing catch-all pattern or wildcard '_'.
+
+kernel ScalarMatchNonexhaustiveBad {
+    fn main() -> i32 {
+        let x: i32 = 42;
+        let res = match x {
+            1 => 10;
+            2 => 20;
+        };
+        return res;
+    }
+}

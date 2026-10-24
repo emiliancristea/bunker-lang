@@ -1,0 +1,13 @@
+// Test 141 (BAD): Non-exhaustive boolean match
+// Purpose: Reject boolean matches that omit the false branch.
+// Expected: Type error for missing false.
+
+kernel BoolMatchNonexhaustiveBad {
+    fn main() -> i32 {
+        let b: bool = true;
+        let res = match b {
+            true => 1;
+        };
+        return res;
+    }
+}

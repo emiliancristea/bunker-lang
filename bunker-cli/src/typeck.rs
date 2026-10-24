@@ -50,6 +50,81 @@ fn pattern_is_irrefutable(pat: &ast::Pattern) -> bool {
     }
 }
 
+fn patterns_exhaust_type(
+    patterns: &[&ast::Pattern],
+    ty: &Type,
+    enums: &HashMap<String, Vec<String>>,
+) -> bool {
+    if patterns.iter().any(|p| pattern_is_irrefutable(p)) {
+        return true;
+    }
+    match ty {
+        Type::Bool => {
+            let mut seen_true = false;
+            let mut seen_false = false;
+            for p in patterns {
+                match p {
+                    ast::Pattern::Bool(b) | ast::Pattern::Literal(Literal::Bool(b)) => {
+                        if *b {
+                            seen_true = true;
+                        } else {
+                            seen_false = true;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            seen_true && seen_false
+        }
+        Type::Option(inner) => {
+            let mut some_subpats = Vec::new();
+            let mut seen_none = false;
+            for p in patterns {
+                match p {
+                    ast::Pattern::Some(sub) => some_subpats.push(sub.as_ref()),
+                    ast::Pattern::None => seen_none = true,
+                    _ => {}
+                }
+            }
+            seen_none && patterns_exhaust_type(&some_subpats, inner, enums)
+        }
+        Type::Result(ok_ty, err_ty) => {
+            let mut ok_subpats = Vec::new();
+            let mut err_subpats = Vec::new();
+            for p in patterns {
+                match p {
+                    ast::Pattern::ResultOk(sub) => ok_subpats.push(sub.as_ref()),
+                    ast::Pattern::ResultErr(sub) => err_subpats.push(sub.as_ref()),
+                    _ => {}
+                }
+            }
+            patterns_exhaust_type(&ok_subpats, ok_ty, enums)
+                && patterns_exhaust_type(&err_subpats, err_ty, enums)
+        }
+        Type::Named(enum_name) => {
+            if let Some(variants) = enums.get(enum_name) {
+                let mut seen_variants = HashSet::new();
+                for p in patterns {
+                    if let ast::Pattern::EnumVariant {
+                        enum_name: name,
+                        variant,
+                        ..
+                    } = p
+                    {
+                        if name == enum_name {
+                            seen_variants.insert(variant.as_str());
+                        }
+                    }
+                }
+                variants.iter().all(|v| seen_variants.contains(v.as_str()))
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
+}
+
 impl TypeChecker {
     pub fn new() -> Self {
         let mut tc = Self {
@@ -537,6 +612,10 @@ impl TypeChecker {
                 self.check_enum_match(&expr_ty, arms, context);
                 self.check_option_match(&expr_ty, arms, context);
                 self.check_result_match(&expr_ty, arms, context);
+                self.check_bool_match(&expr_ty, arms, context);
+                self.check_scalar_match(&expr_ty, arms, context);
+                self.check_bool_match(&expr_ty, arms, context);
+                self.check_scalar_match(&expr_ty, arms, context);
                 Ok(None)
             }
             _ => Ok(None),
@@ -922,6 +1001,8 @@ impl TypeChecker {
                 self.check_enum_match(&expr_ty, arms, context);
                 self.check_option_match(&expr_ty, arms, context);
                 self.check_result_match(&expr_ty, arms, context);
+                self.check_bool_match(&expr_ty, arms, context);
+                self.check_scalar_match(&expr_ty, arms, context);
 
                 // Infer result type across arms (propagating non-Never types)
                 let mut match_result: Option<Type> = None;
@@ -1770,11 +1851,11 @@ impl TypeChecker {
     }
 
     fn check_result_match(&mut self, expr_ty: &Type, arms: &[ast::MatchArm], context: &str) {
-        if !matches!(expr_ty, Type::Result(_, _)) {
+        let Type::Result(ok_ty, err_ty) = expr_ty else {
             return;
-        }
-        let mut seen_ok = false;
-        let mut seen_err = false;
+        };
+        let mut ok_patterns = Vec::new();
+        let mut err_patterns = Vec::new();
         let mut seen_irrefutable_ok = false;
         let mut seen_irrefutable_err = false;
         let mut has_wildcard = false;
@@ -1790,10 +1871,10 @@ impl TypeChecker {
                             location: context.to_string(),
                         });
                     }
-                    seen_ok = true;
                     if pattern_is_irrefutable(sub_pat) {
                         seen_irrefutable_ok = true;
                     }
+                    ok_patterns.push(sub_pat.as_ref());
                 }
                 ast::Pattern::ResultErr(sub_pat) => {
                     if seen_irrefutable_err {
@@ -1802,10 +1883,10 @@ impl TypeChecker {
                             location: context.to_string(),
                         });
                     }
-                    seen_err = true;
                     if pattern_is_irrefutable(sub_pat) {
                         seen_irrefutable_err = true;
                     }
+                    err_patterns.push(sub_pat.as_ref());
                 }
                 ast::Pattern::Ident(_) => {
                     has_wildcard = true;
@@ -1816,11 +1897,13 @@ impl TypeChecker {
         if has_wildcard {
             return;
         }
+        let covers_ok = patterns_exhaust_type(&ok_patterns, ok_ty, &self.enums);
+        let covers_err = patterns_exhaust_type(&err_patterns, err_ty, &self.enums);
         let mut missing = Vec::new();
-        if !seen_ok {
+        if !covers_ok {
             missing.push("Result.Ok");
         }
-        if !seen_err {
+        if !covers_err {
             missing.push("Result.Err");
         }
         if !missing.is_empty() {
@@ -1835,10 +1918,10 @@ impl TypeChecker {
     }
 
     fn check_option_match(&mut self, expr_ty: &Type, arms: &[ast::MatchArm], context: &str) {
-        if !matches!(expr_ty, Type::Option(_)) {
+        let Type::Option(inner) = expr_ty else {
             return;
-        }
-        let mut seen_some = false;
+        };
+        let mut some_patterns = Vec::new();
         let mut seen_none = false;
         let mut seen_irrefutable_some = false;
         let mut has_wildcard = false;
@@ -1854,10 +1937,10 @@ impl TypeChecker {
                             location: context.to_string(),
                         });
                     }
-                    seen_some = true;
                     if pattern_is_irrefutable(sub_pat) {
                         seen_irrefutable_some = true;
                     }
+                    some_patterns.push(sub_pat.as_ref());
                 }
                 ast::Pattern::None => {
                     if seen_none {
@@ -1877,8 +1960,9 @@ impl TypeChecker {
         if has_wildcard {
             return;
         }
+        let covers_some = patterns_exhaust_type(&some_patterns, inner, &self.enums);
         let mut missing = Vec::new();
-        if !seen_some {
+        if !covers_some {
             missing.push("Some");
         }
         if !seen_none {
@@ -1889,6 +1973,81 @@ impl TypeChecker {
                 message: format!(
                     "Non-exhaustive match on Option; missing {}",
                     missing.join(", ")
+                ),
+                location: context.to_string(),
+            });
+        }
+    }
+
+    fn check_bool_match(&mut self, expr_ty: &Type, arms: &[ast::MatchArm], context: &str) {
+        if *expr_ty != Type::Bool {
+            return;
+        }
+        let mut seen_true = false;
+        let mut seen_false = false;
+        let mut has_wildcard = false;
+        for arm in arms {
+            if arm.guard.is_some() {
+                continue;
+            }
+            match &arm.pattern {
+                ast::Pattern::Bool(b) => {
+                    if *b {
+                        seen_true = true;
+                    } else {
+                        seen_false = true;
+                    }
+                }
+                ast::Pattern::Literal(Literal::Bool(b)) => {
+                    if *b {
+                        seen_true = true;
+                    } else {
+                        seen_false = true;
+                    }
+                }
+                ast::Pattern::Ident(_) => {
+                    has_wildcard = true;
+                }
+                _ => {}
+            }
+        }
+        if has_wildcard {
+            return;
+        }
+        let mut missing = Vec::new();
+        if !seen_true {
+            missing.push("true");
+        }
+        if !seen_false {
+            missing.push("false");
+        }
+        if !missing.is_empty() {
+            self.errors.push(TypeError {
+                message: format!(
+                    "Non-exhaustive match on bool; missing {}",
+                    missing.join(", ")
+                ),
+                location: context.to_string(),
+            });
+        }
+    }
+
+    fn check_scalar_match(&mut self, expr_ty: &Type, arms: &[ast::MatchArm], context: &str) {
+        if !self.is_integer(expr_ty) && *expr_ty != Type::Str && *expr_ty != Type::F32 && *expr_ty != Type::F64 {
+            return;
+        }
+        let mut has_catchall = false;
+        for arm in arms {
+            if arm.guard.is_none() && matches!(arm.pattern, ast::Pattern::Ident(_)) {
+                has_catchall = true;
+                break;
+            }
+        }
+        if !has_catchall {
+            self.errors.push(TypeError {
+                message: format!(
+                    "Non-exhaustive match on {:?}; missing catch-all pattern or wildcard '_'",
+                    expr_ty
                 ),
                 location: context.to_string(),
             });

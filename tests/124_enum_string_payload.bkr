@@ -12,7 +12,7 @@ kernel EnumStringPayload {
     fn main() -> i32 {
         let tok: Token = Token.Ident("forty-two");
         let result: i32 = match tok {
-            Token.Ident(s) => strlen(s) as i32 + 33;
+            Token.Ident(s) => strlen(s) + 33;
             Token.Number(n) => n;
             Token.Eof => 0;
         };

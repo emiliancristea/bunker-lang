@@ -1048,9 +1048,13 @@
         return state;
     }
 
-    fn typecheck_match_patterns_cover_bool_ref(patterns_ref: AstPatternListRef, value: i64) -> bool {
+    fn typecheck_match_patterns_cover_bool_ref(guards_ref: AstI64ListRef, patterns_ref: AstPatternListRef, value: i64) -> bool {
         let i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
+            if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
+                i = i + 1;
+                continue;
+            }
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             if typecheck_pattern_is_catch_all_ref(pattern_ref) {
                 return true;
@@ -1075,15 +1079,25 @@
         return false;
     }
 
-    fn typecheck_match_patterns_cover_option_ref(patterns_ref: AstPatternListRef, pattern_kind: i64) -> bool {
+    fn typecheck_match_patterns_cover_option_ref(guards_ref: AstI64ListRef, patterns_ref: AstPatternListRef, pattern_kind: i64) -> bool {
         let i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
+            if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
+                i = i + 1;
+                continue;
+            }
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             if typecheck_pattern_is_catch_all_ref(pattern_ref) {
                 return true;
             }
             if ast_pattern_ref_kind(pattern_ref) == pattern_kind {
-                return true;
+                if pattern_kind == PAT_SOME {
+                    if ast_pattern_ref_aux(pattern_ref) == 0 {
+                        return true;
+                    }
+                } else {
+                    return true;
+                }
             }
             i = i + 1;
         }
@@ -1096,8 +1110,9 @@
         if scrutinee_kind != TYPE_BOOL {
             return state;
         }
-        let covers_true: bool = typecheck_match_patterns_cover_bool_ref(patterns_ref, 1);
-        let covers_false: bool = typecheck_match_patterns_cover_bool_ref(patterns_ref, 0);
+        let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
+        let covers_true: bool = typecheck_match_patterns_cover_bool_ref(guards_ref, patterns_ref, 1);
+        let covers_false: bool = typecheck_match_patterns_cover_bool_ref(guards_ref, patterns_ref, 0);
         if covers_true && covers_false {
             return state;
         }
@@ -1161,8 +1176,9 @@
         if !typecheck_match_patterns_contain_option_ref(patterns_ref) {
             return state;
         }
-        let covers_some: bool = typecheck_match_patterns_cover_option_ref(patterns_ref, PAT_SOME);
-        let covers_none: bool = typecheck_match_patterns_cover_option_ref(patterns_ref, PAT_NONE);
+        let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
+        let covers_some: bool = typecheck_match_patterns_cover_option_ref(guards_ref, patterns_ref, PAT_SOME);
+        let covers_none: bool = typecheck_match_patterns_cover_option_ref(guards_ref, patterns_ref, PAT_NONE);
         if covers_some && covers_none {
             return state;
         }
@@ -1235,15 +1251,21 @@
         return false;
     }
 
-    fn typecheck_match_patterns_cover_result_ref(patterns_ref: AstPatternListRef, pattern_kind: i64) -> bool {
+    fn typecheck_match_patterns_cover_result_ref(guards_ref: AstI64ListRef, patterns_ref: AstPatternListRef, pattern_kind: i64) -> bool {
         let i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
+            if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
+                i = i + 1;
+                continue;
+            }
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             if typecheck_pattern_is_catch_all_ref(pattern_ref) {
                 return true;
             }
             if ast_pattern_ref_kind(pattern_ref) == pattern_kind {
-                return true;
+                if ast_pattern_ref_aux(pattern_ref) == 0 {
+                    return true;
+                }
             }
             i = i + 1;
         }
@@ -1256,8 +1278,9 @@
         if !typecheck_match_patterns_contain_result_ref(patterns_ref) {
             return state;
         }
-        let covers_ok: bool = typecheck_match_patterns_cover_result_ref(patterns_ref, PAT_RESULT_OK);
-        let covers_err: bool = typecheck_match_patterns_cover_result_ref(patterns_ref, PAT_RESULT_ERR);
+        let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
+        let covers_ok: bool = typecheck_match_patterns_cover_result_ref(guards_ref, patterns_ref, PAT_RESULT_OK);
+        let covers_err: bool = typecheck_match_patterns_cover_result_ref(guards_ref, patterns_ref, PAT_RESULT_ERR);
         if covers_ok && covers_err {
             return state;
         }
@@ -1357,11 +1380,15 @@
         return ast_optional_item_ref_none();
     }
 
-    fn typecheck_match_patterns_cover_enum_variant_ref(patterns_ref: AstPatternListRef,
+    fn typecheck_match_patterns_cover_enum_variant_ref(guards_ref: AstI64ListRef, patterns_ref: AstPatternListRef,
                                                       enum_name_idx: i64,
                                                       variant_idx: i64) -> bool {
         let i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
+            if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
+                i = i + 1;
+                continue;
+            }
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             if typecheck_pattern_is_catch_all_ref(pattern_ref) {
                 return true;
@@ -1397,11 +1424,12 @@
         if ast_i64_list_ref_count(variants_ref) <= 0 {
             return state;
         }
+        let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
         let missing: str = "";
         let j: i64 = 0;
         while j < ast_i64_list_ref_count(variants_ref) {
             let variant_idx: i64 = ast_i64_list_ref_get(variants_ref, j);
-            if !typecheck_match_patterns_cover_enum_variant_ref(patterns_ref, enum_name_idx, variant_idx) {
+            if !typecheck_match_patterns_cover_enum_variant_ref(guards_ref, patterns_ref, enum_name_idx, variant_idx) {
                 let variant_label: str = ast_report_name(names, enum_name_idx) + "." + ast_report_name(names, variant_idx);
                 if len(missing) > 0 {
                     missing = missing + ", " + variant_label;
@@ -1420,6 +1448,37 @@
                 "patterns covering every declared enum variant",
                 "missing " + missing,
                 "Add the missing enum pattern arm or a catch-all pattern."));
+    }
+
+    fn typecheck_check_scalar_match_exhaustiveness_ref(state: Vec<str>, expr_ref: AstExprRef,
+                                                       patterns_ref: AstPatternListRef,
+                                                       scrutinee_kind: i64, scope: str) -> Vec<str> {
+        if !typecheck_is_numeric_kind(scrutinee_kind) && scrutinee_kind != TYPE_STR {
+            return state;
+        }
+        let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
+        let i: i64 = 0;
+        let has_catch_all: bool = false;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
+                i = i + 1;
+                continue;
+            }
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if typecheck_pattern_is_catch_all_ref(pattern_ref) {
+                has_catch_all = true;
+            }
+            i = i + 1;
+        }
+        if has_catch_all {
+            return state;
+        }
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("non_exhaustive_match", "BKR_SELF_EXHAUSTIVENESS",
+                "match", scope, ast_node_ref_from_expr_ref(expr_ref),
+                "patterns covering all values or a catch-all pattern",
+                "missing catch-all pattern",
+                "Add a wildcard '_' arm or identifier pattern to cover all remaining values."));
     }
 
     fn typecheck_check_enum_match_redundancy_ref(state: Vec<str>, kernel_ref: AstNodeRef,
@@ -1973,6 +2032,8 @@
                 ast_match_ref_patterns_ref(expr_ref), scope);
             state = typecheck_check_enum_match_exhaustiveness_ref(state, kernel_ref, names, expr_ref,
                 ast_match_ref_patterns_ref(expr_ref), scope);
+            state = typecheck_check_scalar_match_exhaustiveness_ref(state, expr_ref,
+                ast_match_ref_patterns_ref(expr_ref), scrutinee_kind, scope);
             state = typecheck_check_bool_match_redundancy_ref(state,
                 ast_match_ref_patterns_ref(expr_ref), scrutinee_kind, scope);
             state = typecheck_check_option_match_redundancy_ref(state,
@@ -2296,6 +2357,7 @@
             json_field_bool("option_match_exhaustiveness_checks", true) + comma +
             json_field_bool("result_match_exhaustiveness_checks", true) + comma +
             json_field_bool("enum_match_exhaustiveness_checks", true) + comma +
+            json_field_bool("scalar_match_exhaustiveness_checks", true) + comma +
             json_field_bool("finite_match_redundancy_checks", true) + comma +
             json_field_bool("array_element_type_checks", true) + comma +
             json_field_bool("loop_control_checks", true) + comma +

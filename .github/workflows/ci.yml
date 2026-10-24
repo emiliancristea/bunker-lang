@@ -1138,8 +1138,10 @@ jobs:
           grep -q 'patterns covering Some and None' "$typecheck"
           grep -q 'json_field_bool("option_match_exhaustiveness_checks", true)' "$typecheck"
           grep -q 'fn typecheck_check_enum_match_exhaustiveness_ref' "$typecheck"
-          grep -q 'patterns covering every declared unit-enum variant' "$typecheck"
+          grep -q 'patterns covering every declared enum variant' "$typecheck"
           grep -q 'json_field_bool("enum_match_exhaustiveness_checks", true)' "$typecheck"
+          grep -q 'fn typecheck_check_scalar_match_exhaustiveness_ref' "$typecheck"
+          grep -q 'json_field_bool("scalar_match_exhaustiveness_checks", true)' "$typecheck"
           grep -q 'fn typecheck_check_bool_match_redundancy_ref' "$typecheck"
           grep -q 'fn typecheck_check_option_match_redundancy_ref' "$typecheck"
           grep -q 'fn typecheck_check_enum_match_redundancy_ref' "$typecheck"
@@ -2269,6 +2271,51 @@ jobs:
           test -s /tmp/139_nested_patterns.c
           grep -q "BUNKER_AST_JSON" /tmp/139_nested_patterns.c
           grep -q '"has_diagnostics":false' /tmp/139_nested_patterns.c
+
+      - name: Run exhaustive matches acceptance test (JIT)
+        timeout-minutes: 2
+        run: |
+          ./bunker-cli/target/release/bunker-cli run tests/140_exhaustive_matches.bkr
+
+      - name: Compile exhaustive matches fixture through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/140_exhaustive_matches.bkr \
+            -o /tmp/140_exhaustive_matches.c
+          test -s /tmp/140_exhaustive_matches.c
+          grep -q "BUNKER_AST_JSON" /tmp/140_exhaustive_matches.c
+          grep -q '"has_diagnostics":false' /tmp/140_exhaustive_matches.c
+
+      - name: Compile 141_bool_match_nonexhaustive_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/141_bool_match_nonexhaustive_BAD.bkr \
+            -o /tmp/141_bool_match_nonexhaustive_BAD.c
+          test -s /tmp/141_bool_match_nonexhaustive_BAD.c
+          grep -q '"kind":"non_exhaustive_match"' /tmp/141_bool_match_nonexhaustive_BAD.c
+          grep -q "missing false" /tmp/141_bool_match_nonexhaustive_BAD.c
+
+      - name: Compile 142_option_match_nonexhaustive_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/142_option_match_nonexhaustive_BAD.bkr \
+            -o /tmp/142_option_match_nonexhaustive_BAD.c
+          test -s /tmp/142_option_match_nonexhaustive_BAD.c
+          grep -q '"kind":"non_exhaustive_match"' /tmp/142_option_match_nonexhaustive_BAD.c
+          grep -q "missing None" /tmp/142_option_match_nonexhaustive_BAD.c
+
+      - name: Compile 143_scalar_match_nonexhaustive_BAD through self-host compiler
+        timeout-minutes: 2
+        run: |
+          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+            tests/143_scalar_match_nonexhaustive_BAD.bkr \
+            -o /tmp/143_scalar_match_nonexhaustive_BAD.c
+          test -s /tmp/143_scalar_match_nonexhaustive_BAD.c
+          grep -q '"kind":"non_exhaustive_match"' /tmp/143_scalar_match_nonexhaustive_BAD.c
+          grep -q "missing catch-all pattern" /tmp/143_scalar_match_nonexhaustive_BAD.c
 
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2

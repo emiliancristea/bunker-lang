@@ -118,6 +118,7 @@ $expectedResults = @{
     "137_type_aliases" = 42
     "138_never_type" = 42
     "139_nested_patterns" = 42
+    "140_exhaustive_matches" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -336,7 +337,7 @@ if (-not $JitOnly) {
         }
 
         $generated = Get-Content $subsetOut -Raw
-        if ($generated -notlike "*int main(void)*") {
+        if ($generated -notlike "*int main(*") {
             Write-Host "FAIL" -ForegroundColor Red -NoNewline
             Write-Host " (unexpected generated C for $subsetFile)"
             $subsetOk = $false
@@ -360,7 +361,7 @@ if (-not $JitOnly) {
     if ($compileExitCode -eq 0 -and (Test-Path $selfHostOut)) {
         $generated = Get-Content $selfHostOut -Raw
         $hasI32Entry = $generated -match "bkr_i32\s+_v[0-9]+\(void\)"
-        $hasMainWrapper = $generated -match "int\s+main\(void\)" -and $generated -match "return\s+\(int\)_v[0-9]+\(\);"
+        $hasMainWrapper = $generated -match "int\s+main\(" -and $generated -match "return\s+\(int\)_v[0-9]+\(\);"
         $hasNoParseError = $generated -notmatch "Parse error at token"
         if ($hasI32Entry -and $hasMainWrapper -and $hasNoParseError) {
             Write-Host "PASS" -ForegroundColor Green -NoNewline
