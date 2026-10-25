@@ -52,6 +52,7 @@ pub struct TypeAliasDef {
 pub struct Function {
     pub name: String,
     pub is_pub: bool,
+    pub type_params: Vec<String>,
     pub attributes: Vec<Attribute>,
     pub doc: Option<String>,
     pub params: Vec<Param>,
@@ -63,6 +64,7 @@ pub struct Function {
 pub struct StructDef {
     pub name: String,
     pub is_pub: bool,
+    pub type_params: Vec<String>,
     pub attributes: Vec<Attribute>,
     pub doc: Option<String>,
     pub fields: Vec<StructField>,
@@ -85,6 +87,7 @@ pub struct EnumVariantDecl {
 pub struct EnumDef {
     pub name: String,
     pub is_pub: bool,
+    pub type_params: Vec<String>,
     pub attributes: Vec<Attribute>,
     pub doc: Option<String>,
     pub variants: Vec<EnumVariantDecl>,
@@ -334,6 +337,7 @@ pub enum Expr {
     Call {
         func: Box<Expr>,
         args: Vec<Expr>,
+        type_args: Vec<Type>,
     },
     Index {
         expr: Box<Expr>,
@@ -371,6 +375,7 @@ pub enum Expr {
     Array(Vec<Expr>),
     Struct {
         name: String,
+        type_args: Vec<Type>,
         fields: Vec<(String, Expr)>,
         base: Option<Box<Expr>>,
     },
@@ -452,7 +457,51 @@ pub enum Type {
     HashMap(Box<Type>, Box<Type>), // HashMap<K, V>
     Array(Box<Type>, usize),
     Slice(Box<Type>),              // Slice<T> or [T] - borrowed slice view
+    Generic(String, Vec<Type>),    // Generic<T1, T2> - parameterized type
     Ref { mutable: bool, ty: Box<Type> },
     Fn(Vec<Type>, Box<Type>),
     Named(String),
+}
+
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Never => write!(f, "!"),
+            Type::Unit => write!(f, "()"),
+            Type::Tuple(ts) => {
+                let s: Vec<_> = ts.iter().map(|t| t.to_string()).collect();
+                write!(f, "({})", s.join(", "))
+            }
+            Type::I32 => write!(f, "i32"),
+            Type::I64 => write!(f, "i64"),
+            Type::F32 => write!(f, "f32"),
+            Type::F64 => write!(f, "f64"),
+            Type::Bool => write!(f, "bool"),
+            Type::Str => write!(f, "str"),
+            Type::Vec2 => write!(f, "vec2"),
+            Type::Vec3 => write!(f, "vec3"),
+            Type::Option(t) => write!(f, "Option<{}>", t),
+            Type::Result(ok, err) => write!(f, "Result<{}, {}>", ok, err),
+            Type::Vec(t) => write!(f, "Vec<{}>", t),
+            Type::HashMap(k, v) => write!(f, "HashMap<{}, {}>", k, v),
+            Type::Array(t, len) => write!(f, "[{}; {}]", t, len),
+            Type::Slice(t) => write!(f, "[{}]", t),
+            Type::Generic(name, args) => {
+                let s: Vec<_> = args.iter().map(|a| a.to_string()).collect();
+                write!(f, "{}<{}>", name, s.join(", "))
+            }
+            Type::Ref { mutable, ty } => {
+                if *mutable {
+                    write!(f, "&mut {}", ty)
+                } else {
+                    write!(f, "&{}", ty)
+                }
+            }
+            Type::Fn(params, ret) => {
+                let s: Vec<_> = params.iter().map(|p| p.to_string()).collect();
+                write!(f, "fn({}) -> {}", s.join(", "), ret)
+            }
+            Type::Named(name) => write!(f, "{}", name),
+        }
+    }
 }

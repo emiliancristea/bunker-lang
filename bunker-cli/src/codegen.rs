@@ -2009,7 +2009,7 @@ fn compile_expr_inline(
             };
             Ok(result)
         }
-        ast::Expr::Call { func, args } => {
+        ast::Expr::Call { func, args, .. } => {
             if let ast::Expr::Ident(name) = func.as_ref() {
                 // Skip built-in functions for now
                 if name == "panic" {
@@ -2576,7 +2576,7 @@ fn compile_expr_inline(
 
             Ok(ptr)
         }
-        ast::Expr::Struct { name, fields, base } => {
+        ast::Expr::Struct { name, fields, base, .. } => {
             let Some(layout) = structs.get(name) else {
                 return Ok(builder.ins().iconst(types::I64, 0));
             };

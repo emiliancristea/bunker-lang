@@ -802,7 +802,7 @@ impl<'a> Executor<'a> {
                 Ok(Value::Array(values))
             }
             // Struct literal: Point { x: 1, y: 2 }
-            ast::Expr::Struct { name: _, fields, base } => {
+            ast::Expr::Struct { name: _, fields, base, .. } => {
                 let mut field_values = HashMap::new();
                 if let Some(base_expr) = base {
                     if let Value::Struct(base_fields) = self.eval_expr(base_expr, env, queue)? {
@@ -834,7 +834,7 @@ impl<'a> Executor<'a> {
                     .ok_or_else(|| anyhow!("No field '{}' on value {:?}", field, struct_val))
             }
             // Function call: len(arr)
-            ast::Expr::Call { func, args } => {
+            ast::Expr::Call { func, args, .. } => {
                 // Handle built-in functions
                 if let ast::Expr::Ident(name) = func.as_ref() {
                     match name.as_str() {

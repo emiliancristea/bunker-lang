@@ -6,6 +6,7 @@ mod comptime;
 mod diagnostic;
 mod jit;
 mod module_loader;
+mod monomorphize;
 mod parser;
 mod shell_codegen;
 mod shell_runtime;
@@ -321,6 +322,12 @@ fn build_file(
     // Compile-time constant folding pass
     let comptime_stats = comptime::fold_comptime_calls(&mut ast);
 
+    // Monomorphization pass (generics instantiation)
+    if let Err(diags) = monomorphize::monomorphize_file(&mut ast, &file_path) {
+        print_diagnostics_and_exit(&file_path, diags, format);
+        return Ok(());
+    }
+
     if emit == Some("ast") {
         println!("\n{}", "AST:".cyan().bold());
         println!("{:#?}", ast);
@@ -472,6 +479,12 @@ fn check_file(input: &PathBuf, use_smt: bool, import_graph: bool, format: Output
 
     // Compile-time constant folding pass
     let comptime_stats = comptime::fold_comptime_calls(&mut ast);
+
+    // Monomorphization pass (generics instantiation)
+    if let Err(diags) = monomorphize::monomorphize_file(&mut ast, &file_path) {
+        print_diagnostics_and_exit(&file_path, diags, format);
+        return Ok(());
+    }
     if format == OutputFormat::Text && comptime_stats.calls_folded > 0 {
         println!(
             "{} Folded {} comptime call(s)",
@@ -575,6 +588,10 @@ fn collect_diagnostics_for_source(
 
     let _comptime_stats = comptime::fold_comptime_calls(&mut ast);
     let mut diagnostics = Vec::new();
+
+    if let Err(diags) = monomorphize::monomorphize_file(&mut ast, file_path) {
+        return Ok(diags);
+    }
 
     let is_self_host = file_path.contains("self-host") || file_path.contains("self_host");
     let type_errors = typeck::check_file_with_strict_mutability(&ast, !is_self_host)?;
@@ -990,6 +1007,12 @@ fn run_file(
 
     // Compile-time constant folding pass
     let _comptime_stats = comptime::fold_comptime_calls(&mut ast);
+
+    // Monomorphization pass (generics instantiation)
+    if let Err(diags) = monomorphize::monomorphize_file(&mut ast, &file_path) {
+        print_diagnostics_and_exit(&file_path, diags, format);
+        return Ok(());
+    }
 
     // Collect all diagnostics
     let mut diagnostics: Vec<Diagnostic> = Vec::new();

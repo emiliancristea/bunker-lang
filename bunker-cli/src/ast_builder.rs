@@ -179,9 +179,24 @@ fn build_kernel_item(pair: Pair<Rule>) -> Result<Option<KernelItem>, String> {
     Ok(None)
 }
 
+fn build_type_params(pair: Pair<Rule>) -> Result<Vec<String>, String> {
+    let mut params = Vec::new();
+    for inner in pair.into_inner() {
+        if inner.as_rule() == Rule::type_param_list {
+            for id in inner.into_inner() {
+                if id.as_rule() == Rule::identifier {
+                    params.push(id.as_str().to_string());
+                }
+            }
+        }
+    }
+    Ok(params)
+}
+
 fn build_function(pair: Pair<Rule>) -> Result<Function, String> {
     let mut name = String::new();
     let mut is_pub = false;
+    let mut type_params = vec![];
     let mut attributes = vec![];
     let mut doc_lines = vec![];
     let mut params = vec![];
@@ -198,6 +213,9 @@ fn build_function(pair: Pair<Rule>) -> Result<Function, String> {
             }
             Rule::doc_comment => {
                 doc_lines.push(clean_doc_line(inner.as_str()));
+            }
+            Rule::type_params => {
+                type_params = build_type_params(inner)?;
             }
             Rule::fn_name | Rule::identifier => {
                 name = inner.as_str().replace('.', "::");
@@ -237,6 +255,7 @@ fn build_function(pair: Pair<Rule>) -> Result<Function, String> {
     Ok(Function {
         name,
         is_pub,
+        type_params,
         attributes,
         doc,
         params,
@@ -506,6 +525,26 @@ fn build_type(pair: Pair<Rule>) -> Result<Type, String> {
                 }
                 return Ok(Type::Slice(Box::new(elem_type)));
             }
+            Rule::generic_type => {
+                let mut name = String::new();
+                let mut args = Vec::new();
+                for generic_inner in inner.into_inner() {
+                    match generic_inner.as_rule() {
+                        Rule::identifier => {
+                            name = generic_inner.as_str().to_string();
+                        }
+                        Rule::type_arg_list => {
+                            for arg in generic_inner.into_inner() {
+                                if arg.as_rule() == Rule::type_expr {
+                                    args.push(build_type(arg)?);
+                                }
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+                return Ok(Type::Generic(name, args));
+            }
             Rule::ref_type => {
                 let mut inner_type = Type::I32;
                 let text = inner.as_str();
@@ -567,6 +606,7 @@ fn build_type(pair: Pair<Rule>) -> Result<Type, String> {
 fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
     let mut name = String::new();
     let mut is_pub = false;
+    let mut type_params = vec![];
     let mut attributes = vec![];
     let mut doc_lines = vec![];
     let mut fields = vec![];
@@ -582,6 +622,9 @@ fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
             }
             Rule::visibility => {
                 is_pub = true;
+            }
+            Rule::type_params => {
+                type_params = build_type_params(inner)?;
             }
             Rule::identifier => {
                 name = inner.as_str().to_string();
@@ -624,12 +667,13 @@ fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
         }
     }
 
-    Ok(StructDef { name, is_pub, attributes, doc, fields, is_tuple })
+    Ok(StructDef { name, is_pub, type_params, attributes, doc, fields, is_tuple })
 }
 
 fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
     let mut name = String::new();
     let mut is_pub = false;
+    let mut type_params = vec![];
     let mut attributes = vec![];
     let mut doc_lines = vec![];
     let mut variants = vec![];
@@ -644,6 +688,9 @@ fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
             }
             Rule::visibility => {
                 is_pub = true;
+            }
+            Rule::type_params => {
+                type_params = build_type_params(inner)?;
             }
             Rule::identifier => {
                 name = inner.as_str().to_string();
@@ -687,7 +734,7 @@ fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
         }
     }
 
-    Ok(EnumDef { name, is_pub, attributes, doc, variants })
+    Ok(EnumDef { name, is_pub, type_params, attributes, doc, variants })
 }
 
 fn build_struct_field(pair: Pair<Rule>) -> Result<StructField, String> {
@@ -1548,19 +1595,35 @@ fn build_postfix_op(pair: Pair<Rule>, base: Expr) -> Result<Expr, String> {
     for inner in pair.into_inner() {
         match inner.as_rule() {
             Rule::call_op => {
+                let mut type_args = vec![];
                 let mut args = vec![];
                 for call_inner in inner.into_inner() {
-                    if call_inner.as_rule() == Rule::arg_list {
-                        for arg in call_inner.into_inner() {
-                            if arg.as_rule() == Rule::expr {
-                                args.push(build_expr(arg)?);
+                    match call_inner.as_rule() {
+                        Rule::turbofish => {
+                            for tb in call_inner.into_inner() {
+                                if tb.as_rule() == Rule::type_arg_list {
+                                    for t in tb.into_inner() {
+                                        if t.as_rule() == Rule::type_expr {
+                                            type_args.push(build_type(t)?);
+                                        }
+                                    }
+                                }
                             }
                         }
+                        Rule::arg_list => {
+                            for arg in call_inner.into_inner() {
+                                if arg.as_rule() == Rule::expr {
+                                    args.push(build_expr(arg)?);
+                                }
+                            }
+                        }
+                        _ => {}
                     }
                 }
                 return Ok(Expr::Call {
                     func: Box::new(base),
                     args,
+                    type_args,
                 });
             }
             Rule::index_op => {
@@ -1841,6 +1904,7 @@ fn build_array_literal(pair: Pair<Rule>) -> Result<Expr, String> {
 
 fn build_struct_literal(pair: Pair<Rule>) -> Result<Expr, String> {
     let mut name = String::new();
+    let mut type_args = vec![];
     let mut fields = vec![];
     let mut base = None;
 
@@ -1848,6 +1912,17 @@ fn build_struct_literal(pair: Pair<Rule>) -> Result<Expr, String> {
         match inner.as_rule() {
             Rule::path_expr | Rule::identifier => {
                 name = inner.as_str().to_string();
+            }
+            Rule::turbofish => {
+                for tb in inner.into_inner() {
+                    if tb.as_rule() == Rule::type_arg_list {
+                        for t in tb.into_inner() {
+                            if t.as_rule() == Rule::type_expr {
+                                type_args.push(build_type(t)?);
+                            }
+                        }
+                    }
+                }
             }
             Rule::struct_init => {
                 let mut field_name = String::new();
@@ -1876,7 +1951,7 @@ fn build_struct_literal(pair: Pair<Rule>) -> Result<Expr, String> {
         }
     }
 
-    Ok(Expr::Struct { name, fields, base })
+    Ok(Expr::Struct { name, type_args, fields, base })
 }
 
 /// Unescape a string literal contents (without surrounding quotes).

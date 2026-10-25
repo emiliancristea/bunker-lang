@@ -3448,7 +3448,7 @@ fn compile_stmt_inline(
 ) -> Result<()> {
     match stmt {
         ast::Stmt::Let { name, ty, value, .. } => {
-            let val_opt = if let ast::Expr::Call { func, args } = value {
+            let val_opt = if let ast::Expr::Call { func, args, .. } = value {
                 if let ast::Expr::Ident(fn_name) = func.as_ref() {
                     if fn_name == "hashmap_new" && args.is_empty() {
                         if let Some(ast::Type::HashMap(key_ty, _)) = ty {
@@ -5298,7 +5298,7 @@ fn compile_expr_inline(
             builder.switch_to_block(merge_bb);
             Ok(builder.block_params(merge_bb)[0])
         }
-        ast::Expr::Call { func, args } => {
+        ast::Expr::Call { func, args, .. } => {
             if let ast::Expr::Ident(name) = func.as_ref() {
                 // Built-in functions
                 if name == "panic" {
@@ -6142,7 +6142,7 @@ fn compile_expr_inline(
 
             Ok(ptr)
         }
-        ast::Expr::Struct { name, fields, base } => {
+        ast::Expr::Struct { name, fields, base, .. } => {
             let Some(layout) = structs.get(name) else {
                 return Ok(builder.ins().iconst(types::I64, 0));
             };

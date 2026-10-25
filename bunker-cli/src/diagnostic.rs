@@ -428,6 +428,12 @@ pub mod codes {
     pub const IMPORT_ERROR: &str = "E0701";
     pub const IMPORT_CYCLE: &str = "E0702";
     pub const IMPORT_INVALID_PATH: &str = "E0703";
+
+    // Generics and monomorphization errors (E08xx)
+    pub const GENERIC_ARG_COUNT: &str = "E0801";
+    pub const GENERIC_INFERENCE_FAILED: &str = "E0802";
+    pub const GENERIC_RECURSION_LIMIT: &str = "E0803";
+    pub const GENERIC_UNKNOWN_TYPE_PARAM: &str = "E0804";
 }
 
 // ============================================================================

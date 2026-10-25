@@ -416,7 +416,7 @@ impl ComptimeEvaluator {
                 let mut local_env = env.clone();
                 self.eval_block(block, &mut local_env, depth + 1)
             }
-            Expr::Call { func, args } => {
+            Expr::Call { func, args, .. } => {
                 if let Expr::Ident(name) = func.as_ref() {
                     if name == "panic" {
                         let msg = if let Some(arg) = args.first() {
@@ -805,7 +805,7 @@ fn fold_expr(expr: &mut Expr, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
         Expr::Unary { expr: inner, .. } => {
             fold_expr(inner, eval, stats);
         }
-        Expr::Call { func, args } => {
+        Expr::Call { func, args, .. } => {
             fold_expr(func, eval, stats);
             for arg in args {
                 fold_expr(arg, eval, stats);
@@ -897,7 +897,7 @@ fn fold_expr(expr: &mut Expr, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
     }
 
     // Now try to fold this expression if it's a comptime fn call
-    if let Expr::Call { func, args } = expr {
+    if let Expr::Call { func, args, .. } = expr {
         if let Expr::Ident(name) = func.as_ref() {
             if eval.is_comptime_fn(name) {
                 // Try to evaluate
@@ -931,6 +931,7 @@ mod tests {
         let func = Function {
             name: "add".to_string(),
             is_pub: false,
+            type_params: vec![],
             attributes: vec![],
             doc: None,
             params: vec![
@@ -977,6 +978,7 @@ mod tests {
         let func = Function {
             name: "factorial".to_string(),
             is_pub: false,
+            type_params: vec![],
             attributes: vec![],
             doc: None,
             params: vec![ast::Param {
@@ -1007,6 +1009,7 @@ mod tests {
                                 left: Box::new(Expr::Ident("n".to_string())),
                                 right: Box::new(Expr::Literal(Literal::Int(1))),
                             }],
+                            type_args: vec![],
                         }),
                     })),
                 ],

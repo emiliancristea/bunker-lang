@@ -1,0 +1,65 @@
+kernel TestGenericsBasic {
+    struct Pair<T, U> {
+        first: T,
+        second: U,
+    }
+
+    struct Wrap<T>(T);
+
+    struct Container<T> {
+        item: T,
+    }
+
+    fn identity<T>(x: T) -> T {
+        return x;
+    }
+
+    fn select_first<A, B>(a: A, b: B) -> A {
+        return a;
+    }
+
+    fn make_pair<T, U>(a: T, b: U) -> Pair<T, U> {
+        return Pair { first: a, second: b };
+    }
+
+    fn Pair::sum(self: Pair<i32, i32>) -> i32 {
+        return self.first + self.second;
+    }
+
+    pub fn main() -> i32 {
+        // 1. Generic function with explicit turbofish
+        let a: i32 = identity::<i32>(10);
+
+        // 2. Generic function with inferred type parameter
+        let b: i32 = identity(32);
+
+        // 3. Multi-param generic function
+        let first_val = select_first(a, "ignored");
+
+        // 4. Generic struct with explicit turbofish
+        let p1 = Pair::<i32, i32> { first: first_val, second: b };
+        let sum1 = p1.sum();
+
+        // 5. Generic struct with inferred type parameters
+        let p2 = Pair { first: 20, second: 22 };
+        let sum2 = p2.first + p2.second;
+
+        // 6. Generic function returning generic struct
+        let p3 = make_pair(15, 27);
+        let sum3 = p3.first + p3.second;
+
+        // 7. Generic tuple struct
+        let w = Wrap(42);
+        let w_val = w.0;
+
+        // 8. Nested generics
+        let c = Container { item: Pair { first: 40, second: 2 } };
+        let nested_sum = c.item.first + c.item.second;
+
+        if sum1 == 42 && sum2 == 42 && sum3 == 42 && w_val == 42 && nested_sum == 42 {
+            return 42;
+        }
+
+        return 0;
+    }
+}

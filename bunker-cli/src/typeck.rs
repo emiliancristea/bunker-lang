@@ -295,6 +295,14 @@ impl TypeChecker {
                         Box::new(self.resolve_alias(ret)),
                     );
                 }
+                Type::Generic(name, args) => {
+                    let resolved_args: Vec<_> = args.iter().map(|a| self.resolve_alias(a)).collect();
+                    let mangled = crate::monomorphize::mangle_name(name, &resolved_args);
+                    if self.structs.contains_key(&mangled) || self.enums.contains_key(&mangled) {
+                        return Type::Named(mangled);
+                    }
+                    return Type::Generic(name.clone(), resolved_args);
+                }
                 _ => return current,
             }
         }
@@ -1016,7 +1024,7 @@ impl TypeChecker {
                 let ty = self.infer_expr(expr, context)?;
                 self.unary_result_type(*op, &ty, context)
             }
-            Expr::Call { func, args } => {
+            Expr::Call { func, args, .. } => {
                 if let Expr::Field { expr, field } = func.as_ref() {
                     if let Expr::Ident(type_name) = expr.as_ref() {
                         if self.enums.contains_key(type_name) {
@@ -1027,6 +1035,7 @@ impl TypeChecker {
                     let base_ty = self.infer_expr(expr, context)?;
                     let struct_name = match &base_ty {
                         Type::Named(name) => Some(name.clone()),
+                        Type::Generic(name, args) => Some(crate::monomorphize::mangle_name(name, args)),
                         _ => None,
                     };
                     if let Some(sname) = struct_name {
@@ -1364,6 +1373,26 @@ impl TypeChecker {
                             Ok(Type::I32)
                         }
                     }
+                    Type::Generic(struct_name, args) => {
+                        let mangled = crate::monomorphize::mangle_name(struct_name, args);
+                        if let Some(fields) = self.structs.get(&mangled) {
+                            if let Some((_, field_ty)) = fields.iter().find(|(n, _)| n == field) {
+                                Ok(field_ty.clone())
+                            } else {
+                                self.errors.push(TypeError {
+                                    message: format!("No field '{}' on struct {}", field, mangled),
+                                    location: context.to_string(),
+                                });
+                                Ok(Type::I32)
+                            }
+                        } else {
+                            self.errors.push(TypeError {
+                                message: format!("Unknown struct: {}", mangled),
+                                location: context.to_string(),
+                            });
+                            Ok(Type::I32)
+                        }
+                    }
                     _ => {
                         self.errors.push(TypeError {
                             message: format!("Cannot access field on {:?}", base_ty),
@@ -1473,7 +1502,7 @@ impl TypeChecker {
                     Ok(Type::Array(Box::new(elem_ty), elements.len()))
                 }
             }
-            Expr::Struct { name, fields, base } => {
+            Expr::Struct { name, fields, base, .. } => {
                 self.check_visibility(name, context);
                 if let Some(struct_fields) = self.structs.get(name).cloned() {
                     for (field_name, field_expr) in fields {
@@ -3016,7 +3045,16 @@ impl TypeChecker {
                 }
             }
             ast::Pattern::Struct { name, fields } => {
-                if let Some(decl_fields) = self.structs.get(name).cloned() {
+                let decl_fields = self.structs.get(name).cloned().or_else(|| {
+                    self.structs.iter().find_map(|(k, v)| {
+                        if k.starts_with(&format!("{name}__")) {
+                            Some(v.clone())
+                        } else {
+                            None
+                        }
+                    })
+                });
+                if let Some(decl_fields) = decl_fields {
                     for (field_name, sub_pat) in fields {
                         if let Some((_, field_ty)) = decl_fields.iter().find(|(n, _)| n == field_name) {
                             self.bind_pattern(sub_pat, field_ty);
@@ -3188,13 +3226,26 @@ impl TypeChecker {
                 }
             }
             ast::Pattern::Struct { name, fields } => {
-                if let Type::Named(struct_name) = expr_ty {
-                    if struct_name != name {
-                        self.errors.push(TypeError {
-                            message: format!("Struct pattern for '{}' cannot match expression of type '{}'", name, struct_name),
-                            location: context.to_string(),
-                        });
-                    } else if let Some(decl_fields) = self.structs.get(name).cloned() {
+                let matches_struct = match expr_ty {
+                    Type::Named(struct_name) => struct_name == name || struct_name.starts_with(&format!("{name}__")),
+                    Type::Generic(struct_name, _) => struct_name == name,
+                    _ => false,
+                };
+                if !matches_struct {
+                    self.errors.push(TypeError {
+                        message: format!("Struct pattern for '{}' cannot match expression of type '{}'", name, expr_ty),
+                        location: context.to_string(),
+                    });
+                } else {
+                    let decl_fields = match expr_ty {
+                        Type::Named(struct_name) => self.structs.get(struct_name).cloned().or_else(|| self.structs.get(name).cloned()),
+                        Type::Generic(struct_name, args) => {
+                            let mangled = crate::monomorphize::mangle_name(struct_name, args);
+                            self.structs.get(&mangled).cloned().or_else(|| self.structs.get(struct_name).cloned())
+                        }
+                        _ => self.structs.get(name).cloned(),
+                    };
+                    if let Some(decl_fields) = decl_fields {
                         for (field_name, sub_pat) in fields {
                             if let Some((_, field_ty)) = decl_fields.iter().find(|(n, _)| n == field_name) {
                                 self.check_pattern_type(sub_pat, field_ty, context);
@@ -3211,11 +3262,6 @@ impl TypeChecker {
                             location: context.to_string(),
                         });
                     }
-                } else {
-                    self.errors.push(TypeError {
-                        message: format!("Struct pattern '{}' cannot match non-struct expression of type {:?}", name, expr_ty),
-                        location: context.to_string(),
-                    });
                 }
             }
             ast::Pattern::Literal(lit) => {
@@ -3464,6 +3510,17 @@ impl TypeChecker {
                     && self.types_compatible(r1, r2);
             }
         }
+        // Generic types with matching base name and compatible arguments
+        if let (Type::Generic(n1, a1), Type::Generic(n2, a2)) = (expected, actual) {
+            if n1 == n2 && a1.len() == a2.len() {
+                return a1.iter().zip(a2.iter()).all(|(a, b)| self.types_compatible(a, b));
+            }
+        }
+        if let (Type::Generic(n, a), Type::Named(m)) | (Type::Named(m), Type::Generic(n, a)) = (expected, actual) {
+            if crate::monomorphize::mangle_name(n, a) == *m {
+                return true;
+            }
+        }
         false
     }
 }
@@ -3596,7 +3653,7 @@ fn lower_expr(expr: &mut Expr, enums: &HashMap<String, Vec<(String, Vec<Type>)>>
             lower_expr(right, enums);
         }
         Expr::Unary { expr: inner, .. } => lower_expr(inner, enums),
-        Expr::Call { func, args } => {
+        Expr::Call { func, args, .. } => {
             // Pack payload constructors as (payload << 8) | tag.
             // Pack two-field payload constructors as (a << 20) | (b << 8) | tag.
             if let Expr::Field {
@@ -3867,7 +3924,7 @@ pub fn lower_type_aliases(file: &mut ast::File) {
                 lower_expr_types(right, aliases);
             }
             ast::Expr::Unary { expr: inner, .. } => lower_expr_types(inner, aliases),
-            ast::Expr::Call { func, args } => {
+            ast::Expr::Call { func, args, .. } => {
                 lower_expr_types(func, aliases);
                 for arg in args {
                     lower_expr_types(arg, aliases);
