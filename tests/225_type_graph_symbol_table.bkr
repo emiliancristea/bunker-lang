@@ -1,0 +1,67 @@
+// Test 225: Machine-Readable Type Graph and Symbol Table Across CLI (A-011, A-012)
+// Purpose: Verify BUNKER_TYPE_GRAPH_JSON and BUNKER_SYMBOL_TABLE_JSON reporting contracts
+// Expected: JIT and compiled runtime verify type graph / symbol table queries and return 42
+
+kernel TypeGraphSymbolTable {
+    struct TestPoint {
+        x: i32,
+        y: i32,
+    }
+
+    const TEST_CONST: i32 = 42;
+
+    fn helper_add(a: i32, b: i32) -> i32 {
+        return a + b;
+    }
+
+    fn main() -> i32 {
+        // 1. Verify internal structs and methods
+        let pt = TestPoint { x: 20, y: 22 };
+        let sum: i32 = helper_add(pt.x, pt.y);
+        if sum != 42 {
+            return 1;
+        }
+
+        // 2. Query process execution environment
+        let sandboxed: bool = process_is_sandboxed();
+        if !sandboxed {
+            // Verify check --type-graph contract
+            let tg_res = process_run("bunker-cli\\target\\release\\bunker-cli.exe check --type-graph tests/01_basic_math.bkr");
+            if result_is_ok(tg_res) {
+                let tg_str: str = result_unwrap(tg_res);
+                if !contains(tg_str, "bunker.type_graph.v1") {
+                    return 2;
+                }
+                if !contains(tg_str, "typeck_inference") {
+                    return 3;
+                }
+                if !contains(tg_str, "\"function_count\":2") {
+                    return 4;
+                }
+                if !contains(tg_str, "return_type") {
+                    return 5;
+                }
+            }
+
+            // Verify check --symbol-table contract
+            let st_res = process_run("bunker-cli\\target\\release\\bunker-cli.exe check --symbol-table tests/01_basic_math.bkr");
+            if result_is_ok(st_res) {
+                let st_str: str = result_unwrap(st_res);
+                if !contains(st_str, "bunker.symbol_table.v1") {
+                    return 6;
+                }
+                if !contains(st_str, "ast_symbol_table") {
+                    return 7;
+                }
+                if !contains(st_str, "declaration_table") {
+                    return 8;
+                }
+                if !contains(st_str, "reference_table") {
+                    return 9;
+                }
+            }
+        }
+
+        return 42;
+    }
+}

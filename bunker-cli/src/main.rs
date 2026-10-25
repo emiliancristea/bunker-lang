@@ -13,6 +13,8 @@ mod parser;
 mod shell_codegen;
 mod shell_runtime;
 mod smt;
+mod symbol_table;
+mod type_graph;
 mod typeck;
 mod verify;
 mod view_runtime;
@@ -106,6 +108,14 @@ enum Commands {
         /// Emit BUNKER_AST_JSON comment
         #[arg(long)]
         ast_json: bool,
+
+        /// Emit BUNKER_TYPE_GRAPH_JSON comment
+        #[arg(long)]
+        type_graph: bool,
+
+        /// Emit BUNKER_SYMBOL_TABLE_JSON comment
+        #[arg(long)]
+        symbol_table: bool,
     },
 
     /// Parse and print the AST
@@ -209,7 +219,18 @@ fn main() -> Result<()> {
             import_graph,
             capability_json,
             ast_json,
-        } => check_file(&input, smt, import_graph, capability_json, ast_json, format),
+            type_graph,
+            symbol_table,
+        } => check_file(
+            &input,
+            smt,
+            import_graph,
+            capability_json,
+            ast_json,
+            type_graph,
+            symbol_table,
+            format,
+        ),
         Commands::Parse { input, ast_json } => parse_file(&input, ast_json, format),
         Commands::Capability { format } => show_capability(format),
         Commands::SelfHostCheck { dir, smt } => self_host_check(&dir, smt, format),
@@ -490,6 +511,8 @@ fn check_file(
     import_graph: bool,
     capability_json: bool,
     ast_json: bool,
+    type_graph: bool,
+    symbol_table: bool,
     format: OutputFormat,
 ) -> Result<()> {
     let file_path = input.display().to_string();
@@ -516,6 +539,14 @@ fn check_file(
     }
     if ast_json {
         let report = ast_report::build_ast_report(&ast, &source);
+        print!("{}", report.to_json_comment());
+    }
+    if type_graph {
+        let report = type_graph::build_type_graph_report(&ast, &source);
+        print!("{}", report.to_json_comment());
+    }
+    if symbol_table {
+        let report = symbol_table::build_symbol_table_report(&ast, &source);
         print!("{}", report.to_json_comment());
     }
 

@@ -148,6 +148,7 @@ $expectedResults = @{
     "221_process_execution" = 42
     "223_typed_ast_nodes" = 42
     "224_ast_capability_json" = 42
+    "225_type_graph_symbol_table" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -519,6 +520,38 @@ if (-not $JitOnly) {
         Write-Host " (ast json check comment failed)"
         if ($Verbose) {
             Write-Host "  $astCheckResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_type_graph_check_flag... "
+    $tgCheckResult = & $bunker check --type-graph "tests\01_basic_math.bkr" 2>&1 | Out-String
+    $tgCheckExitCode = $LASTEXITCODE
+    if ($tgCheckExitCode -eq 0 -and $tgCheckResult -match '/\* BUNKER_TYPE_GRAPH_JSON:.*bunker\.type_graph\.v1') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (type graph json comment emitted from check)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (type graph json check comment failed)"
+        if ($Verbose) {
+            Write-Host "  $tgCheckResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_symbol_table_check_flag... "
+    $stCheckResult = & $bunker check --symbol-table "tests\01_basic_math.bkr" 2>&1 | Out-String
+    $stCheckExitCode = $LASTEXITCODE
+    if ($stCheckExitCode -eq 0 -and $stCheckResult -match '/\* BUNKER_SYMBOL_TABLE_JSON:.*bunker\.symbol_table\.v1') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (symbol table json comment emitted from check)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (symbol table json check comment failed)"
+        if ($Verbose) {
+            Write-Host "  $stCheckResult" -ForegroundColor DarkGray
         }
         $failed++
     }
