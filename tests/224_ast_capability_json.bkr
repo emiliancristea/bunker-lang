@@ -1,0 +1,76 @@
+// Test 224: Machine-readable AST and Capability JSON Reports (A-010, A-013)
+// Purpose: Verify BUNKER_CAPABILITY_JSON and BUNKER_AST_JSON reporting contracts
+// Expected: JIT and compiled runtime verify capability queries and return 42
+
+kernel AstCapabilityJson {
+    struct AstReportFixture {
+        schema: str,
+        item_count: i64,
+        has_tree: bool,
+    }
+
+    fn mock_ast_summary(item_count: i64) -> AstReportFixture {
+        return AstReportFixture {
+            schema: "bunker.ast.v1",
+            item_count: item_count,
+            has_tree: true,
+        };
+    }
+
+    fn main() -> i32 {
+        // 1. Verify internal AST fixture records and fields
+        let fixture = mock_ast_summary(5);
+        if fixture.schema != "bunker.ast.v1" {
+            return 1;
+        }
+        if fixture.item_count != 5 {
+            return 2;
+        }
+        if !fixture.has_tree {
+            return 3;
+        }
+
+        // 2. Query process execution environment
+        let sandboxed: bool = process_is_sandboxed();
+        if !sandboxed {
+            // Test CLI capability output contract
+            let cap_res = process_run("bunker-cli\\target\\release\\bunker-cli.exe capability");
+            if result_is_ok(cap_res) {
+                let cap_str: str = result_unwrap(cap_res);
+                if !contains(cap_str, "bunker.capability.v1") {
+                    return 4;
+                }
+                if !contains(cap_str, "bunker-cli") {
+                    return 5;
+                }
+                if !contains(cap_str, "production-rust-bootstrap") {
+                    return 6;
+                }
+                if !contains(cap_str, "diagnostic_codes") {
+                    return 7;
+                }
+            }
+
+            // Test CLI parse --ast-json output contract
+            let ast_res = process_run("bunker-cli\\target\\release\\bunker-cli.exe parse --ast-json tests/01_basic_math.bkr");
+            if result_is_ok(ast_res) {
+                let ast_str: str = result_unwrap(ast_res);
+                if !contains(ast_str, "bunker.ast.v1") {
+                    return 8;
+                }
+                if !contains(ast_str, "typed_ast") {
+                    return 9;
+                }
+                if !contains(ast_str, "\"function_count\":2") {
+                    return 10;
+                }
+                if !contains(ast_str, "\"complete_tree\":true") {
+                    return 11;
+                }
+            }
+        }
+
+        // Return 42 on success
+        return 42;
+    }
+}

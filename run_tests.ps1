@@ -147,6 +147,7 @@ $expectedResults = @{
     "216_generics_basic" = 42
     "221_process_execution" = 42
     "223_typed_ast_nodes" = 42
+    "224_ast_capability_json" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -454,6 +455,70 @@ if (-not $JitOnly) {
         Write-Host " (self-host compile failed for file I/O)"
         if ($Verbose) {
             Write-Host "  $compileResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_capability_cli... "
+    $capResult = & $bunker capability 2>&1 | Out-String
+    $capExitCode = $LASTEXITCODE
+    if ($capExitCode -eq 0 -and $capResult -match '"schema_version":\s*"bunker\.capability\.v1"' -and $capResult -match '"compiler":\s*"bunker-cli"') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (capability json emitted)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (capability json failed)"
+        if ($Verbose) {
+            Write-Host "  $capResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_capability_check_flag... "
+    $checkCapResult = & $bunker check --capability-json "tests\01_basic_math.bkr" 2>&1 | Out-String
+    $checkCapExitCode = $LASTEXITCODE
+    if ($checkCapExitCode -eq 0 -and $checkCapResult -match '/\* BUNKER_CAPABILITY_JSON:.*bunker\.capability\.v1') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (capability json comment emitted)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (capability json comment failed)"
+        if ($Verbose) {
+            Write-Host "  $checkCapResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_ast_json_parse... "
+    $astParseResult = & $bunker parse --ast-json "tests\01_basic_math.bkr" 2>&1 | Out-String
+    $astParseExitCode = $LASTEXITCODE
+    if ($astParseExitCode -eq 0 -and $astParseResult -match '"schema_version":\s*"bunker\.ast\.v1"' -and $astParseResult -match '"complete_tree":\s*true') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (ast json emitted from parse)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (ast json parse failed)"
+        if ($Verbose) {
+            Write-Host "  $astParseResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_ast_json_check_flag... "
+    $astCheckResult = & $bunker check --ast-json "tests\01_basic_math.bkr" 2>&1 | Out-String
+    $astCheckExitCode = $LASTEXITCODE
+    if ($astCheckExitCode -eq 0 -and $astCheckResult -match '/\* BUNKER_AST_JSON:.*bunker\.ast\.v1') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (ast json comment emitted from check)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (ast json check comment failed)"
+        if ($Verbose) {
+            Write-Host "  $astCheckResult" -ForegroundColor DarkGray
         }
         $failed++
     }

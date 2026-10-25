@@ -1,6 +1,8 @@
 mod ast;
 mod ast_builder;
+mod ast_report;
 mod builtins;
+mod capability;
 mod codegen;
 mod comptime;
 mod diagnostic;
@@ -96,6 +98,14 @@ enum Commands {
         /// Emit BUNKER_IMPORT_GRAPH_JSON comment
         #[arg(long)]
         import_graph: bool,
+
+        /// Emit BUNKER_CAPABILITY_JSON comment
+        #[arg(long)]
+        capability_json: bool,
+
+        /// Emit BUNKER_AST_JSON comment
+        #[arg(long)]
+        ast_json: bool,
     },
 
     /// Parse and print the AST
@@ -103,6 +113,17 @@ enum Commands {
         /// The input file to parse
         #[arg(value_name = "FILE")]
         input: PathBuf,
+
+        /// Emit machine-readable BUNKER_AST_JSON
+        #[arg(long)]
+        ast_json: bool,
+    },
+
+    /// Display compiler capability report for AI agents and tooling
+    Capability {
+        /// Output format (json or text)
+        #[arg(long, value_enum, default_value = "json")]
+        format: OutputFormat,
     },
 
     /// Check Bunker-written compiler sources and report self-hosting blockers
@@ -182,8 +203,15 @@ fn main() -> Result<()> {
                 format,
             )
         }
-        Commands::Check { input, smt, import_graph } => check_file(&input, smt, import_graph, format),
-        Commands::Parse { input } => parse_file(&input, format),
+        Commands::Check {
+            input,
+            smt,
+            import_graph,
+            capability_json,
+            ast_json,
+        } => check_file(&input, smt, import_graph, capability_json, ast_json, format),
+        Commands::Parse { input, ast_json } => parse_file(&input, ast_json, format),
+        Commands::Capability { format } => show_capability(format),
         Commands::SelfHostCheck { dir, smt } => self_host_check(&dir, smt, format),
         Commands::SelfHostCompile {
             input,
@@ -456,7 +484,14 @@ fn build_file(
     Ok(())
 }
 
-fn check_file(input: &PathBuf, use_smt: bool, import_graph: bool, format: OutputFormat) -> Result<()> {
+fn check_file(
+    input: &PathBuf,
+    use_smt: bool,
+    import_graph: bool,
+    capability_json: bool,
+    ast_json: bool,
+    format: OutputFormat,
+) -> Result<()> {
     let file_path = input.display().to_string();
 
     if format == OutputFormat::Text {
@@ -471,11 +506,18 @@ fn check_file(input: &PathBuf, use_smt: bool, import_graph: bool, format: Output
         }
     };
 
+    let source = fs::read_to_string(input).unwrap_or_default();
+
     if import_graph {
         print!("{}", graph.to_json_comment());
     }
-
-    let source = fs::read_to_string(input).unwrap_or_default();
+    if capability_json {
+        print!("{}", capability::CapabilityReport::current().to_json_comment());
+    }
+    if ast_json {
+        let report = ast_report::build_ast_report(&ast, &source);
+        print!("{}", report.to_json_comment());
+    }
 
     // Compile-time constant folding pass
     let comptime_stats = comptime::fold_comptime_calls(&mut ast);
@@ -549,15 +591,51 @@ fn check_file(input: &PathBuf, use_smt: bool, import_graph: bool, format: Output
     Ok(())
 }
 
-fn parse_file(input: &PathBuf, format: OutputFormat) -> Result<()> {
+fn parse_file(input: &PathBuf, ast_json: bool, format: OutputFormat) -> Result<()> {
+    let source = fs::read_to_string(input)
+        .with_context(|| format!("Failed to read file: {}", input.display()))?;
+
+    if ast_json {
+        let pairs = BunkerParser::parse(Rule::file, &source)?;
+        let file_pair = pairs.into_iter().next().unwrap();
+        let ast = build_ast(file_pair).map_err(anyhow::Error::msg)?;
+        let report = ast_report::build_ast_report(&ast, &source);
+        if format == OutputFormat::Json {
+            println!("{}", report.to_json_pretty());
+        } else {
+            println!("{}", report.to_json());
+        }
+        return Ok(());
+    }
+
     if format == OutputFormat::Text {
         println!("{} {}\n", "Parsing".blue().bold(), input.display());
     }
 
-    let source = fs::read_to_string(input)
-        .with_context(|| format!("Failed to read file: {}", input.display()))?;
-
     print_ast(&source)?;
+    Ok(())
+}
+
+fn show_capability(format: OutputFormat) -> Result<()> {
+    let report = capability::CapabilityReport::current();
+    if format == OutputFormat::Json {
+        println!("{}", report.to_json_pretty());
+    } else {
+        println!("{}", "Bunker Language Compiler Capabilities:".cyan().bold());
+        println!("  Compiler: {}", report.compiler);
+        println!("  Stage:    {}", report.self_hosting_stage);
+        println!("  Contract: {}", report.agent_contract_version);
+        println!("  Diagnostic codes: {}", report.diagnostic_codes.len());
+        println!(
+            "  Ready:    {}",
+            if report.production_language_ready {
+                "yes"
+            } else {
+                "no (requires CI validation)"
+            }
+        );
+        println!("  Constructs: {}", report.supported_constructs);
+    }
     Ok(())
 }
 
