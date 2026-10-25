@@ -146,6 +146,7 @@ $expectedResults = @{
     "211_multifile_modules" = 42
     "216_generics_basic" = 42
     "221_process_execution" = 42
+    "223_typed_ast_nodes" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)

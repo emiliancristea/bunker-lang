@@ -322,6 +322,48 @@
         handle: i64,
     }
 
+    enum AstExprKind {
+        Atom,
+        Binary,
+        Unary,
+        Call,
+        MethodCall,
+        Index,
+        FieldAccess,
+        Cast,
+        Ternary,
+        ArrayLit,
+        ArrayRepeat,
+        StructLit,
+        Match,
+        Block,
+        Unknown
+    }
+
+    enum AstStmtKind {
+        Let,
+        Assign,
+        Expr,
+        Return,
+        Defer,
+        While,
+        For,
+        Loop,
+        Break,
+        Continue,
+        Unknown
+    }
+
+    enum AstItemKind {
+        Function,
+        Const,
+        Struct,
+        Enum,
+        TypeAlias,
+        Kernel,
+        Unknown
+    }
+
     fn ast_node_ref_new(kind: NodeKind) -> AstNodeRef {
         let node: Vec<i64> = vec_new();
         vec_push(node, kind);
@@ -785,6 +827,65 @@
 
     fn ast_item_ref_kind(item_ref: AstItemRef) -> NodeKind {
         return ast_node_kind(ast_item_node_from_ref(item_ref));
+    }
+
+    fn ast_expr_ref_span(expr_ref: AstExprRef) -> AstSpan {
+        return ast_node_span(ast_expr_node_from_ref(expr_ref));
+    }
+
+    fn ast_stmt_ref_span(stmt_ref: AstStmtRef) -> AstSpan {
+        return ast_node_span(ast_stmt_node_from_ref(stmt_ref));
+    }
+
+    fn ast_item_ref_span(item_ref: AstItemRef) -> AstSpan {
+        return ast_node_span(ast_item_node_from_ref(item_ref));
+    }
+
+    fn ast_expr_classify(expr_ref: AstExprRef) -> AstExprKind {
+        let k: NodeKind = ast_expr_ref_kind(expr_ref);
+        if k == NodeKind.IntLit || k == NodeKind.FloatLit || k == NodeKind.BoolLit || k == NodeKind.StrLit || k == NodeKind.Ident {
+            return AstExprKind.Atom;
+        }
+        if k == NodeKind.Binary { return AstExprKind.Binary; }
+        if k == NodeKind.Unary { return AstExprKind.Unary; }
+        if k == NodeKind.Call { return AstExprKind.Call; }
+        if k == NodeKind.MethodCall { return AstExprKind.MethodCall; }
+        if k == NodeKind.Index { return AstExprKind.Index; }
+        if k == NodeKind.FieldAccess { return AstExprKind.FieldAccess; }
+        if k == NodeKind.Cast { return AstExprKind.Cast; }
+        if k == NodeKind.Ternary { return AstExprKind.Ternary; }
+        if k == NodeKind.ArrayLit { return AstExprKind.ArrayLit; }
+        if k == NodeKind.ArrayRepeat { return AstExprKind.ArrayRepeat; }
+        if k == NodeKind.StructLit { return AstExprKind.StructLit; }
+        if k == NodeKind.Match { return AstExprKind.Match; }
+        if k == NodeKind.Block { return AstExprKind.Block; }
+        return AstExprKind.Unknown;
+    }
+
+    fn ast_stmt_classify(stmt_ref: AstStmtRef) -> AstStmtKind {
+        let k: NodeKind = ast_stmt_ref_kind(stmt_ref);
+        if k == NodeKind.Let { return AstStmtKind.Let; }
+        if k == NodeKind.Assign { return AstStmtKind.Assign; }
+        if k == NodeKind.ExprStmt { return AstStmtKind.Expr; }
+        if k == NodeKind.Return { return AstStmtKind.Return; }
+        if k == NodeKind.Defer { return AstStmtKind.Defer; }
+        if k == NodeKind.While { return AstStmtKind.While; }
+        if k == NodeKind.For { return AstStmtKind.For; }
+        if k == NodeKind.Loop { return AstStmtKind.Loop; }
+        if k == NodeKind.Break { return AstStmtKind.Break; }
+        if k == NodeKind.Continue { return AstStmtKind.Continue; }
+        return AstStmtKind.Unknown;
+    }
+
+    fn ast_item_classify(item_ref: AstItemRef) -> AstItemKind {
+        let k: NodeKind = ast_item_ref_kind(item_ref);
+        if k == NodeKind.Fn { return AstItemKind.Function; }
+        if k == NodeKind.Const { return AstItemKind.Const; }
+        if k == NodeKind.Struct { return AstItemKind.Struct; }
+        if k == NodeKind.Enum { return AstItemKind.Enum; }
+        if k == NodeKind.TypeAlias { return AstItemKind.TypeAlias; }
+        if k == NodeKind.Kernel { return AstItemKind.Kernel; }
+        return AstItemKind.Unknown;
     }
 
     fn ast_block_handle(block: Vec<i64>) -> i64 {
