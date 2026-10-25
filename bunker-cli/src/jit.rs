@@ -2214,6 +2214,98 @@ extern "C" fn bunker_dir_remove(path_ptr: i64) -> i64 {
     }
 }
 
+extern "C" fn bunker_process_is_sandboxed() -> i8 {
+    if std::env::var("BUNKER_DISABLE_PROCESS").is_ok() || std::env::var("BUNKER_SANDBOX").is_ok() {
+        1
+    } else {
+        0
+    }
+}
+
+extern "C" fn bunker_process_pid() -> i32 {
+    std::process::id() as i32
+}
+
+extern "C" fn bunker_process_exit(code: i32) {
+    std::process::exit(code);
+}
+
+extern "C" fn bunker_process_run(cmd_ptr: i64) -> i64 {
+    if bunker_process_is_sandboxed() != 0 {
+        let err_ptr = alloc_bunker_string("process execution is disabled by sandbox policy");
+        return bunker_result_err(err_ptr);
+    }
+    let Some(cmd_str) = (unsafe { read_bunker_string(cmd_ptr) }) else {
+        let err_ptr = alloc_bunker_string("null command");
+        return bunker_result_err(err_ptr);
+    };
+
+    #[cfg(target_os = "windows")]
+    let output = std::process::Command::new("cmd")
+        .args(["/C", &cmd_str])
+        .output();
+
+    #[cfg(not(target_os = "windows"))]
+    let output = std::process::Command::new("sh")
+        .args(["-c", &cmd_str])
+        .output();
+
+    match output {
+        Ok(out) => {
+            if out.status.success() {
+                let stdout_str = String::from_utf8_lossy(&out.stdout);
+                let ok_ptr = alloc_bunker_string(&stdout_str);
+                bunker_result_ok(ok_ptr)
+            } else {
+                let stderr_str = String::from_utf8_lossy(&out.stderr);
+                let err_msg = if !stderr_str.trim().is_empty() {
+                    stderr_str.trim().to_string()
+                } else {
+                    format!("process exited with code {:?}", out.status.code())
+                };
+                let err_ptr = alloc_bunker_string(&err_msg);
+                bunker_result_err(err_ptr)
+            }
+        }
+        Err(e) => {
+            let err_ptr = alloc_bunker_string(&e.to_string());
+            bunker_result_err(err_ptr)
+        }
+    }
+}
+
+extern "C" fn bunker_process_run_status(cmd_ptr: i64) -> i64 {
+    if bunker_process_is_sandboxed() != 0 {
+        let err_ptr = alloc_bunker_string("process execution is disabled by sandbox policy");
+        return bunker_result_err(err_ptr);
+    }
+    let Some(cmd_str) = (unsafe { read_bunker_string(cmd_ptr) }) else {
+        let err_ptr = alloc_bunker_string("null command");
+        return bunker_result_err(err_ptr);
+    };
+
+    #[cfg(target_os = "windows")]
+    let status = std::process::Command::new("cmd")
+        .args(["/C", &cmd_str])
+        .status();
+
+    #[cfg(not(target_os = "windows"))]
+    let status = std::process::Command::new("sh")
+        .args(["-c", &cmd_str])
+        .status();
+
+    match status {
+        Ok(st) => {
+            let code = st.code().unwrap_or(-1) as i64;
+            bunker_result_ok(code)
+        }
+        Err(e) => {
+            let err_ptr = alloc_bunker_string(&e.to_string());
+            bunker_result_err(err_ptr)
+        }
+    }
+}
+
 // Free function to convert types (kept in sync with object codegen)
 fn convert_ast_type(ty: &ast::Type) -> types::Type {
     match ty {
@@ -2639,6 +2731,11 @@ impl KernelJit {
         builder.symbol("bunker_file_write_bytes", bunker_file_write_bytes as *const u8);
         builder.symbol("bunker_dir_create", bunker_dir_create as *const u8);
         builder.symbol("bunker_dir_remove", bunker_dir_remove as *const u8);
+        builder.symbol("bunker_process_run", bunker_process_run as *const u8);
+        builder.symbol("bunker_process_run_status", bunker_process_run_status as *const u8);
+        builder.symbol("bunker_process_exit", bunker_process_exit as *const u8);
+        builder.symbol("bunker_process_pid", bunker_process_pid as *const u8);
+        builder.symbol("bunker_process_is_sandboxed", bunker_process_is_sandboxed as *const u8);
 
         let mut module = JITModule::new(builder);
         let alloc_func = declare_alloc_func(&mut module)?;
@@ -2756,6 +2853,11 @@ impl KernelJit {
         let file_write_bytes_func = declare_file_write_bytes_func(&mut module)?;
         let dir_create_func = declare_dir_create_func(&mut module)?;
         let dir_remove_func = declare_dir_remove_func(&mut module)?;
+        let process_run_func = declare_process_run_func(&mut module)?;
+        let process_run_status_func = declare_process_run_status_func(&mut module)?;
+        let process_exit_func = declare_process_exit_func(&mut module)?;
+        let process_pid_func = declare_process_pid_func(&mut module)?;
+        let process_is_sandboxed_func = declare_process_is_sandboxed_func(&mut module)?;
         let ctx = module.make_context();
 
         // Initialize with builtin functions
@@ -2871,6 +2973,11 @@ impl KernelJit {
             ("file_write_bytes", file_write_bytes_func),
             ("dir_create", dir_create_func),
             ("dir_remove", dir_remove_func),
+            ("process_run", process_run_func),
+            ("process_run_status", process_run_status_func),
+            ("process_exit", process_exit_func),
+            ("process_pid", process_pid_func),
+            ("process_is_sandboxed", process_is_sandboxed_func),
         ] {
             register_runtime_builtin(&mut functions, &mut fn_sigs, name, func_id)?;
         }
@@ -8275,6 +8382,48 @@ fn declare_dir_remove_func(module: &mut JITModule) -> Result<FuncId> {
     module
         .declare_function("bunker_dir_remove", Linkage::Import, &sig)
         .map_err(|e| anyhow!("Failed to declare runtime bunker_dir_remove: {}", e))
+}
+
+fn declare_process_is_sandboxed_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.returns.push(AbiParam::new(types::I8));
+    module
+        .declare_function("bunker_process_is_sandboxed", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_process_is_sandboxed: {}", e))
+}
+
+fn declare_process_pid_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.returns.push(AbiParam::new(types::I32));
+    module
+        .declare_function("bunker_process_pid", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_process_pid: {}", e))
+}
+
+fn declare_process_exit_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I32));
+    module
+        .declare_function("bunker_process_exit", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_process_exit: {}", e))
+}
+
+fn declare_process_run_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_process_run", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_process_run: {}", e))
+}
+
+fn declare_process_run_status_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_process_run_status", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_process_run_status: {}", e))
 }
 
 fn emit_alloc(

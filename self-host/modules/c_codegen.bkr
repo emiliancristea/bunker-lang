@@ -292,6 +292,11 @@
         if raw == "file_write_bytes" { return "file_write_bytes"; }
         if raw == "dir_create" { return "dir_create"; }
         if raw == "dir_remove" { return "dir_remove"; }
+        if raw == "process_run" { return "process_run"; }
+        if raw == "process_run_status" { return "process_run_status"; }
+        if raw == "process_exit" { return "process_exit"; }
+        if raw == "process_pid" { return "process_pid"; }
+        if raw == "process_is_sandboxed" { return "process_is_sandboxed"; }
         return "";
     }
 
@@ -443,6 +448,11 @@
         if raw == "file_write_bytes" { return TYPE_RESULT; }
         if raw == "dir_create" { return TYPE_RESULT; }
         if raw == "dir_remove" { return TYPE_RESULT; }
+        if raw == "process_run" { return TYPE_RESULT; }
+        if raw == "process_run_status" { return TYPE_RESULT; }
+        if raw == "process_exit" { return TYPE_UNKNOWN; }
+        if raw == "process_pid" { return TYPE_I32; }
+        if raw == "process_is_sandboxed" { return TYPE_BOOL; }
         return TYPE_UNKNOWN;
     }
 

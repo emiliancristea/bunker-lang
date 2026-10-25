@@ -19,6 +19,7 @@
 #include <sys/time.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #endif
 
@@ -1562,5 +1563,138 @@ static inline bkr_bool env_set(bkr_str key, bkr_str val) { return bkr_env_set(ke
 static inline bkr_bool env_has(bkr_str key) { return bkr_env_has(key); }
 static inline bkr_i64 time_now_ms(void) { return bkr_time_now_ms(); }
 static inline bkr_i64 time_now_unix(void) { return bkr_time_now_unix(); }
+
+/* ============================================
+ * Process Execution Policy and Primitives (R-007)
+ * ============================================ */
+
+static inline bkr_bool bkr_process_is_sandboxed(void) {
+    if (getenv("BUNKER_DISABLE_PROCESS") != NULL || getenv("BUNKER_SANDBOX") != NULL) {
+        return 1;
+    }
+    return 0;
+}
+
+static inline bkr_i32 bkr_process_pid(void) {
+#if defined(_WIN32)
+    return (bkr_i32)GetCurrentProcessId();
+#else
+    return (bkr_i32)getpid();
+#endif
+}
+
+static inline void bkr_process_exit(bkr_i32 code) {
+    exit((int)code);
+}
+
+static inline bkr_i64 bkr_process_run(bkr_str cmd) {
+    if (bkr_process_is_sandboxed()) {
+        return bkr_result_err((bkr_i64)(intptr_t)"process execution is disabled by sandbox policy");
+    }
+    if (!cmd) {
+        return bkr_result_err((bkr_i64)(intptr_t)"null command");
+    }
+#if defined(_WIN32)
+    FILE* pipe = _popen(cmd, "r");
+#else
+    FILE* pipe = popen(cmd, "r");
+#endif
+    if (!pipe) {
+        return bkr_result_err((bkr_i64)(intptr_t)"failed to spawn process");
+    }
+
+    size_t cap = 1024;
+    size_t len = 0;
+    char* buf = (char*)malloc(cap);
+    if (!buf) {
+#if defined(_WIN32)
+        _pclose(pipe);
+#else
+        pclose(pipe);
+#endif
+        return bkr_result_err((bkr_i64)(intptr_t)"out of memory");
+    }
+
+    char chunk[256];
+    while (fgets(chunk, sizeof(chunk), pipe) != NULL) {
+        size_t chunk_len = strlen(chunk);
+        if (len + chunk_len + 1 > cap) {
+            cap = (cap * 2) > (len + chunk_len + 1) ? (cap * 2) : (len + chunk_len + 1024);
+            char* new_buf = (char*)realloc(buf, cap);
+            if (!new_buf) {
+                free(buf);
+#if defined(_WIN32)
+                _pclose(pipe);
+#else
+                pclose(pipe);
+#endif
+                return bkr_result_err((bkr_i64)(intptr_t)"out of memory");
+            }
+            buf = new_buf;
+        }
+        memcpy(buf + len, chunk, chunk_len);
+        len += chunk_len;
+    }
+    buf[len] = '\0';
+
+#if defined(_WIN32)
+    int status = _pclose(pipe);
+#else
+    int status = pclose(pipe);
+    if (WIFEXITED(status)) {
+        status = WEXITSTATUS(status);
+    }
+#endif
+
+    if (status != 0) {
+        free(buf);
+        return bkr_result_err((bkr_i64)(intptr_t)"process exited with non-zero status");
+    }
+
+    char* out = (char*)bkr_arena_alloc(len + 1, 1);
+    if (!out) {
+        free(buf);
+        return bkr_result_err((bkr_i64)(intptr_t)"arena out of memory");
+    }
+    memcpy(out, buf, len + 1);
+    free(buf);
+    return bkr_result_ok((bkr_i64)(intptr_t)out);
+}
+
+static inline bkr_i64 bkr_process_run_status(bkr_str cmd) {
+    if (bkr_process_is_sandboxed()) {
+        return bkr_result_err((bkr_i64)(intptr_t)"process execution is disabled by sandbox policy");
+    }
+    if (!cmd) {
+        return bkr_result_err((bkr_i64)(intptr_t)"null command");
+    }
+#if defined(_WIN32)
+    FILE* pipe = _popen(cmd, "r");
+#else
+    FILE* pipe = popen(cmd, "r");
+#endif
+    if (!pipe) {
+        return bkr_result_err((bkr_i64)(intptr_t)"failed to spawn process");
+    }
+    char dummy[256];
+    while (fgets(dummy, sizeof(dummy), pipe) != NULL) {}
+
+#if defined(_WIN32)
+    int status = _pclose(pipe);
+#else
+    int status = pclose(pipe);
+    if (WIFEXITED(status)) {
+        status = WEXITSTATUS(status);
+    }
+#endif
+
+    return bkr_result_ok((bkr_i64)status);
+}
+
+static inline bkr_i64 process_run(bkr_str cmd) { return bkr_process_run(cmd); }
+static inline bkr_i64 process_run_status(bkr_str cmd) { return bkr_process_run_status(cmd); }
+static inline void process_exit(bkr_i32 code) { bkr_process_exit(code); }
+static inline bkr_i32 process_pid(void) { return bkr_process_pid(); }
+static inline bkr_bool process_is_sandboxed(void) { return bkr_process_is_sandboxed(); }
 
 #endif /* BUNKER_RUNTIME_H */

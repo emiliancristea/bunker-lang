@@ -145,6 +145,7 @@ $expectedResults = @{
     "208_slices_and_typed_paths" = 42
     "211_multifile_modules" = 42
     "216_generics_basic" = 42
+    "221_process_execution" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -358,7 +359,8 @@ if (-not $JitOnly) {
         "tests\182_runtime_stdlib_complete.bkr",
         "tests\185_higher_order_functions.bkr",
         "tests\188_vec_hashmap_combinators.bkr",
-        "tests\190_visibility_and_mutability.bkr"
+        "tests\190_visibility_and_mutability.bkr",
+        "tests\72_file_io.bkr"
     )
 
     $subsetOk = $true
@@ -424,7 +426,39 @@ if (-not $JitOnly) {
         $failed++
     }
 
+    Write-Host -NoNewline "Testing self_host_compile_file_io... "
+    $selfHostFileIoOut = Join-Path $selfHostTmp "file_io.c"
+    $compileResult = & $bunker self-host-compile "tests\72_file_io.bkr" -o $selfHostFileIoOut 2>&1 | Out-String
+    $compileExitCode = $LASTEXITCODE
+
+    if ($compileExitCode -eq 0 -and (Test-Path $selfHostFileIoOut)) {
+        $generated = Get-Content $selfHostFileIoOut -Raw
+        $hasI32Entry = $generated -match "bkr_i32\s+_v[0-9]+\(void\)"
+        $hasMainWrapper = $generated -match "int\s+main\("
+        $hasNoParseError = $generated -notmatch "Parse error at token"
+        if ($hasI32Entry -and $hasMainWrapper -and $hasNoParseError) {
+            Write-Host "PASS" -ForegroundColor Green -NoNewline
+            Write-Host " (Bunker compiler emitted C for file I/O)"
+            $passed++
+        } else {
+            Write-Host "FAIL" -ForegroundColor Red -NoNewline
+            Write-Host " (unexpected generated C for file I/O)"
+            if ($Verbose) {
+                Write-Host "  $generated" -ForegroundColor DarkGray
+            }
+            $failed++
+        }
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (self-host compile failed for file I/O)"
+        if ($Verbose) {
+            Write-Host "  $compileResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
     if ($selfHostOut) { Remove-Item -Path $selfHostOut -ErrorAction SilentlyContinue }
+    if ($selfHostFileIoOut) { Remove-Item -Path $selfHostFileIoOut -ErrorAction SilentlyContinue }
     if ($selfHostTmp) { Remove-Item -Path $selfHostTmp -ErrorAction SilentlyContinue -Recurse -Force }
     Remove-Item -Path "test_output.txt", "recoverable_test.txt" -ErrorAction SilentlyContinue
     Remove-Item -Path "target" -Recurse -Force -ErrorAction SilentlyContinue

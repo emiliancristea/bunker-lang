@@ -303,6 +303,11 @@
         if name == "file_write_bytes" { return true; }
         if name == "dir_create" { return true; }
         if name == "dir_remove" { return true; }
+        if name == "process_run" { return true; }
+        if name == "process_run_status" { return true; }
+        if name == "process_exit" { return true; }
+        if name == "process_pid" { return true; }
+        if name == "process_is_sandboxed" { return true; }
         if name == "write_file_result" { return true; }
         if name == "hashmap_get_opt" { return true; }
         if name == "vec_get_opt" { return true; }

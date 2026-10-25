@@ -1,0 +1,60 @@
+// Test 221: Process Execution Policy and Runtime Primitives (R-007)
+// Purpose: Test process_is_sandboxed, process_pid, process_run, process_run_status
+// Expected: JIT and compiled runtime execute process primitives and return 42
+
+kernel ProcessExecution {
+    fn main() -> i32 {
+        // 1. Process sandbox query
+        let sandboxed: bool = process_is_sandboxed();
+        if sandboxed {
+            return 1;
+        }
+
+        // 2. Process ID query
+        let pid: i32 = process_pid();
+        if pid <= 0 {
+            return 2;
+        }
+
+        // 3. Process execution status
+        let status_res = process_run_status("echo ok");
+        if !result_is_ok(status_res) {
+            return 3;
+        }
+        let status_code: i64 = result_unwrap(status_res);
+        if status_code != 0 {
+            return 4;
+        }
+
+        // 4. Process execution capturing stdout
+        let run_res = process_run("echo bunker_process_test");
+        if !result_is_ok(run_res) {
+            return 5;
+        }
+        let out_str: str = result_unwrap(run_res);
+        if !contains(out_str, "bunker_process_test") {
+            return 6;
+        }
+
+        // 5. Non-zero exit status handling
+        let fail_status = process_run_status("exit 7");
+        if !result_is_ok(fail_status) {
+            return 7;
+        }
+        let fail_code: i64 = result_unwrap(fail_status);
+        if fail_code != 7 {
+            return 8;
+        }
+
+        // 6. Non-zero exit with process_run returning Err
+        let fail_run = process_run("exit 7");
+        if result_is_ok(fail_run) {
+            return 9;
+        }
+        if !result_is_err(fail_run) {
+            return 10;
+        }
+
+        return 42;
+    }
+}

@@ -38,8 +38,10 @@ pub enum BuiltinReturnType {
     Runtime(RuntimeBuiltinType),
     ResultI64I64,
     ResultStrStr,
+    ResultI64Str,
     OptionStr,
     VecStr,
+    Never,
 }
 
 impl BuiltinReturnType {
@@ -52,12 +54,16 @@ impl BuiltinReturnType {
             Self::ResultStrStr => {
                 ast::Type::Result(Box::new(ast::Type::Str), Box::new(ast::Type::Str))
             }
+            Self::ResultI64Str => {
+                ast::Type::Result(Box::new(ast::Type::I64), Box::new(ast::Type::Str))
+            }
             Self::OptionStr => {
                 ast::Type::Option(Box::new(ast::Type::Str))
             }
             Self::VecStr => {
                 ast::Type::Vec(Box::new(ast::Type::Str))
             }
+            Self::Never => ast::Type::Never,
         }
     }
 }
@@ -1203,6 +1209,37 @@ static TYPECHECK_BUILTINS: &[TypecheckBuiltinSpec] = &[
         params: &[BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "dir_remove expects str path" }],
         return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
     },
+    // Process Execution (R-007)
+    TypecheckBuiltinSpec {
+        name: "process_run",
+        arity_error: "process_run expects 1 argument (cmd)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "process_run cmd must be str" }],
+        return_type: BuiltinReturnType::ResultStrStr,
+    },
+    TypecheckBuiltinSpec {
+        name: "process_run_status",
+        arity_error: "process_run_status expects 1 argument (cmd)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "process_run_status cmd must be str" }],
+        return_type: BuiltinReturnType::ResultI64Str,
+    },
+    TypecheckBuiltinSpec {
+        name: "process_exit",
+        arity_error: "process_exit expects 1 argument (code)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Integer, type_error: "process_exit code must be an integer" }],
+        return_type: BuiltinReturnType::Never,
+    },
+    TypecheckBuiltinSpec {
+        name: "process_pid",
+        arity_error: "process_pid expects 0 arguments",
+        params: &[],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I32),
+    },
+    TypecheckBuiltinSpec {
+        name: "process_is_sandboxed",
+        arity_error: "process_is_sandboxed expects 0 arguments",
+        params: &[],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Bool),
+    },
 ];
 
 static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
@@ -1769,6 +1806,32 @@ static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
         params: &[RuntimeBuiltinType::Str],
         return_type: Some(RuntimeBuiltinType::I64),
     },
+    // Process Execution (R-007)
+    RuntimeBuiltinSpec {
+        name: "process_run",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "process_run_status",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "process_exit",
+        params: &[RuntimeBuiltinType::I32],
+        return_type: None,
+    },
+    RuntimeBuiltinSpec {
+        name: "process_pid",
+        params: &[],
+        return_type: Some(RuntimeBuiltinType::I32),
+    },
+    RuntimeBuiltinSpec {
+        name: "process_is_sandboxed",
+        params: &[],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
 ];
 
 pub fn lookup_typecheck_builtin(name: &str) -> Option<&'static TypecheckBuiltinSpec> {
@@ -1921,6 +1984,11 @@ pub fn infer_special_builtin_call_type(
         "file_write_bytes" => Some(ast::Type::Result(Box::new(ast::Type::I64), Box::new(ast::Type::Str))),
         "dir_create" => Some(ast::Type::Result(Box::new(ast::Type::Bool), Box::new(ast::Type::Str))),
         "dir_remove" => Some(ast::Type::Result(Box::new(ast::Type::Bool), Box::new(ast::Type::Str))),
+        "process_run" => Some(ast::Type::Result(Box::new(ast::Type::Str), Box::new(ast::Type::Str))),
+        "process_run_status" => Some(ast::Type::Result(Box::new(ast::Type::I64), Box::new(ast::Type::Str))),
+        "process_exit" => Some(ast::Type::Never),
+        "process_pid" => Some(ast::Type::I32),
+        "process_is_sandboxed" => Some(ast::Type::Bool),
         _ => None,
     }
 }

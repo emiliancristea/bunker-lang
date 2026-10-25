@@ -601,6 +601,11 @@
         if name == "file_write_bytes" { return 2; }
         if name == "dir_create" { return 1; }
         if name == "dir_remove" { return 1; }
+        if name == "process_run" { return 1; }
+        if name == "process_run_status" { return 1; }
+        if name == "process_exit" { return 1; }
+        if name == "process_pid" { return 0; }
+        if name == "process_is_sandboxed" { return 0; }
         return -1;
     }
 
@@ -751,6 +756,9 @@
         if name == "file_write_bytes" && index == 1 { return TYPE_I64; }
         if name == "dir_create" && index == 0 { return TYPE_STR; }
         if name == "dir_remove" && index == 0 { return TYPE_STR; }
+        if name == "process_run" && index == 0 { return TYPE_STR; }
+        if name == "process_run_status" && index == 0 { return TYPE_STR; }
+        if name == "process_exit" && index == 0 { return TYPE_I64; }
         return TYPE_UNKNOWN;
     }
 
