@@ -1,0 +1,129 @@
+// Test 231: Sandbox Security Model, Bounds Checking, and Null Absence (Q-279, S-004, S-005, S-006, S-007, M-008)
+// Purpose: Verify API security sandboxing, bounds checking consistency, and null absence guarantees.
+// Expected return: 42
+
+kernel SandboxSecurityBoundsKernel {
+    fn test_sandboxing_policy() -> bool {
+        // Query process sandbox state via runtime builtin
+        let sandboxed: bool = process_is_sandboxed();
+
+        // If sandboxed policy is active, process_run must return Result.Err
+        if sandboxed {
+            let res: Result<str, str> = process_run("echo safe");
+            let is_err = match res {
+                Ok(_) => false;
+                Err(msg) => strlen(msg) > 0;
+            };
+            if !is_err {
+                return false;
+            }
+        } else {
+            // Unsandboxed: queries PID safely
+            let pid: i32 = process_pid();
+            if pid <= 0 {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    fn test_bounds_consistency() -> bool {
+        // 1. Vector bounds safety
+        let v: Vec<i64> = vec_new();
+        vec_push(v, 100);
+        vec_push(v, 200);
+
+        let opt_0: Option<i64> = vec_get_opt(v, 0);
+        let opt_1: Option<i64> = vec_get_opt(v, 1);
+        let opt_oob: Option<i64> = vec_get_opt(v, 5);
+        let opt_neg: Option<i64> = vec_get_opt(v, -1);
+
+        let ok_v0 = match opt_0 { Some(x) => x == 100; None => false; };
+        let ok_v1 = match opt_1 { Some(x) => x == 200; None => false; };
+        let ok_voob = match opt_oob { Some(_) => false; None => true; };
+        let ok_vneg = match opt_neg { Some(_) => false; None => true; };
+
+        if !ok_v0 || !ok_v1 || !ok_voob || !ok_vneg {
+            return false;
+        }
+
+        // Direct clamped vec_get
+        let clamp_oob = vec_get(v, 10);
+        let clamp_neg = vec_get(v, -5);
+        if clamp_oob != 0 || clamp_neg != 0 {
+            return false;
+        }
+
+        // 2. Slice bounds safety
+        let arr: [i32; 4] = [1, 2, 3, 4];
+        let sl: Slice<i32> = arr[0..4];
+
+        let s0 = slice_get(sl, 0);
+        let s3 = slice_get(sl, 3);
+        let s_oob = slice_get(sl, 100);
+        let s_neg = slice_get(sl, -2);
+
+        if s0 != 1 || s3 != 4 || s_oob != 0 || s_neg != 0 {
+            return false;
+        }
+
+        // Sub-slice clamping
+        let sub_sl = slice_sub(sl, 2, 10); // requests 10 elements, only 2 available (indices 2, 3)
+        let sub_len = slice_len(sub_sl);
+        if sub_len != 2 {
+            return false;
+        }
+
+        // 3. HashMap bounds & lookup safety
+        let m: HashMap<str, i64> = hashmap_new();
+        hashmap_insert(m, "alpha", 11);
+        hashmap_insert(m, "beta", 22);
+
+        let h_alpha = hashmap_get_opt(m, "alpha");
+        let h_missing = hashmap_get_opt(m, "gamma");
+
+        let ok_ha = match h_alpha { Some(x) => x == 11; None => false; };
+        let ok_hm = match h_missing { Some(_) => false; None => true; };
+
+        if !ok_ha || !ok_hm {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_null_absence() -> bool {
+        // Null absence: absence must be explicitly represented as Option.None
+        let no_val: Option<i64> = None;
+        let is_absent = match no_val {
+            Some(_) => false;
+            None => true;
+        };
+
+        // Recoverable error absence: error must be represented as Result.Err
+        let err_res: Result<i64, str> = Err("operation refused");
+        let is_refused = match err_res {
+            Ok(_) => false;
+            Err(e) => strlen(e) > 0;
+        };
+
+        return is_absent && is_refused;
+    }
+
+    fn main() -> i64 {
+        if !test_sandboxing_policy() {
+            return 1;
+        }
+
+        if !test_bounds_consistency() {
+            return 2;
+        }
+
+        if !test_null_absence() {
+            return 3;
+        }
+
+        return 42;
+    }
+}

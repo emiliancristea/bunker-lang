@@ -152,6 +152,7 @@ $expectedResults = @{
     "226_typecheck_resolver_reports" = 42
     "227_ownership_move_semantics" = 42
     "229_safety_soundness_ub" = 42
+    "231_sandbox_security_bounds" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
