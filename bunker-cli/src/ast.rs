@@ -2,9 +2,18 @@
 pub struct File {
     pub attributes: Vec<Attribute>,
     pub doc: Option<String>,
+    pub imports: Vec<ImportDecl>,
     pub kernels: Vec<Kernel>,
     pub shells: Vec<Shell>,
     pub views: Vec<View>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImportDecl {
+    pub target: String,
+    pub is_path: bool,
+    pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
 }
 
 // ====================
@@ -27,6 +36,7 @@ pub enum KernelItem {
     Const(ConstDef),
     ComptimeFn(Function),
     TypeAlias(TypeAliasDef),
+    Import(ImportDecl),
 }
 
 #[derive(Debug, Clone, PartialEq)]

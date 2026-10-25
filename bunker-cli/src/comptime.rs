@@ -719,7 +719,7 @@ fn fold_kernel(kernel: &mut ast::Kernel, eval: &ComptimeEvaluator, stats: &mut C
             ast::KernelItem::Const(c) => {
                 fold_expr(&mut c.value, eval, stats);
             }
-            ast::KernelItem::Struct(_) | ast::KernelItem::Enum(_) | ast::KernelItem::TypeAlias(_) => {}
+            ast::KernelItem::Struct(_) | ast::KernelItem::Enum(_) | ast::KernelItem::TypeAlias(_) | ast::KernelItem::Import(_) => {}
         }
     }
 }

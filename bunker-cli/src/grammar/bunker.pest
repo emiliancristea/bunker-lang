@@ -5,7 +5,7 @@
 // TOP-LEVEL STRUCTURE
 // ====================
 
-file = { SOI ~ (inner_attribute | inner_doc_comment)* ~ (kernel_block | shell_block | view_block)* ~ EOI }
+file = { SOI ~ (inner_attribute | inner_doc_comment)* ~ (import_stmt | kernel_block | shell_block | view_block)* ~ EOI }
 
 kernel_block = { (attribute | doc_comment)* ~ "kernel" ~ identifier ~ "{" ~ inner_doc_comment* ~ kernel_item* ~ "}" }
 shell_block  = { "shell" ~ identifier ~ "{" ~ shell_item* ~ "}" }
@@ -15,7 +15,7 @@ view_block   = { "view" ~ identifier ~ "{" ~ view_item* ~ "}" }
 // KERNEL LAYER
 // ====================
 
-kernel_item = { function | struct_def | enum_def | const_def | comptime_fn | type_alias_def }
+kernel_item = { function | struct_def | enum_def | const_def | comptime_fn | type_alias_def | import_stmt }
 
 visibility = { "pub" }
 mut_kw = { "mut" }
@@ -61,7 +61,7 @@ typed_param = { identifier ~ ":" ~ type_expr }
 
 shell_item = { import_stmt | agent_def }
 
-import_stmt = { "import" ~ identifier ~ ";" }
+import_stmt = { (attribute | doc_comment)* ~ "import" ~ (string_literal | identifier) ~ ";" }
 
 agent_def = { "agent" ~ identifier ~ "{" ~ agent_item* ~ "}" }
 agent_item = { state_decl | message_handler }

@@ -1,0 +1,7 @@
+import "math_lib.bkr";
+
+kernel SubMod {
+    pub fn compute_sub() -> i32 {
+        return MathLib::mul(6, 7);
+    }
+}

@@ -423,6 +423,11 @@ pub mod codes {
     // View errors (E06xx)
     pub const UNKNOWN_STATE_FIELD: &str = "E0601";
     pub const UNKNOWN_VIEW_AGENT: &str = "E0602";
+
+    // Module and import errors (E07xx)
+    pub const IMPORT_ERROR: &str = "E0701";
+    pub const IMPORT_CYCLE: &str = "E0702";
+    pub const IMPORT_INVALID_PATH: &str = "E0703";
 }
 
 // ============================================================================

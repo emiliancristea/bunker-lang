@@ -323,7 +323,7 @@ impl TypeChecker {
         // Collect struct, enum, function signatures, and constants
         for item in &kernel.items {
             match item {
-                ast::KernelItem::TypeAlias(_) => {}
+                ast::KernelItem::TypeAlias(_) | ast::KernelItem::Import(_) => {}
                 ast::KernelItem::Struct(s) => {
                     self.check_attributes(&s.attributes, &s.name);
                     for attr in &s.attributes {
@@ -3941,7 +3941,7 @@ pub fn lower_type_aliases(file: &mut ast::File) {
                     resolve_ty(&mut c.ty, &aliases);
                     lower_expr_types(&mut c.value, &aliases);
                 }
-                ast::KernelItem::TypeAlias(_) => {}
+                ast::KernelItem::TypeAlias(_) | ast::KernelItem::Import(_) => {}
             }
         }
     }
@@ -3961,7 +3961,7 @@ pub fn lower_unit_enums(file: &mut ast::File) {
                     lower_block(&mut func.body, &enums);
                 }
                 ast::KernelItem::Const(def) => lower_expr(&mut def.value, &enums),
-                ast::KernelItem::Struct(_) | ast::KernelItem::Enum(_) | ast::KernelItem::TypeAlias(_) => {}
+                ast::KernelItem::Struct(_) | ast::KernelItem::Enum(_) | ast::KernelItem::TypeAlias(_) | ast::KernelItem::Import(_) => {}
             }
         }
     }

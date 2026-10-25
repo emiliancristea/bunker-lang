@@ -25,6 +25,7 @@ pub fn build_ast(pair: Pair<Rule>) -> Result<File, String> {
     let mut file = File {
         attributes: vec![],
         doc: None,
+        imports: vec![],
         kernels: vec![],
         shells: vec![],
         views: vec![],
@@ -38,6 +39,9 @@ pub fn build_ast(pair: Pair<Rule>) -> Result<File, String> {
             }
             Rule::inner_doc_comment => {
                 doc_lines.push(clean_doc_line(inner.as_str()));
+            }
+            Rule::import_stmt => {
+                file.imports.push(build_import(inner)?);
             }
             Rule::kernel_block => {
                 file.kernels.push(build_kernel(inner)?);
@@ -99,9 +103,58 @@ fn build_kernel(pair: Pair<Rule>) -> Result<Kernel, String> {
     Ok(Kernel { name, attributes, doc, items })
 }
 
+fn build_import(pair: Pair<Rule>) -> Result<ImportDecl, String> {
+    let mut target = String::new();
+    let mut is_path = false;
+    let mut attributes = vec![];
+    let mut doc_lines = vec![];
+
+    for inner in pair.into_inner() {
+        match inner.as_rule() {
+            Rule::attribute => {
+                attributes.push(build_attribute(inner)?);
+            }
+            Rule::doc_comment => {
+                doc_lines.push(clean_doc_line(inner.as_str()));
+            }
+            Rule::string_literal => {
+                let s = inner.as_str();
+                let inner_s = if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
+                    &s[1..s.len() - 1]
+                } else {
+                    s
+                };
+                target = unescape_string(inner_s)?;
+                is_path = true;
+            }
+            Rule::identifier => {
+                target = inner.as_str().to_string();
+                is_path = false;
+            }
+            _ => {}
+        }
+    }
+
+    let doc = if doc_lines.is_empty() {
+        None
+    } else {
+        Some(doc_lines.join("\n"))
+    };
+
+    Ok(ImportDecl {
+        target,
+        is_path,
+        attributes,
+        doc,
+    })
+}
+
 fn build_kernel_item(pair: Pair<Rule>) -> Result<Option<KernelItem>, String> {
     for inner in pair.into_inner() {
         match inner.as_rule() {
+            Rule::import_stmt => {
+                return Ok(Some(KernelItem::Import(build_import(inner)?)));
+            }
             Rule::function => {
                 return Ok(Some(KernelItem::Function(build_function(inner)?)));
             }
@@ -1998,11 +2051,8 @@ fn build_shell(pair: Pair<Rule>) -> Result<Shell, String> {
                 for item_inner in inner.into_inner() {
                     match item_inner.as_rule() {
                         Rule::import_stmt => {
-                            for imp_inner in item_inner.into_inner() {
-                                if imp_inner.as_rule() == Rule::identifier {
-                                    imports.push(imp_inner.as_str().to_string());
-                                }
-                            }
+                            let imp = build_import(item_inner)?;
+                            imports.push(imp.target);
                         }
                         Rule::agent_def => {
                             agents.push(build_agent(item_inner)?);

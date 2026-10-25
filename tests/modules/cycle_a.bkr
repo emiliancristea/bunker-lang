@@ -1,0 +1,7 @@
+import "cycle_b.bkr";
+
+kernel CycleA {
+    pub fn func_a() -> i32 {
+        return 1;
+    }
+}
