@@ -10,11 +10,13 @@ mod jit;
 mod module_loader;
 mod monomorphize;
 mod parser;
+mod resolver_report;
 mod shell_codegen;
 mod shell_runtime;
 mod smt;
 mod symbol_table;
 mod type_graph;
+mod typecheck_report;
 mod typeck;
 mod verify;
 mod view_runtime;
@@ -116,6 +118,14 @@ enum Commands {
         /// Emit BUNKER_SYMBOL_TABLE_JSON comment
         #[arg(long)]
         symbol_table: bool,
+
+        /// Emit BUNKER_TYPECHECK_JSON comment
+        #[arg(long)]
+        typecheck_json: bool,
+
+        /// Emit BUNKER_RESOLVER_JSON comment
+        #[arg(long)]
+        resolver_json: bool,
     },
 
     /// Parse and print the AST
@@ -221,6 +231,8 @@ fn main() -> Result<()> {
             ast_json,
             type_graph,
             symbol_table,
+            typecheck_json,
+            resolver_json,
         } => check_file(
             &input,
             smt,
@@ -229,6 +241,8 @@ fn main() -> Result<()> {
             ast_json,
             type_graph,
             symbol_table,
+            typecheck_json,
+            resolver_json,
             format,
         ),
         Commands::Parse { input, ast_json } => parse_file(&input, ast_json, format),
@@ -513,6 +527,8 @@ fn check_file(
     ast_json: bool,
     type_graph: bool,
     symbol_table: bool,
+    typecheck_json: bool,
+    resolver_json: bool,
     format: OutputFormat,
 ) -> Result<()> {
     let file_path = input.display().to_string();
@@ -549,6 +565,10 @@ fn check_file(
         let report = symbol_table::build_symbol_table_report(&ast, &source);
         print!("{}", report.to_json_comment());
     }
+    if resolver_json {
+        let report = resolver_report::build_resolver_report(&ast, &source);
+        print!("{}", report.to_json_comment());
+    }
 
     // Compile-time constant folding pass
     let comptime_stats = comptime::fold_comptime_calls(&mut ast);
@@ -571,6 +591,10 @@ fn check_file(
 
     // Type check
     let type_errors = typeck::check_file(&ast)?;
+    if typecheck_json {
+        let report = typecheck_report::build_typecheck_report(&ast, &source, &type_errors);
+        print!("{}", report.to_json_comment());
+    }
     for err in &type_errors {
         diagnostics.push(type_error_to_diagnostic_with_source(
             err,

@@ -149,6 +149,7 @@ $expectedResults = @{
     "223_typed_ast_nodes" = 42
     "224_ast_capability_json" = 42
     "225_type_graph_symbol_table" = 42
+    "226_typecheck_resolver_reports" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -552,6 +553,38 @@ if (-not $JitOnly) {
         Write-Host " (symbol table json check comment failed)"
         if ($Verbose) {
             Write-Host "  $stCheckResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_typecheck_check_flag... "
+    $tcCheckResult = & $bunker check --typecheck-json "tests\01_basic_math.bkr" 2>&1 | Out-String
+    $tcCheckExitCode = $LASTEXITCODE
+    if ($tcCheckExitCode -eq 0 -and $tcCheckResult -match '/\* BUNKER_TYPECHECK_JSON:.*bunker\.typecheck\.v1') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (typecheck json comment emitted from check)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (typecheck json check comment failed)"
+        if ($Verbose) {
+            Write-Host "  $tcCheckResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_resolver_check_flag... "
+    $resCheckResult = & $bunker check --resolver-json "tests\01_basic_math.bkr" 2>&1 | Out-String
+    $resCheckExitCode = $LASTEXITCODE
+    if ($resCheckExitCode -eq 0 -and $resCheckResult -match '/\* BUNKER_RESOLVER_JSON:.*bunker\.resolver\.v1') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (resolver json comment emitted from check)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (resolver json check comment failed)"
+        if ($Verbose) {
+            Write-Host "  $resCheckResult" -ForegroundColor DarkGray
         }
         $failed++
     }
