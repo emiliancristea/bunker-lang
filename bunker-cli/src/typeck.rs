@@ -700,8 +700,29 @@ impl TypeChecker {
                         }
                     }
                 }
-                let target_ty = self.infer_expr(target, context)?;
+                let target_ty = if let Expr::Ident(target_name) = target {
+                    self.moved_vars.remove(target_name);
+                    self.moved_locations.remove(target_name);
+                    if let Some(ty) = self.variables.get(target_name) {
+                        ty.clone()
+                    } else {
+                        self.infer_expr(target, context)?
+                    }
+                } else {
+                    self.infer_expr(target, context)?
+                };
                 let value_ty = self.infer_expr(value, context)?;
+
+                // Move semantics: if value is a non-copy identifier, mark source as moved
+                if let Expr::Ident(source_name) = value {
+                    if !self.is_copy_type(&value_ty) {
+                        self.moved_vars.insert(source_name.clone());
+                        self.moved_locations.insert(
+                            source_name.clone(),
+                            format!("assignment in {}", context),
+                        );
+                    }
+                }
 
                 if !self.types_compatible(&target_ty, &value_ty) {
                     self.errors.push(TypeError {

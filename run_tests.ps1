@@ -150,6 +150,7 @@ $expectedResults = @{
     "224_ast_capability_json" = 42
     "225_type_graph_symbol_table" = 42
     "226_typecheck_resolver_reports" = 42
+    "227_ownership_move_semantics" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)

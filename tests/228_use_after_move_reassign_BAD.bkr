@@ -1,0 +1,16 @@
+// Test 228: Use After Move on Reassignment (BAD - should fail type checking)
+// Purpose: Verify that moving a variable via reassignment marks it moved and rejects subsequent access
+// Expected: Type error "Use of moved value 'incoming'"
+
+kernel MoveReassignBad {
+    struct Item {
+        val: i32,
+    }
+
+    fn main() -> i32 {
+        let mut target = Item { val: 1 };
+        let incoming = Item { val: 42 };
+        target = incoming;   // incoming is moved into target
+        return incoming.val; // ERROR: use of moved value 'incoming'
+    }
+}
