@@ -1,0 +1,7 @@
+// Rejection test: invalid escape sequence in string literal
+kernel InvalidEscapeBad {
+    fn main() -> i32 {
+        let s: str = "invalid escape: \q here";
+        return 0;
+    }
+}

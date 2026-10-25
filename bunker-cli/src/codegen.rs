@@ -2831,6 +2831,7 @@ fn compile_literal_inline(builder: &mut FunctionBuilder, lit: &ast::Literal) -> 
         }
         ast::Literal::Float(f) => Ok(builder.ins().f64const(*f)),
         ast::Literal::Bool(b) => Ok(builder.ins().iconst(types::I8, if *b { 1 } else { 0 })),
+        ast::Literal::Char(c) => Ok(builder.ins().iconst(types::I32, *c as i64)),
         _ => Ok(builder.ins().iconst(types::I32, 0)),
     }
 }

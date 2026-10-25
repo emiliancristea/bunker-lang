@@ -156,7 +156,11 @@
                 pos = pos + 1;  // skip opening quote
                 let str_start = pos;
                 while pos < src_len && char_code_at(source, pos) != 34 {
-                    pos = pos + 1;
+                    if char_code_at(source, pos) == 92 && pos + 1 < src_len {
+                        pos = pos + 2;
+                    } else {
+                        pos = pos + 1;
+                    }
                 }
                 let str_val = substring(source, str_start, pos);
                 pos = pos + 1;  // skip closing quote

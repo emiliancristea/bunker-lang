@@ -1795,6 +1795,126 @@ extern "C" fn bunker_time_now_unix() -> i64 {
     }
 }
 
+// ============================================================================
+// Byte Buffer Implementation
+// ============================================================================
+// Layout: [capacity: i64][length: i64][data_ptr: *mut u8]
+
+const BYTES_HEADER_SIZE: i64 = 24;
+
+extern "C" fn bunker_bytes_new(capacity: i64) -> i64 {
+    let cap = if capacity < 8 { 8 } else { capacity };
+    let header_layout = std::alloc::Layout::from_size_align(BYTES_HEADER_SIZE as usize, 8).unwrap();
+    let header_ptr = unsafe { std::alloc::alloc_zeroed(header_layout) };
+    if header_ptr.is_null() {
+        return 0;
+    }
+    let data_layout = std::alloc::Layout::from_size_align(cap as usize, 1).unwrap();
+    let data_ptr = unsafe { std::alloc::alloc_zeroed(data_layout) };
+    if data_ptr.is_null() {
+        unsafe { std::alloc::dealloc(header_ptr, header_layout); }
+        return 0;
+    }
+    unsafe {
+        *(header_ptr as *mut i64) = cap;
+        *((header_ptr as *mut i64).offset(1)) = 0;
+        *((header_ptr as *mut i64).offset(2)) = data_ptr as i64;
+    }
+    header_ptr as i64
+}
+
+extern "C" fn bunker_bytes_len(handle: i64) -> i64 {
+    if handle == 0 { return 0; }
+    unsafe {
+        let header = handle as *const i64;
+        *header.offset(1)
+    }
+}
+
+extern "C" fn bunker_bytes_capacity(handle: i64) -> i64 {
+    if handle == 0 { return 0; }
+    unsafe {
+        let header = handle as *const i64;
+        *header
+    }
+}
+
+extern "C" fn bunker_bytes_get(handle: i64, index: i64) -> i32 {
+    if handle == 0 || index < 0 { return 0; }
+    unsafe {
+        let header = handle as *const i64;
+        let len = *header.offset(1);
+        if index >= len { return 0; }
+        let data = *header.offset(2) as *const u8;
+        *data.add(index as usize) as i32
+    }
+}
+
+extern "C" fn bunker_bytes_set(handle: i64, index: i64, val: i32) -> i32 {
+    if handle == 0 || index < 0 { return 0; }
+    unsafe {
+        let header = handle as *mut i64;
+        let len = *header.offset(1);
+        if index >= len { return 0; }
+        let data = *header.offset(2) as *mut u8;
+        *data.add(index as usize) = (val & 0xFF) as u8;
+        1
+    }
+}
+
+extern "C" fn bunker_bytes_push(handle: i64, val: i32) -> i32 {
+    if handle == 0 { return 0; }
+    unsafe {
+        let header = handle as *mut i64;
+        let capacity = *header;
+        let length = *header.offset(1);
+        let data_ptr = *header.offset(2) as *mut u8;
+
+        if length >= capacity {
+            let new_capacity = capacity * 2;
+            let old_layout = std::alloc::Layout::from_size_align(capacity as usize, 1).unwrap();
+            let new_data_ptr = std::alloc::realloc(data_ptr, old_layout, new_capacity as usize);
+            if new_data_ptr.is_null() {
+                return 0;
+            }
+            *header = new_capacity;
+            *header.offset(2) = new_data_ptr as i64;
+        }
+
+        let cur_data = *header.offset(2) as *mut u8;
+        *cur_data.add(length as usize) = (val & 0xFF) as u8;
+        *header.offset(1) = length + 1;
+        1
+    }
+}
+
+extern "C" fn bunker_bytes_from_str(str_ptr: i64) -> i64 {
+    if str_ptr == 0 { return bunker_bytes_new(8); }
+    unsafe {
+        let len = *(str_ptr as *const i64) as usize;
+        let slice = std::slice::from_raw_parts((str_ptr + 8) as *const u8, len);
+        let handle = bunker_bytes_new(len as i64);
+        if handle == 0 { return 0; }
+        let header = handle as *mut i64;
+        let data_ptr = *header.offset(2) as *mut u8;
+        std::ptr::copy_nonoverlapping(slice.as_ptr(), data_ptr, len);
+        *header.offset(1) = len as i64;
+        handle
+    }
+}
+
+extern "C" fn bunker_bytes_to_str(handle: i64) -> i64 {
+    if handle == 0 { return alloc_bunker_string(""); }
+    unsafe {
+        let header = handle as *const i64;
+        let len = *header.offset(1) as usize;
+        let data = *header.offset(2) as *const u8;
+        let slice = std::slice::from_raw_parts(data, len);
+        let s = std::str::from_utf8(slice).unwrap_or("");
+        alloc_bunker_string(s)
+    }
+}
+
 // Free function to convert types (kept in sync with object codegen)
 fn convert_ast_type(ty: &ast::Type) -> types::Type {
     match ty {
@@ -2191,6 +2311,14 @@ impl KernelJit {
         builder.symbol("bunker_env_has", bunker_env_has as *const u8);
         builder.symbol("bunker_time_now_ms", bunker_time_now_ms as *const u8);
         builder.symbol("bunker_time_now_unix", bunker_time_now_unix as *const u8);
+        builder.symbol("bunker_bytes_new", bunker_bytes_new as *const u8);
+        builder.symbol("bunker_bytes_len", bunker_bytes_len as *const u8);
+        builder.symbol("bunker_bytes_capacity", bunker_bytes_capacity as *const u8);
+        builder.symbol("bunker_bytes_get", bunker_bytes_get as *const u8);
+        builder.symbol("bunker_bytes_set", bunker_bytes_set as *const u8);
+        builder.symbol("bunker_bytes_push", bunker_bytes_push as *const u8);
+        builder.symbol("bunker_bytes_from_str", bunker_bytes_from_str as *const u8);
+        builder.symbol("bunker_bytes_to_str", bunker_bytes_to_str as *const u8);
 
         let mut module = JITModule::new(builder);
         let alloc_func = declare_alloc_func(&mut module)?;
@@ -2279,6 +2407,14 @@ impl KernelJit {
         let env_has_func = declare_env_has_func(&mut module)?;
         let time_now_ms_func = declare_time_now_ms_func(&mut module)?;
         let time_now_unix_func = declare_time_now_unix_func(&mut module)?;
+        let bytes_new_func = declare_bytes_new_func(&mut module)?;
+        let bytes_len_func = declare_bytes_len_func(&mut module)?;
+        let bytes_capacity_func = declare_bytes_capacity_func(&mut module)?;
+        let bytes_get_func = declare_bytes_get_func(&mut module)?;
+        let bytes_set_func = declare_bytes_set_func(&mut module)?;
+        let bytes_push_func = declare_bytes_push_func(&mut module)?;
+        let bytes_from_str_func = declare_bytes_from_str_func(&mut module)?;
+        let bytes_to_str_func = declare_bytes_to_str_func(&mut module)?;
         let ctx = module.make_context();
 
         // Initialize with builtin functions
@@ -2365,6 +2501,14 @@ impl KernelJit {
             ("env_has", env_has_func),
             ("time_now_ms", time_now_ms_func),
             ("time_now_unix", time_now_unix_func),
+            ("bytes_new", bytes_new_func),
+            ("bytes_len", bytes_len_func),
+            ("bytes_capacity", bytes_capacity_func),
+            ("bytes_get", bytes_get_func),
+            ("bytes_set", bytes_set_func),
+            ("bytes_push", bytes_push_func),
+            ("bytes_from_str", bytes_from_str_func),
+            ("bytes_to_str", bytes_to_str_func),
         ] {
             register_runtime_builtin(&mut functions, &mut fn_sigs, name, func_id)?;
         }
@@ -5877,6 +6021,7 @@ fn compile_literal_inline(builder: &mut FunctionBuilder, lit: &ast::Literal) -> 
         }
         ast::Literal::Float(f) => Ok(builder.ins().f64const(*f)),
         ast::Literal::Bool(b) => Ok(builder.ins().iconst(types::I8, if *b { 1 } else { 0 })),
+        ast::Literal::Char(c) => Ok(builder.ins().iconst(types::I32, *c as i64)),
         _ => Ok(builder.ins().iconst(types::I32, 0)),
     }
 }
@@ -7368,6 +7513,82 @@ fn declare_time_now_unix_func(module: &mut JITModule) -> Result<FuncId> {
     module
         .declare_function("bunker_time_now_unix", Linkage::Import, &sig)
         .map_err(|e| anyhow!("Failed to declare runtime bunker_time_now_unix: {}", e))
+}
+
+fn declare_bytes_new_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_bytes_new", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_bytes_new: {}", e))
+}
+
+fn declare_bytes_len_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_bytes_len", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_bytes_len: {}", e))
+}
+
+fn declare_bytes_capacity_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_bytes_capacity", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_bytes_capacity: {}", e))
+}
+
+fn declare_bytes_get_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I32));
+    module
+        .declare_function("bunker_bytes_get", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_bytes_get: {}", e))
+}
+
+fn declare_bytes_set_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I32));
+    sig.returns.push(AbiParam::new(types::I32));
+    module
+        .declare_function("bunker_bytes_set", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_bytes_set: {}", e))
+}
+
+fn declare_bytes_push_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I32));
+    sig.returns.push(AbiParam::new(types::I32));
+    module
+        .declare_function("bunker_bytes_push", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_bytes_push: {}", e))
+}
+
+fn declare_bytes_from_str_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_bytes_from_str", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_bytes_from_str: {}", e))
+}
+
+fn declare_bytes_to_str_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_bytes_to_str", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_bytes_to_str: {}", e))
 }
 
 fn emit_alloc(

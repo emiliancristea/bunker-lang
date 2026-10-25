@@ -1,0 +1,137 @@
+// Test string escape sequences and byte buffers (D-011, D-012)
+kernel StringEscapesAndBytes {
+    fn test_escapes() -> bool {
+        let s_nl: str = "hello\nworld";
+        if len(s_nl) != 11 {
+            return false;
+        }
+
+        let s_tab: str = "a\tb";
+        if char_code_at(s_tab, 1) != 9 {
+            return false;
+        }
+
+        let s_cr: str = "line1\rline2";
+        if char_code_at(s_cr, 5) != 13 {
+            return false;
+        }
+
+        let s_quote: str = "quote: \"hello\"";
+        if !contains(s_quote, "\"hello\"") {
+            return false;
+        }
+
+        let s_bs: str = "bs: \\";
+        if char_code_at(s_bs, 4) != 92 {
+            return false;
+        }
+
+        let s_hex: str = "hex: \x41";
+        if char_code_at(s_hex, 5) != 65 {
+            return false;
+        }
+
+        let s_null: str = "zero:\0end";
+        if char_code_at(s_null, 5) != 0 {
+            return false;
+        }
+
+        let c_nl: i32 = '\n';
+        if c_nl != 10 {
+            return false;
+        }
+
+        let c_tab: i32 = '\t';
+        if c_tab != 9 {
+            return false;
+        }
+
+        let c_cr: i32 = '\r';
+        if c_cr != 13 {
+            return false;
+        }
+
+        let c_bs: i32 = '\\';
+        if c_bs != 92 {
+            return false;
+        }
+
+        let c_quote: i32 = '\'';
+        if c_quote != 39 {
+            return false;
+        }
+
+        let c_hex: i32 = '\x41';
+        if c_hex != 65 {
+            return false;
+        }
+
+        let c_null: i32 = '\0';
+        if c_null != 0 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_bytes() -> bool {
+        let buf: i64 = bytes_new(16);
+        if bytes_len(buf) != 0 {
+            return false;
+        }
+
+        bytes_push(buf, 10);
+        bytes_push(buf, 20);
+        bytes_push(buf, 30);
+
+        if bytes_len(buf) != 3 {
+            return false;
+        }
+
+        if bytes_get(buf, 0) != 10 {
+            return false;
+        }
+        if bytes_get(buf, 1) != 20 {
+            return false;
+        }
+        if bytes_get(buf, 2) != 30 {
+            return false;
+        }
+
+        bytes_set(buf, 1, 99);
+        if bytes_get(buf, 1) != 99 {
+            return false;
+        }
+
+        let str_buf: i64 = bytes_from_str("Bunker");
+        if bytes_len(str_buf) != 6 {
+            return false;
+        }
+
+        if bytes_get(str_buf, 0) != 66 {
+            return false;
+        }
+        if bytes_get(str_buf, 5) != 114 {
+            return false;
+        }
+
+        let s_back: str = bytes_to_str(str_buf);
+        if s_back != "Bunker" {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_escapes() {
+            return 1;
+        }
+
+        if !test_bytes() {
+            return 2;
+        }
+
+        return 42;
+    }
+}

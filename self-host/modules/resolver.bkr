@@ -274,6 +274,14 @@
         if name == "env_has" { return true; }
         if name == "time_now_ms" { return true; }
         if name == "time_now_unix" { return true; }
+        if name == "bytes_new" { return true; }
+        if name == "bytes_len" { return true; }
+        if name == "bytes_capacity" { return true; }
+        if name == "bytes_get" { return true; }
+        if name == "bytes_set" { return true; }
+        if name == "bytes_push" { return true; }
+        if name == "bytes_from_str" { return true; }
+        if name == "bytes_to_str" { return true; }
         if name == "write_file_result" { return true; }
         if name == "hashmap_get_opt" { return true; }
         if name == "vec_get_opt" { return true; }

@@ -141,6 +141,7 @@ $expectedResults = @{
     "197_forward_reference_modules" = 42
     "198_attribute_semantics" = 42
     "202_comptime_and_doc_comments" = 42
+    "205_string_escapes_and_bytes" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)

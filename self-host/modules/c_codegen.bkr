@@ -263,6 +263,14 @@
         if raw == "env_has" { return "env_has"; }
         if raw == "time_now_ms" { return "time_now_ms"; }
         if raw == "time_now_unix" { return "time_now_unix"; }
+        if raw == "bytes_new" { return "bytes_new"; }
+        if raw == "bytes_len" { return "bytes_len"; }
+        if raw == "bytes_capacity" { return "bytes_capacity"; }
+        if raw == "bytes_get" { return "bytes_get"; }
+        if raw == "bytes_set" { return "bytes_set"; }
+        if raw == "bytes_push" { return "bytes_push"; }
+        if raw == "bytes_from_str" { return "bytes_from_str"; }
+        if raw == "bytes_to_str" { return "bytes_to_str"; }
         return "";
     }
 
@@ -385,6 +393,14 @@
         if raw == "env_has" { return TYPE_BOOL; }
         if raw == "time_now_ms" { return TYPE_I64; }
         if raw == "time_now_unix" { return TYPE_I64; }
+        if raw == "bytes_new" { return TYPE_I64; }
+        if raw == "bytes_len" { return TYPE_I64; }
+        if raw == "bytes_capacity" { return TYPE_I64; }
+        if raw == "bytes_get" { return TYPE_I32; }
+        if raw == "bytes_set" { return TYPE_BOOL; }
+        if raw == "bytes_push" { return TYPE_BOOL; }
+        if raw == "bytes_from_str" { return TYPE_I64; }
+        if raw == "bytes_to_str" { return TYPE_STR; }
         return TYPE_UNKNOWN;
     }
 

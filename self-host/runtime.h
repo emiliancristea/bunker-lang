@@ -293,6 +293,91 @@ static inline bkr_i64 vec_fold(bkr_i64 handle, bkr_i64 init, bkr_i64 fn_ptr) {
 }
 
 /* ============================================
+ * Byte Buffer
+ * ============================================ */
+
+typedef struct {
+    uint8_t* data;
+    bkr_i64 len;
+    bkr_i64 cap;
+} BkrBytes;
+
+static inline bkr_i64 bytes_new(bkr_i64 cap) {
+    if (cap < 8) cap = 8;
+    BkrBytes* b = (BkrBytes*)bkr_arena_alloc(sizeof(BkrBytes), sizeof(void*));
+    if (!b) return 0;
+    b->cap = cap;
+    b->len = 0;
+    b->data = (uint8_t*)bkr_arena_alloc((size_t)b->cap, 1);
+    return (bkr_i64)(intptr_t)b;
+}
+
+static inline bkr_i64 bytes_len(bkr_i64 handle) {
+    BkrBytes* b = (BkrBytes*)(intptr_t)handle;
+    if (!b) return 0;
+    return b->len;
+}
+
+static inline bkr_i64 bytes_capacity(bkr_i64 handle) {
+    BkrBytes* b = (BkrBytes*)(intptr_t)handle;
+    if (!b) return 0;
+    return b->cap;
+}
+
+static inline bkr_i32 bytes_get(bkr_i64 handle, bkr_i64 index) {
+    BkrBytes* b = (BkrBytes*)(intptr_t)handle;
+    if (!b || index < 0 || index >= b->len) return 0;
+    return (bkr_i32)b->data[index];
+}
+
+static inline bkr_bool bytes_set(bkr_i64 handle, bkr_i64 index, bkr_i32 val) {
+    BkrBytes* b = (BkrBytes*)(intptr_t)handle;
+    if (!b || index < 0 || index >= b->len) return BKR_FALSE;
+    b->data[index] = (uint8_t)(val & 0xFF);
+    return BKR_TRUE;
+}
+
+static inline bkr_bool bytes_push(bkr_i64 handle, bkr_i32 val) {
+    BkrBytes* b = (BkrBytes*)(intptr_t)handle;
+    if (!b) return BKR_FALSE;
+    if (b->len >= b->cap) {
+        bkr_i64 new_cap = b->cap * 2;
+        uint8_t* new_data = (uint8_t*)bkr_arena_alloc((size_t)new_cap, 1);
+        if (!new_data) return BKR_FALSE;
+        memcpy(new_data, b->data, (size_t)b->len);
+        b->data = new_data;
+        b->cap = new_cap;
+    }
+    b->data[b->len++] = (uint8_t)(val & 0xFF);
+    return BKR_TRUE;
+}
+
+static inline bkr_i64 bytes_from_str(bkr_str s) {
+    if (!s) return bytes_new(8);
+    size_t slen = strlen(s);
+    bkr_i64 handle = bytes_new((bkr_i64)slen);
+    BkrBytes* b = (BkrBytes*)(intptr_t)handle;
+    if (!b) return 0;
+    memcpy(b->data, s, slen);
+    b->len = (bkr_i64)slen;
+    return handle;
+}
+
+static inline bkr_str bytes_to_str(bkr_i64 handle) {
+    BkrBytes* b = (BkrBytes*)(intptr_t)handle;
+    if (!b || b->len == 0) {
+        bkr_str empty = (bkr_str)bkr_arena_alloc(1, 1);
+        if (empty) empty[0] = '\0';
+        return empty;
+    }
+    bkr_str s = (bkr_str)bkr_arena_alloc((size_t)b->len + 1, 1);
+    if (!s) return NULL;
+    memcpy(s, b->data, (size_t)b->len);
+    s[b->len] = '\0';
+    return s;
+}
+
+/* ============================================
  * String Operations
  * ============================================ */
 

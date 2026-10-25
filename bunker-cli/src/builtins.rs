@@ -953,6 +953,100 @@ static TYPECHECK_BUILTINS: &[TypecheckBuiltinSpec] = &[
         params: &[],
         return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
     },
+    TypecheckBuiltinSpec {
+        name: "bytes_new",
+        arity_error: "bytes_new expects 1 argument (capacity)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Integer,
+            type_error: "bytes_new expects integer capacity",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "bytes_len",
+        arity_error: "bytes_len expects 1 argument (buffer)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Integer,
+            type_error: "bytes_len expects integer buffer handle",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "bytes_capacity",
+        arity_error: "bytes_capacity expects 1 argument (buffer)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Integer,
+            type_error: "bytes_capacity expects integer buffer handle",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "bytes_get",
+        arity_error: "bytes_get expects 2 arguments (buffer, index)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Integer,
+                type_error: "bytes_get expects integer buffer handle",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Integer,
+                type_error: "bytes_get expects integer index",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I32),
+    },
+    TypecheckBuiltinSpec {
+        name: "bytes_set",
+        arity_error: "bytes_set expects 3 arguments (buffer, index, value)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Integer,
+                type_error: "bytes_set expects integer buffer handle",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Integer,
+                type_error: "bytes_set expects integer index",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Integer,
+                type_error: "bytes_set expects integer byte value",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Bool),
+    },
+    TypecheckBuiltinSpec {
+        name: "bytes_push",
+        arity_error: "bytes_push expects 2 arguments (buffer, value)",
+        params: &[
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Integer,
+                type_error: "bytes_push expects integer buffer handle",
+            },
+            BuiltinParamSpec {
+                rule: BuiltinArgRule::Integer,
+                type_error: "bytes_push expects integer byte value",
+            },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Bool),
+    },
+    TypecheckBuiltinSpec {
+        name: "bytes_from_str",
+        arity_error: "bytes_from_str expects 1 argument (str)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Str,
+            type_error: "bytes_from_str expects str",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "bytes_to_str",
+        arity_error: "bytes_to_str expects 1 argument (buffer)",
+        params: &[BuiltinParamSpec {
+            rule: BuiltinArgRule::Integer,
+            type_error: "bytes_to_str expects integer buffer handle",
+        }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
+    },
 ];
 
 static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
@@ -1371,6 +1465,46 @@ static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
         name: "time_now_unix",
         params: &[],
         return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "bytes_new",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "bytes_len",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "bytes_capacity",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "bytes_get",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I32),
+    },
+    RuntimeBuiltinSpec {
+        name: "bytes_set",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64, RuntimeBuiltinType::I32],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "bytes_push",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I32],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "bytes_from_str",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "bytes_to_str",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::Str),
     },
 ];
 

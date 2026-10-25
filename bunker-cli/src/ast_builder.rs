@@ -222,7 +222,8 @@ fn build_attribute(pair: Pair<Rule>) -> Result<Attribute, String> {
                         } else {
                             s
                         };
-                        value = Some(unquoted.to_string());
+                        let unescaped = unescape_string(unquoted).unwrap_or_else(|_| unquoted.to_string());
+                        value = Some(unescaped);
                     }
                     Rule::identifier | Rule::integer => {
                         value = Some(part.as_str().to_string());
@@ -1816,6 +1817,92 @@ fn build_struct_literal(pair: Pair<Rule>) -> Result<Expr, String> {
     Ok(Expr::Struct { name, fields, base })
 }
 
+/// Unescape a string literal contents (without surrounding quotes).
+/// Supports \n, \r, \t, \\, \", \', \0, \xHH (hex), \u{HHHH} (unicode scalar).
+/// Returns Err for any invalid or incomplete escape sequence.
+pub fn unescape_string(raw: &str) -> Result<String, String> {
+    let mut out = String::with_capacity(raw.len());
+    let mut chars = raw.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if c == '\\' {
+            match chars.next() {
+                Some('n') => out.push('\n'),
+                Some('r') => out.push('\r'),
+                Some('t') => out.push('\t'),
+                Some('\\') => out.push('\\'),
+                Some('"') => out.push('"'),
+                Some('\'') => out.push('\''),
+                Some('0') => out.push('\0'),
+                Some('x') => {
+                    let d1 = chars
+                        .next()
+                        .ok_or_else(|| "Incomplete hex escape '\\x'".to_string())?;
+                    let d2 = chars
+                        .next()
+                        .ok_or_else(|| "Incomplete hex escape '\\x'".to_string())?;
+                    let h1 = d1
+                        .to_digit(16)
+                        .ok_or_else(|| format!("Invalid hex digit in escape: '{}'", d1))?;
+                    let h2 = d2
+                        .to_digit(16)
+                        .ok_or_else(|| format!("Invalid hex digit in escape: '{}'", d2))?;
+                    let byte = (h1 * 16 + h2) as u8;
+                    out.push(byte as char);
+                }
+                Some('u') => {
+                    if chars.next() != Some('{') {
+                        return Err("Expected '{' after '\\u'".to_string());
+                    }
+                    let mut hex_str = String::new();
+                    let mut closed = false;
+                    while let Some(hc) = chars.next() {
+                        if hc == '}' {
+                            closed = true;
+                            break;
+                        }
+                        if !hc.is_ascii_hexdigit() {
+                            return Err(format!("Invalid hex digit in unicode escape: '{}'", hc));
+                        }
+                        hex_str.push(hc);
+                    }
+                    if !closed || hex_str.is_empty() || hex_str.len() > 6 {
+                        return Err("Invalid unicode escape sequence '\\u{...}'".to_string());
+                    }
+                    let val = u32::from_str_radix(&hex_str, 16)
+                        .map_err(|e| format!("Failed to parse unicode escape: {}", e))?;
+                    let unicode_char = char::from_u32(val)
+                        .ok_or_else(|| format!("Invalid Unicode scalar value: 0x{:X}", val))?;
+                    out.push(unicode_char);
+                }
+                Some(other) => {
+                    return Err(format!("Unknown escape sequence '\\{}'", other));
+                }
+                None => {
+                    return Err("Unterminated escape sequence '\\' at end of string".to_string());
+                }
+            }
+        } else {
+            out.push(c);
+        }
+    }
+
+    Ok(out)
+}
+
+/// Unescape a char literal contents (without surrounding single quotes).
+pub fn unescape_char(raw: &str) -> Result<char, String> {
+    let unescaped = unescape_string(raw)?;
+    let mut chars = unescaped.chars();
+    let c = chars
+        .next()
+        .ok_or_else(|| "Empty char literal".to_string())?;
+    if chars.next().is_some() {
+        return Err("Char literal must contain exactly one character".to_string());
+    }
+    Ok(c)
+}
+
 fn build_literal(pair: Pair<Rule>) -> Result<Expr, String> {
     for inner in pair.into_inner() {
         match inner.as_rule() {
@@ -1829,12 +1916,22 @@ fn build_literal(pair: Pair<Rule>) -> Result<Expr, String> {
             }
             Rule::string_literal => {
                 let s = inner.as_str();
-                let s = &s[1..s.len() - 1]; // Remove quotes
-                return Ok(Expr::Literal(Literal::String(s.to_string())));
+                let inner_s = if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
+                    &s[1..s.len() - 1]
+                } else {
+                    s
+                };
+                let unescaped = unescape_string(inner_s)?;
+                return Ok(Expr::Literal(Literal::String(unescaped)));
             }
             Rule::char_literal => {
                 let s = inner.as_str();
-                let c = s.chars().nth(1).unwrap_or(' ');
+                let inner_s = if s.starts_with('\'') && s.ends_with('\'') && s.len() >= 2 {
+                    &s[1..s.len() - 1]
+                } else {
+                    s
+                };
+                let c = unescape_char(inner_s)?;
                 return Ok(Expr::Literal(Literal::Char(c)));
             }
             Rule::bool_literal => {
@@ -1978,7 +2075,12 @@ fn build_message_handler(pair: Pair<Rule>) -> Result<MessageHandler, String> {
         match inner.as_rule() {
             Rule::string_literal => {
                 let s = inner.as_str();
-                message = s[1..s.len() - 1].to_string();
+                let inner_s = if s.starts_with('"') && s.ends_with('"') && s.len() >= 2 {
+                    &s[1..s.len() - 1]
+                } else {
+                    s
+                };
+                message = unescape_string(inner_s).unwrap_or_else(|_| inner_s.to_string());
             }
             Rule::param_list => {
                 params = build_param_list(inner)?;

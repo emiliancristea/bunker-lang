@@ -307,8 +307,8 @@ literal = {
 
 integer = @{ "-"? ~ ASCII_DIGIT+ }
 float = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
-string_literal = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
-char_literal = @{ "'" ~ ANY ~ "'" }
+string_literal = @{ "\"" ~ (("\\" ~ ANY) | (!"\"" ~ ANY))* ~ "\"" }
+char_literal = @{ "'" ~ (("\\" ~ ("u{" ~ ASCII_HEX_DIGIT+ ~ "}" | "x" ~ ASCII_HEX_DIGIT{2} | ANY)) | (!"'" ~ ANY)) ~ "'" }
 bool_literal = { "true" | "false" }
 hex_color = @{ "#" ~ ASCII_HEX_DIGIT{6} }
 

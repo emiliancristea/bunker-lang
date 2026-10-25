@@ -572,6 +572,14 @@
         if name == "env_has" { return 1; }
         if name == "time_now_ms" { return 0; }
         if name == "time_now_unix" { return 0; }
+        if name == "bytes_new" { return 1; }
+        if name == "bytes_len" { return 1; }
+        if name == "bytes_capacity" { return 1; }
+        if name == "bytes_get" { return 2; }
+        if name == "bytes_set" { return 3; }
+        if name == "bytes_push" { return 2; }
+        if name == "bytes_from_str" { return 1; }
+        if name == "bytes_to_str" { return 1; }
         return -1;
     }
 
@@ -677,6 +685,18 @@
         if name == "env_set" && index == 0 { return TYPE_STR; }
         if name == "env_set" && index == 1 { return TYPE_STR; }
         if name == "env_has" && index == 0 { return TYPE_STR; }
+        if name == "bytes_new" && index == 0 { return TYPE_I64; }
+        if name == "bytes_len" && index == 0 { return TYPE_I64; }
+        if name == "bytes_capacity" && index == 0 { return TYPE_I64; }
+        if name == "bytes_get" && index == 0 { return TYPE_I64; }
+        if name == "bytes_get" && index == 1 { return TYPE_I64; }
+        if name == "bytes_set" && index == 0 { return TYPE_I64; }
+        if name == "bytes_set" && index == 1 { return TYPE_I64; }
+        if name == "bytes_set" && index == 2 { return TYPE_I64; }
+        if name == "bytes_push" && index == 0 { return TYPE_I64; }
+        if name == "bytes_push" && index == 1 { return TYPE_I64; }
+        if name == "bytes_from_str" && index == 0 { return TYPE_STR; }
+        if name == "bytes_to_str" && index == 0 { return TYPE_I64; }
         return TYPE_UNKNOWN;
     }
 
