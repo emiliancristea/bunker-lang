@@ -1,0 +1,156 @@
+// Test 229: Safety Model, Soundness Rules, and Integer Overflow (Q-278, S-001, S-002, S-003)
+// Purpose: Verify two's complement modular arithmetic wrapping, shift masking,
+// spatial bounds safety clamping, and affine move safety per BKR-SPEC-SAFE-001.
+// Expected return: 42
+
+kernel SafetySoundnessUbKernel {
+    struct SafePoint {
+        x: i64,
+        y: i64,
+    }
+
+    fn test_i64_wrapping() -> bool {
+        let max_i64: i64 = 9223372036854775807;
+        let min_i64: i64 = -9223372036854775807 - 1;
+
+        // Addition overflow: max + 1 wraps to min
+        let add_wrap: i64 = max_i64 + 1;
+        if add_wrap != min_i64 {
+            return false;
+        }
+
+        // Subtraction underflow: min - 1 wraps to max
+        let sub_wrap: i64 = min_i64 - 1;
+        if sub_wrap != max_i64 {
+            return false;
+        }
+
+        // Multiplication wrapping: max * 2 wraps to -2
+        let mul_wrap: i64 = max_i64 * 2;
+        if mul_wrap != -2 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_i32_wrapping() -> bool {
+        let max_i32: i32 = 2147483647;
+        let min_i32: i32 = -2147483647 - 1;
+
+        let add_wrap: i32 = max_i32 + 1;
+        if add_wrap != min_i32 {
+            return false;
+        }
+
+        let sub_wrap: i32 = min_i32 - 1;
+        if sub_wrap != max_i32 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_shift_masking() -> bool {
+        let min_i64: i64 = -9223372036854775807 - 1;
+        let one_64: i64 = 1;
+
+        // 1 << 63 produces i64::MIN
+        let shift_msb: i64 = one_64 << 63;
+        if shift_msb != min_i64 {
+            return false;
+        }
+
+        // Shift amounts are masked by bitwidth - 1 (63 for i64):
+        // 1 << 64 is equivalent to 1 << 0 (1)
+        let shift_64: i64 = one_64 << 64;
+        if shift_64 != 1 {
+            return false;
+        }
+
+        // 1 << 65 is equivalent to 1 << 1 (2)
+        let shift_65: i64 = one_64 << 65;
+        if shift_65 != 2 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_spatial_bounds_safety() -> bool {
+        let arr: [i32; 3] = [100, 200, 300];
+        let sl: Slice<i32> = arr[0..3];
+
+        // Valid access
+        let v0: i32 = slice_get(sl, 0);
+        let v1: i32 = slice_get(sl, 1);
+        let v2: i32 = slice_get(sl, 2);
+        if v0 != 100 || v1 != 200 || v2 != 300 {
+            return false;
+        }
+
+        // Out-of-bounds access is safely clamped, never invoking undefined memory faults
+        let oob_high: i32 = slice_get(sl, 10);
+        let oob_neg: i32 = slice_get(sl, -1);
+        if oob_high != 0 || oob_neg != 0 {
+            return false;
+        }
+
+        // Vector recoverable bounds via Option
+        let v: Vec<i64> = vec_new();
+        vec_push(v, 42);
+        let opt_in: Option<i64> = vec_get_opt(v, 0);
+        let opt_out: Option<i64> = vec_get_opt(v, 99);
+
+        let ok_in: bool = match opt_in {
+            Some(val) => val == 42;
+            None => false;
+        };
+        let ok_out: bool = match opt_out {
+            Some(val) => false;
+            None => true;
+        };
+
+        return ok_in && ok_out;
+    }
+
+    fn test_affine_ownership_safety() -> bool {
+        let mut p = SafePoint { x: 10, y: 20 };
+        let consumer = p; // p moved to consumer
+        if consumer.x != 10 || consumer.y != 20 {
+            return false;
+        }
+
+        // Reinitializing p clears moved state safely
+        p = SafePoint { x: 30, y: 40 };
+        if p.x != 30 || p.y != 40 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i64 {
+        if !test_i64_wrapping() {
+            return 1;
+        }
+
+        if !test_i32_wrapping() {
+            return 2;
+        }
+
+        if !test_shift_masking() {
+            return 3;
+        }
+
+        if !test_spatial_bounds_safety() {
+            return 4;
+        }
+
+        if !test_affine_ownership_safety() {
+            return 5;
+        }
+
+        return 42;
+    }
+}
