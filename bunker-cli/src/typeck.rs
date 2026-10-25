@@ -277,6 +277,9 @@ impl TypeChecker {
                 Type::Array(elem, len) => {
                     return Type::Array(Box::new(self.resolve_alias(elem)), *len);
                 }
+                Type::Slice(elem) => {
+                    return Type::Slice(Box::new(self.resolve_alias(elem)));
+                }
                 Type::Tuple(elems) => {
                     return Type::Tuple(elems.iter().map(|e| self.resolve_alias(e)).collect());
                 }
@@ -769,7 +772,7 @@ impl TypeChecker {
                     other => {
                         let iter_ty = self.infer_expr(other, context)?;
                         match &iter_ty {
-                            Type::Array(elem, _) => (**elem).clone(),
+                            Type::Array(elem, _) | Type::Slice(elem) | Type::Vec(elem) => (**elem).clone(),
                             _ => {
                                 self.errors.push(TypeError {
                                     message: format!(
@@ -1238,6 +1241,23 @@ impl TypeChecker {
             }
             Expr::Index { expr, index } => {
                 let expr_ty = self.infer_expr(expr, context)?;
+
+                // If index is a range (e.g. arr[start..end]), this is a slice operation
+                if matches!(index.as_ref(), Expr::Range { .. }) {
+                    match expr_ty {
+                        Type::Array(elem, _) | Type::Vec(elem) | Type::Slice(elem) => {
+                            return Ok(Type::Slice(elem));
+                        }
+                        _ => {
+                            self.errors.push(TypeError {
+                                message: format!("Cannot slice {:?}", expr_ty),
+                                location: context.to_string(),
+                            });
+                            return Ok(Type::I32);
+                        }
+                    }
+                }
+
                 let index_ty = self.infer_expr(index, context)?;
 
                 if !matches!(index_ty, Type::I32 | Type::I64) {
@@ -1249,6 +1269,8 @@ impl TypeChecker {
 
                 match expr_ty {
                     Type::Array(elem, _) => Ok(*elem),
+                    Type::Slice(elem) => Ok(*elem),
+                    Type::Vec(elem) => Ok(*elem),
                     _ => {
                         self.errors.push(TypeError {
                             message: format!("Cannot index {:?}", expr_ty),
@@ -2466,6 +2488,20 @@ impl TypeChecker {
                     ),
                 )
             }
+            "slice_new" | "slice_sub" | "slice_to_vec" | "vec_as_slice" | "vec_slice"
+            | "bytes_as_slice" | "bytes_slice" | "file_read" | "file_write" | "file_size"
+            | "file_remove" | "file_read_bytes" | "file_write_bytes" | "dir_create"
+            | "dir_remove" => {
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                Ok(
+                    builtins::infer_special_builtin_call_type(name, &arg_types, expected).or_else(
+                        || {
+                            builtins::lookup_typecheck_builtin(name)
+                                .map(|spec| spec.return_type.to_ast_type())
+                        },
+                    ),
+                )
+            }
             _ => Ok(None),
         }
     }
@@ -2553,6 +2589,7 @@ impl TypeChecker {
                 | Type::Vec(_)
                 | Type::HashMap(_, _)
                 | Type::Array(_, _)
+                | Type::Slice(_)
                 | Type::Ref { .. }
                 | Type::Named(_)
         )
@@ -3111,9 +3148,9 @@ impl TypeChecker {
     fn matches_builtin_arg_rule(&self, rule: BuiltinArgRule, ty: &Type) -> bool {
         match rule {
             BuiltinArgRule::Any => true,
-            BuiltinArgRule::Str => matches!(ty, Type::Str),
+            BuiltinArgRule::Str => matches!(ty, Type::Str) || matches!(ty, Type::Named(name) if name == "Path"),
             BuiltinArgRule::Integer => self.is_integer(ty) || self.is_unit_enum(ty),
-            BuiltinArgRule::StrOrArray => matches!(ty, Type::Str | Type::Array(_, _)),
+            BuiltinArgRule::StrOrArray => matches!(ty, Type::Str | Type::Array(_, _) | Type::Slice(_)),
         }
     }
 
@@ -3391,6 +3428,17 @@ impl TypeChecker {
         }
         // Arrays with same element type
         if let (Type::Array(e1, _), Type::Array(e2, _)) = (expected, actual) {
+            return self.types_compatible(e1, e2);
+        }
+        // Slices with compatible element types
+        if let (Type::Slice(e1), Type::Slice(e2)) = (expected, actual) {
+            return self.types_compatible(e1, e2);
+        }
+        // Array or Vec compatible with Slice of same element type
+        if let (Type::Slice(e1), Type::Array(e2, _)) = (expected, actual) {
+            return self.types_compatible(e1, e2);
+        }
+        if let (Type::Slice(e1), Type::Vec(e2)) = (expected, actual) {
             return self.types_compatible(e1, e2);
         }
         // Option types with compatible inner types
@@ -3750,6 +3798,7 @@ pub fn lower_type_aliases(file: &mut ast::File) {
                 resolve_ty(v, aliases);
             }
             ast::Type::Array(elem, _) => resolve_ty(elem, aliases),
+            ast::Type::Slice(elem) => resolve_ty(elem, aliases),
             ast::Type::Tuple(elems) => {
                 for elem in elems {
                     resolve_ty(elem, aliases);

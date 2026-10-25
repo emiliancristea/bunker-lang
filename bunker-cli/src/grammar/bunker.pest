@@ -269,6 +269,7 @@ type_expr = {
     vec_type |
     hashmap_type |
     array_type |
+    slice_type |
     ref_type |
     fn_type |
     base_type
@@ -282,6 +283,7 @@ result_type = { "Result<" ~ type_expr ~ "," ~ type_expr ~ ">" }
 vec_type = { "Vec<" ~ type_expr ~ ">" }
 hashmap_type = { "HashMap<" ~ type_expr ~ "," ~ type_expr ~ ">" }
 array_type = { "[" ~ type_expr ~ ";" ~ integer ~ "]" }
+slice_type = { ("[" ~ type_expr ~ "]") | ("Slice<" ~ type_expr ~ ">") }
 ref_type = { "&" ~ "mut"? ~ type_expr }
 fn_type = { "fn" ~ "(" ~ fn_params? ~ ")" ~ fn_ret? }
 fn_params = { type_expr ~ ("," ~ type_expr)* ~ ","? }

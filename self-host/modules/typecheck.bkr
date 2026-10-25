@@ -580,6 +580,27 @@
         if name == "bytes_push" { return 2; }
         if name == "bytes_from_str" { return 1; }
         if name == "bytes_to_str" { return 1; }
+        if name == "slice_new" { return 3; }
+        if name == "slice_len" { return 1; }
+        if name == "slice_get" { return 2; }
+        if name == "slice_sub" { return 3; }
+        if name == "slice_to_vec" { return 1; }
+        if name == "slice_contains" { return 2; }
+        if name == "vec_as_slice" { return 1; }
+        if name == "vec_slice" { return 3; }
+        if name == "bytes_as_slice" { return 1; }
+        if name == "bytes_slice" { return 3; }
+        if name == "path_exists" { return 1; }
+        if name == "path_is_file" { return 1; }
+        if name == "path_is_dir" { return 1; }
+        if name == "file_read" { return 1; }
+        if name == "file_write" { return 2; }
+        if name == "file_size" { return 1; }
+        if name == "file_remove" { return 1; }
+        if name == "file_read_bytes" { return 1; }
+        if name == "file_write_bytes" { return 2; }
+        if name == "dir_create" { return 1; }
+        if name == "dir_remove" { return 1; }
         return -1;
     }
 
@@ -697,6 +718,39 @@
         if name == "bytes_push" && index == 1 { return TYPE_I64; }
         if name == "bytes_from_str" && index == 0 { return TYPE_STR; }
         if name == "bytes_to_str" && index == 0 { return TYPE_I64; }
+        if name == "slice_new" && index == 0 { return TYPE_I64; }
+        if name == "slice_new" && index == 1 { return TYPE_I64; }
+        if name == "slice_new" && index == 2 { return TYPE_I64; }
+        if name == "slice_len" && index == 0 { return TYPE_I64; }
+        if name == "slice_get" && index == 0 { return TYPE_I64; }
+        if name == "slice_get" && index == 1 { return TYPE_I64; }
+        if name == "slice_sub" && index == 0 { return TYPE_I64; }
+        if name == "slice_sub" && index == 1 { return TYPE_I64; }
+        if name == "slice_sub" && index == 2 { return TYPE_I64; }
+        if name == "slice_to_vec" && index == 0 { return TYPE_I64; }
+        if name == "slice_contains" && index == 0 { return TYPE_I64; }
+        if name == "slice_contains" && index == 1 { return TYPE_I64; }
+        if name == "vec_as_slice" && index == 0 { return TYPE_I64; }
+        if name == "vec_slice" && index == 0 { return TYPE_I64; }
+        if name == "vec_slice" && index == 1 { return TYPE_I64; }
+        if name == "vec_slice" && index == 2 { return TYPE_I64; }
+        if name == "bytes_as_slice" && index == 0 { return TYPE_I64; }
+        if name == "bytes_slice" && index == 0 { return TYPE_I64; }
+        if name == "bytes_slice" && index == 1 { return TYPE_I64; }
+        if name == "bytes_slice" && index == 2 { return TYPE_I64; }
+        if name == "path_exists" && index == 0 { return TYPE_STR; }
+        if name == "path_is_file" && index == 0 { return TYPE_STR; }
+        if name == "path_is_dir" && index == 0 { return TYPE_STR; }
+        if name == "file_read" && index == 0 { return TYPE_STR; }
+        if name == "file_write" && index == 0 { return TYPE_STR; }
+        if name == "file_write" && index == 1 { return TYPE_STR; }
+        if name == "file_size" && index == 0 { return TYPE_STR; }
+        if name == "file_remove" && index == 0 { return TYPE_STR; }
+        if name == "file_read_bytes" && index == 0 { return TYPE_STR; }
+        if name == "file_write_bytes" && index == 0 { return TYPE_STR; }
+        if name == "file_write_bytes" && index == 1 { return TYPE_I64; }
+        if name == "dir_create" && index == 0 { return TYPE_STR; }
+        if name == "dir_remove" && index == 0 { return TYPE_STR; }
         return TYPE_UNKNOWN;
     }
 

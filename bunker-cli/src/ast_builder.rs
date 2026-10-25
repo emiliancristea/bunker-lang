@@ -444,6 +444,15 @@ fn build_type(pair: Pair<Rule>) -> Result<Type, String> {
                 }
                 return Ok(Type::Array(Box::new(elem_type), size));
             }
+            Rule::slice_type => {
+                let mut elem_type = Type::I32;
+                for slice_inner in inner.into_inner() {
+                    if slice_inner.as_rule() == Rule::type_expr {
+                        elem_type = build_type(slice_inner)?;
+                    }
+                }
+                return Ok(Type::Slice(Box::new(elem_type)));
+            }
             Rule::ref_type => {
                 let mut inner_type = Type::I32;
                 let text = inner.as_str();

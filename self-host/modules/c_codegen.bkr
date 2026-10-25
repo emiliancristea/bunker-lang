@@ -271,6 +271,27 @@
         if raw == "bytes_push" { return "bytes_push"; }
         if raw == "bytes_from_str" { return "bytes_from_str"; }
         if raw == "bytes_to_str" { return "bytes_to_str"; }
+        if raw == "slice_new" { return "slice_new"; }
+        if raw == "slice_len" { return "slice_len"; }
+        if raw == "slice_get" { return "slice_get"; }
+        if raw == "slice_sub" { return "slice_sub"; }
+        if raw == "slice_to_vec" { return "slice_to_vec"; }
+        if raw == "slice_contains" { return "slice_contains"; }
+        if raw == "vec_as_slice" { return "vec_as_slice"; }
+        if raw == "vec_slice" { return "vec_slice"; }
+        if raw == "bytes_as_slice" { return "bytes_as_slice"; }
+        if raw == "bytes_slice" { return "bytes_slice"; }
+        if raw == "path_exists" { return "path_exists"; }
+        if raw == "path_is_file" { return "path_is_file"; }
+        if raw == "path_is_dir" { return "path_is_dir"; }
+        if raw == "file_read" { return "file_read"; }
+        if raw == "file_write" { return "file_write"; }
+        if raw == "file_size" { return "file_size"; }
+        if raw == "file_remove" { return "file_remove"; }
+        if raw == "file_read_bytes" { return "file_read_bytes"; }
+        if raw == "file_write_bytes" { return "file_write_bytes"; }
+        if raw == "dir_create" { return "dir_create"; }
+        if raw == "dir_remove" { return "dir_remove"; }
         return "";
     }
 
@@ -401,6 +422,27 @@
         if raw == "bytes_push" { return TYPE_BOOL; }
         if raw == "bytes_from_str" { return TYPE_I64; }
         if raw == "bytes_to_str" { return TYPE_STR; }
+        if raw == "slice_new" { return TYPE_I64; }
+        if raw == "slice_len" { return TYPE_I64; }
+        if raw == "slice_get" { return TYPE_I64; }
+        if raw == "slice_sub" { return TYPE_I64; }
+        if raw == "slice_to_vec" { return TYPE_I64; }
+        if raw == "slice_contains" { return TYPE_BOOL; }
+        if raw == "vec_as_slice" { return TYPE_I64; }
+        if raw == "vec_slice" { return TYPE_I64; }
+        if raw == "bytes_as_slice" { return TYPE_I64; }
+        if raw == "bytes_slice" { return TYPE_I64; }
+        if raw == "path_exists" { return TYPE_BOOL; }
+        if raw == "path_is_file" { return TYPE_BOOL; }
+        if raw == "path_is_dir" { return TYPE_BOOL; }
+        if raw == "file_read" { return TYPE_RESULT; }
+        if raw == "file_write" { return TYPE_RESULT; }
+        if raw == "file_size" { return TYPE_RESULT; }
+        if raw == "file_remove" { return TYPE_RESULT; }
+        if raw == "file_read_bytes" { return TYPE_RESULT; }
+        if raw == "file_write_bytes" { return TYPE_RESULT; }
+        if raw == "dir_create" { return TYPE_RESULT; }
+        if raw == "dir_remove" { return TYPE_RESULT; }
         return TYPE_UNKNOWN;
     }
 

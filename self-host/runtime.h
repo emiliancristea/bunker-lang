@@ -17,6 +17,9 @@
 #include <windows.h>
 #else
 #include <sys/time.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 #endif
 
 /* ============================================
@@ -375,6 +378,94 @@ static inline bkr_str bytes_to_str(bkr_i64 handle) {
     memcpy(s, b->data, (size_t)b->len);
     s[b->len] = '\0';
     return s;
+}
+
+/* ============================================
+ * Slices (D-008)
+ * ============================================ */
+
+typedef struct {
+    void* data;
+    bkr_i64 len;
+    bkr_i64 elem_size;
+} BkrSlice;
+
+static inline bkr_i64 slice_new(bkr_i64 data_ptr, bkr_i64 len, bkr_i64 elem_size) {
+    BkrSlice* s = (BkrSlice*)bkr_arena_alloc(sizeof(BkrSlice), sizeof(void*));
+    if (!s) return 0;
+    if (len < 0 || data_ptr == 0) len = 0;
+    if (elem_size <= 0) elem_size = 8;
+    s->data = (void*)(intptr_t)data_ptr;
+    s->len = len;
+    s->elem_size = elem_size;
+    return (bkr_i64)(intptr_t)s;
+}
+
+static inline bkr_i64 slice_len(bkr_i64 handle) {
+    BkrSlice* s = (BkrSlice*)(intptr_t)handle;
+    if (!s) return 0;
+    return s->len;
+}
+
+static inline bkr_i64 slice_get(bkr_i64 handle, bkr_i64 index) {
+    BkrSlice* s = (BkrSlice*)(intptr_t)handle;
+    if (!s || index < 0 || index >= s->len || !s->data) return 0;
+    uint8_t* raw = (uint8_t*)s->data;
+    if (s->elem_size == 1) return (bkr_i64)raw[index];
+    if (s->elem_size == 4) return (bkr_i64)((int32_t*)raw)[index];
+    return ((bkr_i64*)raw)[index];
+}
+
+static inline bkr_i64 slice_sub(bkr_i64 handle, bkr_i64 start, bkr_i64 sub_len) {
+    BkrSlice* s = (BkrSlice*)(intptr_t)handle;
+    if (!s || start < 0 || sub_len <= 0 || !s->data || start >= s->len) {
+        return slice_new(0, 0, s ? s->elem_size : 8);
+    }
+    bkr_i64 avail = s->len - start;
+    bkr_i64 actual = (sub_len > avail) ? avail : sub_len;
+    uint8_t* sub_data = (uint8_t*)s->data + (start * s->elem_size);
+    return slice_new((bkr_i64)(intptr_t)sub_data, actual, s->elem_size);
+}
+
+static inline bkr_bool slice_contains(bkr_i64 handle, bkr_i64 item) {
+    BkrSlice* s = (BkrSlice*)(intptr_t)handle;
+    if (!s || !s->data || s->len <= 0) return BKR_FALSE;
+    for (bkr_i64 i = 0; i < s->len; i++) {
+        if (slice_get(handle, i) == item) return BKR_TRUE;
+    }
+    return BKR_FALSE;
+}
+
+static inline bkr_i64 slice_to_vec(bkr_i64 handle) {
+    bkr_i64 v_handle = vec_new();
+    BkrSlice* s = (BkrSlice*)(intptr_t)handle;
+    if (!s || !s->data || s->len <= 0) return v_handle;
+    for (bkr_i64 i = 0; i < s->len; i++) {
+        vec_push(v_handle, slice_get(handle, i));
+    }
+    return v_handle;
+}
+
+static inline bkr_i64 vec_as_slice(bkr_i64 vec_handle) {
+    BkrVec* v = (BkrVec*)(intptr_t)vec_handle;
+    if (!v) return slice_new(0, 0, 8);
+    return slice_new((bkr_i64)(intptr_t)v->data, v->len, 8);
+}
+
+static inline bkr_i64 vec_slice(bkr_i64 vec_handle, bkr_i64 start, bkr_i64 sub_len) {
+    bkr_i64 full = vec_as_slice(vec_handle);
+    return slice_sub(full, start, sub_len);
+}
+
+static inline bkr_i64 bytes_as_slice(bkr_i64 handle) {
+    BkrBytes* b = (BkrBytes*)(intptr_t)handle;
+    if (!b) return slice_new(0, 0, 1);
+    return slice_new((bkr_i64)(intptr_t)b->data, b->len, 1);
+}
+
+static inline bkr_i64 bytes_slice(bkr_i64 handle, bkr_i64 start, bkr_i64 sub_len) {
+    bkr_i64 full = bytes_as_slice(handle);
+    return slice_sub(full, start, sub_len);
 }
 
 /* ============================================
@@ -935,7 +1026,7 @@ static inline bkr_i32 hashmap_clear(bkr_i64 handle) {
  * File I/O
  * ============================================ */
 
-static inline bkr_str file_read(bkr_str path) {
+static inline bkr_str bkr_raw_file_read(bkr_str path) {
     FILE* f = fopen(path, "rb");
     if (!f) return "";
     fseek(f, 0, SEEK_END);
@@ -956,7 +1047,7 @@ static inline bkr_str file_read(bkr_str path) {
     return buf;
 }
 
-static inline bkr_bool file_write(bkr_str path, bkr_str content) {
+static inline bkr_bool bkr_raw_file_write(bkr_str path, bkr_str content) {
     FILE* f = fopen(path, "wb");
     if (!f) return BKR_FALSE;
     fputs(content, f);
@@ -965,11 +1056,11 @@ static inline bkr_bool file_write(bkr_str path, bkr_str content) {
 }
 
 static inline bkr_str read_file(bkr_str path) {
-    return file_read(path);
+    return bkr_raw_file_read(path);
 }
 
 static inline bkr_bool write_file(bkr_str path, bkr_str content) {
-    return file_write(path, content);
+    return bkr_raw_file_write(path, content);
 }
 
 static inline bkr_bool file_exists(bkr_str path) {
@@ -977,6 +1068,135 @@ static inline bkr_bool file_exists(bkr_str path) {
     if (!f) return BKR_FALSE;
     fclose(f);
     return BKR_TRUE;
+}
+
+static inline bkr_bool path_exists(bkr_str path) {
+    if (!path) return BKR_FALSE;
+    FILE* f = fopen(path, "rb");
+    if (f) { fclose(f); return BKR_TRUE; }
+#ifdef _WIN32
+    DWORD attr = GetFileAttributesA(path);
+    return (attr != INVALID_FILE_ATTRIBUTES) ? BKR_TRUE : BKR_FALSE;
+#else
+    struct stat st;
+    return (stat(path, &st) == 0) ? BKR_TRUE : BKR_FALSE;
+#endif
+}
+
+static inline bkr_bool path_is_file(bkr_str path) {
+    if (!path) return BKR_FALSE;
+#ifdef _WIN32
+    DWORD attr = GetFileAttributesA(path);
+    if (attr == INVALID_FILE_ATTRIBUTES) return BKR_FALSE;
+    return (attr & FILE_ATTRIBUTE_DIRECTORY) ? BKR_FALSE : BKR_TRUE;
+#else
+    struct stat st;
+    if (stat(path, &st) != 0) return BKR_FALSE;
+    return S_ISREG(st.st_mode) ? BKR_TRUE : BKR_FALSE;
+#endif
+}
+
+static inline bkr_bool path_is_dir(bkr_str path) {
+    if (!path) return BKR_FALSE;
+#ifdef _WIN32
+    DWORD attr = GetFileAttributesA(path);
+    if (attr == INVALID_FILE_ATTRIBUTES) return BKR_FALSE;
+    return (attr & FILE_ATTRIBUTE_DIRECTORY) ? BKR_TRUE : BKR_FALSE;
+#else
+    struct stat st;
+    if (stat(path, &st) != 0) return BKR_FALSE;
+    return S_ISDIR(st.st_mode) ? BKR_TRUE : BKR_FALSE;
+#endif
+}
+
+static inline bkr_i64 file_read(bkr_str path) {
+    if (!path) return bkr_result_err((bkr_i64)(intptr_t)"null path");
+    bkr_str content = bkr_raw_file_read(path);
+    if (!content || (*content == '\0' && !path_exists(path))) {
+        return bkr_result_err((bkr_i64)(intptr_t)"failed to read file");
+    }
+    return bkr_result_ok((bkr_i64)(intptr_t)content);
+}
+
+static inline bkr_i64 file_write(bkr_str path, bkr_str content) {
+    if (!path || !content) return bkr_result_err((bkr_i64)(intptr_t)"null argument");
+    bkr_bool ok = bkr_raw_file_write(path, content);
+    if (!ok) return bkr_result_err((bkr_i64)(intptr_t)"failed to write file");
+    return bkr_result_ok((bkr_i64)strlen(content));
+}
+
+static inline bkr_i64 file_size(bkr_str path) {
+    if (!path) return bkr_result_err((bkr_i64)(intptr_t)"null path");
+    FILE* f = fopen(path, "rb");
+    if (!f) return bkr_result_err((bkr_i64)(intptr_t)"file not found");
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fclose(f);
+    return bkr_result_ok((bkr_i64)size);
+}
+
+static inline bkr_i64 file_remove(bkr_str path) {
+    if (!path) return bkr_result_err((bkr_i64)(intptr_t)"null path");
+    if (remove(path) == 0) return bkr_result_ok(1);
+    return bkr_result_err((bkr_i64)(intptr_t)"failed to remove file");
+}
+
+static inline bkr_i64 file_read_bytes(bkr_str path) {
+    if (!path) return bkr_result_err((bkr_i64)(intptr_t)"null path");
+    FILE* f = fopen(path, "rb");
+    if (!f) return bkr_result_err((bkr_i64)(intptr_t)"failed to open file");
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    bkr_i64 handle = bytes_new(size > 0 ? (bkr_i64)size : 8);
+    BkrBytes* b = (BkrBytes*)(intptr_t)handle;
+    if (size > 0 && b && b->data) {
+        fread(b->data, 1, (size_t)size, f);
+        b->len = (bkr_i64)size;
+    }
+    fclose(f);
+    return bkr_result_ok(handle);
+}
+
+static inline bkr_i64 file_write_bytes(bkr_str path, bkr_i64 handle) {
+    if (!path) return bkr_result_err((bkr_i64)(intptr_t)"null path");
+    BkrBytes* b = (BkrBytes*)(intptr_t)handle;
+    if (!b) return bkr_result_err((bkr_i64)(intptr_t)"null bytes");
+    FILE* f = fopen(path, "wb");
+    if (!f) return bkr_result_err((bkr_i64)(intptr_t)"failed to open file");
+    if (b->len > 0 && b->data) {
+        fwrite(b->data, 1, (size_t)b->len, f);
+    }
+    fclose(f);
+    return bkr_result_ok(b->len);
+}
+
+static inline bkr_i64 dir_create(bkr_str path) {
+    if (!path) return bkr_result_err((bkr_i64)(intptr_t)"null path");
+#ifdef _WIN32
+    if (CreateDirectoryA(path, NULL) || GetLastError() == ERROR_ALREADY_EXISTS) {
+        return bkr_result_ok(1);
+    }
+#else
+    if (mkdir(path, 0755) == 0 || errno == EEXIST) {
+        return bkr_result_ok(1);
+    }
+#endif
+    return bkr_result_err((bkr_i64)(intptr_t)"failed to create directory");
+}
+
+static inline bkr_i64 dir_remove(bkr_str path) {
+    if (!path) return bkr_result_err((bkr_i64)(intptr_t)"null path");
+#ifdef _WIN32
+    if (RemoveDirectoryA(path)) {
+        return bkr_result_ok(1);
+    }
+#else
+    if (rmdir(path) == 0) {
+        return bkr_result_ok(1);
+    }
+#endif
+    return bkr_result_err((bkr_i64)(intptr_t)"failed to remove directory");
 }
 
 /* ============================================
@@ -1048,19 +1268,11 @@ static inline bkr_i64 vec_find(bkr_i64 handle, bkr_i64 fn_ptr) {
 }
 
 static inline bkr_i64 bkr_read_file_result(bkr_str path) {
-    bkr_str content = bkr_read_file(path);
-    if (!content) {
-        return bkr_result_err((bkr_i64)(intptr_t)"failed to read file");
-    }
-    return bkr_result_ok((bkr_i64)(intptr_t)content);
+    return file_read(path);
 }
 
 static inline bkr_i64 bkr_write_file_result(bkr_str path, bkr_str content) {
-    bkr_bool ok = bkr_write_file(path, content);
-    if (!ok) {
-        return bkr_result_err((bkr_i64)(intptr_t)"failed to write file");
-    }
-    return bkr_result_ok(1);
+    return file_write(path, content);
 }
 
 static inline bkr_i64 bkr_parse_int_result(bkr_str s) {

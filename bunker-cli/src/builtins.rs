@@ -1047,6 +1047,162 @@ static TYPECHECK_BUILTINS: &[TypecheckBuiltinSpec] = &[
         }],
         return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
     },
+    // Slices (D-008)
+    TypecheckBuiltinSpec {
+        name: "slice_new",
+        arity_error: "slice_new expects 3 arguments (data_ptr, len, elem_size)",
+        params: &[
+            BuiltinParamSpec { rule: BuiltinArgRule::Integer, type_error: "slice_new expects integer data pointer" },
+            BuiltinParamSpec { rule: BuiltinArgRule::Integer, type_error: "slice_new expects integer length" },
+            BuiltinParamSpec { rule: BuiltinArgRule::Integer, type_error: "slice_new expects integer elem_size" },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "slice_len",
+        arity_error: "slice_len expects 1 argument (slice)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Any, type_error: "" }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "slice_get",
+        arity_error: "slice_get expects 2 arguments (slice, index)",
+        params: &[
+            BuiltinParamSpec { rule: BuiltinArgRule::Any, type_error: "" },
+            BuiltinParamSpec { rule: BuiltinArgRule::Integer, type_error: "slice_get expects integer index" },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "slice_sub",
+        arity_error: "slice_sub expects 3 arguments (slice, start, len)",
+        params: &[
+            BuiltinParamSpec { rule: BuiltinArgRule::Any, type_error: "" },
+            BuiltinParamSpec { rule: BuiltinArgRule::Integer, type_error: "slice_sub expects integer start" },
+            BuiltinParamSpec { rule: BuiltinArgRule::Integer, type_error: "slice_sub expects integer len" },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "slice_to_vec",
+        arity_error: "slice_to_vec expects 1 argument (slice)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Any, type_error: "" }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "slice_contains",
+        arity_error: "slice_contains expects 2 arguments (slice, item)",
+        params: &[
+            BuiltinParamSpec { rule: BuiltinArgRule::Any, type_error: "" },
+            BuiltinParamSpec { rule: BuiltinArgRule::Any, type_error: "" },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Bool),
+    },
+    TypecheckBuiltinSpec {
+        name: "vec_as_slice",
+        arity_error: "vec_as_slice expects 1 argument (vec)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Any, type_error: "" }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "vec_slice",
+        arity_error: "vec_slice expects 3 arguments (vec, start, len)",
+        params: &[
+            BuiltinParamSpec { rule: BuiltinArgRule::Any, type_error: "" },
+            BuiltinParamSpec { rule: BuiltinArgRule::Integer, type_error: "vec_slice expects integer start" },
+            BuiltinParamSpec { rule: BuiltinArgRule::Integer, type_error: "vec_slice expects integer len" },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "bytes_as_slice",
+        arity_error: "bytes_as_slice expects 1 argument (bytes)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Integer, type_error: "bytes_as_slice expects byte buffer" }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "bytes_slice",
+        arity_error: "bytes_slice expects 3 arguments (bytes, start, len)",
+        params: &[
+            BuiltinParamSpec { rule: BuiltinArgRule::Integer, type_error: "bytes_slice expects byte buffer" },
+            BuiltinParamSpec { rule: BuiltinArgRule::Integer, type_error: "bytes_slice expects integer start" },
+            BuiltinParamSpec { rule: BuiltinArgRule::Integer, type_error: "bytes_slice expects integer len" },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    // File and Path (D-013)
+    TypecheckBuiltinSpec {
+        name: "path_exists",
+        arity_error: "path_exists expects 1 argument (path)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "path_exists expects str" }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Bool),
+    },
+    TypecheckBuiltinSpec {
+        name: "path_is_file",
+        arity_error: "path_is_file expects 1 argument (path)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "path_is_file expects str" }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Bool),
+    },
+    TypecheckBuiltinSpec {
+        name: "path_is_dir",
+        arity_error: "path_is_dir expects 1 argument (path)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "path_is_dir expects str" }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Bool),
+    },
+    TypecheckBuiltinSpec {
+        name: "file_read",
+        arity_error: "file_read expects 1 argument (path)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "file_read expects str path" }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "file_write",
+        arity_error: "file_write expects 2 arguments (path, content)",
+        params: &[
+            BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "file_write expects str path" },
+            BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "file_write expects str content" },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "file_size",
+        arity_error: "file_size expects 1 argument (path)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "file_size expects str path" }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "file_remove",
+        arity_error: "file_remove expects 1 argument (path)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "file_remove expects str path" }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "file_read_bytes",
+        arity_error: "file_read_bytes expects 1 argument (path)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "file_read_bytes expects str path" }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "file_write_bytes",
+        arity_error: "file_write_bytes expects 2 arguments (path, bytes)",
+        params: &[
+            BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "file_write_bytes expects str path" },
+            BuiltinParamSpec { rule: BuiltinArgRule::Integer, type_error: "file_write_bytes expects byte buffer" },
+        ],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "dir_create",
+        arity_error: "dir_create expects 1 argument (path)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "dir_create expects str path" }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "dir_remove",
+        arity_error: "dir_remove expects 1 argument (path)",
+        params: &[BuiltinParamSpec { rule: BuiltinArgRule::Str, type_error: "dir_remove expects str path" }],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
 ];
 
 static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
@@ -1506,6 +1662,113 @@ static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
         params: &[RuntimeBuiltinType::I64],
         return_type: Some(RuntimeBuiltinType::Str),
     },
+    // Slices (D-008)
+    RuntimeBuiltinSpec {
+        name: "slice_new",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "slice_len",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "slice_get",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "slice_sub",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "slice_to_vec",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "slice_contains",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "vec_as_slice",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "vec_slice",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "bytes_as_slice",
+        params: &[RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "bytes_slice",
+        params: &[RuntimeBuiltinType::I64, RuntimeBuiltinType::I64, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    // File and Path (D-013)
+    RuntimeBuiltinSpec {
+        name: "path_exists",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "path_is_file",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "path_is_dir",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::Bool),
+    },
+    RuntimeBuiltinSpec {
+        name: "file_read",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "file_write",
+        params: &[RuntimeBuiltinType::Str, RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "file_size",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "file_remove",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "file_read_bytes",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "file_write_bytes",
+        params: &[RuntimeBuiltinType::Str, RuntimeBuiltinType::I64],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "dir_create",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "dir_remove",
+        params: &[RuntimeBuiltinType::Str],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
 ];
 
 pub fn lookup_typecheck_builtin(name: &str) -> Option<&'static TypecheckBuiltinSpec> {
@@ -1623,6 +1886,41 @@ pub fn infer_special_builtin_call_type(
         "str_split" => Some(ast::Type::Vec(Box::new(ast::Type::Str))),
         "env_var" => Some(ast::Type::Result(Box::new(ast::Type::Str), Box::new(ast::Type::Str))),
         "env_get" => Some(ast::Type::Option(Box::new(ast::Type::Str))),
+        "slice_new" => match expected {
+            Some(ast::Type::Slice(elem)) => Some(ast::Type::Slice(elem.clone())),
+            _ => Some(ast::Type::Slice(Box::new(ast::Type::I64))),
+        },
+        "slice_get" => match arg_types.first() {
+            Some(ast::Type::Slice(elem)) | Some(ast::Type::Array(elem, _)) | Some(ast::Type::Vec(elem)) => {
+                Some(elem.as_ref().clone())
+            }
+            _ => Some(ast::Type::I64),
+        },
+        "slice_sub" => match arg_types.first() {
+            Some(ast::Type::Slice(elem)) | Some(ast::Type::Array(elem, _)) | Some(ast::Type::Vec(elem)) => {
+                Some(ast::Type::Slice(elem.clone()))
+            }
+            _ => Some(ast::Type::Slice(Box::new(ast::Type::I64))),
+        },
+        "slice_to_vec" => match arg_types.first() {
+            Some(ast::Type::Slice(elem)) | Some(ast::Type::Array(elem, _)) => {
+                Some(ast::Type::Vec(elem.clone()))
+            }
+            _ => Some(ast::Type::Vec(Box::new(ast::Type::I64))),
+        },
+        "vec_as_slice" | "vec_slice" => match arg_types.first() {
+            Some(ast::Type::Vec(elem)) => Some(ast::Type::Slice(elem.clone())),
+            _ => Some(ast::Type::Slice(Box::new(ast::Type::I64))),
+        },
+        "bytes_as_slice" | "bytes_slice" => Some(ast::Type::Slice(Box::new(ast::Type::I32))),
+        "file_read" => Some(ast::Type::Result(Box::new(ast::Type::Str), Box::new(ast::Type::Str))),
+        "file_write" => Some(ast::Type::Result(Box::new(ast::Type::I64), Box::new(ast::Type::Str))),
+        "file_size" => Some(ast::Type::Result(Box::new(ast::Type::I64), Box::new(ast::Type::Str))),
+        "file_remove" => Some(ast::Type::Result(Box::new(ast::Type::Bool), Box::new(ast::Type::Str))),
+        "file_read_bytes" => Some(ast::Type::Result(Box::new(ast::Type::I64), Box::new(ast::Type::Str))),
+        "file_write_bytes" => Some(ast::Type::Result(Box::new(ast::Type::I64), Box::new(ast::Type::Str))),
+        "dir_create" => Some(ast::Type::Result(Box::new(ast::Type::Bool), Box::new(ast::Type::Str))),
+        "dir_remove" => Some(ast::Type::Result(Box::new(ast::Type::Bool), Box::new(ast::Type::Str))),
         _ => None,
     }
 }

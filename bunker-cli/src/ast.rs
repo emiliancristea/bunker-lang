@@ -441,6 +441,7 @@ pub enum Type {
     Vec(Box<Type>),                // Vec<T> - dynamic array
     HashMap(Box<Type>, Box<Type>), // HashMap<K, V>
     Array(Box<Type>, usize),
+    Slice(Box<Type>),              // Slice<T> or [T] - borrowed slice view
     Ref { mutable: bool, ty: Box<Type> },
     Fn(Vec<Type>, Box<Type>),
     Named(String),

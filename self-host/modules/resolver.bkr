@@ -282,6 +282,27 @@
         if name == "bytes_push" { return true; }
         if name == "bytes_from_str" { return true; }
         if name == "bytes_to_str" { return true; }
+        if name == "slice_new" { return true; }
+        if name == "slice_len" { return true; }
+        if name == "slice_get" { return true; }
+        if name == "slice_sub" { return true; }
+        if name == "slice_to_vec" { return true; }
+        if name == "slice_contains" { return true; }
+        if name == "vec_as_slice" { return true; }
+        if name == "vec_slice" { return true; }
+        if name == "bytes_as_slice" { return true; }
+        if name == "bytes_slice" { return true; }
+        if name == "path_exists" { return true; }
+        if name == "path_is_file" { return true; }
+        if name == "path_is_dir" { return true; }
+        if name == "file_read" { return true; }
+        if name == "file_write" { return true; }
+        if name == "file_size" { return true; }
+        if name == "file_remove" { return true; }
+        if name == "file_read_bytes" { return true; }
+        if name == "file_write_bytes" { return true; }
+        if name == "dir_create" { return true; }
+        if name == "dir_remove" { return true; }
         if name == "write_file_result" { return true; }
         if name == "hashmap_get_opt" { return true; }
         if name == "vec_get_opt" { return true; }

@@ -3026,7 +3026,16 @@ fn infer_expr_type(
             }
             ast::Type::I32
         }
-        ast::Expr::Index { expr, .. } => {
+        ast::Expr::Index { expr, index } => {
+            if matches!(index.as_ref(), ast::Expr::Range { .. }) {
+                let expr_ty = infer_expr_type(expr, var_types, structs, fn_sigs);
+                match expr_ty {
+                    ast::Type::Array(elem, _) | ast::Type::Slice(elem) | ast::Type::Vec(elem) => {
+                        return ast::Type::Slice(elem);
+                    }
+                    _ => return ast::Type::Slice(Box::new(ast::Type::I64)),
+                }
+            }
             if let Some(elem) = infer_array_elem_type(expr, var_types, structs, fn_sigs) {
                 elem
             } else {
@@ -3112,7 +3121,7 @@ fn infer_array_elem_type(
     fn_sigs: &HashMap<String, (Vec<ast::Type>, Option<ast::Type>)>,
 ) -> Option<ast::Type> {
     match infer_expr_type(expr, var_types, structs, fn_sigs) {
-        ast::Type::Array(elem, _) => Some(*elem),
+        ast::Type::Array(elem, _) | ast::Type::Slice(elem) | ast::Type::Vec(elem) => Some(*elem),
         _ => None,
     }
 }
@@ -3302,6 +3311,9 @@ fn types_compatible_ast(expected: &ast::Type, actual: &ast::Type) -> bool {
             types_compatible_ast(ok1, ok2) && types_compatible_ast(err1, err2)
         }
         (ast::Type::Array(e1, _), ast::Type::Array(e2, _)) => types_compatible_ast(e1, e2),
+        (ast::Type::Slice(e1), ast::Type::Slice(e2)) => types_compatible_ast(e1, e2),
+        (ast::Type::Slice(e1), ast::Type::Array(e2, _)) => types_compatible_ast(e1, e2),
+        (ast::Type::Slice(e1), ast::Type::Vec(e2)) => types_compatible_ast(e1, e2),
         _ => false,
     }
 }

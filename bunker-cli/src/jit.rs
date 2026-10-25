@@ -1915,6 +1915,305 @@ extern "C" fn bunker_bytes_to_str(handle: i64) -> i64 {
     }
 }
 
+// ============================================================================
+// Slices (D-008)
+// Layout: [data_ptr: *const u8, len: i64, elem_size: i64] (24 bytes)
+// ============================================================================
+
+extern "C" fn bunker_slice_new(data_ptr: i64, len: i64, elem_size: i64) -> i64 {
+    let layout = std::alloc::Layout::from_size_align(24, 8).unwrap();
+    let ptr = unsafe { std::alloc::alloc(layout) as *mut i64 };
+    if ptr.is_null() {
+        return 0;
+    }
+    let safe_len = if len < 0 || data_ptr == 0 { 0 } else { len };
+    let esize = if elem_size <= 0 { 8 } else { elem_size };
+    unsafe {
+        *ptr = data_ptr;
+        *ptr.offset(1) = safe_len;
+        *ptr.offset(2) = esize;
+    }
+    ptr as i64
+}
+
+extern "C" fn bunker_slice_len(slice_ptr: i64) -> i64 {
+    if slice_ptr == 0 { return 0; }
+    unsafe {
+        let ptr = slice_ptr as *const i64;
+        *ptr.offset(1)
+    }
+}
+
+extern "C" fn bunker_slice_get(slice_ptr: i64, index: i64) -> i64 {
+    if slice_ptr == 0 || index < 0 { return 0; }
+    unsafe {
+        let ptr = slice_ptr as *const i64;
+        let data = *ptr as *const u8;
+        let len = *ptr.offset(1);
+        let esize = *ptr.offset(2);
+        if data.is_null() || index >= len { return 0; }
+        match esize {
+            1 => *data.add(index as usize) as i64,
+            2 => *(data.add((index * 2) as usize) as *const i16) as i64,
+            4 => *(data.add((index * 4) as usize) as *const i32) as i64,
+            _ => *(data.add((index * 8) as usize) as *const i64),
+        }
+    }
+}
+
+extern "C" fn bunker_slice_sub(slice_ptr: i64, start: i64, sub_len: i64) -> i64 {
+    if slice_ptr == 0 || start < 0 || sub_len <= 0 {
+        return bunker_slice_new(0, 0, 8);
+    }
+    unsafe {
+        let ptr = slice_ptr as *const i64;
+        let data = *ptr as *const u8;
+        let len = *ptr.offset(1);
+        let esize = *ptr.offset(2);
+        if data.is_null() || start >= len {
+            return bunker_slice_new(0, 0, esize);
+        }
+        let available = len - start;
+        let actual_len = if sub_len > available { available } else { sub_len };
+        let new_data = data.add((start * esize) as usize) as i64;
+        bunker_slice_new(new_data, actual_len, esize)
+    }
+}
+
+extern "C" fn bunker_slice_contains(slice_ptr: i64, item: i64) -> i8 {
+    if slice_ptr == 0 { return 0; }
+    unsafe {
+        let ptr = slice_ptr as *const i64;
+        let len = *ptr.offset(1);
+        if len <= 0 { return 0; }
+        for i in 0..len {
+            if bunker_slice_get(slice_ptr, i) == item {
+                return 1;
+            }
+        }
+        0
+    }
+}
+
+extern "C" fn bunker_slice_to_vec(slice_ptr: i64) -> i64 {
+    let vec_handle = bunker_vec_new();
+    if slice_ptr == 0 { return vec_handle; }
+    unsafe {
+        let ptr = slice_ptr as *const i64;
+        let len = *ptr.offset(1);
+        for i in 0..len {
+            let val = bunker_slice_get(slice_ptr, i);
+            bunker_vec_push(vec_handle, val);
+        }
+    }
+    vec_handle
+}
+
+extern "C" fn bunker_vec_as_slice(vec_handle: i64) -> i64 {
+    if vec_handle == 0 { return bunker_slice_new(0, 0, 8); }
+    unsafe {
+        let header = vec_handle as *const i64;
+        let len = *header.offset(1);
+        let data = *header.offset(2);
+        bunker_slice_new(data, len, 8)
+    }
+}
+
+extern "C" fn bunker_vec_slice(vec_handle: i64, start: i64, sub_len: i64) -> i64 {
+    let full_slice = bunker_vec_as_slice(vec_handle);
+    bunker_slice_sub(full_slice, start, sub_len)
+}
+
+extern "C" fn bunker_bytes_as_slice(handle: i64) -> i64 {
+    if handle == 0 { return bunker_slice_new(0, 0, 1); }
+    unsafe {
+        let header = handle as *const i64;
+        let len = *header.offset(1);
+        let data = *header.offset(2);
+        bunker_slice_new(data, len, 1)
+    }
+}
+
+extern "C" fn bunker_bytes_slice(handle: i64, start: i64, sub_len: i64) -> i64 {
+    let full_slice = bunker_bytes_as_slice(handle);
+    bunker_slice_sub(full_slice, start, sub_len)
+}
+
+// ============================================================================
+// File and Path (D-013)
+// ============================================================================
+
+fn read_bunker_path(ptr: i64) -> Option<String> {
+    if ptr == 0 { return None; }
+    unsafe {
+        let first_word = *(ptr as *const i64);
+        if first_word > 0x10000 {
+            if let Some(s) = read_bunker_string(first_word) {
+                return Some(s);
+            }
+        }
+        read_bunker_string(ptr)
+    }
+}
+
+extern "C" fn bunker_path_exists(path_ptr: i64) -> i8 {
+    let Some(p) = read_bunker_path(path_ptr) else { return 0; };
+    if std::path::Path::new(&p).exists() { 1 } else { 0 }
+}
+
+extern "C" fn bunker_path_is_file(path_ptr: i64) -> i8 {
+    let Some(p) = read_bunker_path(path_ptr) else { return 0; };
+    if std::path::Path::new(&p).is_file() { 1 } else { 0 }
+}
+
+extern "C" fn bunker_path_is_dir(path_ptr: i64) -> i8 {
+    let Some(p) = read_bunker_path(path_ptr) else { return 0; };
+    if std::path::Path::new(&p).is_dir() { 1 } else { 0 }
+}
+
+extern "C" fn bunker_file_read(path_ptr: i64) -> i64 {
+    let Some(path_str) = read_bunker_path(path_ptr) else {
+        let err_ptr = alloc_bunker_string("null path");
+        return bunker_result_err(err_ptr);
+    };
+    match std::fs::read_to_string(&path_str) {
+        Ok(contents) => {
+            let ok_ptr = alloc_bunker_string(&contents);
+            bunker_result_ok(ok_ptr)
+        }
+        Err(e) => {
+            let err_ptr = alloc_bunker_string(&e.to_string());
+            bunker_result_err(err_ptr)
+        }
+    }
+}
+
+extern "C" fn bunker_file_write(path_ptr: i64, content_ptr: i64) -> i64 {
+    let Some(path_str) = read_bunker_path(path_ptr) else {
+        let err_ptr = alloc_bunker_string("null path");
+        return bunker_result_err(err_ptr);
+    };
+    let content_str = unsafe { read_bunker_string(content_ptr) };
+    let Some(content_str) = content_str else {
+        let err_ptr = alloc_bunker_string("null content");
+        return bunker_result_err(err_ptr);
+    };
+    match std::fs::write(&path_str, &content_str) {
+        Ok(()) => bunker_result_ok(content_str.len() as i64),
+        Err(e) => {
+            let err_ptr = alloc_bunker_string(&e.to_string());
+            bunker_result_err(err_ptr)
+        }
+    }
+}
+
+extern "C" fn bunker_file_size(path_ptr: i64) -> i64 {
+    let Some(path_str) = read_bunker_path(path_ptr) else {
+        let err_ptr = alloc_bunker_string("null path");
+        return bunker_result_err(err_ptr);
+    };
+    match std::fs::metadata(&path_str) {
+        Ok(meta) => bunker_result_ok(meta.len() as i64),
+        Err(e) => {
+            let err_ptr = alloc_bunker_string(&e.to_string());
+            bunker_result_err(err_ptr)
+        }
+    }
+}
+
+extern "C" fn bunker_file_remove(path_ptr: i64) -> i64 {
+    let Some(path_str) = read_bunker_path(path_ptr) else {
+        let err_ptr = alloc_bunker_string("null path");
+        return bunker_result_err(err_ptr);
+    };
+    match std::fs::remove_file(&path_str) {
+        Ok(()) => bunker_result_ok(1),
+        Err(e) => {
+            let err_ptr = alloc_bunker_string(&e.to_string());
+            bunker_result_err(err_ptr)
+        }
+    }
+}
+
+extern "C" fn bunker_file_read_bytes(path_ptr: i64) -> i64 {
+    let Some(path_str) = read_bunker_path(path_ptr) else {
+        let err_ptr = alloc_bunker_string("null path");
+        return bunker_result_err(err_ptr);
+    };
+    match std::fs::read(&path_str) {
+        Ok(data) => {
+            let handle = bunker_bytes_new(data.len() as i64);
+            if handle == 0 {
+                let err_ptr = alloc_bunker_string("out of memory");
+                return bunker_result_err(err_ptr);
+            }
+            unsafe {
+                let header = handle as *mut i64;
+                let dst = *header.offset(2) as *mut u8;
+                std::ptr::copy_nonoverlapping(data.as_ptr(), dst, data.len());
+                *header.offset(1) = data.len() as i64;
+            }
+            bunker_result_ok(handle)
+        }
+        Err(e) => {
+            let err_ptr = alloc_bunker_string(&e.to_string());
+            bunker_result_err(err_ptr)
+        }
+    }
+}
+
+extern "C" fn bunker_file_write_bytes(path_ptr: i64, bytes_handle: i64) -> i64 {
+    let Some(path_str) = read_bunker_path(path_ptr) else {
+        let err_ptr = alloc_bunker_string("null path");
+        return bunker_result_err(err_ptr);
+    };
+    if bytes_handle == 0 {
+        let err_ptr = alloc_bunker_string("null bytes");
+        return bunker_result_err(err_ptr);
+    }
+    unsafe {
+        let header = bytes_handle as *const i64;
+        let len = *header.offset(1) as usize;
+        let data = *header.offset(2) as *const u8;
+        let slice = std::slice::from_raw_parts(data, len);
+        match std::fs::write(&path_str, slice) {
+            Ok(()) => bunker_result_ok(len as i64),
+            Err(e) => {
+                let err_ptr = alloc_bunker_string(&e.to_string());
+                bunker_result_err(err_ptr)
+            }
+        }
+    }
+}
+
+extern "C" fn bunker_dir_create(path_ptr: i64) -> i64 {
+    let Some(path_str) = read_bunker_path(path_ptr) else {
+        let err_ptr = alloc_bunker_string("null path");
+        return bunker_result_err(err_ptr);
+    };
+    match std::fs::create_dir_all(&path_str) {
+        Ok(()) => bunker_result_ok(1),
+        Err(e) => {
+            let err_ptr = alloc_bunker_string(&e.to_string());
+            bunker_result_err(err_ptr)
+        }
+    }
+}
+
+extern "C" fn bunker_dir_remove(path_ptr: i64) -> i64 {
+    let Some(path_str) = read_bunker_path(path_ptr) else {
+        let err_ptr = alloc_bunker_string("null path");
+        return bunker_result_err(err_ptr);
+    };
+    match std::fs::remove_dir_all(&path_str) {
+        Ok(()) => bunker_result_ok(1),
+        Err(e) => {
+            let err_ptr = alloc_bunker_string(&e.to_string());
+            bunker_result_err(err_ptr)
+        }
+    }
+}
+
 // Free function to convert types (kept in sync with object codegen)
 fn convert_ast_type(ty: &ast::Type) -> types::Type {
     match ty {
@@ -2319,6 +2618,27 @@ impl KernelJit {
         builder.symbol("bunker_bytes_push", bunker_bytes_push as *const u8);
         builder.symbol("bunker_bytes_from_str", bunker_bytes_from_str as *const u8);
         builder.symbol("bunker_bytes_to_str", bunker_bytes_to_str as *const u8);
+        builder.symbol("bunker_slice_new", bunker_slice_new as *const u8);
+        builder.symbol("bunker_slice_len", bunker_slice_len as *const u8);
+        builder.symbol("bunker_slice_get", bunker_slice_get as *const u8);
+        builder.symbol("bunker_slice_sub", bunker_slice_sub as *const u8);
+        builder.symbol("bunker_slice_contains", bunker_slice_contains as *const u8);
+        builder.symbol("bunker_slice_to_vec", bunker_slice_to_vec as *const u8);
+        builder.symbol("bunker_vec_as_slice", bunker_vec_as_slice as *const u8);
+        builder.symbol("bunker_vec_slice", bunker_vec_slice as *const u8);
+        builder.symbol("bunker_bytes_as_slice", bunker_bytes_as_slice as *const u8);
+        builder.symbol("bunker_bytes_slice", bunker_bytes_slice as *const u8);
+        builder.symbol("bunker_path_exists", bunker_path_exists as *const u8);
+        builder.symbol("bunker_path_is_file", bunker_path_is_file as *const u8);
+        builder.symbol("bunker_path_is_dir", bunker_path_is_dir as *const u8);
+        builder.symbol("bunker_file_read", bunker_file_read as *const u8);
+        builder.symbol("bunker_file_write", bunker_file_write as *const u8);
+        builder.symbol("bunker_file_size", bunker_file_size as *const u8);
+        builder.symbol("bunker_file_remove", bunker_file_remove as *const u8);
+        builder.symbol("bunker_file_read_bytes", bunker_file_read_bytes as *const u8);
+        builder.symbol("bunker_file_write_bytes", bunker_file_write_bytes as *const u8);
+        builder.symbol("bunker_dir_create", bunker_dir_create as *const u8);
+        builder.symbol("bunker_dir_remove", bunker_dir_remove as *const u8);
 
         let mut module = JITModule::new(builder);
         let alloc_func = declare_alloc_func(&mut module)?;
@@ -2415,6 +2735,27 @@ impl KernelJit {
         let bytes_push_func = declare_bytes_push_func(&mut module)?;
         let bytes_from_str_func = declare_bytes_from_str_func(&mut module)?;
         let bytes_to_str_func = declare_bytes_to_str_func(&mut module)?;
+        let slice_new_func = declare_slice_new_func(&mut module)?;
+        let slice_len_func = declare_slice_len_func(&mut module)?;
+        let slice_get_func = declare_slice_get_func(&mut module)?;
+        let slice_sub_func = declare_slice_sub_func(&mut module)?;
+        let slice_contains_func = declare_slice_contains_func(&mut module)?;
+        let slice_to_vec_func = declare_slice_to_vec_func(&mut module)?;
+        let vec_as_slice_func = declare_vec_as_slice_func(&mut module)?;
+        let vec_slice_func = declare_vec_slice_func(&mut module)?;
+        let bytes_as_slice_func = declare_bytes_as_slice_func(&mut module)?;
+        let bytes_slice_func = declare_bytes_slice_func(&mut module)?;
+        let path_exists_func = declare_path_exists_func(&mut module)?;
+        let path_is_file_func = declare_path_is_file_func(&mut module)?;
+        let path_is_dir_func = declare_path_is_dir_func(&mut module)?;
+        let file_read_func = declare_file_read_func(&mut module)?;
+        let file_write_func = declare_file_write_func(&mut module)?;
+        let file_size_func = declare_file_size_func(&mut module)?;
+        let file_remove_func = declare_file_remove_func(&mut module)?;
+        let file_read_bytes_func = declare_file_read_bytes_func(&mut module)?;
+        let file_write_bytes_func = declare_file_write_bytes_func(&mut module)?;
+        let dir_create_func = declare_dir_create_func(&mut module)?;
+        let dir_remove_func = declare_dir_remove_func(&mut module)?;
         let ctx = module.make_context();
 
         // Initialize with builtin functions
@@ -2509,6 +2850,27 @@ impl KernelJit {
             ("bytes_push", bytes_push_func),
             ("bytes_from_str", bytes_from_str_func),
             ("bytes_to_str", bytes_to_str_func),
+            ("slice_new", slice_new_func),
+            ("slice_len", slice_len_func),
+            ("slice_get", slice_get_func),
+            ("slice_sub", slice_sub_func),
+            ("slice_contains", slice_contains_func),
+            ("slice_to_vec", slice_to_vec_func),
+            ("vec_as_slice", vec_as_slice_func),
+            ("vec_slice", vec_slice_func),
+            ("bytes_as_slice", bytes_as_slice_func),
+            ("bytes_slice", bytes_slice_func),
+            ("path_exists", path_exists_func),
+            ("path_is_file", path_is_file_func),
+            ("path_is_dir", path_is_dir_func),
+            ("file_read", file_read_func),
+            ("file_write", file_write_func),
+            ("file_size", file_size_func),
+            ("file_remove", file_remove_func),
+            ("file_read_bytes", file_read_bytes_func),
+            ("file_write_bytes", file_write_bytes_func),
+            ("dir_create", dir_create_func),
+            ("dir_remove", dir_remove_func),
         ] {
             register_runtime_builtin(&mut functions, &mut fn_sigs, name, func_id)?;
         }
@@ -3236,7 +3598,14 @@ fn compile_stmt_inline(
                         index,
                     )?;
 
-                    // For now assume i32 arrays, so element size is 4.
+                    let arr_ty = infer_expr_type(expr, var_types, structs, fn_sigs);
+                    let base_data_ptr = match arr_ty {
+                        ast::Type::Slice(_) => {
+                            builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 0)
+                        }
+                        _ => arr_ptr,
+                    };
+
                     let (elem_ty, elem_size_bytes) =
                         infer_array_elem_type(expr, var_types, structs, fn_sigs)
                             .map(|ty| {
@@ -3249,7 +3618,7 @@ fn compile_stmt_inline(
                     let elem_size = builder.ins().iconst(types::I64, elem_size_bytes as i64);
                     let idx_ext = builder.ins().sextend(types::I64, idx);
                     let offset = builder.ins().imul(idx_ext, elem_size);
-                    let elem_addr = builder.ins().iadd(arr_ptr, offset);
+                    let elem_addr = builder.ins().iadd(base_data_ptr, offset);
 
                     builder.ins().store(MemFlags::new(), val, elem_addr, 0);
                 }
@@ -3572,8 +3941,19 @@ fn compile_stmt_inline(
                 let Some(elem_ty) = infer_array_elem_type(iter, var_types, structs, fn_sigs) else {
                     return Err(anyhow!("for-loop requires an array or range expression"));
                 };
-                let Some(len) = infer_array_len(iter, var_types, structs, fn_sigs) else {
-                    return Err(anyhow!("for-loop requires a statically sized array"));
+                let arr_ty = infer_expr_type(iter, var_types, structs, fn_sigs);
+                let (arr_base_data, len_val) = match arr_ty {
+                    ast::Type::Slice(_) => {
+                        let data = builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 0);
+                        let len = builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 8);
+                        (data, len)
+                    }
+                    _ => {
+                        let Some(len) = infer_array_len(iter, var_types, structs, fn_sigs) else {
+                            return Err(anyhow!("for-loop requires an array or slice"));
+                        };
+                        (arr_ptr, builder.ins().iconst(types::I64, len as i64))
+                    }
                 };
 
                 let idx_var = Variable::new(*var_index as usize);
@@ -3591,7 +3971,6 @@ fn compile_stmt_inline(
 
                 builder.switch_to_block(loop_bb);
                 let idx_val = builder.use_var(idx_var);
-                let len_val = builder.ins().iconst(types::I64, len as i64);
                 let cond = builder
                     .ins()
                     .icmp(IntCC::UnsignedLessThan, idx_val, len_val);
@@ -3611,7 +3990,7 @@ fn compile_stmt_inline(
                 let elem_size = type_size(&elem_ty, structs) as i64;
                 let elem_size_val = builder.ins().iconst(types::I64, elem_size);
                 let offset = builder.ins().imul(idx_val, elem_size_val);
-                let elem_addr = builder.ins().iadd(arr_ptr, offset);
+                let elem_addr = builder.ins().iadd(arr_base_data, offset);
                 let elem_val =
                     builder
                         .ins()
@@ -5343,6 +5722,93 @@ fn compile_expr_inline(
             }
         }
         ast::Expr::Index { expr: arr, index } => {
+            if let ast::Expr::Range { start, end, inclusive } = index.as_ref() {
+                let arr_ptr = compile_expr_inline(
+                    builder,
+                    module,
+                    alloc_func,
+                    arena_push_func,
+                    arena_pop_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    defer_stack,
+                    arr,
+                )?;
+                let start_val = compile_expr_inline(
+                    builder,
+                    module,
+                    alloc_func,
+                    arena_push_func,
+                    arena_pop_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    defer_stack,
+                    start,
+                )?;
+                let end_val = compile_expr_inline(
+                    builder,
+                    module,
+                    alloc_func,
+                    arena_push_func,
+                    arena_pop_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    defer_stack,
+                    end,
+                )?;
+                let start_i64 = cast_value(builder, start_val, types::I64);
+                let end_i64 = cast_value(builder, end_val, types::I64);
+                let sub_len = if *inclusive {
+                    let diff = builder.ins().isub(end_i64, start_i64);
+                    builder.ins().iadd_imm(diff, 1)
+                } else {
+                    builder.ins().isub(end_i64, start_i64)
+                };
+                let arr_ty = infer_expr_type(arr, var_types, structs, fn_sigs);
+                match arr_ty {
+                    ast::Type::Slice(_) => {
+                        let sub_func = functions.get("slice_sub").copied().ok_or_else(|| anyhow!("missing slice_sub function"))?;
+                        let local_func = module.declare_func_in_func(sub_func, builder.func);
+                        let call = builder.ins().call(local_func, &[arr_ptr, start_i64, sub_len]);
+                        return Ok(builder.inst_results(call)[0]);
+                    }
+                    ast::Type::Vec(_) => {
+                        let vec_sub_func = functions.get("vec_slice").copied().ok_or_else(|| anyhow!("missing vec_slice function"))?;
+                        let local_func = module.declare_func_in_func(vec_sub_func, builder.func);
+                        let call = builder.ins().call(local_func, &[arr_ptr, start_i64, sub_len]);
+                        return Ok(builder.inst_results(call)[0]);
+                    }
+                    _ => {
+                        let (_elem_ty, elem_size_bytes) =
+                            infer_array_elem_type(arr, var_types, structs, fn_sigs)
+                                .map(|ty| {
+                                    let size = type_size(&ty, structs);
+                                    (ty, size)
+                                })
+                                .unwrap_or((ast::Type::I32, 4));
+                        let elem_size = builder.ins().iconst(types::I64, elem_size_bytes as i64);
+                        let byte_offset = builder.ins().imul(start_i64, elem_size);
+                        let start_addr = builder.ins().iadd(arr_ptr, byte_offset);
+                        let slice_new_func = functions.get("slice_new").copied().ok_or_else(|| anyhow!("missing slice_new function"))?;
+                        let local_func = module.declare_func_in_func(slice_new_func, builder.func);
+                        let call = builder.ins().call(local_func, &[start_addr, sub_len, elem_size]);
+                        return Ok(builder.inst_results(call)[0]);
+                    }
+                }
+            }
+
             let arr_ptr = compile_expr_inline(
                 builder,
                 module,
@@ -5373,6 +5839,13 @@ fn compile_expr_inline(
                 defer_stack,
                 index,
             )?;
+            let arr_ty = infer_expr_type(arr, var_types, structs, fn_sigs);
+            let base_data_ptr = match arr_ty {
+                ast::Type::Slice(_) => {
+                    builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 0)
+                }
+                _ => arr_ptr,
+            };
             let (elem_ty, elem_size_bytes) =
                 infer_array_elem_type(arr, var_types, structs, fn_sigs)
                     .map(|ty| {
@@ -5384,7 +5857,7 @@ fn compile_expr_inline(
             let elem_size = builder.ins().iconst(types::I64, elem_size_bytes as i64);
             let idx_ext = builder.ins().sextend(types::I64, idx);
             let offset = builder.ins().imul(idx_ext, elem_size);
-            let elem_addr = builder.ins().iadd(arr_ptr, offset);
+            let elem_addr = builder.ins().iadd(base_data_ptr, offset);
             Ok(builder
                 .ins()
                 .load(convert_ast_type(&elem_ty), MemFlags::new(), elem_addr, 0))
@@ -6347,7 +6820,16 @@ fn infer_expr_type(
             }
             ast::Type::I32
         }
-        ast::Expr::Index { expr, .. } => {
+        ast::Expr::Index { expr, index } => {
+            if matches!(index.as_ref(), ast::Expr::Range { .. }) {
+                let expr_ty = infer_expr_type(expr, var_types, structs, fn_sigs);
+                match expr_ty {
+                    ast::Type::Array(elem, _) | ast::Type::Slice(elem) | ast::Type::Vec(elem) => {
+                        return ast::Type::Slice(elem);
+                    }
+                    _ => return ast::Type::Slice(Box::new(ast::Type::I64)),
+                }
+            }
             if let Some(elem) = infer_array_elem_type(expr, var_types, structs, fn_sigs) {
                 elem
             } else {
@@ -6434,7 +6916,7 @@ fn infer_array_elem_type(
     fn_sigs: &HashMap<String, (Vec<ast::Type>, Option<ast::Type>)>,
 ) -> Option<ast::Type> {
     match infer_expr_type(expr, var_types, structs, fn_sigs) {
-        ast::Type::Array(elem, _) => Some(*elem),
+        ast::Type::Array(elem, _) | ast::Type::Slice(elem) | ast::Type::Vec(elem) => Some(*elem),
         _ => None,
     }
 }
@@ -6624,6 +7106,9 @@ fn types_compatible_ast(expected: &ast::Type, actual: &ast::Type) -> bool {
             types_compatible_ast(ok1, ok2) && types_compatible_ast(err1, err2)
         }
         (ast::Type::Array(e1, _), ast::Type::Array(e2, _)) => types_compatible_ast(e1, e2),
+        (ast::Type::Slice(e1), ast::Type::Slice(e2)) => types_compatible_ast(e1, e2),
+        (ast::Type::Slice(e1), ast::Type::Array(e2, _)) => types_compatible_ast(e1, e2),
+        (ast::Type::Slice(e1), ast::Type::Vec(e2)) => types_compatible_ast(e1, e2),
         _ => false,
     }
 }
@@ -7589,6 +8074,207 @@ fn declare_bytes_to_str_func(module: &mut JITModule) -> Result<FuncId> {
     module
         .declare_function("bunker_bytes_to_str", Linkage::Import, &sig)
         .map_err(|e| anyhow!("Failed to declare runtime bunker_bytes_to_str: {}", e))
+}
+
+fn declare_slice_new_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_slice_new", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_slice_new: {}", e))
+}
+
+fn declare_slice_len_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_slice_len", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_slice_len: {}", e))
+}
+
+fn declare_slice_get_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_slice_get", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_slice_get: {}", e))
+}
+
+fn declare_slice_sub_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_slice_sub", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_slice_sub: {}", e))
+}
+
+fn declare_slice_contains_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I8));
+    module
+        .declare_function("bunker_slice_contains", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_slice_contains: {}", e))
+}
+
+fn declare_slice_to_vec_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_slice_to_vec", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_slice_to_vec: {}", e))
+}
+
+fn declare_vec_as_slice_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_vec_as_slice", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_vec_as_slice: {}", e))
+}
+
+fn declare_vec_slice_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_vec_slice", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_vec_slice: {}", e))
+}
+
+fn declare_bytes_as_slice_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_bytes_as_slice", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_bytes_as_slice: {}", e))
+}
+
+fn declare_bytes_slice_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_bytes_slice", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_bytes_slice: {}", e))
+}
+
+fn declare_path_exists_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I8));
+    module
+        .declare_function("bunker_path_exists", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_path_exists: {}", e))
+}
+
+fn declare_path_is_file_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I8));
+    module
+        .declare_function("bunker_path_is_file", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_path_is_file: {}", e))
+}
+
+fn declare_path_is_dir_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I8));
+    module
+        .declare_function("bunker_path_is_dir", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_path_is_dir: {}", e))
+}
+
+fn declare_file_read_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_file_read", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_file_read: {}", e))
+}
+
+fn declare_file_write_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_file_write", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_file_write: {}", e))
+}
+
+fn declare_file_size_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_file_size", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_file_size: {}", e))
+}
+
+fn declare_file_remove_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_file_remove", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_file_remove: {}", e))
+}
+
+fn declare_file_read_bytes_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_file_read_bytes", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_file_read_bytes: {}", e))
+}
+
+fn declare_file_write_bytes_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_file_write_bytes", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_file_write_bytes: {}", e))
+}
+
+fn declare_dir_create_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_dir_create", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_dir_create: {}", e))
+}
+
+fn declare_dir_remove_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.params.push(AbiParam::new(types::I64));
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_dir_remove", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_dir_remove: {}", e))
 }
 
 fn emit_alloc(
