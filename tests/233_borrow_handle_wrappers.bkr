@@ -1,0 +1,127 @@
+// Test 233: Borrow/Reference Model, Slice Views, and Safe Handle Wrappers (Q-281, M-003, M-007)
+// Purpose: Verify slice borrowed views, affine value passing with explicit copy, and typed handle wrappers.
+// Expected return: 42
+
+kernel BorrowHandleWrappersKernel {
+    struct Token {
+        kind: i32,
+        span_start: i32,
+        span_end: i32,
+    }
+
+    struct AstNodeRef {
+        handle: i64,
+        kind_tag: i32,
+    }
+
+    fn inspect_token_copy(t: Token) -> i32 {
+        return t.kind + (t.span_end - t.span_start);
+    }
+
+    fn test_value_copy_borrow_alternative() -> bool {
+        let tok = Token {
+            kind: 10,
+            span_start: 5,
+            span_end: 15,
+        };
+
+        // Simpler alternative to complex reference lifetimes: explicit copy preserves caller's value
+        let val1 = inspect_token_copy(copy tok);
+
+        // 'tok' is still completely valid and uncorrupted in caller!
+        let val2 = inspect_token_copy(copy tok);
+
+        // Reading directly from tok in caller scope
+        let len = tok.span_end - tok.span_start;
+
+        return val1 == 20 && val2 == 20 && len == 10;
+    }
+
+    fn test_slice_borrowed_views() -> bool {
+        // 1. Fixed array borrowed slice
+        let mut arr: [i32; 5] = [10, 20, 30, 40, 50];
+        let sl: Slice<i32> = arr[1..4]; // window over indices 1, 2, 3: [20, 30, 40]
+
+        let len: i64 = slice_len(sl);
+        let s0: i32 = slice_get(sl, 0);
+        let s1: i32 = slice_get(sl, 1);
+        let s2: i32 = slice_get(sl, 2);
+
+        if len != 3 || s0 != 20 || s1 != 30 || s2 != 40 {
+            return false;
+        }
+
+        // Sub-slice view
+        let sub_sl: Slice<i32> = slice_sub(sl, 1, 2); // window over [30, 40]
+        if slice_len(sub_sl) != 2 || slice_get(sub_sl, 0) != 30 || slice_get(sub_sl, 1) != 40 {
+            return false;
+        }
+
+        // 2. Vector borrowed slice
+        let v: Vec<i64> = vec_new();
+        vec_push(v, 100);
+        vec_push(v, 200);
+        vec_push(v, 300);
+
+        let v_slice: Slice<i64> = vec_as_slice(v);
+        if slice_len(v_slice) != 3 || slice_get(v_slice, 0) != 100 || slice_get(v_slice, 2) != 300 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_typed_handle_wrappers() -> bool {
+        // 1. Result handle roundtrip with explicit checked cast
+        let r_ok: Result<i32, str> = result_ok(42);
+        let raw_handle: i64 = r_ok as i64;
+
+        // Cast raw handle back to typed wrapper
+        let typed_res: Result<i32, str> = raw_handle as Result<i32, str>;
+
+        if !result_is_ok(typed_res) {
+            return false;
+        }
+        let unwrapped = result_unwrap(typed_res);
+        if unwrapped != 42 {
+            return false;
+        }
+
+        // 2. Strongly-typed wrapper struct over raw bootstrap node handles
+        let node_ref = AstNodeRef {
+            handle: 1042,
+            kind_tag: 7,
+        };
+
+        if node_ref.handle != 1042 || node_ref.kind_tag != 7 {
+            return false;
+        }
+
+        // 3. Typed Vec and HashMap handle safety
+        let m: HashMap<str, i64> = hashmap_new();
+        hashmap_insert(m, "key_a", 123);
+        let opt_val = hashmap_get_opt(m, "key_a");
+        let ok_val = match opt_val {
+            Some(v) => v == 123;
+            None => false;
+        };
+
+        return ok_val;
+    }
+
+    fn main() -> i64 {
+        if !test_value_copy_borrow_alternative() {
+            return 1;
+        }
+
+        if !test_slice_borrowed_views() {
+            return 2;
+        }
+
+        if !test_typed_handle_wrappers() {
+            return 3;
+        }
+
+        return 42;
+    }
+}

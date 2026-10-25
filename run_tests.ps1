@@ -154,6 +154,7 @@ $expectedResults = @{
     "229_safety_soundness_ub" = 42
     "231_sandbox_security_bounds" = 42
     "232_arena_resource_drop" = 42
+    "233_borrow_handle_wrappers" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
