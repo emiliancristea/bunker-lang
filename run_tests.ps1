@@ -159,6 +159,7 @@ $expectedResults = @{
     "235_method_dispatch_rules" = 42
     "237_operator_policy_rules" = 42
     "239_generic_structural_constraints" = 42
+    "240_type_diagnostics_parity" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
