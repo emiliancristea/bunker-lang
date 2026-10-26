@@ -1,0 +1,125 @@
+// Test 235: Method Dispatch Rules and Trait/Interface Behavior (Q-283, T-019, T-020, D-004)
+// Purpose: Verify static method dispatch, Uniform Function Call Syntax (UFCS),
+//          shared behavior without inheritance across distinct struct types,
+//          implicit self receiver inference, and associated static constructors.
+// Expected: JIT returns 42
+
+kernel MethodDispatchRulesTest {
+    struct Rect {
+        w: i32,
+        h: i32
+    }
+
+    struct Square {
+        side: i32
+    }
+
+    // Associated static constructors (no self receiver)
+    fn Rect::new(w: i32, h: i32) -> Rect {
+        return Rect { w: w, h: h };
+    }
+
+    fn Square::new(side: i32) -> Square {
+        return Square { side: side };
+    }
+
+    // Method with implicit self receiver type inference
+    fn Rect::area(self) -> i32 {
+        return self.w * self.h;
+    }
+
+    // Method with explicit self receiver type annotation
+    fn Rect::perimeter(self: Rect) -> i32 {
+        return (self.w + self.h) * 2;
+    }
+
+    // Method returning transformed struct
+    fn Rect::scale(self, factor: i32) -> Rect {
+        return Rect { w: self.w * factor, h: self.h * factor };
+    }
+
+    // Method taking multiple arguments
+    fn Rect::fits(self, max_w: i32, max_h: i32) -> bool {
+        return self.w <= max_w && self.h <= max_h;
+    }
+
+    // Shared behavior on Square without inheritance: area, perimeter, scale
+    fn Square::area(self) -> i32 {
+        return self.side * self.side;
+    }
+
+    fn Square::perimeter(self: Square) -> i32 {
+        return self.side * 4;
+    }
+
+    fn Square::scale(self, factor: i32) -> Square {
+        return Square { side: self.side * factor };
+    }
+
+    fn main() -> i32 {
+        // 1. Associated constructors
+        let r1: Rect = Rect::new(3, 4);
+        let s1: Square = Square::new(5);
+
+        // 2. Receiver call syntax
+        let r1_area: i32 = r1.area(); // 12
+        if r1_area != 12 {
+            return 1;
+        }
+
+        let s1_area: i32 = s1.area(); // 25
+        if s1_area != 25 {
+            return 2;
+        }
+
+        // 3. Path call syntax (UFCS)
+        let r1_peri: i32 = Rect::perimeter(r1); // (3+4)*2 = 14
+        if r1_peri != 14 {
+            return 3;
+        }
+
+        let s1_peri: i32 = Square::perimeter(s1); // 5*4 = 20
+        if s1_peri != 20 {
+            return 4;
+        }
+
+        // 4. UFCS on area
+        let r1_area_path: i32 = Rect::area(r1);
+        if r1_area_path != 12 {
+            return 5;
+        }
+
+        // 5. Multi-argument method call
+        let can_fit: bool = r1.fits(10, 10);
+        if !can_fit {
+            return 6;
+        }
+
+        let cannot_fit: bool = r1.fits(2, 2);
+        if cannot_fit {
+            return 7;
+        }
+
+        // 6. Transformed struct methods (advancing through local bindings)
+        let r2: Rect = r1.scale(2); // w=6, h=8
+        let r2_area: i32 = r2.area(); // 48
+        if r2_area != 48 {
+            return 8;
+        }
+
+        let s2: Square = s1.scale(2); // side=10
+        let s2_area: i32 = s2.area(); // 100
+        if s2_area != 100 {
+            return 9;
+        }
+
+        // 7. Verify shared behavior calculation totals 42
+        // r1.area() [12] + s1.perimeter() [20] + Rect::perimeter(r1) [14] - 4 = 42
+        let score: i32 = r1.area() + s1.perimeter() + Rect::perimeter(r1) - 4;
+        if score != 42 {
+            return 10;
+        }
+
+        return score;
+    }
+}
