@@ -1,0 +1,103 @@
+// Test 239: Generic Structural Constraints and Polymorphism (Q-285, T-004, T-002, T-003)
+// Purpose: Verify bounded polymorphism via structural constraints on generic type parameters,
+//          supporting multi-type method dispatch, turbofish calls, and inferred calls.
+// Expected: JIT returns 42
+
+kernel GenericStructuralConstraintsTest {
+    struct Rect {
+        w: i32,
+        h: i32
+    }
+
+    struct Square {
+        side: i32
+    }
+
+    fn Rect::area(self) -> i32 {
+        return self.w * self.h;
+    }
+
+    fn Rect::perimeter(self) -> i32 {
+        return (self.w + self.h) * 2;
+    }
+
+    fn Square::area(self) -> i32 {
+        return self.side * self.side;
+    }
+
+    fn Square::perimeter(self) -> i32 {
+        return self.side * 4;
+    }
+
+    // Generic function with structural constraint: T must provide .area()
+    fn measure_area<T>(item: T) -> i32 {
+        return item.area();
+    }
+
+    // Generic function with structural constraint: T must provide .perimeter()
+    fn measure_perimeter<T>(item: T) -> i32 {
+        return item.perimeter();
+    }
+
+    // Generic function operating on two structurally constrained types
+    fn compare_area<A, B>(a: A, b: B) -> bool {
+        return a.area() > b.area();
+    }
+
+    fn double_area<T>(item: T) -> i32 {
+        return item.area() * 2;
+    }
+
+    fn main() -> i32 {
+        let r: Rect = Rect { w: 3, h: 4 };
+        let s: Square = Square { side: 5 };
+
+        // 1. Explicit turbofish generic calls
+        let r_area: i32 = measure_area::<Rect>(r); // 12
+        if r_area != 12 {
+            return 1;
+        }
+
+        let s_peri: i32 = measure_perimeter::<Square>(s); // 20
+        if s_peri != 20 {
+            return 2;
+        }
+
+        // 2. Inferred generic calls
+        let s_area: i32 = measure_area(s); // 25
+        if s_area != 25 {
+            return 3;
+        }
+
+        let r_peri: i32 = measure_perimeter(r); // 14
+        if r_peri != 14 {
+            return 4;
+        }
+
+        // 3. Multi-type generic comparison
+        let s_larger: bool = compare_area(s, r); // 25 > 12 -> true
+        if !s_larger {
+            return 5;
+        }
+
+        let r_larger: bool = compare_area(r, s); // 12 > 25 -> false
+        if r_larger {
+            return 6;
+        }
+
+        // 4. Double area
+        let r_double: i32 = double_area(r); // 24
+        if r_double != 24 {
+            return 7;
+        }
+
+        // 5. Total calculation:
+        // r_area (12) + s_peri (20) + r_peri (14) - 4 = 42
+        let total: i32 = r_area + s_peri + r_peri - 4;
+        if total != 42 {
+            return 8;
+        }
+
+        return total;
+    }
+}

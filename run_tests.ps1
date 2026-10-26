@@ -158,6 +158,7 @@ $expectedResults = @{
     "234_self_host_move_leak_checks" = 42
     "235_method_dispatch_rules" = 42
     "237_operator_policy_rules" = 42
+    "239_generic_structural_constraints" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
