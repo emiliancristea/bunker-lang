@@ -157,6 +157,7 @@ $expectedResults = @{
     "233_borrow_handle_wrappers" = 42
     "234_self_host_move_leak_checks" = 42
     "235_method_dispatch_rules" = 42
+    "237_operator_policy_rules" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -373,7 +374,8 @@ if (-not $JitOnly) {
         "tests\190_visibility_and_mutability.bkr",
         "tests\72_file_io.bkr",
         "tests\234_self_host_move_leak_checks.bkr",
-        "tests\235_method_dispatch_rules.bkr"
+        "tests\235_method_dispatch_rules.bkr",
+        "tests\237_operator_policy_rules.bkr"
     )
 
     $subsetOk = $true
