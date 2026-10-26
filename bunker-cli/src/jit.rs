@@ -863,7 +863,7 @@ extern "C" fn bunker_vec_filter(vec_ptr: i64, fn_ptr: i64) -> i64 {
         let header = vec_ptr as *const i64;
         let length = *header.offset(1);
         let data_ptr = *header.offset(2) as *const i64;
-        let f: extern "C" fn(i64) -> i64 = std::mem::transmute(fn_ptr);
+        let f: extern "C" fn(i64) -> u8 = std::mem::transmute(fn_ptr);
         if !data_ptr.is_null() {
             for i in 0..length {
                 let val = *data_ptr.offset(i as isize);
@@ -906,7 +906,7 @@ extern "C" fn bunker_vec_find(vec_ptr: i64, fn_ptr: i64) -> i64 {
         let header = vec_ptr as *const i64;
         let length = *header.offset(1);
         let data_ptr = *header.offset(2) as *const i64;
-        let f: extern "C" fn(i64) -> i64 = std::mem::transmute(fn_ptr);
+        let f: extern "C" fn(i64) -> u8 = std::mem::transmute(fn_ptr);
         if !data_ptr.is_null() {
             for i in 0..length {
                 let val = *data_ptr.offset(i as isize);
@@ -4077,17 +4077,29 @@ fn compile_stmt_inline(
                     return Err(anyhow!("for-loop requires an array or range expression"));
                 };
                 let arr_ty = infer_expr_type(iter, var_types, structs, fn_sigs);
-                let (arr_base_data, len_val) = match arr_ty {
+                let (arr_base_data, len_val, elem_size_val) = match arr_ty {
                     ast::Type::Slice(_) => {
                         let data = builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 0);
                         let len = builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 8);
-                        (data, len)
+                        let esize = builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 16);
+                        (data, len, esize)
+                    }
+                    ast::Type::Vec(_) => {
+                        let len = builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 8);
+                        let data = builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 16);
+                        let esize = builder.ins().iconst(types::I64, 8);
+                        (data, len, esize)
                     }
                     _ => {
                         let Some(len) = infer_array_len(iter, var_types, structs, fn_sigs) else {
-                            return Err(anyhow!("for-loop requires an array or slice"));
+                            return Err(anyhow!("for-loop requires an array, slice, or vector"));
                         };
-                        (arr_ptr, builder.ins().iconst(types::I64, len as i64))
+                        let esize = type_size(&elem_ty, structs) as i64;
+                        (
+                            arr_ptr,
+                            builder.ins().iconst(types::I64, len as i64),
+                            builder.ins().iconst(types::I64, esize),
+                        )
                     }
                 };
 
@@ -4122,14 +4134,23 @@ fn compile_stmt_inline(
                 var_types.insert(var.clone(), elem_ty.clone());
 
                 let idx_val = builder.use_var(idx_var);
-                let elem_size = type_size(&elem_ty, structs) as i64;
-                let elem_size_val = builder.ins().iconst(types::I64, elem_size);
                 let offset = builder.ins().imul(idx_val, elem_size_val);
                 let elem_addr = builder.ins().iadd(arr_base_data, offset);
-                let elem_val =
-                    builder
-                        .ins()
-                        .load(convert_ast_type(&elem_ty), MemFlags::new(), elem_addr, 0);
+                let elem_val = match arr_ty {
+                    ast::Type::Vec(_) => {
+                        let raw = builder.ins().load(types::I64, MemFlags::new(), elem_addr, 0);
+                        match convert_ast_type(&elem_ty) {
+                            types::I32 => builder.ins().ireduce(types::I32, raw),
+                            types::I8 => builder.ins().ireduce(types::I8, raw),
+                            _ => raw,
+                        }
+                    }
+                    _ => {
+                        builder
+                            .ins()
+                            .load(convert_ast_type(&elem_ty), MemFlags::new(), elem_addr, 0)
+                    }
+                };
                 builder.def_var(loop_var, elem_val);
 
                 let mut body_returned = false;

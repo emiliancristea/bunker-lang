@@ -848,8 +848,31 @@ fn compile_stmt_inline(
                 let Some(elem_ty) = infer_array_elem_type(iter, var_types, structs, fn_sigs) else {
                     return Err(anyhow!("for-loop requires an array or range expression"));
                 };
-                let Some(len) = infer_array_len(iter, var_types, structs, fn_sigs) else {
-                    return Err(anyhow!("for-loop requires a statically sized array"));
+                let arr_ty = infer_expr_type(iter, var_types, structs, fn_sigs);
+                let (arr_base_data, len_val, elem_size_val) = match arr_ty {
+                    ast::Type::Slice(_) => {
+                        let data = builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 0);
+                        let len = builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 8);
+                        let esize = builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 16);
+                        (data, len, esize)
+                    }
+                    ast::Type::Vec(_) => {
+                        let len = builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 8);
+                        let data = builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 16);
+                        let esize = builder.ins().iconst(types::I64, 8);
+                        (data, len, esize)
+                    }
+                    _ => {
+                        let Some(len) = infer_array_len(iter, var_types, structs, fn_sigs) else {
+                            return Err(anyhow!("for-loop requires an array, slice, or vector"));
+                        };
+                        let esize = type_size(&elem_ty, structs) as i64;
+                        (
+                            arr_ptr,
+                            builder.ins().iconst(types::I64, len as i64),
+                            builder.ins().iconst(types::I64, esize),
+                        )
+                    }
                 };
 
                 let idx_var = Variable::new(*var_index as usize);
@@ -867,7 +890,6 @@ fn compile_stmt_inline(
 
                 builder.switch_to_block(loop_bb);
                 let idx_val = builder.use_var(idx_var);
-                let len_val = builder.ins().iconst(types::I64, len as i64);
                 let cond = builder
                     .ins()
                     .icmp(IntCC::UnsignedLessThan, idx_val, len_val);
@@ -884,14 +906,23 @@ fn compile_stmt_inline(
                 var_types.insert(var.clone(), elem_ty.clone());
 
                 let idx_val = builder.use_var(idx_var);
-                let elem_size = type_size(&elem_ty, structs) as i64;
-                let elem_size_val = builder.ins().iconst(types::I64, elem_size);
                 let offset = builder.ins().imul(idx_val, elem_size_val);
-                let elem_addr = builder.ins().iadd(arr_ptr, offset);
-                let elem_val =
-                    builder
-                        .ins()
-                        .load(convert_ast_type(&elem_ty), MemFlags::new(), elem_addr, 0);
+                let elem_addr = builder.ins().iadd(arr_base_data, offset);
+                let elem_val = match arr_ty {
+                    ast::Type::Vec(_) => {
+                        let raw = builder.ins().load(types::I64, MemFlags::new(), elem_addr, 0);
+                        match convert_ast_type(&elem_ty) {
+                            types::I32 => builder.ins().ireduce(types::I32, raw),
+                            types::I8 => builder.ins().ireduce(types::I8, raw),
+                            _ => raw,
+                        }
+                    }
+                    _ => {
+                        builder
+                            .ins()
+                            .load(convert_ast_type(&elem_ty), MemFlags::new(), elem_addr, 0)
+                    }
+                };
                 builder.def_var(loop_var, elem_val);
 
                 let mut body_returned = false;

@@ -162,6 +162,7 @@ $expectedResults = @{
     "240_type_diagnostics_parity" = 42
     "241_unicode_byte_semantics" = 42
     "243_c_runtime_abi_versioning" = 42
+    "244_collection_iterators" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
