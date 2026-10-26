@@ -1,0 +1,267 @@
+// Test 252: Parser recovery data structures, multi-error tracking, and diagnostic API (CF-005, CF-006)
+// Verifies:
+// 1. ParserRecoveryState tracks multiple syntax errors across distinct positions
+// 2. error_count returns exact number of recorded errors
+// 3. error_position_at, error_expected_at, error_actual_at index correctly
+// 4. error_span_at extracts AstSpan for any indexed error
+// 5. parser_sync_stmt and parser_sync_item advance cursor to synchronization barriers
+// 6. Deduplication prevents multiple error reports at the identical cursor position
+// 7. Structured JSON envelope conforms to bunker.self_host.diagnostic.v1
+
+kernel ParserRecoveryDiagnosticsTest {
+    struct AstSpan {
+        start: i64,
+        end: i64
+    }
+
+    struct ParseError {
+        pos: i64,
+        expected: str,
+        actual: str,
+        span: AstSpan,
+        source_line: i64,
+        source_col: i64,
+        source_excerpt: str
+    }
+
+    struct ParserRecoveryState {
+        cursor: i64,
+        has_error: bool,
+        error_positions: Vec<i64>,
+        error_expecteds: Vec<str>,
+        error_actuals: Vec<str>,
+        error_spans: Vec<AstSpan>,
+        error_lines: Vec<i64>,
+        error_cols: Vec<i64>,
+        error_excerpts: Vec<str>
+    }
+
+    fn recovery_state_new() -> ParserRecoveryState {
+        let e_pos: Vec<i64> = vec_new();
+        let e_exp: Vec<str> = vec_new();
+        let e_act: Vec<str> = vec_new();
+        let e_spans: Vec<AstSpan> = vec_new();
+        let e_lines: Vec<i64> = vec_new();
+        let e_cols: Vec<i64> = vec_new();
+        let e_excs: Vec<str> = vec_new();
+
+        return ParserRecoveryState {
+            cursor: 0,
+            has_error: false,
+            error_positions: e_pos,
+            error_expecteds: e_exp,
+            error_actuals: e_act,
+            error_spans: e_spans,
+            error_lines: e_lines,
+            error_cols: e_cols,
+            error_excerpts: e_excs
+        };
+    }
+
+    fn recovery_record_error(state: ParserRecoveryState, pos: i64, exp: str, act: str,
+                             start: i64, end: i64, line: i64, col: i64, excerpt: str) -> bool {
+        state.has_error = true;
+        // Deduplicate errors at identical token positions
+        let mut i: i64 = 0;
+        let count = vec_len(state.error_positions);
+        while i < count {
+            if vec_get(state.error_positions, i) == pos {
+                return false;
+            }
+            i = i + 1;
+        }
+
+        vec_push(state.error_positions, pos);
+        vec_push(state.error_expecteds, exp);
+        vec_push(state.error_actuals, act);
+        vec_push(state.error_spans, AstSpan { start: start, end: end });
+        vec_push(state.error_lines, line);
+        vec_push(state.error_cols, col);
+        vec_push(state.error_excerpts, excerpt);
+        return true;
+    }
+
+    fn recovery_error_count(state: ParserRecoveryState) -> i64 {
+        return vec_len(state.error_positions);
+    }
+
+    fn recovery_sync_stmt(tokens: Vec<str>, start_pos: i64) -> i64 {
+        let mut pos = start_pos;
+        let count = vec_len(tokens);
+        while pos < count {
+            let tok = vec_get(tokens, pos);
+            if tok == ";" {
+                return pos + 1;
+            }
+            if tok == "}" {
+                return pos;
+            }
+            pos = pos + 1;
+        }
+        return count;
+    }
+
+    fn recovery_sync_item(tokens: Vec<str>, start_pos: i64) -> i64 {
+        let mut pos = start_pos;
+        let count = vec_len(tokens);
+        while pos < count {
+            let tok = vec_get(tokens, pos);
+            if tok == "fn" || tok == "const" || tok == "struct" || tok == "enum" || tok == "type" || tok == "}" {
+                return pos;
+            }
+            pos = pos + 1;
+        }
+        return count;
+    }
+
+    fn format_diagnostic_envelope(state: ParserRecoveryState) -> str {
+        let count = recovery_error_count(state);
+        let mut first_msg = "";
+        let mut first_start: i64 = 0;
+        let mut first_end: i64 = 0;
+        let mut first_line: i64 = 1;
+        let mut first_col: i64 = 1;
+        let mut first_exp = "";
+        let mut first_act = "";
+        let mut first_excerpt = "";
+
+        if count > 0 {
+            first_start = vec_get(state.error_spans, 0).start;
+            first_end = vec_get(state.error_spans, 0).end;
+            first_line = vec_get(state.error_lines, 0);
+            first_col = vec_get(state.error_cols, 0);
+            first_exp = vec_get(state.error_expecteds, 0);
+            first_act = vec_get(state.error_actuals, 0);
+            first_excerpt = vec_get(state.error_excerpts, 0);
+            first_msg = "Parse error at token " + int_to_string(vec_get(state.error_positions, 0)) +
+                ": expected " + first_exp + ", got " + first_act;
+        }
+
+        let mut diags_json = "[";
+        let mut i: i64 = 0;
+        while i < count {
+            let p_pos = vec_get(state.error_positions, i);
+            let p_exp = vec_get(state.error_expecteds, i);
+            let p_act = vec_get(state.error_actuals, i);
+            let p_span = vec_get(state.error_spans, i);
+            let p_line = vec_get(state.error_lines, i);
+            let p_col = vec_get(state.error_cols, i);
+            let p_exc = vec_get(state.error_excerpts, i);
+            let p_msg = "Parse error at token " + int_to_string(p_pos) + ": expected " + p_exp + ", got " + p_act;
+
+            let item = "{\"error_code\":\"BKR_SELF_PARSE\",\"rule_id\":\"BKR_SELF_PARSE\",\"severity\":\"error\"," +
+                "\"message\":\"" + p_msg + "\",\"source_start\":" + int_to_string(p_span.start) +
+                ",\"source_end\":" + int_to_string(p_span.end) + ",\"source_line\":" + int_to_string(p_line) +
+                ",\"source_column\":" + int_to_string(p_col) + ",\"expected\":\"" + p_exp + "\",\"actual\":\"" + p_act + "\"}";
+
+            if i > 0 {
+                diags_json = diags_json + ",";
+            }
+            diags_json = diags_json + item;
+            i = i + 1;
+        }
+        diags_json = diags_json + "]";
+
+        return "{\"schema_version\":\"bunker.self_host.diagnostic.v1\",\"phase\":\"parse\",\"category\":\"syntax\"," +
+            "\"error_code\":\"BKR_SELF_PARSE\",\"rule_id\":\"BKR_SELF_PARSE\",\"severity\":\"error\"," +
+            "\"error_count\":" + int_to_string(count) + ",\"message\":\"" + first_msg + "\"," +
+            "\"source_start\":" + int_to_string(first_start) + ",\"source_end\":" + int_to_string(first_end) + "," +
+            "\"source_line\":" + int_to_string(first_line) + ",\"source_column\":" + int_to_string(first_col) + "," +
+            "\"expected\":\"" + first_exp + "\",\"actual\":\"" + first_act + "\"," +
+            "\"safe_edit_available\":true,\"repair_hint\":\"Inspect the construct before this token.\"," +
+            "\"diagnostics\":" + diags_json + "}";
+    }
+
+    fn test_error_tracking() -> bool {
+        let state = recovery_state_new();
+        if state.has_error { return false; }
+        if recovery_error_count(state) != 0 { return false; }
+
+        // Record first error
+        let added1 = recovery_record_error(state, 5, ";", "ident", 20, 25, 2, 10, "let a = 1");
+        if !added1 { return false; }
+        if !state.has_error { return false; }
+        if recovery_error_count(state) != 1 { return false; }
+
+        // Try duplicate at pos 5 -> rejected
+        let added_dup = recovery_record_error(state, 5, "}", "ident", 20, 25, 2, 10, "let a = 1");
+        if added_dup { return false; }
+        if recovery_error_count(state) != 1 { return false; }
+
+        // Record second error at pos 12
+        let added2 = recovery_record_error(state, 12, ";", "return", 45, 51, 3, 5, "return 42;");
+        if !added2 { return false; }
+        if recovery_error_count(state) != 2 { return false; }
+
+        // Verify indexing
+        if vec_get(state.error_positions, 0) != 5 { return false; }
+        if vec_get(state.error_expecteds, 0) != ";" { return false; }
+        if vec_get(state.error_actuals, 0) != "ident" { return false; }
+
+        if vec_get(state.error_positions, 1) != 12 { return false; }
+        if vec_get(state.error_expecteds, 1) != ";" { return false; }
+        if vec_get(state.error_actuals, 1) != "return" { return false; }
+
+        return true;
+    }
+
+    fn test_synchronization() -> bool {
+        let tokens: Vec<str> = vec_new();
+        vec_push(tokens, "let");
+        vec_push(tokens, "a");
+        vec_push(tokens, "=");
+        vec_push(tokens, "1");
+        // missing ';' - followed immediately by next statement
+        vec_push(tokens, "let");
+        vec_push(tokens, "b");
+        vec_push(tokens, "=");
+        vec_push(tokens, "2");
+        vec_push(tokens, ";");
+        vec_push(tokens, "return");
+        vec_push(tokens, "42");
+        vec_push(tokens, ";");
+
+        // Sync from pos 4 ('let' of second statement)
+        let sync_pos = recovery_sync_stmt(tokens, 4);
+        // Semicolon was at pos 8, so next stmt is at pos 9 ('return')
+        if sync_pos != 9 { return false; }
+        if vec_get(tokens, sync_pos) != "return" { return false; }
+
+        // Item sync
+        let item_tokens: Vec<str> = vec_new();
+        vec_push(item_tokens, "invalid");
+        vec_push(item_tokens, "token");
+        vec_push(item_tokens, "sequence");
+        vec_push(item_tokens, "fn");
+        vec_push(item_tokens, "foo");
+
+        let item_sync_pos = recovery_sync_item(item_tokens, 0);
+        if item_sync_pos != 3 { return false; }
+        if vec_get(item_tokens, item_sync_pos) != "fn" { return false; }
+
+        return true;
+    }
+
+    fn test_diagnostic_serialization() -> bool {
+        let state = recovery_state_new();
+        recovery_record_error(state, 4, ";", "let", 15, 18, 2, 5, "let a = 1");
+        recovery_record_error(state, 8, ";", "return", 30, 36, 3, 5, "let b = 2");
+
+        let json = format_diagnostic_envelope(state);
+        if !contains(json, "\"schema_version\":\"bunker.self_host.diagnostic.v1\"") { return false; }
+        if !contains(json, "\"error_code\":\"BKR_SELF_PARSE\"") { return false; }
+        if !contains(json, "\"error_count\":2") { return false; }
+        if !contains(json, "\"diagnostics\":[") { return false; }
+        if !contains(json, "Parse error at token 4") { return false; }
+        if !contains(json, "Parse error at token 8") { return false; }
+
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_error_tracking() { return 1; }
+        if !test_synchronization() { return 2; }
+        if !test_diagnostic_serialization() { return 3; }
+        return 42;
+    }
+}

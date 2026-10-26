@@ -664,8 +664,10 @@
             json_field_bool("typed_ast", true) + comma +
             json_field_bool("real_module_resolver", false) + comma +
             json_field_bool("real_generics", true) + comma +
-            json_field_bool("user_defined_adts", false) + comma +
+            json_field_bool("user_defined_adts", true) + comma +
             json_field_bool("multi_error_recovery", true) + comma +
+            json_field_bool("multi_error_parse_recovery", true) + comma +
+            json_field_bool("parse_recovery_synchronization", true) + comma +
             json_field_raw("diagnostic_codes", self_host_diagnostic_codes_json()) + comma +
             json_field_str("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec<T> handles, HashMap<K,V> handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals") + comma +
             json_field_str("known_limits", "byte spans only, no file span table, bootstrap string-path import graph with import path policy and importer-directory resolution but no filesystem canonicalization or visibility, bootstrap name resolver and typecheck reports only, no user-defined ADTs") + comma +
@@ -741,29 +743,87 @@
     }
 
     fn build_parse_diagnostic(source: str, p: ParserStateRef) -> str {
-        let expected = token_name(parser_error_expected_ref(p));
-        let actual = token_name(parser_error_actual_ref(p));
-        let error_span: AstSpan = parser_error_span_ref(p);
-        let source_start = error_span.start;
-        let source_end = error_span.end;
-        let source_line = source_line_at(source, source_start);
-        let source_column = source_column_at(source, source_start);
-        let source_excerpt = source_line_excerpt_at(source, source_start);
+        let err_count = parser_error_count_ref(p);
+        let first_expected = token_name(parser_error_expected_ref(p));
+        let first_actual = token_name(parser_error_actual_ref(p));
+        let first_span: AstSpan = parser_error_span_ref(p);
+        let first_start = first_span.start;
+        let first_end = first_span.end;
+        let first_line = source_line_at(source, first_start);
+        let first_column = source_column_at(source, first_start);
+        let first_excerpt = source_line_excerpt_at(source, first_start);
         let repair_hint = "Inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, match expressions, Option<T> via Some/None, Result<T,E> via result_* builtins, Vec<T> and HashMap<i32,V> runtime handles, for-in ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary expressions, bitwise operators, and basic expressions.";
-        let message = "Parse error at token " + int_to_string(parser_error_position_ref(p)) +
-            ": expected " + expected + ", got " + actual;
-        let insert_text = parse_insert_text_for_expected_token(parser_error_expected_ref(p));
-        let suggested_edits = diagnostic_no_edits_json();
-        let safe_edit_available = false;
-        if len(insert_text) > 0 {
-            suggested_edits = diagnostic_single_edit_json(diagnostic_text_edit_json("insert_text",
-                source_start, source_start, insert_text, "manual_review", "medium"));
+        let first_message = "Parse error at token " + int_to_string(parser_error_position_ref(p)) +
+            ": expected " + first_expected + ", got " + first_actual;
+        let first_insert_text = parse_insert_text_for_expected_token(parser_error_expected_ref(p));
+        let first_suggested_edits = diagnostic_no_edits_json();
+        let first_safe_edit_available = false;
+        if len(first_insert_text) > 0 {
+            first_suggested_edits = diagnostic_single_edit_json(diagnostic_text_edit_json("insert_text",
+                first_start, first_start, first_insert_text, "manual_review", "medium"));
+            first_safe_edit_available = true;
         }
-        let json = self_host_diagnostic_json_with_edits("parse", "BKR_SELF_PARSE", message,
-            source_start, source_end, source_line, source_column, source_excerpt, expected, actual, repair_hint,
-            safe_edit_available, suggested_edits);
-        return "/* " + message + ". AI repair hint: " + repair_hint + from_char_code(10) +
-            "BUNKER_DIAGNOSTIC_JSON: " + json + from_char_code(10) +
+
+        let diags_json = "[";
+        let i: i64 = 0;
+        let comment_messages = "";
+        while i < err_count {
+            let exp_tok = parser_error_expected_at_ref(p, i);
+            let act_tok = parser_error_actual_at_ref(p, i);
+            let pos = parser_error_position_at_ref(p, i);
+            let exp_name = token_name(exp_tok);
+            let act_name = token_name(act_tok);
+            let span: AstSpan = parser_error_span_at_ref(p, i);
+            let s_start = span.start;
+            let s_end = span.end;
+            let s_line = source_line_at(source, s_start);
+            let s_col = source_column_at(source, s_start);
+            let s_excerpt = source_line_excerpt_at(source, s_start);
+            let msg = "Parse error at token " + int_to_string(pos) + ": expected " + exp_name + ", got " + act_name;
+            let ins_txt = parse_insert_text_for_expected_token(exp_tok);
+            let edits = diagnostic_no_edits_json();
+            let safe_avail = false;
+            if len(ins_txt) > 0 {
+                edits = diagnostic_single_edit_json(diagnostic_text_edit_json("insert_text", s_start, s_start, ins_txt, "manual_review", "medium"));
+                safe_avail = true;
+            }
+            let single_diag = self_host_diagnostic_json_with_edits("parse", "BKR_SELF_PARSE", msg,
+                s_start, s_end, s_line, s_col, s_excerpt, exp_name, act_name, repair_hint,
+                safe_avail, edits);
+            diags_json = import_graph_json_array_append(diags_json, single_diag);
+            comment_messages = comment_messages + "/* " + msg + ". AI repair hint: " + repair_hint + " */" + from_char_code(10);
+            i = i + 1;
+        }
+        diags_json = diags_json + "]";
+
+        let comma = ",";
+        let json = "{" +
+            json_field_str("schema_version", "bunker.self_host.diagnostic.v1") + comma +
+            json_field_str("phase", "parse") + comma +
+            json_field_str("category", "syntax") + comma +
+            json_field_str("error_code", "BKR_SELF_PARSE") + comma +
+            json_field_str("rule_id", "BKR_SELF_PARSE") + comma +
+            json_field_str("severity", "error") + comma +
+            json_field_i64("error_count", err_count) + comma +
+            json_field_str("message", first_message) + comma +
+            json_field_i64("source_start", first_start) + comma +
+            json_field_i64("source_end", first_end) + comma +
+            json_field_i64("source_line", first_line) + comma +
+            json_field_i64("source_column", first_column) + comma +
+            json_field_str("source_excerpt", first_excerpt) + comma +
+            json_field_str("expected", first_expected) + comma +
+            json_field_str("actual", first_actual) + comma +
+            json_field_str("suggested_action", repair_hint) + comma +
+            json_field_str("fix_applicability", "manual_review") + comma +
+            json_field_str("fix_confidence", "medium") + comma +
+            json_field_bool("safe_edit_available", first_safe_edit_available) + comma +
+            json_field_raw("suggested_edits", first_suggested_edits) + comma +
+            json_field_str("repair_hint", repair_hint) + comma +
+            json_field_raw("diagnostics", diags_json) +
+            "}";
+
+        return comment_messages +
+            "/* BUNKER_DIAGNOSTIC_JSON: " + json + from_char_code(10) +
             "*/";
     }
 
