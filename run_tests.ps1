@@ -163,6 +163,8 @@ $expectedResults = @{
     "241_unicode_byte_semantics" = 42
     "243_c_runtime_abi_versioning" = 42
     "244_collection_iterators" = 42
+    "246_json_parser_writer" = 42
+    "247_diagnostics_builder" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -382,7 +384,9 @@ if (-not $JitOnly) {
         "tests\235_method_dispatch_rules.bkr",
         "tests\237_operator_policy_rules.bkr",
         "tests\241_unicode_byte_semantics.bkr",
-        "tests\243_c_runtime_abi_versioning.bkr"
+        "tests\243_c_runtime_abi_versioning.bkr",
+        "tests\246_json_parser_writer.bkr",
+        "tests\247_diagnostics_builder.bkr"
     )
 
     $subsetOk = $true

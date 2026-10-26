@@ -21,6 +21,10 @@ kernel BunkerCompiler {
 
     import "modules/c_codegen.bkr";
 
+    import "modules/json.bkr";
+
+    import "modules/diagnostic.bkr";
+
     import "modules/report_support.bkr";
 
     import "modules/ast_report.bkr";

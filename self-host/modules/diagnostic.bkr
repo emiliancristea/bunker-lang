@@ -1,0 +1,247 @@
+    // ========================================
+    // STRUCTURED DIAGNOSTICS BUILDER (R-012)
+    // ========================================
+    //
+    // Provides pure Bunker compiler diagnostic structures conforming strictly
+    // to the canonical bunker.diagnostics.v1 schema for AI-repair loops.
+
+    struct DiagnosticTextEdit {
+        kind: str,
+        source_start: i64,
+        source_end: i64,
+        replacement: str,
+        applicability: str,
+        confidence: str
+    }
+
+    struct Diagnostic {
+        error_code: str,
+        severity: str,
+        phase: str,
+        message: str,
+        file: str,
+        line: i64,
+        column: i64,
+        source_start: i64,
+        source_end: i64,
+        context: str,
+        source_line: str,
+        ai_prompt_hint: str,
+        expected_type: str,
+        found_type: str,
+        has_suggestion: bool,
+        suggestion_msg: str,
+        suggestion_edit: DiagnosticTextEdit
+    }
+
+    struct DiagnosticReport {
+        schema_version: str,
+        file: str,
+        diagnostics: Vec<Diagnostic>,
+        error_count: i64,
+        warning_count: i64
+    }
+
+    fn diag_empty_edit() -> DiagnosticTextEdit {
+        return DiagnosticTextEdit {
+            kind: "",
+            source_start: 0,
+            source_end: 0,
+            replacement: "",
+            applicability: "",
+            confidence: ""
+        };
+    }
+
+    fn diag_error(code: str, phase: str, msg: str, file: str, line: i64, col: i64) -> Diagnostic {
+        return Diagnostic {
+            error_code: code,
+            severity: "error",
+            phase: phase,
+            message: msg,
+            file: file,
+            line: line,
+            column: col,
+            source_start: 0,
+            source_end: 0,
+            context: "",
+            source_line: "",
+            ai_prompt_hint: "",
+            expected_type: "",
+            found_type: "",
+            has_suggestion: false,
+            suggestion_msg: "",
+            suggestion_edit: diag_empty_edit()
+        };
+    }
+
+    fn diag_warning(code: str, phase: str, msg: str, file: str, line: i64, col: i64) -> Diagnostic {
+        return Diagnostic {
+            error_code: code,
+            severity: "warning",
+            phase: phase,
+            message: msg,
+            file: file,
+            line: line,
+            column: col,
+            source_start: 0,
+            source_end: 0,
+            context: "",
+            source_line: "",
+            ai_prompt_hint: "",
+            expected_type: "",
+            found_type: "",
+            has_suggestion: false,
+            suggestion_msg: "",
+            suggestion_edit: diag_empty_edit()
+        };
+    }
+
+    fn diag_with_span(diag: Diagnostic, start: i64, end: i64) -> Diagnostic {
+        let mut d = diag;
+        d.source_start = start;
+        d.source_end = end;
+        return d;
+    }
+
+    fn diag_with_source(diag: Diagnostic, source_line: str, context: str) -> Diagnostic {
+        let mut d = diag;
+        d.source_line = source_line;
+        d.context = context;
+        return d;
+    }
+
+    fn diag_with_types(diag: Diagnostic, expected: str, found: str) -> Diagnostic {
+        let mut d = diag;
+        d.expected_type = expected;
+        d.found_type = found;
+        return d;
+    }
+
+    fn diag_with_hint(diag: Diagnostic, hint: str) -> Diagnostic {
+        let mut d = diag;
+        d.ai_prompt_hint = hint;
+        return d;
+    }
+
+    fn diag_with_suggestion(diag: Diagnostic, msg: str, kind: str, start: i64, end: i64,
+                            replacement: str, applicability: str, confidence: str) -> Diagnostic {
+        let mut d = diag;
+        d.has_suggestion = true;
+        d.suggestion_msg = msg;
+        d.suggestion_edit = DiagnosticTextEdit {
+            kind: kind,
+            source_start: start,
+            source_end: end,
+            replacement: replacement,
+            applicability: applicability,
+            confidence: confidence
+        };
+        return d;
+    }
+
+    fn diag_to_json(diag: Diagnostic) -> str {
+        let comma = ",";
+        let mut loc_obj = json_object_new();
+        json_object_set_str(loc_obj, "file", diag.file);
+        json_object_set_i64(loc_obj, "line", diag.line);
+        json_object_set_i64(loc_obj, "column", diag.column);
+        if diag.source_start > 0 || diag.source_end > 0 {
+            json_object_set_i64(loc_obj, "source_start", diag.source_start);
+            json_object_set_i64(loc_obj, "source_end", diag.source_end);
+        }
+        if len(diag.context) > 0 {
+            json_object_set_str(loc_obj, "context", diag.context);
+        }
+        if len(diag.source_line) > 0 {
+            json_object_set_str(loc_obj, "source_line", diag.source_line);
+        }
+
+        let mut out_obj = json_object_new();
+        json_object_set_str(out_obj, "error_code", diag.error_code);
+        json_object_set_str(out_obj, "severity", diag.severity);
+        json_object_set_str(out_obj, "phase", diag.phase);
+        json_object_set_str(out_obj, "message", diag.message);
+        json_object_set_raw(out_obj, "location", json_object_to_json(loc_obj));
+
+        if len(diag.ai_prompt_hint) > 0 {
+            json_object_set_str(out_obj, "ai_prompt_hint", diag.ai_prompt_hint);
+        }
+
+        if len(diag.expected_type) > 0 {
+            let mut exp_obj = json_object_new();
+            json_object_set_str(exp_obj, "type", diag.expected_type);
+            json_object_set_raw(out_obj, "expected", json_object_to_json(exp_obj));
+        }
+
+        if len(diag.found_type) > 0 {
+            let mut fnd_obj = json_object_new();
+            json_object_set_str(fnd_obj, "type", diag.found_type);
+            json_object_set_raw(out_obj, "found", json_object_to_json(fnd_obj));
+        }
+
+        if diag.has_suggestion {
+            let mut sugg_arr = json_array_new();
+            let mut sugg_obj = json_object_new();
+            json_object_set_str(sugg_obj, "message", diag.suggestion_msg);
+            json_object_set_str(sugg_obj, "kind", diag.suggestion_edit.kind);
+            json_object_set_i64(sugg_obj, "source_start", diag.suggestion_edit.source_start);
+            json_object_set_i64(sugg_obj, "source_end", diag.suggestion_edit.source_end);
+            json_object_set_str(sugg_obj, "replacement", diag.suggestion_edit.replacement);
+            json_object_set_str(sugg_obj, "applicability", diag.suggestion_edit.applicability);
+            json_object_set_str(sugg_obj, "confidence", diag.suggestion_edit.confidence);
+            json_array_push_raw(sugg_arr, json_object_to_json(sugg_obj));
+            json_object_set_raw(out_obj, "suggestions", json_array_to_json(sugg_arr));
+        }
+
+        return json_object_to_json(out_obj);
+    }
+
+    fn diag_report_new(file: str) -> DiagnosticReport {
+        let diags: Vec<Diagnostic> = vec_new();
+        return DiagnosticReport {
+            schema_version: "bunker.diagnostics.v1",
+            file: file,
+            diagnostics: diags,
+            error_count: 0,
+            warning_count: 0
+        };
+    }
+
+    fn diag_report_add(report: DiagnosticReport, diag: Diagnostic) {
+        vec_push(report.diagnostics, diag);
+        if diag.severity == "error" {
+            report.error_count = report.error_count + 1;
+        } else if diag.severity == "warning" {
+            report.warning_count = report.warning_count + 1;
+        }
+    }
+
+    fn diag_report_has_errors(report: DiagnosticReport) -> bool {
+        return report.error_count > 0;
+    }
+
+    fn diag_report_to_json(report: DiagnosticReport) -> str {
+        let mut report_obj = json_object_new();
+        json_object_set_str(report_obj, "schema_version", report.schema_version);
+        json_object_set_str(report_obj, "file", report.file);
+        json_object_set_bool(report_obj, "success", report.error_count == 0);
+
+        let mut summary_obj = json_object_new();
+        json_object_set_i64(summary_obj, "total", vec_len(report.diagnostics));
+        json_object_set_i64(summary_obj, "errors", report.error_count);
+        json_object_set_i64(summary_obj, "warnings", report.warning_count);
+        json_object_set_raw(report_obj, "summary", json_object_to_json(summary_obj));
+
+        let mut diag_arr = json_array_new();
+        let total: i64 = vec_len(report.diagnostics);
+        let mut i: i64 = 0;
+        while i < total {
+            let d: Diagnostic = vec_get(report.diagnostics, i);
+            json_array_push_raw(diag_arr, diag_to_json(d));
+            i = i + 1;
+        }
+        json_object_set_raw(report_obj, "diagnostics", json_array_to_json(diag_arr));
+
+        return json_object_to_json(report_obj);
+    }

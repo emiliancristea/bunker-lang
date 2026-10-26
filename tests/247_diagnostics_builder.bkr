@@ -1,0 +1,605 @@
+// Test 247: Structured Diagnostics Builder Library (Q-290, R-012)
+// Verifies pure Bunker diagnostic construction, phase attribution, span tracking,
+// source line context, AI repair hints, machine-applicable text edits, report aggregation,
+// and canonical bunker.diagnostics.v1 JSON serialization.
+// Expected return: 42
+
+kernel DiagnosticsBuilderTest {
+    // --- JSON Engine Primitives for Diagnostic Serialization & Verification ---
+
+    struct JsonObject {
+        keys: Vec<str>,
+        values: Vec<str>
+    }
+
+    struct JsonArray {
+        items: Vec<str>
+    }
+
+    fn json_escape_str(raw: str) -> str {
+        let quote = from_char_code(34);
+        let backslash = from_char_code(92);
+        let mut out: str = "";
+        let mut i: i64 = 0;
+        let n: i64 = len(raw);
+        while i < n {
+            let ch = char_at(raw, i);
+            let ch_code = char_code(ch);
+
+            if ch_code == 10 {
+                out = out + backslash + "n";
+            } else if ch_code == 13 {
+                out = out + backslash + "r";
+            } else if ch_code == 9 {
+                out = out + backslash + "t";
+            } else if ch_code == 34 {
+                out = out + backslash + quote;
+            } else if ch_code == 92 {
+                out = out + backslash + backslash;
+            } else {
+                out = out + ch;
+            }
+
+            i = i + 1;
+        }
+
+        return out;
+    }
+
+    fn json_val_str(val: str) -> str {
+        let quote = from_char_code(34);
+        return quote + json_escape_str(val) + quote;
+    }
+
+    fn json_val_i64(val: i64) -> str {
+        return int_to_string(val);
+    }
+
+    fn json_val_bool(val: bool) -> str {
+        if val {
+            return "true";
+        }
+        return "false";
+    }
+
+    fn json_object_new() -> JsonObject {
+        let k: Vec<str> = vec_new();
+        let v: Vec<str> = vec_new();
+        return JsonObject { keys: k, values: v };
+    }
+
+    fn json_object_set_str(obj: JsonObject, key: str, val: str) {
+        vec_push(obj.keys, key);
+        vec_push(obj.values, json_val_str(val));
+    }
+
+    fn json_object_set_i64(obj: JsonObject, key: str, val: i64) {
+        vec_push(obj.keys, key);
+        vec_push(obj.values, json_val_i64(val));
+    }
+
+    fn json_object_set_bool(obj: JsonObject, key: str, val: bool) {
+        vec_push(obj.keys, key);
+        vec_push(obj.values, json_val_bool(val));
+    }
+
+    fn json_object_set_raw(obj: JsonObject, key: str, raw_json: str) {
+        vec_push(obj.keys, key);
+        vec_push(obj.values, raw_json);
+    }
+
+    fn json_object_to_json(obj: JsonObject) -> str {
+        let quote = from_char_code(34);
+        let mut out: str = "{";
+        let count: i64 = vec_len(obj.keys);
+        let mut i: i64 = 0;
+        while i < count {
+            if i > 0 {
+                out = out + ",";
+            }
+            let k: str = vec_get(obj.keys, i);
+            let v: str = vec_get(obj.values, i);
+            out = out + quote + k + quote + ":" + v;
+            i = i + 1;
+        }
+        return out + "}";
+    }
+
+    fn json_array_new() -> JsonArray {
+        let it: Vec<str> = vec_new();
+        return JsonArray { items: it };
+    }
+
+    fn json_array_push_raw(arr: JsonArray, raw_json: str) {
+        vec_push(arr.items, raw_json);
+    }
+
+    fn json_array_to_json(arr: JsonArray) -> str {
+        let mut out: str = "[";
+        let count: i64 = vec_len(arr.items);
+        let mut i: i64 = 0;
+        while i < count {
+            if i > 0 {
+                out = out + ",";
+            }
+            let item: str = vec_get(arr.items, i);
+            out = out + item;
+            i = i + 1;
+        }
+        return out + "]";
+    }
+
+    fn json_skip_whitespace(src: str, start_idx: i64) -> i64 {
+        let mut i: i64 = start_idx;
+        let n: i64 = len(src);
+        while i < n {
+            let c: i64 = char_code_at(src, i);
+            if c != 32 && c != 9 && c != 10 && c != 13 {
+                return i;
+            }
+            i = i + 1;
+        }
+        return i;
+    }
+
+    fn json_extract_field(src: str, key: str) -> str {
+        let quote = from_char_code(34);
+        let target = quote + key + quote;
+        let key_idx = str_index_of(src, target);
+        if key_idx < 0 {
+            return "";
+        }
+        let after_key = key_idx + len(target);
+        let colon_idx = str_index_of(substring(src, after_key, len(src)), ":");
+        if colon_idx < 0 {
+            return "";
+        }
+        let val_start = json_skip_whitespace(src, after_key + colon_idx + 1);
+        if val_start >= len(src) {
+            return "";
+        }
+
+        let first_ch = char_code_at(src, val_start);
+        if first_ch == 34 {
+            let mut j: i64 = val_start + 1;
+            while j < len(src) {
+                let ch: i64 = char_code_at(src, j);
+                if ch == 34 && char_code_at(src, j - 1) != 92 {
+                    return substring(src, val_start + 1, j);
+                }
+                j = j + 1;
+            }
+            return "";
+        }
+
+        if first_ch == 123 {
+            let mut depth: i64 = 1;
+            let mut j: i64 = val_start + 1;
+            while j < len(src) && depth > 0 {
+                let ch: i64 = char_code_at(src, j);
+                if ch == 123 {
+                    depth = depth + 1;
+                } else if ch == 125 {
+                    depth = depth - 1;
+                }
+                j = j + 1;
+            }
+            return substring(src, val_start, j);
+        }
+
+        if first_ch == 91 {
+            let mut depth: i64 = 1;
+            let mut j: i64 = val_start + 1;
+            while j < len(src) && depth > 0 {
+                let ch: i64 = char_code_at(src, j);
+                if ch == 91 {
+                    depth = depth + 1;
+                } else if ch == 93 {
+                    depth = depth - 1;
+                }
+                j = j + 1;
+            }
+            return substring(src, val_start, j);
+        }
+
+        let mut k: i64 = val_start;
+        while k < len(src) {
+            let ch: i64 = char_code_at(src, k);
+            if ch == 44 || ch == 125 || ch == 93 || ch == 32 || ch == 10 || ch == 13 || ch == 9 {
+                return substring(src, val_start, k);
+            }
+            k = k + 1;
+        }
+        return substring(src, val_start, len(src));
+    }
+
+    fn json_query_str(src: str, key: str) -> str {
+        return json_extract_field(src, key);
+    }
+
+    fn json_query_i64(src: str, key: str) -> i64 {
+        let raw = json_extract_field(src, key);
+        if len(raw) == 0 {
+            return 0;
+        }
+        return parse_int(raw);
+    }
+
+    fn json_query_bool(src: str, key: str) -> bool {
+        let raw = json_extract_field(src, key);
+        return raw == "true";
+    }
+
+    fn json_query_has(src: str, key: str) -> bool {
+        let quote = from_char_code(34);
+        let target = quote + key + quote;
+        return str_index_of(src, target) >= 0;
+    }
+
+    // --- Diagnostics Builder Library Structures & Functions (R-012) ---
+
+    struct DiagnosticTextEdit {
+        kind: str,
+        source_start: i64,
+        source_end: i64,
+        replacement: str,
+        applicability: str,
+        confidence: str
+    }
+
+    struct Diagnostic {
+        error_code: str,
+        severity: str,
+        phase: str,
+        message: str,
+        file: str,
+        line: i64,
+        column: i64,
+        source_start: i64,
+        source_end: i64,
+        context: str,
+        source_line: str,
+        ai_prompt_hint: str,
+        expected_type: str,
+        found_type: str,
+        has_suggestion: bool,
+        suggestion_msg: str,
+        suggestion_edit: DiagnosticTextEdit
+    }
+
+    struct DiagnosticReport {
+        schema_version: str,
+        file: str,
+        diagnostics: Vec<Diagnostic>,
+        error_count: i64,
+        warning_count: i64
+    }
+
+    fn diag_empty_edit() -> DiagnosticTextEdit {
+        return DiagnosticTextEdit {
+            kind: "",
+            source_start: 0,
+            source_end: 0,
+            replacement: "",
+            applicability: "",
+            confidence: ""
+        };
+    }
+
+    fn diag_error(code: str, phase: str, msg: str, file: str, line: i64, col: i64) -> Diagnostic {
+        return Diagnostic {
+            error_code: code,
+            severity: "error",
+            phase: phase,
+            message: msg,
+            file: file,
+            line: line,
+            column: col,
+            source_start: 0,
+            source_end: 0,
+            context: "",
+            source_line: "",
+            ai_prompt_hint: "",
+            expected_type: "",
+            found_type: "",
+            has_suggestion: false,
+            suggestion_msg: "",
+            suggestion_edit: diag_empty_edit()
+        };
+    }
+
+    fn diag_warning(code: str, phase: str, msg: str, file: str, line: i64, col: i64) -> Diagnostic {
+        return Diagnostic {
+            error_code: code,
+            severity: "warning",
+            phase: phase,
+            message: msg,
+            file: file,
+            line: line,
+            column: col,
+            source_start: 0,
+            source_end: 0,
+            context: "",
+            source_line: "",
+            ai_prompt_hint: "",
+            expected_type: "",
+            found_type: "",
+            has_suggestion: false,
+            suggestion_msg: "",
+            suggestion_edit: diag_empty_edit()
+        };
+    }
+
+    fn diag_with_span(diag: Diagnostic, start: i64, end: i64) -> Diagnostic {
+        let mut d = diag;
+        d.source_start = start;
+        d.source_end = end;
+        return d;
+    }
+
+    fn diag_with_source(diag: Diagnostic, source_line: str, context: str) -> Diagnostic {
+        let mut d = diag;
+        d.source_line = source_line;
+        d.context = context;
+        return d;
+    }
+
+    fn diag_with_types(diag: Diagnostic, expected: str, found: str) -> Diagnostic {
+        let mut d = diag;
+        d.expected_type = expected;
+        d.found_type = found;
+        return d;
+    }
+
+    fn diag_with_hint(diag: Diagnostic, hint: str) -> Diagnostic {
+        let mut d = diag;
+        d.ai_prompt_hint = hint;
+        return d;
+    }
+
+    fn diag_with_suggestion(diag: Diagnostic, msg: str, kind: str, start: i64, end: i64,
+                            replacement: str, applicability: str, confidence: str) -> Diagnostic {
+        let mut d = diag;
+        d.has_suggestion = true;
+        d.suggestion_msg = msg;
+        d.suggestion_edit = DiagnosticTextEdit {
+            kind: kind,
+            source_start: start,
+            source_end: end,
+            replacement: replacement,
+            applicability: applicability,
+            confidence: confidence
+        };
+        return d;
+    }
+
+    fn diag_to_json(diag: Diagnostic) -> str {
+        let mut loc_obj = json_object_new();
+        json_object_set_str(loc_obj, "file", diag.file);
+        json_object_set_i64(loc_obj, "line", diag.line);
+        json_object_set_i64(loc_obj, "column", diag.column);
+        if diag.source_start > 0 || diag.source_end > 0 {
+            json_object_set_i64(loc_obj, "source_start", diag.source_start);
+            json_object_set_i64(loc_obj, "source_end", diag.source_end);
+        }
+        if len(diag.context) > 0 {
+            json_object_set_str(loc_obj, "context", diag.context);
+        }
+        if len(diag.source_line) > 0 {
+            json_object_set_str(loc_obj, "source_line", diag.source_line);
+        }
+
+        let mut out_obj = json_object_new();
+        json_object_set_str(out_obj, "error_code", diag.error_code);
+        json_object_set_str(out_obj, "severity", diag.severity);
+        json_object_set_str(out_obj, "phase", diag.phase);
+        json_object_set_str(out_obj, "message", diag.message);
+        json_object_set_raw(out_obj, "location", json_object_to_json(loc_obj));
+
+        if len(diag.ai_prompt_hint) > 0 {
+            json_object_set_str(out_obj, "ai_prompt_hint", diag.ai_prompt_hint);
+        }
+
+        if len(diag.expected_type) > 0 {
+            let mut exp_obj = json_object_new();
+            json_object_set_str(exp_obj, "type", diag.expected_type);
+            json_object_set_raw(out_obj, "expected", json_object_to_json(exp_obj));
+        }
+
+        if len(diag.found_type) > 0 {
+            let mut fnd_obj = json_object_new();
+            json_object_set_str(fnd_obj, "type", diag.found_type);
+            json_object_set_raw(out_obj, "found", json_object_to_json(fnd_obj));
+        }
+
+        if diag.has_suggestion {
+            let mut sugg_arr = json_array_new();
+            let mut sugg_obj = json_object_new();
+            json_object_set_str(sugg_obj, "message", diag.suggestion_msg);
+            json_object_set_str(sugg_obj, "kind", diag.suggestion_edit.kind);
+            json_object_set_i64(sugg_obj, "source_start", diag.suggestion_edit.source_start);
+            json_object_set_i64(sugg_obj, "source_end", diag.suggestion_edit.source_end);
+            json_object_set_str(sugg_obj, "replacement", diag.suggestion_edit.replacement);
+            json_object_set_str(sugg_obj, "applicability", diag.suggestion_edit.applicability);
+            json_object_set_str(sugg_obj, "confidence", diag.suggestion_edit.confidence);
+            json_array_push_raw(sugg_arr, json_object_to_json(sugg_obj));
+            json_object_set_raw(out_obj, "suggestions", json_array_to_json(sugg_arr));
+        }
+
+        return json_object_to_json(out_obj);
+    }
+
+    fn diag_report_new(file: str) -> DiagnosticReport {
+        let diags: Vec<Diagnostic> = vec_new();
+        return DiagnosticReport {
+            schema_version: "bunker.diagnostics.v1",
+            file: file,
+            diagnostics: diags,
+            error_count: 0,
+            warning_count: 0
+        };
+    }
+
+    fn diag_report_add(report: DiagnosticReport, diag: Diagnostic) {
+        vec_push(report.diagnostics, diag);
+        if diag.severity == "error" {
+            report.error_count = report.error_count + 1;
+        } else if diag.severity == "warning" {
+            report.warning_count = report.warning_count + 1;
+        }
+    }
+
+    fn diag_report_to_json(report: DiagnosticReport) -> str {
+        let mut report_obj = json_object_new();
+        json_object_set_str(report_obj, "schema_version", report.schema_version);
+        json_object_set_str(report_obj, "file", report.file);
+        json_object_set_bool(report_obj, "success", report.error_count == 0);
+
+        let mut summary_obj = json_object_new();
+        json_object_set_i64(summary_obj, "total", vec_len(report.diagnostics));
+        json_object_set_i64(summary_obj, "errors", report.error_count);
+        json_object_set_i64(summary_obj, "warnings", report.warning_count);
+        json_object_set_raw(report_obj, "summary", json_object_to_json(summary_obj));
+
+        let mut diag_arr = json_array_new();
+        let total: i64 = vec_len(report.diagnostics);
+        let mut i: i64 = 0;
+        while i < total {
+            let d: Diagnostic = vec_get(report.diagnostics, i);
+            json_array_push_raw(diag_arr, diag_to_json(d));
+            i = i + 1;
+        }
+        json_object_set_raw(report_obj, "diagnostics", json_array_to_json(diag_arr));
+
+        return json_object_to_json(report_obj);
+    }
+
+    // --- Verification Tests ---
+
+    fn test_single_type_error_diagnostic() -> bool {
+        let base_err = diag_error("E0201", "typecheck", "mismatched types in assignment", "src/main.bkr", 42, 13);
+        let with_span = diag_with_span(base_err, 512, 530);
+        let with_src = diag_with_source(with_span, "    let x: i64 = \"not an int\";", "fn compute() -> i64");
+        let with_ty = diag_with_types(with_src, "i64", "str");
+        let with_hint = diag_with_hint(with_ty, "convert string to i64 using parse_int(...) or change variable type");
+        let diag = diag_with_suggestion(
+            with_hint,
+            "parse string to integer",
+            "replace",
+            525,
+            540,
+            "parse_int(\"not an int\")",
+            "machine_applicable",
+            "high"
+        );
+
+        let json_str = diag_to_json(diag);
+
+        if !json_query_has(json_str, "error_code") { return false; }
+        if json_query_str(json_str, "error_code") != "E0201" { return false; }
+        if json_query_str(json_str, "severity") != "error" { return false; }
+        if json_query_str(json_str, "phase") != "typecheck" { return false; }
+
+        let loc_raw = json_extract_field(json_str, "location");
+        if json_query_str(loc_raw, "file") != "src/main.bkr" { return false; }
+        if json_query_i64(loc_raw, "line") != 42 { return false; }
+        if json_query_i64(loc_raw, "column") != 13 { return false; }
+        if json_query_i64(loc_raw, "source_start") != 512 { return false; }
+        if json_query_i64(loc_raw, "source_end") != 530 { return false; }
+
+        let exp_raw = json_extract_field(json_str, "expected");
+        if json_query_str(exp_raw, "type") != "i64" { return false; }
+
+        let fnd_raw = json_extract_field(json_str, "found");
+        if json_query_str(fnd_raw, "type") != "str" { return false; }
+
+        let hint = json_query_str(json_str, "ai_prompt_hint");
+        if len(hint) == 0 { return false; }
+
+        let sugg_raw = json_extract_field(json_str, "suggestions");
+        if !json_query_has(sugg_raw, "replacement") { return false; }
+
+        return true;
+    }
+
+    fn test_diagnostic_report_aggregation() -> bool {
+        let mut report = diag_report_new("tests/sample.bkr");
+
+        // 1. Error: E0302 Borrow check conflict
+        let err1 = diag_error("E0302", "borrow", "cannot borrow mutable variable more than once", "tests/sample.bkr", 15, 8);
+        diag_report_add(report, err1);
+
+        // 2. Warning: W0101 Unused variable
+        let warn1 = diag_warning("W0101", "typecheck", "variable 'temp' is declared but never used", "tests/sample.bkr", 22, 5);
+        diag_report_add(report, warn1);
+
+        if report.error_count != 1 {
+            return false;
+        }
+        if report.warning_count != 1 {
+            return false;
+        }
+        if vec_len(report.diagnostics) != 2 {
+            return false;
+        }
+
+        let report_json = diag_report_to_json(report);
+
+        if json_query_str(report_json, "schema_version") != "bunker.diagnostics.v1" {
+            return false;
+        }
+        if json_query_str(report_json, "file") != "tests/sample.bkr" {
+            return false;
+        }
+        if json_query_bool(report_json, "success") {
+            // success must be false because there is 1 error
+            return false;
+        }
+
+        let summary_raw = json_extract_field(report_json, "summary");
+        if json_query_i64(summary_raw, "total") != 2 {
+            return false;
+        }
+        if json_query_i64(summary_raw, "errors") != 1 {
+            return false;
+        }
+        if json_query_i64(summary_raw, "warnings") != 1 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_clean_diagnostic_report() -> bool {
+        let report = diag_report_new("tests/clean.bkr");
+
+        let report_json = diag_report_to_json(report);
+        if !json_query_bool(report_json, "success") {
+            return false;
+        }
+
+        let summary_raw = json_extract_field(report_json, "summary");
+        if json_query_i64(summary_raw, "total") != 0 {
+            return false;
+        }
+        if json_query_i64(summary_raw, "errors") != 0 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_single_type_error_diagnostic() {
+            return 1;
+        }
+        if !test_diagnostic_report_aggregation() {
+            return 2;
+        }
+        if !test_clean_diagnostic_report() {
+            return 3;
+        }
+
+        return 42;
+    }
+}
