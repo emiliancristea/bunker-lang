@@ -5341,8 +5341,16 @@ fn compile_expr_inline(
                     };
                     b
                 }
-                ast::BinaryOp::And => builder.ins().band(lhs, rhs),
-                ast::BinaryOp::Or => builder.ins().bor(lhs, rhs),
+                ast::BinaryOp::And => {
+                    let lhs_b = bool_value_to_i8(builder, lhs)?;
+                    let rhs_b = bool_value_to_i8(builder, rhs)?;
+                    builder.ins().band(lhs_b, rhs_b)
+                }
+                ast::BinaryOp::Or => {
+                    let lhs_b = bool_value_to_i8(builder, lhs)?;
+                    let rhs_b = bool_value_to_i8(builder, rhs)?;
+                    builder.ins().bor(lhs_b, rhs_b)
+                }
                 ast::BinaryOp::BitAnd => builder.ins().band(lhs, rhs),
                 ast::BinaryOp::BitOr => builder.ins().bor(lhs, rhs),
                 ast::BinaryOp::BitXor => builder.ins().bxor(lhs, rhs),

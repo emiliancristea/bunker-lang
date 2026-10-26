@@ -1,0 +1,517 @@
+// Test 248: CLI Argument Parser (Q-291, R-010)
+// Verifies pure Bunker command-line argument parsing, flags, valued options
+// (inline '=' and adjacent token), positionals, '--' terminator, defaults, error validation,
+// and automated help manual rendering.
+// Expected return: 42
+
+kernel CliArgumentParserTest {
+    struct CliOption {
+        name: str,
+        short_name: str,
+        description: str,
+        default_val: str,
+        is_flag: bool
+    }
+
+    struct CliParser {
+        program_name: str,
+        description: str,
+        options: Vec<CliOption>,
+        pos_names: Vec<str>,
+        pos_descs: Vec<str>,
+        pos_required: Vec<bool>
+    }
+
+    struct CliParsedArgs {
+        flag_keys: Vec<str>,
+        flag_vals: Vec<bool>,
+        opt_keys: Vec<str>,
+        opt_vals: Vec<str>,
+        positionals: Vec<str>
+    }
+
+    fn cli_parser_new(prog: str, desc: str) -> CliParser {
+        let opts: Vec<CliOption> = vec_new();
+        let p_names: Vec<str> = vec_new();
+        let p_descs: Vec<str> = vec_new();
+        let p_req: Vec<bool> = vec_new();
+        return CliParser {
+            program_name: prog,
+            description: desc,
+            options: opts,
+            pos_names: p_names,
+            pos_descs: p_descs,
+            pos_required: p_req
+        };
+    }
+
+    fn cli_parser_add_flag(parser: CliParser, name: str, short_name: str, desc: str) {
+        let opt = CliOption {
+            name: name,
+            short_name: short_name,
+            description: desc,
+            default_val: "false",
+            is_flag: true
+        };
+        vec_push(parser.options, opt);
+    }
+
+    fn cli_parser_add_opt(parser: CliParser, name: str, short_name: str, desc: str, default_val: str) {
+        let opt = CliOption {
+            name: name,
+            short_name: short_name,
+            description: desc,
+            default_val: default_val,
+            is_flag: false
+        };
+        vec_push(parser.options, opt);
+    }
+
+    fn cli_parser_add_positional(parser: CliParser, name: str, desc: str, required: bool) {
+        vec_push(parser.pos_names, name);
+        vec_push(parser.pos_descs, desc);
+        vec_push(parser.pos_required, required);
+    }
+
+    fn cli_find_opt_idx_by_name(options: Vec<CliOption>, name: str) -> i64 {
+        let n: i64 = vec_len(options);
+        let mut i: i64 = 0;
+        while i < n {
+            let opt: CliOption = vec_get(options, i);
+            if opt.name == name {
+                return i;
+            }
+            i = i + 1;
+        }
+        return -1;
+    }
+
+    fn cli_find_opt_idx_by_short(options: Vec<CliOption>, short_name: str) -> i64 {
+        if len(short_name) == 0 {
+            return -1;
+        }
+        let n: i64 = vec_len(options);
+        let mut i: i64 = 0;
+        while i < n {
+            let opt: CliOption = vec_get(options, i);
+            if opt.short_name == short_name {
+                return i;
+            }
+            i = i + 1;
+        }
+        return -1;
+    }
+
+    fn cli_args_new() -> CliParsedArgs {
+        let fk: Vec<str> = vec_new();
+        let fv: Vec<bool> = vec_new();
+        let ok: Vec<str> = vec_new();
+        let ov: Vec<str> = vec_new();
+        let pos: Vec<str> = vec_new();
+        return CliParsedArgs {
+            flag_keys: fk,
+            flag_vals: fv,
+            opt_keys: ok,
+            opt_vals: ov,
+            positionals: pos
+        };
+    }
+
+    fn cli_args_has_flag(parsed: CliParsedArgs, name: str) -> bool {
+        let n: i64 = vec_len(parsed.flag_keys);
+        let mut i: i64 = 0;
+        while i < n {
+            if vec_get(parsed.flag_keys, i) == name {
+                return vec_get(parsed.flag_vals, i);
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn cli_args_get_opt(parsed: CliParsedArgs, name: str) -> str {
+        let n: i64 = vec_len(parsed.opt_keys);
+        let mut i: i64 = 0;
+        while i < n {
+            if vec_get(parsed.opt_keys, i) == name {
+                return vec_get(parsed.opt_vals, i);
+            }
+            i = i + 1;
+        }
+        return "";
+    }
+
+    fn cli_args_set_flag(parsed: CliParsedArgs, name: str, val: bool) {
+        let n: i64 = vec_len(parsed.flag_keys);
+        let mut i: i64 = 0;
+        while i < n {
+            if vec_get(parsed.flag_keys, i) == name {
+                vec_set(parsed.flag_vals, i, val);
+                return;
+            }
+            i = i + 1;
+        }
+        vec_push(parsed.flag_keys, name);
+        vec_push(parsed.flag_vals, val);
+    }
+
+    fn cli_args_set_opt(parsed: CliParsedArgs, name: str, val: str) {
+        let n: i64 = vec_len(parsed.opt_keys);
+        let mut i: i64 = 0;
+        while i < n {
+            if vec_get(parsed.opt_keys, i) == name {
+                vec_set(parsed.opt_vals, i, val);
+                return;
+            }
+            i = i + 1;
+        }
+        vec_push(parsed.opt_keys, name);
+        vec_push(parsed.opt_vals, val);
+    }
+
+    fn cli_args_get_positional(parsed: CliParsedArgs, idx: i64) -> str {
+        if idx >= 0 && idx < vec_len(parsed.positionals) {
+            return vec_get(parsed.positionals, idx);
+        }
+        return "";
+    }
+
+    fn cli_args_positional_count(parsed: CliParsedArgs) -> i64 {
+        return vec_len(parsed.positionals);
+    }
+
+    fn cli_parse(parser: CliParser, args: Vec<str>) -> Result<CliParsedArgs, str> {
+        let parsed = cli_args_new();
+
+        let opt_count: i64 = vec_len(parser.options);
+        let mut idx: i64 = 0;
+        while idx < opt_count {
+            let opt: CliOption = vec_get(parser.options, idx);
+            if opt.is_flag {
+                cli_args_set_flag(parsed, opt.name, false);
+            } else {
+                cli_args_set_opt(parsed, opt.name, opt.default_val);
+            }
+            idx = idx + 1;
+        }
+
+        let arg_count: i64 = vec_len(args);
+        let mut i: i64 = 0;
+        let mut in_positional_only: bool = false;
+
+        while i < arg_count {
+            let token: str = vec_get(args, i);
+
+            if in_positional_only {
+                vec_push(parsed.positionals, token);
+                i = i + 1;
+            } else if token == "--" {
+                in_positional_only = true;
+                i = i + 1;
+            } else if starts_with(token, "--") {
+                let stripped = substring(token, 2, len(token));
+                let eq_idx: i64 = str_index_of(stripped, "=");
+
+                if eq_idx >= 0 {
+                    let key = substring(stripped, 0, eq_idx);
+                    let val = substring(stripped, eq_idx + 1, len(stripped));
+                    let opt_i = cli_find_opt_idx_by_name(parser.options, key);
+                    if opt_i < 0 {
+                        return Err("Unknown option: '--" + key + "'");
+                    }
+                    let opt: CliOption = vec_get(parser.options, opt_i);
+                    if opt.is_flag {
+                        cli_args_set_flag(parsed, key, val == "true" || val == "1");
+                    } else {
+                        cli_args_set_opt(parsed, key, val);
+                    }
+                    i = i + 1;
+                } else {
+                    let key = stripped;
+                    let opt_i = cli_find_opt_idx_by_name(parser.options, key);
+                    if opt_i < 0 {
+                        return Err("Unknown option: '--" + key + "'");
+                    }
+                    let opt: CliOption = vec_get(parser.options, opt_i);
+                    if opt.is_flag {
+                        cli_args_set_flag(parsed, key, true);
+                        i = i + 1;
+                    } else {
+                        if i + 1 >= arg_count {
+                            return Err("Option '--" + key + "' requires an argument");
+                        }
+                        let next_val: str = vec_get(args, i + 1);
+                        cli_args_set_opt(parsed, key, next_val);
+                        i = i + 2;
+                    }
+                }
+            } else if starts_with(token, "-") && len(token) > 1 {
+                let s = substring(token, 1, 2);
+                let opt_i = cli_find_opt_idx_by_short(parser.options, s);
+                if opt_i < 0 {
+                    return Err("Unknown short option: '-" + s + "'");
+                }
+                let opt: CliOption = vec_get(parser.options, opt_i);
+                if opt.is_flag {
+                    cli_args_set_flag(parsed, opt.name, true);
+                    i = i + 1;
+                } else {
+                    if len(token) > 2 {
+                        let val = substring(token, 2, len(token));
+                        cli_args_set_opt(parsed, opt.name, val);
+                        i = i + 1;
+                    } else {
+                        if i + 1 >= arg_count {
+                            return Err("Option '-" + s + "' requires an argument");
+                        }
+                        let next_val: str = vec_get(args, i + 1);
+                        cli_args_set_opt(parsed, opt.name, next_val);
+                        i = i + 2;
+                    }
+                }
+            } else {
+                vec_push(parsed.positionals, token);
+                i = i + 1;
+            }
+        }
+
+        let req_count: i64 = vec_len(parser.pos_names);
+        let mut r: i64 = 0;
+        while r < req_count {
+            if vec_get(parser.pos_required, r) {
+                if r >= vec_len(parsed.positionals) {
+                    let req_name: str = vec_get(parser.pos_names, r);
+                    return Err("Missing required argument: <" + req_name + ">");
+                }
+            }
+            r = r + 1;
+        }
+
+        return Ok(parsed);
+    }
+
+    fn cli_parser_render_help(parser: CliParser) -> str {
+        let mut out: str = "Usage: " + parser.program_name + " [OPTIONS]";
+
+        let pos_n: i64 = vec_len(parser.pos_names);
+        let mut p: i64 = 0;
+        while p < pos_n {
+            let name: str = vec_get(parser.pos_names, p);
+            let req: bool = vec_get(parser.pos_required, p);
+            if req {
+                out = out + " <" + name + ">";
+            } else {
+                out = out + " [" + name + "]";
+            }
+            p = p + 1;
+        }
+
+        out = out + "\n\n" + parser.description + "\n\n";
+
+        if pos_n > 0 {
+            out = out + "Positional Arguments:\n";
+            p = 0;
+            while p < pos_n {
+                let name: str = vec_get(parser.pos_names, p);
+                let desc: str = vec_get(parser.pos_descs, p);
+                out = out + "  " + name + "  " + desc + "\n";
+                p = p + 1;
+            }
+            out = out + "\n";
+        }
+
+        out = out + "Options:\n";
+        let opt_n: i64 = vec_len(parser.options);
+        let mut o: i64 = 0;
+        while o < opt_n {
+            let opt: CliOption = vec_get(parser.options, o);
+            out = out + "  ";
+            if len(opt.short_name) > 0 {
+                out = out + "-" + opt.short_name + ", ";
+            } else {
+                out = out + "    ";
+            }
+            out = out + "--" + opt.name;
+            if !opt.is_flag {
+                out = out + " <VALUE>";
+            }
+            out = out + "  " + opt.description;
+            if !opt.is_flag && len(opt.default_val) > 0 {
+                out = out + " (default: " + opt.default_val + ")";
+            }
+            out = out + "\n";
+            o = o + 1;
+        }
+
+        return out;
+    }
+
+    // --- Unit Tests ---
+
+    fn test_flags_and_options() -> bool {
+        let p = cli_parser_new("bkrc", "Bunker Language Compiler");
+        cli_parser_add_flag(p, "verbose", "v", "Enable verbose diagnostic logs");
+        cli_parser_add_flag(p, "self-host", "s", "Compile via pure Bunker backend");
+        cli_parser_add_opt(p, "output", "o", "Target C file path", "out.c");
+        cli_parser_add_opt(p, "target", "t", "Target architecture", "x86_64");
+        cli_parser_add_positional(p, "input", "Source .bkr file", true);
+
+        let args: Vec<str> = vec_new();
+        vec_push(args, "--verbose");
+        vec_push(args, "-o");
+        vec_push(args, "dist/app.c");
+        vec_push(args, "--target=arm64");
+        vec_push(args, "src/main.bkr");
+
+        let res = cli_parse(p, args);
+        if !result_is_ok(res) {
+            return false;
+        }
+        let parsed = result_unwrap(res);
+
+        if !cli_args_has_flag(parsed, "verbose") {
+            return false;
+        }
+        if cli_args_has_flag(parsed, "self-host") {
+            return false;
+        }
+        if cli_args_get_opt(parsed, "output") != "dist/app.c" {
+            return false;
+        }
+        if cli_args_get_opt(parsed, "target") != "arm64" {
+            return false;
+        }
+        if cli_args_positional_count(parsed) != 1 {
+            return false;
+        }
+        if cli_args_get_positional(parsed, 0) != "src/main.bkr" {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_terminator_and_positionals() -> bool {
+        let p = cli_parser_new("bkr-run", "Runner utility");
+        cli_parser_add_flag(p, "release", "r", "Release mode build");
+        cli_parser_add_positional(p, "entry", "Entrypoint file", true);
+        cli_parser_add_positional(p, "args", "Remaining program arguments", false);
+
+        let args: Vec<str> = vec_new();
+        vec_push(args, "-r");
+        vec_push(args, "entry.bkr");
+        vec_push(args, "--");
+        vec_push(args, "--user-flag");
+        vec_push(args, "custom_arg");
+
+        let res = cli_parse(p, args);
+        if !result_is_ok(res) {
+            return false;
+        }
+        let parsed = result_unwrap(res);
+
+        if !cli_args_has_flag(parsed, "release") {
+            return false;
+        }
+        if cli_args_positional_count(parsed) != 3 {
+            return false;
+        }
+        if cli_args_get_positional(parsed, 0) != "entry.bkr" {
+            return false;
+        }
+        if cli_args_get_positional(parsed, 1) != "--user-flag" {
+            return false;
+        }
+        if cli_args_get_positional(parsed, 2) != "custom_arg" {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_validation_errors() -> bool {
+        let p = cli_parser_new("bkrc", "Bunker Compiler");
+        cli_parser_add_opt(p, "output", "o", "Target file", "out.c");
+        cli_parser_add_positional(p, "source", "Input file", true);
+
+        // 1. Missing value for option
+        let args1: Vec<str> = vec_new();
+        vec_push(args1, "--output");
+        let res1 = cli_parse(p, args1);
+        if result_is_ok(res1) {
+            return false;
+        }
+        let err1: str = result_unwrap_err(res1);
+        if !contains(err1, "requires an argument") {
+            return false;
+        }
+
+        // 2. Unknown option
+        let args2: Vec<str> = vec_new();
+        vec_push(args2, "--invalid-flag");
+        let res2 = cli_parse(p, args2);
+        if result_is_ok(res2) {
+            return false;
+        }
+        let err2: str = result_unwrap_err(res2);
+        if !contains(err2, "Unknown option") {
+            return false;
+        }
+
+        // 3. Missing required positional
+        let args3: Vec<str> = vec_new();
+        let res3 = cli_parse(p, args3);
+        if result_is_ok(res3) {
+            return false;
+        }
+        let err3: str = result_unwrap_err(res3);
+        if !contains(err3, "Missing required argument") {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_help_rendering() -> bool {
+        let p = cli_parser_new("bkrc", "Bunker Compiler Driver");
+        cli_parser_add_flag(p, "verbose", "v", "Enable verbose logs");
+        cli_parser_add_opt(p, "output", "o", "Output path", "out.c");
+        cli_parser_add_positional(p, "input", "Source file", true);
+
+        let help = cli_parser_render_help(p);
+        if !contains(help, "Usage: bkrc [OPTIONS] <input>") {
+            return false;
+        }
+        if !contains(help, "Bunker Compiler Driver") {
+            return false;
+        }
+        if !contains(help, "--verbose") {
+            return false;
+        }
+        if !contains(help, "--output <VALUE>") {
+            return false;
+        }
+        if !contains(help, "(default: out.c)") {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_flags_and_options() {
+            return 1;
+        }
+        if !test_terminator_and_positionals() {
+            return 2;
+        }
+        if !test_validation_errors() {
+            return 3;
+        }
+        if !test_help_rendering() {
+            return 4;
+        }
+
+        return 42;
+    }
+}

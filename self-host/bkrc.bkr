@@ -25,6 +25,10 @@ kernel BunkerCompiler {
 
     import "modules/diagnostic.bkr";
 
+    import "modules/cli_args.bkr";
+
+    import "modules/logger.bkr";
+
     import "modules/report_support.bkr";
 
     import "modules/ast_report.bkr";

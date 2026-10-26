@@ -1,0 +1,157 @@
+    // ========================================
+    // STRUCTURED LOGGING ENGINE (R-011)
+    // ========================================
+    //
+    // Provides pure Bunker structured logging with severity tiers,
+    // environment-driven threshold filtering, text formatting, and bunker.log.v1 JSON output.
+
+    const LOG_LEVEL_TRACE: i64 = 10;
+    const LOG_LEVEL_DEBUG: i64 = 20;
+    const LOG_LEVEL_INFO: i64 = 30;
+    const LOG_LEVEL_WARN: i64 = 40;
+    const LOG_LEVEL_ERROR: i64 = 50;
+
+    struct Logger {
+        target: str,
+        min_level: i64
+    }
+
+    struct LogRecord {
+        level: i64,
+        target: str,
+        message: str,
+        timestamp_unix: i64,
+        timestamp_ms: i64
+    }
+
+    fn log_level_name(level: i64) -> str {
+        if level <= 10 {
+            return "TRACE";
+        } else if level <= 20 {
+            return "DEBUG";
+        } else if level <= 30 {
+            return "INFO";
+        } else if level <= 40 {
+            return "WARN";
+        } else {
+            return "ERROR";
+        }
+    }
+
+    fn log_level_from_str(s: str) -> i64 {
+        let lower = str_to_lower(s);
+        if lower == "trace" || lower == "10" {
+            return 10;
+        } else if lower == "debug" || lower == "20" {
+            return 20;
+        } else if lower == "info" || lower == "30" {
+            return 30;
+        } else if lower == "warn" || lower == "warning" || lower == "40" {
+            return 40;
+        } else if lower == "error" || lower == "50" {
+            return 50;
+        }
+        return 30;
+    }
+
+    fn logger_new(target: str, min_level: i64) -> Logger {
+        return Logger {
+            target: target,
+            min_level: min_level
+        };
+    }
+
+    fn logger_set_level(logger: Logger, level: i64) {
+        logger.min_level = level;
+    }
+
+    fn logger_is_enabled(logger: Logger, level: i64) -> bool {
+        return level >= logger.min_level;
+    }
+
+    fn logger_init_from_env(target: str) -> Logger {
+        let env_res = env_var("BUNKER_LOG");
+        if result_is_ok(env_res) {
+            let val = result_unwrap(env_res);
+            let lvl = log_level_from_str(val);
+            return logger_new(target, lvl);
+        }
+        return logger_new(target, 30);
+    }
+
+    fn logger_record_new(logger: Logger, level: i64, msg: str) -> LogRecord {
+        let t_unix: i64 = time_now_unix();
+        let t_ms: i64 = time_now_ms();
+        return LogRecord {
+            level: level,
+            target: logger.target,
+            message: msg,
+            timestamp_unix: t_unix,
+            timestamp_ms: t_ms
+        };
+    }
+
+    fn logger_format_text(logger: Logger, level: i64, msg: str) -> str {
+        let lvl_str = log_level_name(level);
+        return "[" + logger.target + "] [" + lvl_str + "] " + msg;
+    }
+
+    fn logger_format_json(logger: Logger, level: i64, msg: str, attributes_json: str) -> str {
+        let quote = from_char_code(34);
+        let t_unix: i64 = time_now_unix();
+        let t_ms: i64 = time_now_ms();
+        let lvl_str = log_level_name(level);
+
+        let mut attrs: str = attributes_json;
+        if len(attrs) == 0 {
+            attrs = "{}";
+        }
+
+        let mut out: str = "{";
+        out = out + quote + "schema_version" + quote + ":" + quote + "bunker.log.v1" + quote + ",";
+        out = out + quote + "timestamp_unix" + quote + ":" + int_to_string(t_unix) + ",";
+        out = out + quote + "timestamp_ms" + quote + ":" + int_to_string(t_ms) + ",";
+        out = out + quote + "level" + quote + ":" + quote + lvl_str + quote + ",";
+        out = out + quote + "level_code" + quote + ":" + int_to_string(level) + ",";
+        out = out + quote + "target" + quote + ":" + quote + logger.target + quote + ",";
+        out = out + quote + "message" + quote + ":" + quote + json_escape_str(msg) + quote + ",";
+        out = out + quote + "attributes" + quote + ":" + attrs;
+        out = out + "}";
+
+        return out;
+    }
+
+    fn logger_trace(logger: Logger, msg: str) -> str {
+        if logger_is_enabled(logger, 10) {
+            return logger_format_text(logger, 10, msg);
+        }
+        return "";
+    }
+
+    fn logger_debug(logger: Logger, msg: str) -> str {
+        if logger_is_enabled(logger, 20) {
+            return logger_format_text(logger, 20, msg);
+        }
+        return "";
+    }
+
+    fn logger_info(logger: Logger, msg: str) -> str {
+        if logger_is_enabled(logger, 30) {
+            return logger_format_text(logger, 30, msg);
+        }
+        return "";
+    }
+
+    fn logger_warn(logger: Logger, msg: str) -> str {
+        if logger_is_enabled(logger, 40) {
+            return logger_format_text(logger, 40, msg);
+        }
+        return "";
+    }
+
+    fn logger_error(logger: Logger, msg: str) -> str {
+        if logger_is_enabled(logger, 50) {
+            return logger_format_text(logger, 50, msg);
+        }
+        return "";
+    }
