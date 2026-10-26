@@ -1,0 +1,7 @@
+// Rejection test: invalid Unicode scalar value (surrogate code point 0xD800) in string literal
+kernel UnicodeSurrogateBad {
+    fn main() -> i32 {
+        let s: str = "\u{D800}";
+        return 0;
+    }
+}

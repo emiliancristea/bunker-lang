@@ -1,0 +1,193 @@
+// Test 241: Unicode Policy and String UTF-8 vs Byte Semantics (Q-287, R-015, D-011, D-012)
+// Purpose: Verify Bunker's canonical Unicode string model, differentiating between O(1) byte-level
+//          indexing/slicing, multi-byte UTF-8 representations (1, 2, 3, and 4 bytes), byte buffer roundtrips,
+//          and scalar value escapes (\u{HHHH}).
+// Expected: JIT returns 42
+
+kernel UnicodeByteSemanticsTest {
+    fn test_ascii_bytes() -> bool {
+        let s: str = "Bunker";
+        if len(s) != 6 {
+            return false;
+        }
+
+        // ASCII characters occupy exactly 1 byte each
+        if char_code_at(s, 0) != 66 ||  // 'B'
+           char_code_at(s, 1) != 117 || // 'u'
+           char_code_at(s, 2) != 110 || // 'n'
+           char_code_at(s, 3) != 107 || // 'k'
+           char_code_at(s, 4) != 101 || // 'e'
+           char_code_at(s, 5) != 114 {  // 'r'
+            return false;
+        }
+
+        if substring(s, 0, 4) != "Bunk" {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_two_byte_utf8() -> bool {
+        // 'café' has 3 ASCII bytes ('c', 'a', 'f') and 1 two-byte UTF-8 char ('é' U+00E9 = 0xC3, 0xA9)
+        let s: str = "caf\u{00E9}";
+        if len(s) != 5 {
+            return false;
+        }
+
+        if char_code_at(s, 0) != 99 ||  // 'c'
+           char_code_at(s, 1) != 97 ||  // 'a'
+           char_code_at(s, 2) != 102 {  // 'f'
+            return false;
+        }
+
+        // UTF-8 encoding of U+00E9: 0xC3 (195), 0xA9 (169)
+        if char_code_at(s, 3) != 195 || char_code_at(s, 4) != 169 {
+            return false;
+        }
+
+        if substring(s, 0, 3) != "caf" {
+            return false;
+        }
+        if substring(s, 3, 5) != "\u{00E9}" {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_three_byte_utf8() -> bool {
+        // Euro sign U+20AC encodes as 3 bytes in UTF-8: 0xE2 (226), 0x82 (130), 0xAC (172)
+        let s: str = "\u{20AC}";
+        if len(s) != 3 {
+            return false;
+        }
+
+        if char_code_at(s, 0) != 226 ||
+           char_code_at(s, 1) != 130 ||
+           char_code_at(s, 2) != 172 {
+            return false;
+        }
+
+        let prefix: str = "Price: \u{20AC}50";
+        // 'Price: ' = 7 bytes, '€' = 3 bytes, '50' = 2 bytes => total 12 bytes
+        if len(prefix) != 12 {
+            return false;
+        }
+
+        if str_index_of(prefix, "\u{20AC}") != 7 {
+            return false;
+        }
+        if str_index_of(prefix, "50") != 10 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_four_byte_utf8() -> bool {
+        // Crab emoji U+1F980 encodes as 4 bytes in UTF-8: 0xF0 (240), 0x9F (159), 0xA6 (166), 0x80 (128)
+        let s: str = "\u{1F980}";
+        if len(s) != 4 {
+            return false;
+        }
+
+        if char_code_at(s, 0) != 240 ||
+           char_code_at(s, 1) != 159 ||
+           char_code_at(s, 2) != 166 ||
+           char_code_at(s, 3) != 128 {
+            return false;
+        }
+
+        let greeting: str = "Hi \u{1F980}!";
+        // 'Hi ' = 3 bytes, crab = 4 bytes, '!' = 1 byte => total 8 bytes
+        if len(greeting) != 8 {
+            return false;
+        }
+
+        if str_index_of(greeting, "\u{1F980}") != 3 {
+            return false;
+        }
+        if str_index_of(greeting, "!") != 7 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_bytes_buffer_roundtrip() -> bool {
+        // Manually assemble a 3-byte Euro sign in a raw byte buffer
+        let buf: i64 = bytes_new(8);
+        bytes_push(buf, 226);
+        bytes_push(buf, 130);
+        bytes_push(buf, 172);
+
+        if bytes_len(buf) != 3 {
+            return false;
+        }
+
+        let assembled: str = bytes_to_str(buf);
+        if assembled != "\u{20AC}" {
+            return false;
+        }
+
+        // Extract bytes from composite string
+        let raw_bytes: i64 = bytes_from_str("caf\u{00E9}");
+        if bytes_len(raw_bytes) != 5 {
+            return false;
+        }
+        if bytes_get(raw_bytes, 3) != 195 || bytes_get(raw_bytes, 4) != 169 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_ascii_case_and_search() -> bool {
+        let upper: str = str_to_upper("bunker");
+        if upper != "BUNKER" {
+            return false;
+        }
+
+        let lower: str = str_to_lower("BUNKER");
+        if lower != "bunker" {
+            return false;
+        }
+
+        let text: str = "alpha-\u{20AC}-omega";
+        if !contains(text, "\u{20AC}") {
+            return false;
+        }
+        if !starts_with(text, "alpha") {
+            return false;
+        }
+        if !ends_with(text, "omega") {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_ascii_bytes() {
+            return 1;
+        }
+        if !test_two_byte_utf8() {
+            return 2;
+        }
+        if !test_three_byte_utf8() {
+            return 3;
+        }
+        if !test_four_byte_utf8() {
+            return 4;
+        }
+        if !test_bytes_buffer_roundtrip() {
+            return 5;
+        }
+        if !test_ascii_case_and_search() {
+            return 6;
+        }
+
+        return 42;
+    }
+}

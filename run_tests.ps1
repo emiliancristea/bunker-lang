@@ -160,6 +160,7 @@ $expectedResults = @{
     "237_operator_policy_rules" = 42
     "239_generic_structural_constraints" = 42
     "240_type_diagnostics_parity" = 42
+    "241_unicode_byte_semantics" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -377,7 +378,8 @@ if (-not $JitOnly) {
         "tests\72_file_io.bkr",
         "tests\234_self_host_move_leak_checks.bkr",
         "tests\235_method_dispatch_rules.bkr",
-        "tests\237_operator_policy_rules.bkr"
+        "tests\237_operator_policy_rules.bkr",
+        "tests\241_unicode_byte_semantics.bkr"
     )
 
     $subsetOk = $true
