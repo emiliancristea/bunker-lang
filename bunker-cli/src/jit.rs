@@ -1795,6 +1795,22 @@ extern "C" fn bunker_time_now_unix() -> i64 {
     }
 }
 
+extern "C" fn bunker_runtime_version_major() -> i64 {
+    1
+}
+
+extern "C" fn bunker_runtime_version_minor() -> i64 {
+    0
+}
+
+extern "C" fn bunker_runtime_version_patch() -> i64 {
+    0
+}
+
+extern "C" fn bunker_runtime_version_str() -> i64 {
+    alloc_bunker_string("1.0.0")
+}
+
 // ============================================================================
 // Byte Buffer Implementation
 // ============================================================================
@@ -2702,6 +2718,10 @@ impl KernelJit {
         builder.symbol("bunker_env_has", bunker_env_has as *const u8);
         builder.symbol("bunker_time_now_ms", bunker_time_now_ms as *const u8);
         builder.symbol("bunker_time_now_unix", bunker_time_now_unix as *const u8);
+        builder.symbol("bunker_runtime_version_major", bunker_runtime_version_major as *const u8);
+        builder.symbol("bunker_runtime_version_minor", bunker_runtime_version_minor as *const u8);
+        builder.symbol("bunker_runtime_version_patch", bunker_runtime_version_patch as *const u8);
+        builder.symbol("bunker_runtime_version_str", bunker_runtime_version_str as *const u8);
         builder.symbol("bunker_bytes_new", bunker_bytes_new as *const u8);
         builder.symbol("bunker_bytes_len", bunker_bytes_len as *const u8);
         builder.symbol("bunker_bytes_capacity", bunker_bytes_capacity as *const u8);
@@ -2824,6 +2844,10 @@ impl KernelJit {
         let env_has_func = declare_env_has_func(&mut module)?;
         let time_now_ms_func = declare_time_now_ms_func(&mut module)?;
         let time_now_unix_func = declare_time_now_unix_func(&mut module)?;
+        let runtime_version_major_func = declare_runtime_version_major_func(&mut module)?;
+        let runtime_version_minor_func = declare_runtime_version_minor_func(&mut module)?;
+        let runtime_version_patch_func = declare_runtime_version_patch_func(&mut module)?;
+        let runtime_version_str_func = declare_runtime_version_str_func(&mut module)?;
         let bytes_new_func = declare_bytes_new_func(&mut module)?;
         let bytes_len_func = declare_bytes_len_func(&mut module)?;
         let bytes_capacity_func = declare_bytes_capacity_func(&mut module)?;
@@ -2944,6 +2968,10 @@ impl KernelJit {
             ("env_has", env_has_func),
             ("time_now_ms", time_now_ms_func),
             ("time_now_unix", time_now_unix_func),
+            ("runtime_version_major", runtime_version_major_func),
+            ("runtime_version_minor", runtime_version_minor_func),
+            ("runtime_version_patch", runtime_version_patch_func),
+            ("runtime_version_str", runtime_version_str_func),
             ("bytes_new", bytes_new_func),
             ("bytes_len", bytes_len_func),
             ("bytes_capacity", bytes_capacity_func),
@@ -8105,6 +8133,38 @@ fn declare_time_now_unix_func(module: &mut JITModule) -> Result<FuncId> {
     module
         .declare_function("bunker_time_now_unix", Linkage::Import, &sig)
         .map_err(|e| anyhow!("Failed to declare runtime bunker_time_now_unix: {}", e))
+}
+
+fn declare_runtime_version_major_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_runtime_version_major", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_runtime_version_major: {}", e))
+}
+
+fn declare_runtime_version_minor_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_runtime_version_minor", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_runtime_version_minor: {}", e))
+}
+
+fn declare_runtime_version_patch_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_runtime_version_patch", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_runtime_version_patch: {}", e))
+}
+
+fn declare_runtime_version_str_func(module: &mut JITModule) -> Result<FuncId> {
+    let mut sig = module.make_signature();
+    sig.returns.push(AbiParam::new(types::I64));
+    module
+        .declare_function("bunker_runtime_version_str", Linkage::Import, &sig)
+        .map_err(|e| anyhow!("Failed to declare runtime bunker_runtime_version_str: {}", e))
 }
 
 fn declare_bytes_new_func(module: &mut JITModule) -> Result<FuncId> {

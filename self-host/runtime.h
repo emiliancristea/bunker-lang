@@ -24,6 +24,21 @@
 #endif
 
 /* ============================================
+ * Runtime ABI Versioning (BKR-SPEC-ABI-001)
+ * ============================================ */
+
+#define BKR_RUNTIME_ABI_VERSION_MAJOR 1
+#define BKR_RUNTIME_ABI_VERSION_MINOR 0
+#define BKR_RUNTIME_ABI_VERSION_PATCH 0
+#define BKR_RUNTIME_ABI_STRING "1.0.0"
+
+#if defined(BKR_REQUIRED_RUNTIME_ABI_MAJOR)
+#if BKR_REQUIRED_RUNTIME_ABI_MAJOR != BKR_RUNTIME_ABI_VERSION_MAJOR
+#error "Bunker runtime ABI major version mismatch: generated C requires a different runtime.h"
+#endif
+#endif
+
+/* ============================================
  * Type Definitions
  * ============================================ */
 
@@ -1563,6 +1578,16 @@ static inline bkr_bool env_set(bkr_str key, bkr_str val) { return bkr_env_set(ke
 static inline bkr_bool env_has(bkr_str key) { return bkr_env_has(key); }
 static inline bkr_i64 time_now_ms(void) { return bkr_time_now_ms(); }
 static inline bkr_i64 time_now_unix(void) { return bkr_time_now_unix(); }
+
+static inline bkr_i64 bkr_runtime_version_major(void) { return BKR_RUNTIME_ABI_VERSION_MAJOR; }
+static inline bkr_i64 bkr_runtime_version_minor(void) { return BKR_RUNTIME_ABI_VERSION_MINOR; }
+static inline bkr_i64 bkr_runtime_version_patch(void) { return BKR_RUNTIME_ABI_VERSION_PATCH; }
+static inline bkr_str bkr_runtime_version_str(void) { return BKR_RUNTIME_ABI_STRING; }
+
+static inline bkr_i64 runtime_version_major(void) { return bkr_runtime_version_major(); }
+static inline bkr_i64 runtime_version_minor(void) { return bkr_runtime_version_minor(); }
+static inline bkr_i64 runtime_version_patch(void) { return bkr_runtime_version_patch(); }
+static inline bkr_str runtime_version_str(void) { return bkr_runtime_version_str(); }
 
 /* ============================================
  * Process Execution Policy and Primitives (R-007)

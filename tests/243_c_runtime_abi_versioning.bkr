@@ -1,0 +1,68 @@
+// Test 243: Stable C Runtime ABI Versioning and Introspection (Q-288, R-016, CB-005)
+// Purpose: Verify runtime ABI version introspection builtins, semantic version structure (1.0.0),
+//          and generated C header compatibility checks.
+// Expected: JIT and self-host compile return 42
+
+kernel CRuntimeAbiVersioningTest {
+    struct VersionInfo {
+        major: i64,
+        minor: i64,
+        patch: i64,
+        v_str: str,
+    }
+
+    fn get_current_abi_version() -> VersionInfo {
+        return VersionInfo {
+            major: runtime_version_major(),
+            minor: runtime_version_minor(),
+            patch: runtime_version_patch(),
+            v_str: runtime_version_str(),
+        };
+    }
+
+    fn is_compatible(v: VersionInfo, req_major: i64) -> bool {
+        return v.major == req_major;
+    }
+
+    fn main() -> i32 {
+        let v: VersionInfo = get_current_abi_version();
+
+        // 1. Verify exact ABI version values (1.0.0)
+        if v.major != 1 {
+            return 1;
+        }
+        if v.minor != 0 {
+            return 2;
+        }
+        if v.patch != 0 {
+            return 3;
+        }
+
+        // 2. Verify version string format
+        if v.v_str != "1.0.0" {
+            return 4;
+        }
+        if !starts_with(v.v_str, "1.") {
+            return 5;
+        }
+        if !contains(v.v_str, ".0") {
+            return 6;
+        }
+
+        // 3. Verify compatibility assertion logic
+        if !is_compatible(v, 1) {
+            return 7;
+        }
+        if is_compatible(v, 2) {
+            return 8;
+        }
+
+        // 4. Encoded integer version comparison
+        let encoded: i64 = v.major * 10000 + v.minor * 100 + v.patch;
+        if encoded != 10000 {
+            return 9;
+        }
+
+        return 42;
+    }
+}

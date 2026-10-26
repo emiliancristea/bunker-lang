@@ -572,6 +572,10 @@
         if name == "env_has" { return 1; }
         if name == "time_now_ms" { return 0; }
         if name == "time_now_unix" { return 0; }
+        if name == "runtime_version_major" { return 0; }
+        if name == "runtime_version_minor" { return 0; }
+        if name == "runtime_version_patch" { return 0; }
+        if name == "runtime_version_str" { return 0; }
         if name == "bytes_new" { return 1; }
         if name == "bytes_len" { return 1; }
         if name == "bytes_capacity" { return 1; }

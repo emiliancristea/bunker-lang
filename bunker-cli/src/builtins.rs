@@ -960,6 +960,30 @@ static TYPECHECK_BUILTINS: &[TypecheckBuiltinSpec] = &[
         return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
     },
     TypecheckBuiltinSpec {
+        name: "runtime_version_major",
+        arity_error: "runtime_version_major expects 0 arguments",
+        params: &[],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "runtime_version_minor",
+        arity_error: "runtime_version_minor expects 0 arguments",
+        params: &[],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "runtime_version_patch",
+        arity_error: "runtime_version_patch expects 0 arguments",
+        params: &[],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::I64),
+    },
+    TypecheckBuiltinSpec {
+        name: "runtime_version_str",
+        arity_error: "runtime_version_str expects 0 arguments",
+        params: &[],
+        return_type: BuiltinReturnType::Runtime(RuntimeBuiltinType::Str),
+    },
+    TypecheckBuiltinSpec {
         name: "bytes_new",
         arity_error: "bytes_new expects 1 argument (capacity)",
         params: &[BuiltinParamSpec {
@@ -1658,6 +1682,26 @@ static RUNTIME_BUILTINS: &[RuntimeBuiltinSpec] = &[
         name: "time_now_unix",
         params: &[],
         return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "runtime_version_major",
+        params: &[],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "runtime_version_minor",
+        params: &[],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "runtime_version_patch",
+        params: &[],
+        return_type: Some(RuntimeBuiltinType::I64),
+    },
+    RuntimeBuiltinSpec {
+        name: "runtime_version_str",
+        params: &[],
+        return_type: Some(RuntimeBuiltinType::Str),
     },
     RuntimeBuiltinSpec {
         name: "bytes_new",
