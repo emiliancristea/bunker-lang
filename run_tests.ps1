@@ -167,6 +167,8 @@ $expectedResults = @{
     "247_diagnostics_builder" = 42
     "248_cli_argument_parser" = 42
     "249_structured_logging" = 42
+    "250_arena_allocator_lib" = 42
+    "251_serialization_engine" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -390,7 +392,9 @@ if (-not $JitOnly) {
         "tests\246_json_parser_writer.bkr",
         "tests\247_diagnostics_builder.bkr",
         "tests\248_cli_argument_parser.bkr",
-        "tests\249_structured_logging.bkr"
+        "tests\249_structured_logging.bkr",
+        "tests\250_arena_allocator_lib.bkr",
+        "tests\251_serialization_engine.bkr"
     )
 
     $subsetOk = $true

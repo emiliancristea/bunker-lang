@@ -29,6 +29,10 @@ kernel BunkerCompiler {
 
     import "modules/logger.bkr";
 
+    import "modules/arena.bkr";
+
+    import "modules/serializer.bkr";
+
     import "modules/report_support.bkr";
 
     import "modules/ast_report.bkr";
