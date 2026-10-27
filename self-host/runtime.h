@@ -57,6 +57,7 @@ typedef int64_t bkr_i64;
 typedef double  bkr_f64;
 typedef int     bkr_bool;
 typedef char*   bkr_str;
+typedef int     bkr_unit;
 
 #define BKR_TRUE  1
 #define BKR_FALSE 0

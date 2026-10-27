@@ -1978,6 +1978,9 @@
             } else if kind == TYPE_STRUCT && struct_name_idx >= 0 {
                 c_type = name_to_c_ref(state, struct_name_idx);
             }
+            if c_type == "void" {
+                c_type = "bkr_unit";
+            }
             let line = c_type + " " + name;
             if ast_optional_is_some(init) {
                 line = line + " = " + gen_c_init_expr_for_type_ref(state, type_node, ast_expr_ref_from_handle(init));
@@ -2001,6 +2004,23 @@
             let expr: i64 = ast_return_ref_expr_handle(stmt_ref);
             let defers: Vec<i64> = cgen_defers_ref(state);
             let defer_count: i64 = vec_len(defers);
+            let current_ret: str = cgen_current_ret_type_ref(state);
+            if current_ret == "void" {
+                if ast_optional_is_some(expr) {
+                    let expr_ref: AstExprRef = ast_expr_ref_from_handle(expr);
+                    let e_kind: i64 = ast_expr_ref_kind(expr_ref);
+                    if e_kind != NODE_INT_LIT {
+                        cgen_emit_ref(state, gen_c_expr_ref(state, expr_ref) + ";");
+                    }
+                }
+                let d: i64 = defer_count - 1;
+                while d >= 0 {
+                    gen_c_stmt_ref(state, ast_stmt_ref_from_handle(vec_get(defers, d)));
+                    d = d - 1;
+                }
+                cgen_emit_ref(state, "return;");
+                return state;
+            }
             if defer_count > 0 {
                 if ast_optional_is_some(expr) {
                     let ret_var: str = cgen_next_hygienic_temp_ref(state, "_bkr_ret");
