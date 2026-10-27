@@ -2238,7 +2238,7 @@ jobs:
             -o /tmp/137_type_aliases.c
           test -s /tmp/137_type_aliases.c
           grep -q "BUNKER_AST_JSON" /tmp/137_type_aliases.c
-          grep -q '"type_kind":"type alias"' /tmp/137_type_aliases.c
+          grep -q '"kind":"type alias"' /tmp/137_type_aliases.c
           grep -q '"has_diagnostics":false' /tmp/137_type_aliases.c
 
       - name: Run never type acceptance test (JIT)
