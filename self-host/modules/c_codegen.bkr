@@ -1197,7 +1197,11 @@
         if scrutinee_kind == TYPE_STRUCT && ast_expr_ref_kind(scrutinee_ref) == NODE_IDENT {
             let s_name_idx: i64 = cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(scrutinee_ref));
             if s_name_idx >= 0 {
-                scrutinee_c_type = name_to_c_ref(state, s_name_idx);
+                if cgen_is_enum_name_ref(state, s_name_idx) {
+                    scrutinee_c_type = "bkr_i64";
+                } else {
+                    scrutinee_c_type = name_to_c_ref(state, s_name_idx);
+                }
             }
         }
 
