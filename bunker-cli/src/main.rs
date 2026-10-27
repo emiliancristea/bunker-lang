@@ -1,3 +1,17 @@
+#![allow(
+    clippy::collapsible_if,
+    clippy::collapsible_match,
+    clippy::extend_with_drain,
+    clippy::if_same_then_else,
+    clippy::manual_pattern_char_comparison,
+    clippy::needless_return,
+    clippy::question_mark,
+    clippy::result_large_err,
+    clippy::too_many_arguments,
+    clippy::unnecessary_map_or,
+    clippy::while_let_on_iterator
+)]
+
 mod ast;
 mod ast_builder;
 mod ast_report;
