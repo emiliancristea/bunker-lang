@@ -185,6 +185,8 @@ $expectedResults = @{
     "265_portable_c_statement_expressions" = 42
     "266_multi_target_backend_strategy" = 42
     "267_deterministic_artifact_layout" = 42
+    "268_constant_folding_optimizations" = 42
+    "269_incremental_compilation_cache" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -426,7 +428,9 @@ if (-not $JitOnly) {
         "tests\264_codegen_hygienic_temporaries.bkr",
         "tests\265_portable_c_statement_expressions.bkr",
         "tests\266_multi_target_backend_strategy.bkr",
-        "tests\267_deterministic_artifact_layout.bkr"
+        "tests\267_deterministic_artifact_layout.bkr",
+        "tests\268_constant_folding_optimizations.bkr",
+        "tests\269_incremental_compilation_cache.bkr"
     )
 
     $subsetOk = $true

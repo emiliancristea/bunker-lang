@@ -677,6 +677,9 @@
             json_field_bool("multi_target_backend_strategy", true) + comma +
             json_field_bool("deterministic_artifact_layout", true) + comma +
             json_field_str("supported_backends", "c, cranelift, llvm") + comma +
+            json_field_bool("constant_folding", true) + comma +
+            json_field_bool("dead_code_elimination", true) + comma +
+            json_field_bool("incremental_compilation_cache", true) + comma +
             json_field_bool("typed_ast", true) + comma +
             json_field_bool("real_module_resolver", true) + comma +
             json_field_bool("module_cycle_path_detection", true) + comma +
