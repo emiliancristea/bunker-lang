@@ -551,7 +551,10 @@ fn check_file(
         print!("{}", graph.to_json_comment());
     }
     if capability_json {
-        print!("{}", capability::CapabilityReport::current().to_json_comment());
+        print!(
+            "{}",
+            capability::CapabilityReport::current().to_json_comment()
+        );
     }
     if ast_json {
         let report = ast_report::build_ast_report(&ast, &source);

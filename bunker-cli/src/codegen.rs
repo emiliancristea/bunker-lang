@@ -107,36 +107,81 @@ fn eval_const_expr(expr: &ast::Expr, evaluated: &HashMap<String, ConstVal>) -> O
             let l = eval_const_expr(left, evaluated)?;
             let r = eval_const_expr(right, evaluated)?;
             match (op, l, r) {
-                (ast::BinaryOp::Add, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a + b)),
-                (ast::BinaryOp::Sub, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a - b)),
-                (ast::BinaryOp::Mul, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a * b)),
-                (ast::BinaryOp::Div, ConstVal::Int(a), ConstVal::Int(b)) if b != 0 => Some(ConstVal::Int(a / b)),
-                (ast::BinaryOp::Mod, ConstVal::Int(a), ConstVal::Int(b)) if b != 0 => Some(ConstVal::Int(a % b)),
-                (ast::BinaryOp::Shl, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a << (b as u32))),
-                (ast::BinaryOp::Shr, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a >> (b as u32))),
-                (ast::BinaryOp::BitAnd, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a & b)),
-                (ast::BinaryOp::BitOr, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a | b)),
-                (ast::BinaryOp::BitXor, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a ^ b)),
-                (ast::BinaryOp::Add, ConstVal::Float(a), ConstVal::Float(b)) => Some(ConstVal::Float(a + b)),
-                (ast::BinaryOp::Sub, ConstVal::Float(a), ConstVal::Float(b)) => Some(ConstVal::Float(a - b)),
-                (ast::BinaryOp::Mul, ConstVal::Float(a), ConstVal::Float(b)) => Some(ConstVal::Float(a * b)),
-                (ast::BinaryOp::Div, ConstVal::Float(a), ConstVal::Float(b)) => Some(ConstVal::Float(a / b)),
-                (ast::BinaryOp::Add, ConstVal::Str(a), ConstVal::Str(b)) => Some(ConstVal::Str(format!("{}{}", a, b))),
-                (ast::BinaryOp::Eq, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a == b)),
-                (ast::BinaryOp::Ne, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a != b)),
-                (ast::BinaryOp::Lt, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a < b)),
-                (ast::BinaryOp::Le, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a <= b)),
-                (ast::BinaryOp::Gt, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a > b)),
-                (ast::BinaryOp::Ge, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a >= b)),
-                (ast::BinaryOp::And, ConstVal::Bool(a), ConstVal::Bool(b)) => Some(ConstVal::Bool(a && b)),
-                (ast::BinaryOp::Or, ConstVal::Bool(a), ConstVal::Bool(b)) => Some(ConstVal::Bool(a || b)),
+                (ast::BinaryOp::Add, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a + b))
+                }
+                (ast::BinaryOp::Sub, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a - b))
+                }
+                (ast::BinaryOp::Mul, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a * b))
+                }
+                (ast::BinaryOp::Div, ConstVal::Int(a), ConstVal::Int(b)) if b != 0 => {
+                    Some(ConstVal::Int(a / b))
+                }
+                (ast::BinaryOp::Mod, ConstVal::Int(a), ConstVal::Int(b)) if b != 0 => {
+                    Some(ConstVal::Int(a % b))
+                }
+                (ast::BinaryOp::Shl, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a << (b as u32)))
+                }
+                (ast::BinaryOp::Shr, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a >> (b as u32)))
+                }
+                (ast::BinaryOp::BitAnd, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a & b))
+                }
+                (ast::BinaryOp::BitOr, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a | b))
+                }
+                (ast::BinaryOp::BitXor, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a ^ b))
+                }
+                (ast::BinaryOp::Add, ConstVal::Float(a), ConstVal::Float(b)) => {
+                    Some(ConstVal::Float(a + b))
+                }
+                (ast::BinaryOp::Sub, ConstVal::Float(a), ConstVal::Float(b)) => {
+                    Some(ConstVal::Float(a - b))
+                }
+                (ast::BinaryOp::Mul, ConstVal::Float(a), ConstVal::Float(b)) => {
+                    Some(ConstVal::Float(a * b))
+                }
+                (ast::BinaryOp::Div, ConstVal::Float(a), ConstVal::Float(b)) => {
+                    Some(ConstVal::Float(a / b))
+                }
+                (ast::BinaryOp::Add, ConstVal::Str(a), ConstVal::Str(b)) => {
+                    Some(ConstVal::Str(format!("{}{}", a, b)))
+                }
+                (ast::BinaryOp::Eq, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Bool(a == b))
+                }
+                (ast::BinaryOp::Ne, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Bool(a != b))
+                }
+                (ast::BinaryOp::Lt, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Bool(a < b))
+                }
+                (ast::BinaryOp::Le, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Bool(a <= b))
+                }
+                (ast::BinaryOp::Gt, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Bool(a > b))
+                }
+                (ast::BinaryOp::Ge, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Bool(a >= b))
+                }
+                (ast::BinaryOp::And, ConstVal::Bool(a), ConstVal::Bool(b)) => {
+                    Some(ConstVal::Bool(a && b))
+                }
+                (ast::BinaryOp::Or, ConstVal::Bool(a), ConstVal::Bool(b)) => {
+                    Some(ConstVal::Bool(a || b))
+                }
                 _ => None,
             }
         }
         _ => None,
     }
 }
-
 
 impl Compiler {
     pub fn new() -> Result<Self> {
@@ -172,7 +217,7 @@ impl Compiler {
         })
     }
 
-        pub fn compile_file(&mut self, file: &ast::File) -> Result<()> {
+    pub fn compile_file(&mut self, file: &ast::File) -> Result<()> {
         for kernel in &file.kernels {
             self.collect_kernel_declarations(kernel)?;
         }
@@ -199,13 +244,16 @@ impl Compiler {
                 ast::KernelItem::Struct(s) => {
                     let layout = compute_struct_layout(s, &self.structs);
                     self.structs.insert(s.name.clone(), layout.clone());
-                    self.structs.insert(format!("{}::{}", kernel.name, s.name), layout);
+                    self.structs
+                        .insert(format!("{}::{}", kernel.name, s.name), layout);
                 }
                 ast::KernelItem::Const(c) => {
                     self.constants
                         .insert(c.name.clone(), (c.ty.clone(), c.value.clone()));
-                    self.constants
-                        .insert(format!("{}::{}", kernel.name, c.name), (c.ty.clone(), c.value.clone()));
+                    self.constants.insert(
+                        format!("{}::{}", kernel.name, c.name),
+                        (c.ty.clone(), c.value.clone()),
+                    );
                 }
                 _ => {}
             }
@@ -217,10 +265,14 @@ impl Compiler {
         for item in &kernel.items {
             if let ast::KernelItem::Function(func) = item {
                 let params: Vec<_> = func.params.iter().map(|p| p.ty.clone()).collect();
-                self.fn_sigs
-                    .insert(func.name.clone(), (params.clone(), func.return_type.clone()));
-                self.fn_sigs
-                    .insert(format!("{}::{}", kernel.name, func.name), (params, func.return_type.clone()));
+                self.fn_sigs.insert(
+                    func.name.clone(),
+                    (params.clone(), func.return_type.clone()),
+                );
+                self.fn_sigs.insert(
+                    format!("{}::{}", kernel.name, func.name),
+                    (params, func.return_type.clone()),
+                );
                 let func_id = self.declare_function(&kernel.name, func)?;
                 self.functions
                     .insert(format!("{}::{}", kernel.name, func.name), func_id);
@@ -268,7 +320,8 @@ impl Compiler {
             .declare_function(&symbol_name, linkage, &sig)
             .map_err(|e| anyhow!("Failed to declare function {}: {}", symbol_name, e))?;
 
-        self.functions.insert(format!("{}::{}", kernel_name, func.name), func_id);
+        self.functions
+            .insert(format!("{}::{}", kernel_name, func.name), func_id);
         self.functions.insert(func.name.clone(), func_id);
         Ok(func_id)
     }
@@ -358,12 +411,8 @@ impl Compiler {
                                 builder.ins().f32const(*f as f32)
                             }
                         }
-                        ConstVal::Bool(b) => {
-                            builder.ins().iconst(cr_type, if *b { 1 } else { 0 })
-                        }
-                        ConstVal::Str(_) => {
-                            builder.ins().iconst(types::I64, 0)
-                        }
+                        ConstVal::Bool(b) => builder.ins().iconst(cr_type, if *b { 1 } else { 0 }),
+                        ConstVal::Str(_) => builder.ins().iconst(types::I64, 0),
                     };
                     builder.def_var(var, cr_val);
                     variables.insert(name.clone(), var);
@@ -498,7 +547,9 @@ fn compile_stmt_inline(
     loop_stack: &[(Option<String>, Block, Block)],
 ) -> Result<()> {
     match stmt {
-        ast::Stmt::Let { name, ty, value, .. } => {
+        ast::Stmt::Let {
+            name, ty, value, ..
+        } => {
             let mut val = compile_expr_inline(
                 builder,
                 module,
@@ -910,18 +961,21 @@ fn compile_stmt_inline(
                 let elem_addr = builder.ins().iadd(arr_base_data, offset);
                 let elem_val = match arr_ty {
                     ast::Type::Vec(_) => {
-                        let raw = builder.ins().load(types::I64, MemFlags::new(), elem_addr, 0);
+                        let raw = builder
+                            .ins()
+                            .load(types::I64, MemFlags::new(), elem_addr, 0);
                         match convert_ast_type(&elem_ty) {
                             types::I32 => builder.ins().ireduce(types::I32, raw),
                             types::I8 => builder.ins().ireduce(types::I8, raw),
                             _ => raw,
                         }
                     }
-                    _ => {
-                        builder
-                            .ins()
-                            .load(convert_ast_type(&elem_ty), MemFlags::new(), elem_addr, 0)
-                    }
+                    _ => builder.ins().load(
+                        convert_ast_type(&elem_ty),
+                        MemFlags::new(),
+                        elem_addr,
+                        0,
+                    ),
                 };
                 builder.def_var(loop_var, elem_val);
 
@@ -1091,7 +1145,9 @@ fn compile_stmt_inline(
                 builder.ins().jump(*continue_block, &[]);
                 *returned = true; // Mark as returned to stop further code gen in this block
             } else {
-                return Err(anyhow!("continue statement outside of loop or invalid label"));
+                return Err(anyhow!(
+                    "continue statement outside of loop or invalid label"
+                ));
             }
         }
         ast::Stmt::Match { expr, arms } => {
@@ -1614,7 +1670,11 @@ fn compile_pattern_cond(
             if !pattern_has_cond(sub_pat) {
                 Ok(not_null)
             } else {
-                let dummy_slot = builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 16, 3));
+                let dummy_slot = builder.create_sized_stack_slot(StackSlotData::new(
+                    StackSlotKind::ExplicitSlot,
+                    16,
+                    3,
+                ));
                 let dummy_ptr = builder.ins().stack_addr(types::I64, dummy_slot, 0);
                 let safe_ptr = builder.ins().select(not_null, val, dummy_ptr);
                 let inner_val = builder.ins().load(types::I64, MemFlags::new(), safe_ptr, 0);
@@ -1683,8 +1743,12 @@ fn compile_pattern_cond(
                             .map(|(_, o, t)| (*o, t.clone()))
                         {
                             let cr_ty = convert_ast_type(&field_ty);
-                            let field_val = builder.ins().load(cr_ty, MemFlags::new(), ptr, offset as i32);
-                            let sub_cond = compile_pattern_cond(builder, field_val, sub_pat, structs)?;
+                            let field_val =
+                                builder
+                                    .ins()
+                                    .load(cr_ty, MemFlags::new(), ptr, offset as i32);
+                            let sub_cond =
+                                compile_pattern_cond(builder, field_val, sub_pat, structs)?;
                             let sub_cond_i8 = bool_value_to_i8(builder, sub_cond)?;
                             cond = builder.ins().band(cond, sub_cond_i8);
                         }
@@ -1815,7 +1879,9 @@ fn bind_match_pattern(
                         .map(|(_, o, t)| (*o, t.clone()))
                     {
                         let cr_ty = convert_ast_type(&field_ty);
-                        let loaded = builder.ins().load(cr_ty, MemFlags::new(), ptr, offset as i32);
+                        let loaded = builder
+                            .ins()
+                            .load(cr_ty, MemFlags::new(), ptr, offset as i32);
                         bind_match_pattern(
                             builder,
                             sub_pat,
@@ -1831,14 +1897,7 @@ fn bind_match_pattern(
             }
         }
         ast::Pattern::EnumPayload { bindings, .. } => {
-            bind_enum_payload_fields(
-                builder,
-                val,
-                bindings,
-                var_index,
-                local_vars,
-                local_types,
-            );
+            bind_enum_payload_fields(builder, val, bindings, var_index, local_vars, local_types);
         }
         _ => {}
     }
@@ -2049,11 +2108,21 @@ fn compile_expr_inline(
                         sig.params.push(AbiParam::new(types::I64));
                         sig
                     };
-                    let panic_id = module.declare_function("bkr_panic", Linkage::Import, &panic_sig)?;
+                    let panic_id =
+                        module.declare_function("bkr_panic", Linkage::Import, &panic_sig)?;
                     let msg_ptr = if let Some(arg) = args.first() {
                         compile_expr_inline(
-                            builder, module, alloc_func, functions, structs, fn_sigs,
-                            variables, var_types, var_index, defer_stack, arg,
+                            builder,
+                            module,
+                            alloc_func,
+                            functions,
+                            structs,
+                            fn_sigs,
+                            variables,
+                            var_types,
+                            var_index,
+                            defer_stack,
+                            arg,
                         )?
                     } else {
                         builder.ins().iconst(types::I64, 0)
@@ -2069,17 +2138,36 @@ fn compile_expr_inline(
                         sig.params.push(AbiParam::new(types::I64));
                         sig
                     };
-                    let assert_id = module.declare_function("bkr_assert", Linkage::Import, &assert_sig)?;
+                    let assert_id =
+                        module.declare_function("bkr_assert", Linkage::Import, &assert_sig)?;
                     if let Some(cond_arg) = args.first() {
                         let cond_val = compile_expr_inline(
-                            builder, module, alloc_func, functions, structs, fn_sigs,
-                            variables, var_types, var_index, defer_stack, cond_arg,
+                            builder,
+                            module,
+                            alloc_func,
+                            functions,
+                            structs,
+                            fn_sigs,
+                            variables,
+                            var_types,
+                            var_index,
+                            defer_stack,
+                            cond_arg,
                         )?;
                         let cond_bool = bool_value_to_i8(builder, cond_val)?;
                         let msg_ptr = if args.len() > 1 {
                             compile_expr_inline(
-                                builder, module, alloc_func, functions, structs, fn_sigs,
-                                variables, var_types, var_index, defer_stack, &args[1],
+                                builder,
+                                module,
+                                alloc_func,
+                                functions,
+                                structs,
+                                fn_sigs,
+                                variables,
+                                var_types,
+                                var_index,
+                                defer_stack,
+                                &args[1],
                             )?
                         } else {
                             builder.ins().iconst(types::I64, 0)
@@ -2172,7 +2260,9 @@ fn compile_expr_inline(
                                 arg,
                             )?;
                             let val = cast_value(builder, val, convert_ast_type(field_ty));
-                            builder.ins().store(MemFlags::new(), val, ptr, *offset as i32);
+                            builder
+                                .ins()
+                                .store(MemFlags::new(), val, ptr, *offset as i32);
                         }
                     }
                     return Ok(ptr);
@@ -2294,7 +2384,11 @@ fn compile_expr_inline(
                         Err(anyhow!("Undefined method: {}", method_name))
                     }
                 } else {
-                    Err(anyhow!("Cannot call method '{}' on non-struct type {:?}", field, base_ty))
+                    Err(anyhow!(
+                        "Cannot call method '{}' on non-struct type {:?}",
+                        field,
+                        base_ty
+                    ))
                 }
             } else {
                 Err(anyhow!("Invalid function call"))
@@ -2412,7 +2506,9 @@ fn compile_expr_inline(
                 };
 
                 let matched_bb = builder.create_block();
-                builder.ins().brif(cond, matched_bb, &[], fallthrough_bb, &[]);
+                builder
+                    .ins()
+                    .brif(cond, matched_bb, &[], fallthrough_bb, &[]);
                 builder.switch_to_block(matched_bb);
                 builder.seal_block(matched_bb);
 
@@ -2446,7 +2542,9 @@ fn compile_expr_inline(
                     )?;
                     let guard_cond = bool_value_to_i8(builder, guard_val)?;
                     let guarded_body_bb = builder.create_block();
-                    builder.ins().brif(guard_cond, guarded_body_bb, &[], fallthrough_bb, &[]);
+                    builder
+                        .ins()
+                        .brif(guard_cond, guarded_body_bb, &[], fallthrough_bb, &[]);
                     builder.switch_to_block(guarded_body_bb);
                     builder.seal_block(guarded_body_bb);
                 }
@@ -2607,7 +2705,9 @@ fn compile_expr_inline(
 
             Ok(ptr)
         }
-        ast::Expr::Struct { name, fields, base, .. } => {
+        ast::Expr::Struct {
+            name, fields, base, ..
+        } => {
             let Some(layout) = structs.get(name) else {
                 return Ok(builder.ins().iconst(types::I64, 0));
             };
@@ -2630,8 +2730,12 @@ fn compile_expr_inline(
                 )?;
                 for (_fname, offset, field_ty) in &layout.fields {
                     let cr_ty = convert_ast_type(field_ty);
-                    let val = builder.ins().load(cr_ty, MemFlags::new(), base_ptr, *offset as i32);
-                    builder.ins().store(MemFlags::new(), val, ptr, *offset as i32);
+                    let val = builder
+                        .ins()
+                        .load(cr_ty, MemFlags::new(), base_ptr, *offset as i32);
+                    builder
+                        .ins()
+                        .store(MemFlags::new(), val, ptr, *offset as i32);
                 }
             }
 
@@ -2739,7 +2843,9 @@ fn compile_expr_inline(
                 builder.switch_to_block(some_bb);
                 builder.seal_block(some_bb);
                 let some_cr_ty = convert_ast_type(&val_ty);
-                let loaded = builder.ins().load(some_cr_ty, MemFlags::new(), inner_val_i64, 0);
+                let loaded = builder
+                    .ins()
+                    .load(some_cr_ty, MemFlags::new(), inner_val_i64, 0);
                 Ok(loaded)
             } else {
                 let ok_ty = match &inner_ty {
@@ -2747,7 +2853,9 @@ fn compile_expr_inline(
                     _ => ast::Type::I32,
                 };
                 let inner_val_i64 = cast_value(builder, inner_val, types::I64);
-                let tag = builder.ins().load(types::I64, MemFlags::new(), inner_val_i64, 0);
+                let tag = builder
+                    .ins()
+                    .load(types::I64, MemFlags::new(), inner_val_i64, 0);
                 let is_err = builder.ins().icmp_imm(IntCC::NotEqual, tag, 0);
 
                 let err_bb = builder.create_block();
@@ -2782,7 +2890,9 @@ fn compile_expr_inline(
                 builder.switch_to_block(ok_bb);
                 builder.seal_block(ok_bb);
                 let ok_cr_ty = convert_ast_type(&ok_ty);
-                let loaded = builder.ins().load(ok_cr_ty, MemFlags::new(), inner_val_i64, 8);
+                let loaded = builder
+                    .ins()
+                    .load(ok_cr_ty, MemFlags::new(), inner_val_i64, 8);
                 Ok(loaded)
             }
         }
@@ -3125,13 +3235,11 @@ fn infer_expr_type(
             ast::Type::Option(Box::new(inner_ty))
         }
         ast::Expr::None => ast::Type::Option(Box::new(ast::Type::I32)),
-        ast::Expr::Try(inner) => {
-            match infer_expr_type(inner, var_types, structs, fn_sigs) {
-                ast::Type::Result(ok_ty, _) => *ok_ty,
-                ast::Type::Option(val_ty) => *val_ty,
-                _ => ast::Type::I32,
-            }
-        }
+        ast::Expr::Try(inner) => match infer_expr_type(inner, var_types, structs, fn_sigs) {
+            ast::Type::Result(ok_ty, _) => *ok_ty,
+            ast::Type::Option(val_ty) => *val_ty,
+            _ => ast::Type::I32,
+        },
         ast::Expr::Tuple(elements) => {
             let elem_tys = elements
                 .iter()
@@ -3196,7 +3304,9 @@ fn infer_block_value_type(
     let mut last = None;
     for stmt in &block.statements {
         match stmt {
-            ast::Stmt::Let { name, ty, value, .. } => {
+            ast::Stmt::Let {
+                name, ty, value, ..
+            } => {
                 let inferred = ty
                     .clone()
                     .unwrap_or_else(|| infer_expr_type(value, &env, structs, fn_sigs));

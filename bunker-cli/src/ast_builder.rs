@@ -90,7 +90,11 @@ fn build_kernel(pair: Pair<Rule>) -> Result<Kernel, String> {
         }
     }
 
-    let mut doc = if doc_lines.is_empty() { None } else { Some(doc_lines.join("\n")) };
+    let mut doc = if doc_lines.is_empty() {
+        None
+    } else {
+        Some(doc_lines.join("\n"))
+    };
     if doc.is_none() {
         for attr in &attributes {
             if let Attribute::Doc(text) = attr {
@@ -100,7 +104,12 @@ fn build_kernel(pair: Pair<Rule>) -> Result<Kernel, String> {
         }
     }
 
-    Ok(Kernel { name, attributes, doc, items })
+    Ok(Kernel {
+        name,
+        attributes,
+        doc,
+        items,
+    })
 }
 
 fn build_import(pair: Pair<Rule>) -> Result<ImportDecl, String> {
@@ -236,13 +245,19 @@ fn build_function(pair: Pair<Rule>) -> Result<Function, String> {
     if name.contains("::") {
         let struct_name = name.split("::").next().unwrap_or("").to_string();
         for param in &mut params {
-            if param.name == "self" && (param.ty == Type::Named("".to_string()) || param.ty == Type::I32) {
+            if param.name == "self"
+                && (param.ty == Type::Named("".to_string()) || param.ty == Type::I32)
+            {
                 param.ty = Type::Named(struct_name.clone());
             }
         }
     }
 
-    let mut doc = if doc_lines.is_empty() { None } else { Some(doc_lines.join("\n")) };
+    let mut doc = if doc_lines.is_empty() {
+        None
+    } else {
+        Some(doc_lines.join("\n"))
+    };
     if doc.is_none() {
         for attr in &attributes {
             if let Attribute::Doc(text) = attr {
@@ -294,7 +309,8 @@ fn build_attribute(pair: Pair<Rule>) -> Result<Attribute, String> {
                         } else {
                             s
                         };
-                        let unescaped = unescape_string(unquoted).unwrap_or_else(|_| unquoted.to_string());
+                        let unescaped =
+                            unescape_string(unquoted).unwrap_or_else(|_| unquoted.to_string());
                         value = Some(unescaped);
                     }
                     Rule::identifier | Rule::integer => {
@@ -657,7 +673,11 @@ fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
         }
     }
 
-    let mut doc = if doc_lines.is_empty() { None } else { Some(doc_lines.join("\n")) };
+    let mut doc = if doc_lines.is_empty() {
+        None
+    } else {
+        Some(doc_lines.join("\n"))
+    };
     if doc.is_none() {
         for attr in &attributes {
             if let Attribute::Doc(text) = attr {
@@ -667,7 +687,15 @@ fn build_struct(pair: Pair<Rule>) -> Result<StructDef, String> {
         }
     }
 
-    Ok(StructDef { name, is_pub, type_params, attributes, doc, fields, is_tuple })
+    Ok(StructDef {
+        name,
+        is_pub,
+        type_params,
+        attributes,
+        doc,
+        fields,
+        is_tuple,
+    })
 }
 
 fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
@@ -724,7 +752,11 @@ fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
         }
     }
 
-    let mut doc = if doc_lines.is_empty() { None } else { Some(doc_lines.join("\n")) };
+    let mut doc = if doc_lines.is_empty() {
+        None
+    } else {
+        Some(doc_lines.join("\n"))
+    };
     if doc.is_none() {
         for attr in &attributes {
             if let Attribute::Doc(text) = attr {
@@ -734,7 +766,14 @@ fn build_enum(pair: Pair<Rule>) -> Result<EnumDef, String> {
         }
     }
 
-    Ok(EnumDef { name, is_pub, type_params, attributes, doc, variants })
+    Ok(EnumDef {
+        name,
+        is_pub,
+        type_params,
+        attributes,
+        doc,
+        variants,
+    })
 }
 
 fn build_struct_field(pair: Pair<Rule>) -> Result<StructField, String> {
@@ -788,7 +827,11 @@ fn build_const(pair: Pair<Rule>) -> Result<ConstDef, String> {
         }
     }
 
-    let mut doc = if doc_lines.is_empty() { None } else { Some(doc_lines.join("\n")) };
+    let mut doc = if doc_lines.is_empty() {
+        None
+    } else {
+        Some(doc_lines.join("\n"))
+    };
     if doc.is_none() {
         for attr in &attributes {
             if let Attribute::Doc(text) = attr {
@@ -798,7 +841,14 @@ fn build_const(pair: Pair<Rule>) -> Result<ConstDef, String> {
         }
     }
 
-    Ok(ConstDef { name, is_pub, attributes, doc, ty, value })
+    Ok(ConstDef {
+        name,
+        is_pub,
+        attributes,
+        doc,
+        ty,
+        value,
+    })
 }
 
 fn build_type_alias(pair: Pair<Rule>) -> Result<TypeAliasDef, String> {
@@ -830,7 +880,11 @@ fn build_type_alias(pair: Pair<Rule>) -> Result<TypeAliasDef, String> {
     }
 
     let target = target.ok_or_else(|| format!("type alias '{}' missing target type", name))?;
-    let mut doc = if doc_lines.is_empty() { None } else { Some(doc_lines.join("\n")) };
+    let mut doc = if doc_lines.is_empty() {
+        None
+    } else {
+        Some(doc_lines.join("\n"))
+    };
     if doc.is_none() {
         for attr in &attributes {
             if let Attribute::Doc(text) = attr {
@@ -840,7 +894,13 @@ fn build_type_alias(pair: Pair<Rule>) -> Result<TypeAliasDef, String> {
         }
     }
 
-    Ok(TypeAliasDef { name, is_pub, attributes, doc, target })
+    Ok(TypeAliasDef {
+        name,
+        is_pub,
+        attributes,
+        doc,
+        target,
+    })
 }
 
 fn build_block(pair: Pair<Rule>) -> Result<Block, String> {
@@ -1021,7 +1081,12 @@ fn build_for_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
         }
     }
 
-    Ok(Stmt::For { label, var, iter, body })
+    Ok(Stmt::For {
+        label,
+        var,
+        iter,
+        body,
+    })
 }
 
 fn build_while_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
@@ -1044,7 +1109,11 @@ fn build_while_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
         }
     }
 
-    Ok(Stmt::While { label, condition, body })
+    Ok(Stmt::While {
+        label,
+        condition,
+        body,
+    })
 }
 
 fn build_loop_stmt(pair: Pair<Rule>) -> Result<Stmt, String> {
@@ -1108,7 +1177,11 @@ fn build_match_arm(pair: Pair<Rule>) -> Result<MatchArm, String> {
         }
     }
 
-    Ok(MatchArm { pattern, guard, body })
+    Ok(MatchArm {
+        pattern,
+        guard,
+        body,
+    })
 }
 
 fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
@@ -1160,7 +1233,8 @@ fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
                                     _ => {}
                                 }
                             }
-                            let pat = sub_pattern.unwrap_or_else(|| Pattern::Ident(field_name.clone()));
+                            let pat =
+                                sub_pattern.unwrap_or_else(|| Pattern::Ident(field_name.clone()));
                             fields.push((field_name, pat));
                         }
                         _ => {}
@@ -1208,9 +1282,13 @@ fn build_pattern(pair: Pair<Rule>) -> Result<Pattern, String> {
                         }
                     } else if names[0] == "Result" {
                         if names[1] == "Ok" && names.len() == 3 {
-                            return Ok(Pattern::ResultOk(Box::new(Pattern::Ident(names[2].clone()))));
+                            return Ok(Pattern::ResultOk(Box::new(Pattern::Ident(
+                                names[2].clone(),
+                            ))));
                         } else if names[1] == "Err" && names.len() == 3 {
-                            return Ok(Pattern::ResultErr(Box::new(Pattern::Ident(names[2].clone()))));
+                            return Ok(Pattern::ResultErr(Box::new(Pattern::Ident(
+                                names[2].clone(),
+                            ))));
                         }
                     }
                     return Ok(Pattern::EnumVariant {
@@ -1951,7 +2029,12 @@ fn build_struct_literal(pair: Pair<Rule>) -> Result<Expr, String> {
         }
     }
 
-    Ok(Expr::Struct { name, type_args, fields, base })
+    Ok(Expr::Struct {
+        name,
+        type_args,
+        fields,
+        base,
+    })
 }
 
 /// Unescape a string literal contents (without surrounding quotes).

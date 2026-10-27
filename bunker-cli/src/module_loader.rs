@@ -67,7 +67,8 @@ pub fn validate_import_path(import_path: &str) -> Result<(), String> {
     if import_path.contains('\\') {
         return Err("Import path cannot contain backslashes; use forward slashes '/'".to_string());
     }
-    if import_path.starts_with('/') || (import_path.len() >= 2 && import_path.as_bytes()[1] == b':') {
+    if import_path.starts_with('/') || (import_path.len() >= 2 && import_path.as_bytes()[1] == b':')
+    {
         return Err("Import path must be relative, not absolute".to_string());
     }
     if import_path.starts_with("./") {
@@ -172,10 +173,7 @@ pub fn load_file_and_imports(entry_path: &Path) -> Result<(ast::File, ImportGrap
     Ok((combined_file, graph))
 }
 
-fn load_recursive(
-    file_path: &Path,
-    state: &mut LoaderState,
-) -> Result<ast::File, Diagnostic> {
+fn load_recursive(file_path: &Path, state: &mut LoaderState) -> Result<ast::File, Diagnostic> {
     state.importer_stack.push(file_path.to_path_buf());
     state.loaded_files.insert(file_path.to_path_buf());
 
@@ -262,8 +260,7 @@ fn load_recursive(
                     codes::IMPORT_ERROR,
                     format!(
                         "Cannot find module '{}' imported from '{}'",
-                        raw_target,
-                        from_str
+                        raw_target, from_str
                     ),
                     SourceLocation::with_context(from_str, "import resolution"),
                 ));
@@ -286,7 +283,12 @@ fn load_recursive(
                 let mut cycle_chain: Vec<String> = state
                     .importer_stack
                     .iter()
-                    .map(|p| p.file_name().unwrap_or_default().to_string_lossy().to_string())
+                    .map(|p| {
+                        p.file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy()
+                            .to_string()
+                    })
                     .collect();
                 cycle_chain.push(
                     canonical_target
@@ -298,10 +300,7 @@ fn load_recursive(
 
                 return Err(Diagnostic::error(
                     codes::IMPORT_CYCLE,
-                    format!(
-                        "Cyclic dependency detected: {}",
-                        cycle_chain.join(" -> ")
-                    ),
+                    format!("Cyclic dependency detected: {}", cycle_chain.join(" -> ")),
                     SourceLocation::with_context(from_str, "cycle detection"),
                 ));
             }

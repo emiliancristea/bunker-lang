@@ -65,7 +65,9 @@ fn pattern_is_irrefutable(pat: &ast::Pattern) -> bool {
     match pat {
         ast::Pattern::Ident(_) | ast::Pattern::Unit => true,
         ast::Pattern::Tuple(sub_pats) => sub_pats.iter().all(pattern_is_irrefutable),
-        ast::Pattern::Struct { fields, .. } => fields.iter().all(|(_, p)| pattern_is_irrefutable(p)),
+        ast::Pattern::Struct { fields, .. } => {
+            fields.iter().all(|(_, p)| pattern_is_irrefutable(p))
+        }
         _ => false,
     }
 }
@@ -228,7 +230,10 @@ impl TypeChecker {
             }
         }
         if let Some((declaring_kernel, is_pub)) = self.symbol_visibility.get(symbol_name) {
-            if !is_pub && declaring_kernel != &self.current_kernel && !self.current_kernel.is_empty() {
+            if !is_pub
+                && declaring_kernel != &self.current_kernel
+                && !self.current_kernel.is_empty()
+            {
                 self.errors.push(TypeError {
                     message: format!(
                         "Symbol '{}' is private and cannot be accessed from outside its module",
@@ -296,7 +301,8 @@ impl TypeChecker {
                     );
                 }
                 Type::Generic(name, args) => {
-                    let resolved_args: Vec<_> = args.iter().map(|a| self.resolve_alias(a)).collect();
+                    let resolved_args: Vec<_> =
+                        args.iter().map(|a| self.resolve_alias(a)).collect();
                     let mangled = crate::monomorphize::mangle_name(name, &resolved_args);
                     if self.structs.contains_key(&mangled) || self.enums.contains_key(&mangled) {
                         return Type::Named(mangled);
@@ -321,10 +327,18 @@ impl TypeChecker {
                     });
                 }
                 self.type_aliases.insert(a.name.clone(), a.target.clone());
-                self.type_aliases.insert(format!("{}::{}", kernel.name, a.name), a.target.clone());
-                self.symbol_visibility.insert(a.name.clone(), (kernel.name.clone(), a.is_pub));
-                self.symbol_visibility.insert(format!("{}::{}", kernel.name, a.name), (kernel.name.clone(), a.is_pub));
-                self.declaring_kernels.entry(a.name.clone()).or_default().push(kernel.name.clone());
+                self.type_aliases
+                    .insert(format!("{}::{}", kernel.name, a.name), a.target.clone());
+                self.symbol_visibility
+                    .insert(a.name.clone(), (kernel.name.clone(), a.is_pub));
+                self.symbol_visibility.insert(
+                    format!("{}::{}", kernel.name, a.name),
+                    (kernel.name.clone(), a.is_pub),
+                );
+                self.declaring_kernels
+                    .entry(a.name.clone())
+                    .or_default()
+                    .push(kernel.name.clone());
             }
         }
 
@@ -337,7 +351,8 @@ impl TypeChecker {
                     for attr in &s.attributes {
                         if let ast::Attribute::Deprecated(msg) = attr {
                             self.deprecated_symbols.insert(s.name.clone(), msg.clone());
-                            self.deprecated_symbols.insert(format!("{}::{}", kernel.name, s.name), msg.clone());
+                            self.deprecated_symbols
+                                .insert(format!("{}::{}", kernel.name, s.name), msg.clone());
                         }
                     }
                     let fields: Vec<(String, Type)> = s
@@ -353,22 +368,34 @@ impl TypeChecker {
                     }
                     if self.type_aliases.contains_key(&s.name) {
                         self.errors.push(TypeError {
-                            message: format!("Name '{}' is already declared as a type alias", s.name),
+                            message: format!(
+                                "Name '{}' is already declared as a type alias",
+                                s.name
+                            ),
                             location: s.name.clone(),
                         });
                     }
-                    self.symbol_visibility.insert(s.name.clone(), (kernel.name.clone(), s.is_pub));
-                    self.symbol_visibility.insert(format!("{}::{}", kernel.name, s.name), (kernel.name.clone(), s.is_pub));
+                    self.symbol_visibility
+                        .insert(s.name.clone(), (kernel.name.clone(), s.is_pub));
+                    self.symbol_visibility.insert(
+                        format!("{}::{}", kernel.name, s.name),
+                        (kernel.name.clone(), s.is_pub),
+                    );
                     self.structs.insert(s.name.clone(), fields.clone());
-                    self.structs.insert(format!("{}::{}", kernel.name, s.name), fields);
-                    self.declaring_kernels.entry(s.name.clone()).or_default().push(kernel.name.clone());
+                    self.structs
+                        .insert(format!("{}::{}", kernel.name, s.name), fields);
+                    self.declaring_kernels
+                        .entry(s.name.clone())
+                        .or_default()
+                        .push(kernel.name.clone());
                 }
                 ast::KernelItem::Enum(e) => {
                     self.check_attributes(&e.attributes, &e.name);
                     for attr in &e.attributes {
                         if let ast::Attribute::Deprecated(msg) = attr {
                             self.deprecated_symbols.insert(e.name.clone(), msg.clone());
-                            self.deprecated_symbols.insert(format!("{}::{}", kernel.name, e.name), msg.clone());
+                            self.deprecated_symbols
+                                .insert(format!("{}::{}", kernel.name, e.name), msg.clone());
                         }
                     }
                     if self.structs.contains_key(&e.name) {
@@ -379,7 +406,10 @@ impl TypeChecker {
                     }
                     if self.type_aliases.contains_key(&e.name) {
                         self.errors.push(TypeError {
-                            message: format!("Name '{}' is already declared as a type alias", e.name),
+                            message: format!(
+                                "Name '{}' is already declared as a type alias",
+                                e.name
+                            ),
                             location: e.name.clone(),
                         });
                     }
@@ -401,54 +431,103 @@ impl TypeChecker {
                             });
                         }
                     }
-                    self.symbol_visibility.insert(e.name.clone(), (kernel.name.clone(), e.is_pub));
-                    self.symbol_visibility.insert(format!("{}::{}", kernel.name, e.name), (kernel.name.clone(), e.is_pub));
+                    self.symbol_visibility
+                        .insert(e.name.clone(), (kernel.name.clone(), e.is_pub));
+                    self.symbol_visibility.insert(
+                        format!("{}::{}", kernel.name, e.name),
+                        (kernel.name.clone(), e.is_pub),
+                    );
                     self.enums.insert(e.name.clone(), e.variant_names());
-                    self.enums.insert(format!("{}::{}", kernel.name, e.name), e.variant_names());
-                    let payloads: Vec<Vec<Type>> = e.variants
+                    self.enums
+                        .insert(format!("{}::{}", kernel.name, e.name), e.variant_names());
+                    let payloads: Vec<Vec<Type>> = e
+                        .variants
                         .iter()
-                        .map(|variant| variant.payloads.iter().map(|p| self.resolve_alias(p)).collect())
+                        .map(|variant| {
+                            variant
+                                .payloads
+                                .iter()
+                                .map(|p| self.resolve_alias(p))
+                                .collect()
+                        })
                         .collect();
                     self.enum_payloads.insert(e.name.clone(), payloads.clone());
-                    self.enum_payloads.insert(format!("{}::{}", kernel.name, e.name), payloads);
-                    self.declaring_kernels.entry(e.name.clone()).or_default().push(kernel.name.clone());
+                    self.enum_payloads
+                        .insert(format!("{}::{}", kernel.name, e.name), payloads);
+                    self.declaring_kernels
+                        .entry(e.name.clone())
+                        .or_default()
+                        .push(kernel.name.clone());
                 }
                 ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f) => {
                     self.check_attributes(&f.attributes, &f.name);
                     for attr in &f.attributes {
                         if let ast::Attribute::MustUse(msg) = attr {
                             self.must_use_functions.insert(f.name.clone(), msg.clone());
-                            self.must_use_functions.insert(format!("{}::{}", kernel.name, f.name), msg.clone());
+                            self.must_use_functions
+                                .insert(format!("{}::{}", kernel.name, f.name), msg.clone());
                         }
                         if let ast::Attribute::Deprecated(msg) = attr {
                             self.deprecated_symbols.insert(f.name.clone(), msg.clone());
-                            self.deprecated_symbols.insert(format!("{}::{}", kernel.name, f.name), msg.clone());
+                            self.deprecated_symbols
+                                .insert(format!("{}::{}", kernel.name, f.name), msg.clone());
                         }
                     }
-                    self.symbol_visibility.insert(f.name.clone(), (kernel.name.clone(), f.is_pub));
-                    self.symbol_visibility.insert(format!("{}::{}", kernel.name, f.name), (kernel.name.clone(), f.is_pub));
-                    let param_types: Vec<Type> = f.params.iter().map(|p| self.resolve_alias(&p.ty)).collect();
-                    self.functions
-                        .insert(f.name.clone(), (param_types.clone(), f.return_type.as_ref().map(|t| self.resolve_alias(t))));
-                    self.functions
-                        .insert(format!("{}::{}", kernel.name, f.name), (param_types, f.return_type.as_ref().map(|t| self.resolve_alias(t))));
-                    self.declaring_kernels.entry(f.name.clone()).or_default().push(kernel.name.clone());
+                    self.symbol_visibility
+                        .insert(f.name.clone(), (kernel.name.clone(), f.is_pub));
+                    self.symbol_visibility.insert(
+                        format!("{}::{}", kernel.name, f.name),
+                        (kernel.name.clone(), f.is_pub),
+                    );
+                    let param_types: Vec<Type> =
+                        f.params.iter().map(|p| self.resolve_alias(&p.ty)).collect();
+                    self.functions.insert(
+                        f.name.clone(),
+                        (
+                            param_types.clone(),
+                            f.return_type.as_ref().map(|t| self.resolve_alias(t)),
+                        ),
+                    );
+                    self.functions.insert(
+                        format!("{}::{}", kernel.name, f.name),
+                        (
+                            param_types,
+                            f.return_type.as_ref().map(|t| self.resolve_alias(t)),
+                        ),
+                    );
+                    self.declaring_kernels
+                        .entry(f.name.clone())
+                        .or_default()
+                        .push(kernel.name.clone());
                 }
                 ast::KernelItem::Const(c) => {
                     self.check_attributes(&c.attributes, &c.name);
                     for attr in &c.attributes {
                         if let ast::Attribute::Deprecated(msg) = attr {
                             self.deprecated_symbols.insert(c.name.clone(), msg.clone());
-                            self.deprecated_symbols.insert(format!("{}::{}", kernel.name, c.name), msg.clone());
+                            self.deprecated_symbols
+                                .insert(format!("{}::{}", kernel.name, c.name), msg.clone());
                         }
                     }
-                    self.symbol_visibility.insert(c.name.clone(), (kernel.name.clone(), c.is_pub));
-                    self.symbol_visibility.insert(format!("{}::{}", kernel.name, c.name), (kernel.name.clone(), c.is_pub));
+                    self.symbol_visibility
+                        .insert(c.name.clone(), (kernel.name.clone(), c.is_pub));
+                    self.symbol_visibility.insert(
+                        format!("{}::{}", kernel.name, c.name),
+                        (kernel.name.clone(), c.is_pub),
+                    );
                     self.constants.insert(c.name.clone());
-                    self.constants.insert(format!("{}::{}", kernel.name, c.name));
-                    self.variables.insert(c.name.clone(), self.resolve_alias(&c.ty));
-                    self.variables.insert(format!("{}::{}", kernel.name, c.name), self.resolve_alias(&c.ty));
-                    self.declaring_kernels.entry(c.name.clone()).or_default().push(kernel.name.clone());
+                    self.constants
+                        .insert(format!("{}::{}", kernel.name, c.name));
+                    self.variables
+                        .insert(c.name.clone(), self.resolve_alias(&c.ty));
+                    self.variables.insert(
+                        format!("{}::{}", kernel.name, c.name),
+                        self.resolve_alias(&c.ty),
+                    );
+                    self.declaring_kernels
+                        .entry(c.name.clone())
+                        .or_default()
+                        .push(kernel.name.clone());
                 }
             }
         }
@@ -516,7 +595,8 @@ impl TypeChecker {
 
         // Add parameters to scope
         for param in &func.params {
-            self.variables.insert(param.name.clone(), self.resolve_alias(&param.ty));
+            self.variables
+                .insert(param.name.clone(), self.resolve_alias(&param.ty));
         }
 
         // Check function body
@@ -542,7 +622,12 @@ impl TypeChecker {
 
     fn check_stmt(&mut self, stmt: &Stmt, context: &str) -> Result<Option<Type>> {
         match stmt {
-            Stmt::Let { name, mutable, ty, value } => {
+            Stmt::Let {
+                name,
+                mutable,
+                ty,
+                value,
+            } => {
                 self.var_mutability.insert(name.clone(), *mutable);
                 // Check for None without type annotation
                 if ty.is_none() && matches!(value, Expr::None) {
@@ -577,7 +662,10 @@ impl TypeChecker {
                     let is_unannotated_result = match value {
                         Expr::Call { func, .. } => {
                             if let Expr::Ident(fname) = func.as_ref() {
-                                fname == "result_ok" || fname == "result_err" || fname == "Ok" || fname == "Err"
+                                fname == "result_ok"
+                                    || fname == "result_err"
+                                    || fname == "Ok"
+                                    || fname == "Err"
                             } else {
                                 false
                             }
@@ -633,10 +721,8 @@ impl TypeChecker {
                             location: context.to_string(),
                         });
                         if is_vec {
-                            self.variables.insert(
-                                name.clone(),
-                                Type::Vec(Box::new(Type::I64)),
-                            );
+                            self.variables
+                                .insert(name.clone(), Type::Vec(Box::new(Type::I64)));
                         } else {
                             self.variables.insert(
                                 name.clone(),
@@ -717,10 +803,8 @@ impl TypeChecker {
                 if let Expr::Ident(source_name) = value {
                     if !self.is_copy_type(&value_ty) {
                         self.moved_vars.insert(source_name.clone());
-                        self.moved_locations.insert(
-                            source_name.clone(),
-                            format!("assignment in {}", context),
-                        );
+                        self.moved_locations
+                            .insert(source_name.clone(), format!("assignment in {}", context));
                     }
                 }
 
@@ -757,7 +841,10 @@ impl TypeChecker {
                         None => {
                             if *expected != Type::Unit {
                                 self.errors.push(TypeError {
-                                    message: format!("Missing return value: expected {:?}", expected),
+                                    message: format!(
+                                        "Missing return value: expected {:?}",
+                                        expected
+                                    ),
                                     location: context.to_string(),
                                 });
                             }
@@ -792,7 +879,12 @@ impl TypeChecker {
                 }
                 Ok(None)
             }
-            Stmt::For { label, var, iter, body } => {
+            Stmt::For {
+                label,
+                var,
+                iter,
+                body,
+            } => {
                 // Determine element type based on iterator expression
                 let elem_ty = match iter {
                     // Range expressions: the element type is the range bound type
@@ -801,7 +893,9 @@ impl TypeChecker {
                     other => {
                         let iter_ty = self.infer_expr(other, context)?;
                         match &iter_ty {
-                            Type::Array(elem, _) | Type::Slice(elem) | Type::Vec(elem) => (**elem).clone(),
+                            Type::Array(elem, _) | Type::Slice(elem) | Type::Vec(elem) => {
+                                (**elem).clone()
+                            }
                             _ => {
                                 self.errors.push(TypeError {
                                     message: format!(
@@ -826,7 +920,11 @@ impl TypeChecker {
                 self.moved_vars = saved_moved;
                 Ok(None)
             }
-            Stmt::While { label, condition, body } => {
+            Stmt::While {
+                label,
+                condition,
+                body,
+            } => {
                 let cond_ty = self.infer_expr(condition, context)?;
                 if cond_ty != Type::Bool {
                     self.errors.push(TypeError {
@@ -852,7 +950,11 @@ impl TypeChecker {
                         location: context.to_string(),
                     });
                 } else if let Some(target) = label {
-                    if !self.loop_labels.iter().any(|l| l.as_deref() == Some(target.as_str())) {
+                    if !self
+                        .loop_labels
+                        .iter()
+                        .any(|l| l.as_deref() == Some(target.as_str()))
+                    {
                         self.errors.push(TypeError {
                             message: format!("Undefined loop label: '{}'", target),
                             location: context.to_string(),
@@ -910,7 +1012,10 @@ impl TypeChecker {
                         let guard_ty = self.infer_expr(guard, context)?;
                         if guard_ty != Type::Bool {
                             self.errors.push(TypeError {
-                                message: format!("Match guard must evaluate to bool, found {:?}", guard_ty),
+                                message: format!(
+                                    "Match guard must evaluate to bool, found {:?}",
+                                    guard_ty
+                                ),
                                 location: context.to_string(),
                             });
                         }
@@ -982,7 +1087,10 @@ impl TypeChecker {
                 }
                 if !name.contains("::") && name != "main" {
                     if let Some(kernels) = self.declaring_kernels.get(name) {
-                        if kernels.len() > 1 && !kernels.contains(&self.current_kernel) && !self.current_kernel.is_empty() {
+                        if kernels.len() > 1
+                            && !kernels.contains(&self.current_kernel)
+                            && !self.current_kernel.is_empty()
+                        {
                             self.errors.push(TypeError {
                                 message: format!(
                                     "Ambiguous reference to symbol '{}' declared in multiple modules: {}. Please qualify with module name (e.g. '{}::{}')",
@@ -1012,14 +1120,22 @@ impl TypeChecker {
                 }
 
                 let qualified_name = format!("{}::{}", self.current_kernel, name);
-                if let Some(ty) = self.variables.get(&qualified_name).cloned().or_else(|| self.variables.get(name).cloned()) {
+                if let Some(ty) = self
+                    .variables
+                    .get(&qualified_name)
+                    .cloned()
+                    .or_else(|| self.variables.get(name).cloned())
+                {
                     Ok(ty)
-                } else if let Some((param_types, ret_ty)) = self.functions.get(&qualified_name).cloned().or_else(|| self.functions.get(name).cloned()) {
-                    Ok(Type::Fn(
-                        param_types,
-                        Box::new(ret_ty.unwrap_or(Type::I32)),
-                    ))
-                } else if self.enums.contains_key(&qualified_name) || self.enums.contains_key(name) {
+                } else if let Some((param_types, ret_ty)) = self
+                    .functions
+                    .get(&qualified_name)
+                    .cloned()
+                    .or_else(|| self.functions.get(name).cloned())
+                {
+                    Ok(Type::Fn(param_types, Box::new(ret_ty.unwrap_or(Type::I32))))
+                } else if self.enums.contains_key(&qualified_name) || self.enums.contains_key(name)
+                {
                     self.errors.push(TypeError {
                         message: format!(
                             "Cannot use enum type '{}' as a value; construct a variant like '{}.Variant'",
@@ -1056,12 +1172,16 @@ impl TypeChecker {
                     let base_ty = self.infer_expr(expr, context)?;
                     let struct_name = match &base_ty {
                         Type::Named(name) => Some(name.clone()),
-                        Type::Generic(name, args) => Some(crate::monomorphize::mangle_name(name, args)),
+                        Type::Generic(name, args) => {
+                            Some(crate::monomorphize::mangle_name(name, args))
+                        }
                         _ => None,
                     };
                     if let Some(sname) = struct_name {
                         let method_name = format!("{}::{}", sname, field);
-                        if let Some((param_types, ret_ty)) = self.functions.get(&method_name).cloned() {
+                        if let Some((param_types, ret_ty)) =
+                            self.functions.get(&method_name).cloned()
+                        {
                             let mut full_args = vec![expr.as_ref().clone()];
                             full_args.extend(args.iter().cloned());
                             if full_args.len() != param_types.len() {
@@ -1076,13 +1196,20 @@ impl TypeChecker {
                                     location: context.to_string(),
                                 });
                             }
-                            for (i, (arg, expected)) in full_args.iter().zip(param_types.iter()).enumerate() {
-                                let actual = self.infer_expr_with_hint(arg, context, Some(expected))?;
+                            for (i, (arg, expected)) in
+                                full_args.iter().zip(param_types.iter()).enumerate()
+                            {
+                                let actual =
+                                    self.infer_expr_with_hint(arg, context, Some(expected))?;
                                 if !self.types_compatible(expected, &actual) {
                                     self.errors.push(TypeError {
                                         message: format!(
                                             "Argument {} type mismatch: expected {:?}, got {:?}",
-                                            if i == 0 { "receiver self".to_string() } else { (i - 1).to_string() },
+                                            if i == 0 {
+                                                "receiver self".to_string()
+                                            } else {
+                                                (i - 1).to_string()
+                                            },
                                             expected,
                                             actual
                                         ),
@@ -1093,14 +1220,20 @@ impl TypeChecker {
                             return Ok(ret_ty.unwrap_or(Type::Unit));
                         } else {
                             self.errors.push(TypeError {
-                                message: format!("No method '{}' found on struct '{}'", field, sname),
+                                message: format!(
+                                    "No method '{}' found on struct '{}'",
+                                    field, sname
+                                ),
                                 location: context.to_string(),
                             });
                             return Ok(Type::I32);
                         }
                     } else {
                         self.errors.push(TypeError {
-                            message: format!("Cannot call method '{}' on non-struct type {:?}", field, base_ty),
+                            message: format!(
+                                "Cannot call method '{}' on non-struct type {:?}",
+                                field, base_ty
+                            ),
                             location: context.to_string(),
                         });
                         return Ok(Type::I32);
@@ -1125,7 +1258,10 @@ impl TypeChecker {
                     }
                     if !name.contains("::") && name != "main" {
                         if let Some(kernels) = self.declaring_kernels.get(name) {
-                            if kernels.len() > 1 && !kernels.contains(&self.current_kernel) && !self.current_kernel.is_empty() {
+                            if kernels.len() > 1
+                                && !kernels.contains(&self.current_kernel)
+                                && !self.current_kernel.is_empty()
+                            {
                                 self.errors.push(TypeError {
                                     message: format!(
                                         "Ambiguous reference to symbol '{}' declared in multiple modules: {}. Please qualify with module name (e.g. '{}::{}')",
@@ -1141,7 +1277,12 @@ impl TypeChecker {
                     }
 
                     let qualified_name = format!("{}::{}", self.current_kernel, name);
-                    if let Some(struct_fields) = self.structs.get(&qualified_name).cloned().or_else(|| self.structs.get(name).cloned()) {
+                    if let Some(struct_fields) = self
+                        .structs
+                        .get(&qualified_name)
+                        .cloned()
+                        .or_else(|| self.structs.get(name).cloned())
+                    {
                         if args.len() != struct_fields.len() {
                             self.errors.push(TypeError {
                                 message: format!(
@@ -1153,8 +1294,11 @@ impl TypeChecker {
                                 location: context.to_string(),
                             });
                         }
-                        for (i, (arg, (_fname, expected_ty))) in args.iter().zip(struct_fields.iter()).enumerate() {
-                            let actual = self.infer_expr_with_hint(arg, context, Some(expected_ty))?;
+                        for (i, (arg, (_fname, expected_ty))) in
+                            args.iter().zip(struct_fields.iter()).enumerate()
+                        {
+                            let actual =
+                                self.infer_expr_with_hint(arg, context, Some(expected_ty))?;
                             if !self.types_compatible(expected_ty, &actual) {
                                 self.errors.push(TypeError {
                                     message: format!(
@@ -1168,7 +1312,12 @@ impl TypeChecker {
                         return Ok(Type::Named(name.clone()));
                     }
 
-                    if let Some(var_ty) = self.variables.get(&qualified_name).cloned().or_else(|| self.variables.get(name).cloned()) {
+                    if let Some(var_ty) = self
+                        .variables
+                        .get(&qualified_name)
+                        .cloned()
+                        .or_else(|| self.variables.get(name).cloned())
+                    {
                         let var_ty = self.resolve_alias(&var_ty);
                         if let Type::Fn(param_types, ret_ty) = var_ty {
                             if args.len() != param_types.len() {
@@ -1182,8 +1331,11 @@ impl TypeChecker {
                                     location: context.to_string(),
                                 });
                             }
-                            for (i, (arg, expected_ty)) in args.iter().zip(param_types.iter()).enumerate() {
-                                let actual = self.infer_expr_with_hint(arg, context, Some(expected_ty))?;
+                            for (i, (arg, expected_ty)) in
+                                args.iter().zip(param_types.iter()).enumerate()
+                            {
+                                let actual =
+                                    self.infer_expr_with_hint(arg, context, Some(expected_ty))?;
                                 if !self.types_compatible(expected_ty, &actual) {
                                     self.errors.push(TypeError {
                                         message: format!(
@@ -1198,7 +1350,12 @@ impl TypeChecker {
                         }
                     }
 
-                    if let Some((param_types, ret_ty)) = self.functions.get(&qualified_name).cloned().or_else(|| self.functions.get(name).cloned()) {
+                    if let Some((param_types, ret_ty)) = self
+                        .functions
+                        .get(&qualified_name)
+                        .cloned()
+                        .or_else(|| self.functions.get(name).cloned())
+                    {
                         // Check argument count
                         if args.len() != param_types.len() {
                             self.errors.push(TypeError {
@@ -1247,8 +1404,11 @@ impl TypeChecker {
                                 location: context.to_string(),
                             });
                         }
-                        for (i, (arg, expected_ty)) in args.iter().zip(param_types.iter()).enumerate() {
-                            let actual = self.infer_expr_with_hint(arg, context, Some(expected_ty))?;
+                        for (i, (arg, expected_ty)) in
+                            args.iter().zip(param_types.iter()).enumerate()
+                        {
+                            let actual =
+                                self.infer_expr_with_hint(arg, context, Some(expected_ty))?;
                             if !self.types_compatible(expected_ty, &actual) {
                                 self.errors.push(TypeError {
                                     message: format!(
@@ -1348,7 +1508,8 @@ impl TypeChecker {
                                 self.errors.push(TypeError {
                                     message: format!(
                                         "Tuple index out of bounds: {} for tuple of length {}",
-                                        idx, elem_types.len()
+                                        idx,
+                                        elem_types.len()
                                     ),
                                     location: context.to_string(),
                                 });
@@ -1438,39 +1599,76 @@ impl TypeChecker {
                 let then_ty = self.infer_expr_with_hint(then_expr, context, expected)?;
                 let else_hint = expected.or(Some(&then_ty));
                 let else_ty = self.infer_expr_with_hint(else_expr, context, else_hint)?;
-                let (then_ty, else_ty) = if matches!(then_expr.as_ref(), Expr::None) && matches!(else_ty, Type::Option(_)) {
+                let (then_ty, else_ty) = if matches!(then_expr.as_ref(), Expr::None)
+                    && matches!(else_ty, Type::Option(_))
+                {
                     let re_then = self.infer_expr_with_hint(then_expr, context, Some(&else_ty))?;
                     (re_then, else_ty)
-                } else if matches!(else_expr.as_ref(), Expr::None) && matches!(then_ty, Type::Option(_)) {
+                } else if matches!(else_expr.as_ref(), Expr::None)
+                    && matches!(then_ty, Type::Option(_))
+                {
                     let re_else = self.infer_expr_with_hint(else_expr, context, Some(&then_ty))?;
                     (then_ty, re_else)
-                } else if matches!(then_expr.as_ref(), Expr::Array(elements) if elements.is_empty()) && matches!(else_ty, Type::Array(_, _)) {
+                } else if matches!(then_expr.as_ref(), Expr::Array(elements) if elements.is_empty())
+                    && matches!(else_ty, Type::Array(_, _))
+                {
                     let re_then = self.infer_expr_with_hint(then_expr, context, Some(&else_ty))?;
                     (re_then, else_ty)
-                } else if matches!(else_expr.as_ref(), Expr::Array(elements) if elements.is_empty()) && matches!(then_ty, Type::Array(_, _)) {
+                } else if matches!(else_expr.as_ref(), Expr::Array(elements) if elements.is_empty())
+                    && matches!(then_ty, Type::Array(_, _))
+                {
                     let re_else = self.infer_expr_with_hint(else_expr, context, Some(&then_ty))?;
                     (then_ty, re_else)
                 } else if !self.types_compatible(&then_ty, &else_ty) {
                     if self.types_compatible(&else_ty, &then_ty) {
-                        let re_then = self.infer_expr_with_hint(then_expr, context, Some(&else_ty))?;
+                        let re_then =
+                            self.infer_expr_with_hint(then_expr, context, Some(&else_ty))?;
                         (re_then, else_ty)
-                    } else if let (Type::Result(ok_t, err_t), Type::Result(ok_e, err_e)) = (&then_ty, &else_ty) {
-                        let unified_ok = if ok_t.as_ref() != &Type::I32 || ok_e.as_ref() == &Type::I32 { ok_t.clone() } else { ok_e.clone() };
-                        let unified_err = if err_t.as_ref() != &Type::I32 || err_e.as_ref() == &Type::I32 { err_t.clone() } else { err_e.clone() };
+                    } else if let (Type::Result(ok_t, err_t), Type::Result(ok_e, err_e)) =
+                        (&then_ty, &else_ty)
+                    {
+                        let unified_ok =
+                            if ok_t.as_ref() != &Type::I32 || ok_e.as_ref() == &Type::I32 {
+                                ok_t.clone()
+                            } else {
+                                ok_e.clone()
+                            };
+                        let unified_err =
+                            if err_t.as_ref() != &Type::I32 || err_e.as_ref() == &Type::I32 {
+                                err_t.clone()
+                            } else {
+                                err_e.clone()
+                            };
                         let unified = Type::Result(unified_ok, unified_err);
-                        let re_then = self.infer_expr_with_hint(then_expr, context, Some(&unified))?;
-                        let re_else = self.infer_expr_with_hint(else_expr, context, Some(&unified))?;
+                        let re_then =
+                            self.infer_expr_with_hint(then_expr, context, Some(&unified))?;
+                        let re_else =
+                            self.infer_expr_with_hint(else_expr, context, Some(&unified))?;
                         (re_then, re_else)
                     } else {
                         (then_ty, else_ty)
                     }
-                } else if let (Type::Result(ok_t, err_t), Type::Result(ok_e, err_e)) = (&then_ty, &else_ty) {
+                } else if let (Type::Result(ok_t, err_t), Type::Result(ok_e, err_e)) =
+                    (&then_ty, &else_ty)
+                {
                     if err_t != err_e || ok_t != ok_e {
-                        let unified_ok = if ok_t.as_ref() != &Type::I32 || ok_e.as_ref() == &Type::I32 { ok_t.clone() } else { ok_e.clone() };
-                        let unified_err = if err_t.as_ref() != &Type::I32 || err_e.as_ref() == &Type::I32 { err_t.clone() } else { err_e.clone() };
+                        let unified_ok =
+                            if ok_t.as_ref() != &Type::I32 || ok_e.as_ref() == &Type::I32 {
+                                ok_t.clone()
+                            } else {
+                                ok_e.clone()
+                            };
+                        let unified_err =
+                            if err_t.as_ref() != &Type::I32 || err_e.as_ref() == &Type::I32 {
+                                err_t.clone()
+                            } else {
+                                err_e.clone()
+                            };
                         let unified = Type::Result(unified_ok, unified_err);
-                        let re_then = self.infer_expr_with_hint(then_expr, context, Some(&unified))?;
-                        let re_else = self.infer_expr_with_hint(else_expr, context, Some(&unified))?;
+                        let re_then =
+                            self.infer_expr_with_hint(then_expr, context, Some(&unified))?;
+                        let re_else =
+                            self.infer_expr_with_hint(else_expr, context, Some(&unified))?;
                         (re_then, re_else)
                     } else {
                         (then_ty, else_ty)
@@ -1478,7 +1676,9 @@ impl TypeChecker {
                 } else {
                     (then_ty, else_ty)
                 };
-                if !self.types_compatible(&then_ty, &else_ty) && !self.types_compatible(&else_ty, &then_ty) {
+                if !self.types_compatible(&then_ty, &else_ty)
+                    && !self.types_compatible(&else_ty, &then_ty)
+                {
                     self.errors.push(TypeError {
                         message: format!(
                             "If branches have different types: {:?} vs {:?}",
@@ -1493,7 +1693,7 @@ impl TypeChecker {
                     Ok(then_ty)
                 }
             }
-        Expr::Array(elements) => {
+            Expr::Array(elements) => {
                 if elements.is_empty() {
                     if let Some(Type::Array(elem_ty, _)) = expected {
                         Ok(Type::Array(elem_ty.clone(), 0))
@@ -1523,7 +1723,9 @@ impl TypeChecker {
                     Ok(Type::Array(Box::new(elem_ty), elements.len()))
                 }
             }
-            Expr::Struct { name, fields, base, .. } => {
+            Expr::Struct {
+                name, fields, base, ..
+            } => {
                 self.check_visibility(name, context);
                 if let Some(struct_fields) = self.structs.get(name).cloned() {
                     for (field_name, field_expr) in fields {
@@ -1576,7 +1778,10 @@ impl TypeChecker {
                 match inner_ty {
                     Type::Result(ok_ty, _err_ty) => Ok(*ok_ty),
                     Type::Option(val_ty) => Ok(*val_ty),
-                    other => Err(anyhow::anyhow!("? operator can only be applied to Result or Option, found {:?}", other)),
+                    other => Err(anyhow::anyhow!(
+                        "? operator can only be applied to Result or Option, found {:?}",
+                        other
+                    )),
                 }
             }
             Expr::Copy(inner) => self.infer_expr(inner, context),
@@ -1609,7 +1814,10 @@ impl TypeChecker {
                         let guard_ty = self.infer_expr(guard, context)?;
                         if guard_ty != Type::Bool {
                             self.errors.push(TypeError {
-                                message: format!("Match guard must evaluate to bool, found {:?}", guard_ty),
+                                message: format!(
+                                    "Match guard must evaluate to bool, found {:?}",
+                                    guard_ty
+                                ),
                                 location: context.to_string(),
                             });
                         }
@@ -1638,11 +1846,30 @@ impl TypeChecker {
                             self.moved_vars = saved_moved;
                             if arm_ty != Type::Never {
                                 if let Some(existing) = &match_result {
-                                    if !self.types_compatible(existing, &arm_ty) && !self.types_compatible(&arm_ty, existing) {
-                                        if let (Type::Result(ok_t, err_t), Type::Result(ok_e, err_e)) = (existing, &arm_ty) {
-                                            let unified_ok = if ok_t.as_ref() != &Type::I32 || ok_e.as_ref() == &Type::I32 { ok_t.clone() } else { ok_e.clone() };
-                                            let unified_err = if err_t.as_ref() != &Type::I32 || err_e.as_ref() == &Type::I32 { err_t.clone() } else { err_e.clone() };
-                                            match_result = Some(Type::Result(unified_ok, unified_err));
+                                    if !self.types_compatible(existing, &arm_ty)
+                                        && !self.types_compatible(&arm_ty, existing)
+                                    {
+                                        if let (
+                                            Type::Result(ok_t, err_t),
+                                            Type::Result(ok_e, err_e),
+                                        ) = (existing, &arm_ty)
+                                        {
+                                            let unified_ok = if ok_t.as_ref() != &Type::I32
+                                                || ok_e.as_ref() == &Type::I32
+                                            {
+                                                ok_t.clone()
+                                            } else {
+                                                ok_e.clone()
+                                            };
+                                            let unified_err = if err_t.as_ref() != &Type::I32
+                                                || err_e.as_ref() == &Type::I32
+                                            {
+                                                err_t.clone()
+                                            } else {
+                                                err_e.clone()
+                                            };
+                                            match_result =
+                                                Some(Type::Result(unified_ok, unified_err));
                                         } else {
                                             self.errors.push(TypeError {
                                                 message: format!("Match arms have incompatible types: {:?} vs {:?}", existing, arm_ty),
@@ -2065,7 +2292,12 @@ impl TypeChecker {
                 Ok(Some(Type::I32))
             }
             "vec_contains" => {
-                self.check_builtin_arity("vec_contains expects 2 arguments (vec, item)", args, 2, context);
+                self.check_builtin_arity(
+                    "vec_contains expects 2 arguments (vec, item)",
+                    args,
+                    2,
+                    context,
+                );
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
                 if let Some(vec_ty) = arg_types.first() {
                     self.check_vec_handle_type("vec_contains", vec_ty, context);
@@ -2097,7 +2329,9 @@ impl TypeChecker {
                 if let Some(vec_ty) = arg_types.first() {
                     self.check_vec_handle_type("vec_clone", vec_ty, context);
                 }
-                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
             }
             "vec_reverse" => {
                 self.check_builtin_arity("vec_reverse expects 1 argument (vec)", args, 1, context);
@@ -2108,17 +2342,26 @@ impl TypeChecker {
                 Ok(Some(Type::Bool))
             }
             "vec_map" => {
-                self.check_builtin_arity("vec_map expects 2 arguments (vec, func)", args, 2, context);
+                self.check_builtin_arity(
+                    "vec_map expects 2 arguments (vec, func)",
+                    args,
+                    2,
+                    context,
+                );
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
                 if let Some(vec_ty) = arg_types.first() {
                     self.check_vec_handle_type("vec_map", vec_ty, context);
                 }
-                if let (Some(Type::Vec(elem)), Some(fn_ty)) = (arg_types.first(), arg_types.get(1)) {
+                if let (Some(Type::Vec(elem)), Some(fn_ty)) = (arg_types.first(), arg_types.get(1))
+                {
                     match fn_ty {
                         Type::Fn(params, ret) => {
                             if params.len() != 1 {
                                 self.errors.push(TypeError {
-                                    message: format!("vec_map mapper function expects 1 argument, got {}", params.len()),
+                                    message: format!(
+                                        "vec_map mapper function expects 1 argument, got {}",
+                                        params.len()
+                                    ),
                                     location: context.to_string(),
                                 });
                             } else if !self.types_compatible(&params[0], elem) {
@@ -2131,26 +2374,40 @@ impl TypeChecker {
                         }
                         _ => {
                             self.errors.push(TypeError {
-                                message: format!("vec_map expects function as second argument, got {:?}", fn_ty),
+                                message: format!(
+                                    "vec_map expects function as second argument, got {:?}",
+                                    fn_ty
+                                ),
                                 location: context.to_string(),
                             });
                         }
                     }
                 }
-                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
             }
             "vec_filter" => {
-                self.check_builtin_arity("vec_filter expects 2 arguments (vec, predicate)", args, 2, context);
+                self.check_builtin_arity(
+                    "vec_filter expects 2 arguments (vec, predicate)",
+                    args,
+                    2,
+                    context,
+                );
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
                 if let Some(vec_ty) = arg_types.first() {
                     self.check_vec_handle_type("vec_filter", vec_ty, context);
                 }
-                if let (Some(Type::Vec(elem)), Some(fn_ty)) = (arg_types.first(), arg_types.get(1)) {
+                if let (Some(Type::Vec(elem)), Some(fn_ty)) = (arg_types.first(), arg_types.get(1))
+                {
                     match fn_ty {
                         Type::Fn(params, ret) => {
                             if params.len() != 1 {
                                 self.errors.push(TypeError {
-                                    message: format!("vec_filter predicate function expects 1 argument, got {}", params.len()),
+                                    message: format!(
+                                        "vec_filter predicate function expects 1 argument, got {}",
+                                        params.len()
+                                    ),
                                     location: context.to_string(),
                                 });
                             } else if !self.types_compatible(&params[0], elem) {
@@ -2169,26 +2426,41 @@ impl TypeChecker {
                         }
                         _ => {
                             self.errors.push(TypeError {
-                                message: format!("vec_filter expects function as second argument, got {:?}", fn_ty),
+                                message: format!(
+                                    "vec_filter expects function as second argument, got {:?}",
+                                    fn_ty
+                                ),
                                 location: context.to_string(),
                             });
                         }
                     }
                 }
-                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
             }
             "vec_fold" => {
-                self.check_builtin_arity("vec_fold expects 3 arguments (vec, init, func)", args, 3, context);
+                self.check_builtin_arity(
+                    "vec_fold expects 3 arguments (vec, init, func)",
+                    args,
+                    3,
+                    context,
+                );
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
                 if let Some(vec_ty) = arg_types.first() {
                     self.check_vec_handle_type("vec_fold", vec_ty, context);
                 }
-                if let (Some(Type::Vec(elem)), Some(init_ty), Some(fn_ty)) = (arg_types.first(), arg_types.get(1), arg_types.get(2)) {
+                if let (Some(Type::Vec(elem)), Some(init_ty), Some(fn_ty)) =
+                    (arg_types.first(), arg_types.get(1), arg_types.get(2))
+                {
                     match fn_ty {
                         Type::Fn(params, ret) => {
                             if params.len() != 2 {
                                 self.errors.push(TypeError {
-                                    message: format!("vec_fold function expects 2 arguments, got {}", params.len()),
+                                    message: format!(
+                                        "vec_fold function expects 2 arguments, got {}",
+                                        params.len()
+                                    ),
                                     location: context.to_string(),
                                 });
                             } else {
@@ -2215,26 +2487,40 @@ impl TypeChecker {
                         }
                         _ => {
                             self.errors.push(TypeError {
-                                message: format!("vec_fold expects function as third argument, got {:?}", fn_ty),
+                                message: format!(
+                                    "vec_fold expects function as third argument, got {:?}",
+                                    fn_ty
+                                ),
                                 location: context.to_string(),
                             });
                         }
                     }
                 }
-                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
             }
             "vec_find" => {
-                self.check_builtin_arity("vec_find expects 2 arguments (vec, predicate)", args, 2, context);
+                self.check_builtin_arity(
+                    "vec_find expects 2 arguments (vec, predicate)",
+                    args,
+                    2,
+                    context,
+                );
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
                 if let Some(vec_ty) = arg_types.first() {
                     self.check_vec_handle_type("vec_find", vec_ty, context);
                 }
-                if let (Some(Type::Vec(elem)), Some(fn_ty)) = (arg_types.first(), arg_types.get(1)) {
+                if let (Some(Type::Vec(elem)), Some(fn_ty)) = (arg_types.first(), arg_types.get(1))
+                {
                     match fn_ty {
                         Type::Fn(params, ret) => {
                             if params.len() != 1 {
                                 self.errors.push(TypeError {
-                                    message: format!("vec_find predicate function expects 1 argument, got {}", params.len()),
+                                    message: format!(
+                                        "vec_find predicate function expects 1 argument, got {}",
+                                        params.len()
+                                    ),
                                     location: context.to_string(),
                                 });
                             } else if !self.types_compatible(&params[0], elem) {
@@ -2253,13 +2539,18 @@ impl TypeChecker {
                         }
                         _ => {
                             self.errors.push(TypeError {
-                                message: format!("vec_find expects function as second argument, got {:?}", fn_ty),
+                                message: format!(
+                                    "vec_find expects function as second argument, got {:?}",
+                                    fn_ty
+                                ),
                                 location: context.to_string(),
                             });
                         }
                     }
                 }
-                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
             }
             "hashmap_new" => {
                 self.check_builtin_arity("hashmap_new expects 0 arguments", args, 0, context);
@@ -2395,7 +2686,12 @@ impl TypeChecker {
                 ))
             }
             "hashmap_is_empty" => {
-                self.check_builtin_arity("hashmap_is_empty expects 1 argument (map)", args, 1, context);
+                self.check_builtin_arity(
+                    "hashmap_is_empty expects 1 argument (map)",
+                    args,
+                    1,
+                    context,
+                );
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
                 if let Some(map_ty) = arg_types.first() {
                     self.check_hashmap_handle_type("hashmap_is_empty", map_ty, context);
@@ -2403,12 +2699,19 @@ impl TypeChecker {
                 Ok(Some(Type::Bool))
             }
             "hashmap_values" => {
-                self.check_builtin_arity("hashmap_values expects 1 argument (map)", args, 1, context);
+                self.check_builtin_arity(
+                    "hashmap_values expects 1 argument (map)",
+                    args,
+                    1,
+                    context,
+                );
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
                 if let Some(map_ty) = arg_types.first() {
                     self.check_hashmap_handle_type("hashmap_values", map_ty, context);
                 }
-                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
             }
             "result_ok" | "Ok" => {
                 self.check_builtin_arity("result_ok expects 1 argument (value)", args, 1, context);
@@ -2451,7 +2754,12 @@ impl TypeChecker {
                 ))
             }
             "hashmap_get_opt" => {
-                self.check_builtin_arity("hashmap_get_opt expects 2 arguments (map, key)", args, 2, context);
+                self.check_builtin_arity(
+                    "hashmap_get_opt expects 2 arguments (map, key)",
+                    args,
+                    2,
+                    context,
+                );
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
                 if let Some(map_ty) = arg_types.first() {
                     self.check_hashmap_handle_type("hashmap_get_opt", map_ty, context);
@@ -2467,10 +2775,17 @@ impl TypeChecker {
                         }
                     }
                 }
-                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
             }
             "vec_get_opt" => {
-                self.check_builtin_arity("vec_get_opt expects 2 arguments (vec, index)", args, 2, context);
+                self.check_builtin_arity(
+                    "vec_get_opt expects 2 arguments (vec, index)",
+                    args,
+                    2,
+                    context,
+                );
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
                 if let Some(vec_ty) = arg_types.first() {
                     self.check_vec_handle_type("vec_get_opt", vec_ty, context);
@@ -2478,7 +2793,9 @@ impl TypeChecker {
                 if let Some(index_ty) = arg_types.get(1) {
                     self.check_vec_index_type("vec_get_opt", index_ty, context);
                 }
-                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
             }
             "vec_pop_opt" => {
                 self.check_builtin_arity("vec_pop_opt expects 1 argument (vec)", args, 1, context);
@@ -2486,22 +2803,45 @@ impl TypeChecker {
                 if let Some(vec_ty) = arg_types.first() {
                     self.check_vec_handle_type("vec_pop_opt", vec_ty, context);
                 }
-                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
             }
             "read_file_result" => {
-                self.check_builtin_arity("read_file_result expects 1 argument (path)", args, 1, context);
+                self.check_builtin_arity(
+                    "read_file_result expects 1 argument (path)",
+                    args,
+                    1,
+                    context,
+                );
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
-                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
             }
             "write_file_result" => {
-                self.check_builtin_arity("write_file_result expects 2 arguments (path, content)", args, 2, context);
+                self.check_builtin_arity(
+                    "write_file_result expects 2 arguments (path, content)",
+                    args,
+                    2,
+                    context,
+                );
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
-                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
             }
             "parse_int_result" => {
-                self.check_builtin_arity("parse_int_result expects 1 argument (string)", args, 1, context);
+                self.check_builtin_arity(
+                    "parse_int_result expects 1 argument (string)",
+                    args,
+                    1,
+                    context,
+                );
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
-                Ok(builtins::infer_special_builtin_call_type(name, &arg_types, expected))
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
             }
             "result_is_ok" | "result_is_err" | "result_unwrap" | "result_unwrap_err"
             | "result_tag" | "result_value" => {
@@ -2654,7 +2994,13 @@ impl TypeChecker {
     fn is_copy_type(&self, ty: &Type) -> bool {
         match ty {
             Type::Tuple(elem_types) => elem_types.iter().all(|t| self.is_copy_type(t)),
-            Type::Never | Type::Unit | Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool => true,
+            Type::Never
+            | Type::Unit
+            | Type::I32
+            | Type::I64
+            | Type::F32
+            | Type::F64
+            | Type::Bool => true,
             Type::Fn(_, _) => true,
             Type::Named(name) => self.enums.contains_key(name),
             _ => false,
@@ -2746,7 +3092,9 @@ impl TypeChecker {
         for arm in arms {
             if exhausted {
                 self.errors.push(TypeError {
-                    message: "Unreachable match arm: previous Result patterns already cover Ok and Err".to_string(),
+                    message:
+                        "Unreachable match arm: previous Result patterns already cover Ok and Err"
+                            .to_string(),
                     location: context.to_string(),
                 });
             }
@@ -2973,7 +3321,11 @@ impl TypeChecker {
     }
 
     fn check_scalar_match(&mut self, expr_ty: &Type, arms: &[ast::MatchArm], context: &str) {
-        if !self.is_integer(expr_ty) && *expr_ty != Type::Str && *expr_ty != Type::F32 && *expr_ty != Type::F64 {
+        if !self.is_integer(expr_ty)
+            && *expr_ty != Type::Str
+            && *expr_ty != Type::F32
+            && *expr_ty != Type::F64
+        {
             return;
         }
         let mut has_catchall = false;
@@ -3077,7 +3429,9 @@ impl TypeChecker {
                 });
                 if let Some(decl_fields) = decl_fields {
                     for (field_name, sub_pat) in fields {
-                        if let Some((_, field_ty)) = decl_fields.iter().find(|(n, _)| n == field_name) {
+                        if let Some((_, field_ty)) =
+                            decl_fields.iter().find(|(n, _)| n == field_name)
+                        {
                             self.bind_pattern(sub_pat, field_ty);
                         }
                     }
@@ -3164,7 +3518,8 @@ impl TypeChecker {
                 } else {
                     for (index, expected) in types.iter().enumerate() {
                         let expected = expected.clone();
-                        let actual = self.infer_expr_with_hint(&args[index], context, Some(&expected))?;
+                        let actual =
+                            self.infer_expr_with_hint(&args[index], context, Some(&expected))?;
                         if !self.types_compatible(&expected, &actual) {
                             self.errors.push(TypeError {
                                 message: format!(
@@ -3207,9 +3562,13 @@ impl TypeChecker {
     fn matches_builtin_arg_rule(&self, rule: BuiltinArgRule, ty: &Type) -> bool {
         match rule {
             BuiltinArgRule::Any => true,
-            BuiltinArgRule::Str => matches!(ty, Type::Str) || matches!(ty, Type::Named(name) if name == "Path"),
+            BuiltinArgRule::Str => {
+                matches!(ty, Type::Str) || matches!(ty, Type::Named(name) if name == "Path")
+            }
             BuiltinArgRule::Integer => self.is_integer(ty) || self.is_unit_enum(ty),
-            BuiltinArgRule::StrOrArray => matches!(ty, Type::Str | Type::Array(_, _) | Type::Slice(_)),
+            BuiltinArgRule::StrOrArray => {
+                matches!(ty, Type::Str | Type::Array(_, _) | Type::Slice(_))
+            }
         }
     }
 
@@ -3218,7 +3577,10 @@ impl TypeChecker {
             ast::Pattern::Unit => {
                 if *expr_ty != Type::Unit {
                     self.errors.push(TypeError {
-                        message: format!("Unit pattern cannot match expression of type {:?}", expr_ty),
+                        message: format!(
+                            "Unit pattern cannot match expression of type {:?}",
+                            expr_ty
+                        ),
                         location: context.to_string(),
                     });
                 }
@@ -3241,38 +3603,58 @@ impl TypeChecker {
                     }
                 } else {
                     self.errors.push(TypeError {
-                        message: format!("Tuple pattern cannot match expression of type {:?}", expr_ty),
+                        message: format!(
+                            "Tuple pattern cannot match expression of type {:?}",
+                            expr_ty
+                        ),
                         location: context.to_string(),
                     });
                 }
             }
             ast::Pattern::Struct { name, fields } => {
                 let matches_struct = match expr_ty {
-                    Type::Named(struct_name) => struct_name == name || struct_name.starts_with(&format!("{name}__")),
+                    Type::Named(struct_name) => {
+                        struct_name == name || struct_name.starts_with(&format!("{name}__"))
+                    }
                     Type::Generic(struct_name, _) => struct_name == name,
                     _ => false,
                 };
                 if !matches_struct {
                     self.errors.push(TypeError {
-                        message: format!("Struct pattern for '{}' cannot match expression of type '{}'", name, expr_ty),
+                        message: format!(
+                            "Struct pattern for '{}' cannot match expression of type '{}'",
+                            name, expr_ty
+                        ),
                         location: context.to_string(),
                     });
                 } else {
                     let decl_fields = match expr_ty {
-                        Type::Named(struct_name) => self.structs.get(struct_name).cloned().or_else(|| self.structs.get(name).cloned()),
+                        Type::Named(struct_name) => self
+                            .structs
+                            .get(struct_name)
+                            .cloned()
+                            .or_else(|| self.structs.get(name).cloned()),
                         Type::Generic(struct_name, args) => {
                             let mangled = crate::monomorphize::mangle_name(struct_name, args);
-                            self.structs.get(&mangled).cloned().or_else(|| self.structs.get(struct_name).cloned())
+                            self.structs
+                                .get(&mangled)
+                                .cloned()
+                                .or_else(|| self.structs.get(struct_name).cloned())
                         }
                         _ => self.structs.get(name).cloned(),
                     };
                     if let Some(decl_fields) = decl_fields {
                         for (field_name, sub_pat) in fields {
-                            if let Some((_, field_ty)) = decl_fields.iter().find(|(n, _)| n == field_name) {
+                            if let Some((_, field_ty)) =
+                                decl_fields.iter().find(|(n, _)| n == field_name)
+                            {
                                 self.check_pattern_type(sub_pat, field_ty, context);
                             } else {
                                 self.errors.push(TypeError {
-                                    message: format!("Unknown field '{}' in struct pattern for '{}'", field_name, name),
+                                    message: format!(
+                                        "Unknown field '{}' in struct pattern for '{}'",
+                                        field_name, name
+                                    ),
                                     location: context.to_string(),
                                 });
                             }
@@ -3480,7 +3862,10 @@ impl TypeChecker {
         }
         if let (Type::Tuple(t1), Type::Tuple(t2)) = (expected, actual) {
             if t1.len() == t2.len() {
-                return t1.iter().zip(t2.iter()).all(|(a, b)| self.types_compatible(a, b));
+                return t1
+                    .iter()
+                    .zip(t2.iter())
+                    .all(|(a, b)| self.types_compatible(a, b));
             }
         }
         // Unit enums lower to integer tags.
@@ -3527,17 +3912,25 @@ impl TypeChecker {
         // Fn types with compatible parameter and return types
         if let (Type::Fn(p1, r1), Type::Fn(p2, r2)) = (expected, actual) {
             if p1.len() == p2.len() {
-                return p1.iter().zip(p2.iter()).all(|(a, b)| self.types_compatible(a, b))
+                return p1
+                    .iter()
+                    .zip(p2.iter())
+                    .all(|(a, b)| self.types_compatible(a, b))
                     && self.types_compatible(r1, r2);
             }
         }
         // Generic types with matching base name and compatible arguments
         if let (Type::Generic(n1, a1), Type::Generic(n2, a2)) = (expected, actual) {
             if n1 == n2 && a1.len() == a2.len() {
-                return a1.iter().zip(a2.iter()).all(|(a, b)| self.types_compatible(a, b));
+                return a1
+                    .iter()
+                    .zip(a2.iter())
+                    .all(|(a, b)| self.types_compatible(a, b));
             }
         }
-        if let (Type::Generic(n, a), Type::Named(m)) | (Type::Named(m), Type::Generic(n, a)) = (expected, actual) {
+        if let (Type::Generic(n, a), Type::Named(m)) | (Type::Named(m), Type::Generic(n, a)) =
+            (expected, actual)
+        {
             if crate::monomorphize::mangle_name(n, a) == *m {
                 return true;
             }
@@ -3593,10 +3986,7 @@ fn unit_enum_payload_types(
         .unwrap_or_default()
 }
 
-fn lower_pattern(
-    pattern: &mut ast::Pattern,
-    enums: &HashMap<String, Vec<(String, Vec<Type>)>>,
-) {
+fn lower_pattern(pattern: &mut ast::Pattern, enums: &HashMap<String, Vec<(String, Vec<Type>)>>) {
     if let ast::Pattern::Tuple(sub_pats) = pattern {
         for sub in sub_pats {
             lower_pattern(sub, enums);
@@ -3803,7 +4193,9 @@ fn lower_stmt(stmt: &mut Stmt, enums: &HashMap<String, Vec<(String, Vec<Type>)>>
             lower_expr(iter, enums);
             lower_block(body, enums);
         }
-        Stmt::While { condition, body, .. } => {
+        Stmt::While {
+            condition, body, ..
+        } => {
             lower_expr(condition, enums);
             lower_block(body, enums);
         }
@@ -3908,14 +4300,20 @@ pub fn lower_type_aliases(file: &mut ast::File) {
                 }
                 ast::Stmt::Expr(expr) => lower_expr_types(expr, aliases),
                 ast::Stmt::Return(Some(expr)) => lower_expr_types(expr, aliases),
-                ast::Stmt::If { condition, then_block, else_block } => {
+                ast::Stmt::If {
+                    condition,
+                    then_block,
+                    else_block,
+                } => {
                     lower_expr_types(condition, aliases);
                     lower_block_types(then_block, aliases);
                     if let Some(b) = else_block {
                         lower_block_types(b, aliases);
                     }
                 }
-                ast::Stmt::While { condition, body, .. } => {
+                ast::Stmt::While {
+                    condition, body, ..
+                } => {
                     lower_expr_types(condition, aliases);
                     lower_block_types(body, aliases);
                 }
@@ -3936,7 +4334,10 @@ pub fn lower_type_aliases(file: &mut ast::File) {
 
     fn lower_expr_types(expr: &mut ast::Expr, aliases: &HashMap<String, ast::Type>) {
         match expr {
-            ast::Expr::Cast { expr: inner, target_type } => {
+            ast::Expr::Cast {
+                expr: inner,
+                target_type,
+            } => {
                 lower_expr_types(inner, aliases);
                 resolve_ty(target_type, aliases);
             }
@@ -3956,7 +4357,11 @@ pub fn lower_type_aliases(file: &mut ast::File) {
                 lower_expr_types(index, aliases);
             }
             ast::Expr::Field { expr: inner, .. } => lower_expr_types(inner, aliases),
-            ast::Expr::If { condition, then_expr, else_expr } => {
+            ast::Expr::If {
+                condition,
+                then_expr,
+                else_expr,
+            } => {
                 lower_expr_types(condition, aliases);
                 lower_expr_types(then_expr, aliases);
                 lower_expr_types(else_expr, aliases);
@@ -4039,7 +4444,10 @@ pub fn lower_unit_enums(file: &mut ast::File) {
                     lower_block(&mut func.body, &enums);
                 }
                 ast::KernelItem::Const(def) => lower_expr(&mut def.value, &enums),
-                ast::KernelItem::Struct(_) | ast::KernelItem::Enum(_) | ast::KernelItem::TypeAlias(_) | ast::KernelItem::Import(_) => {}
+                ast::KernelItem::Struct(_)
+                | ast::KernelItem::Enum(_)
+                | ast::KernelItem::TypeAlias(_)
+                | ast::KernelItem::Import(_) => {}
             }
         }
     }
@@ -4277,7 +4685,9 @@ fn check_shell_stmt(
                 check_shell_block(eb, agent_messages, shell_name, errors);
             }
         }
-        ast::Stmt::For { body, .. } | ast::Stmt::While { body, .. } | ast::Stmt::Loop { body, .. } => {
+        ast::Stmt::For { body, .. }
+        | ast::Stmt::While { body, .. }
+        | ast::Stmt::Loop { body, .. } => {
             check_shell_block(body, agent_messages, shell_name, errors);
         }
         ast::Stmt::Match { arms, .. } => {

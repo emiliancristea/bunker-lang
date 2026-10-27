@@ -86,7 +86,8 @@ impl ComptimeEvaluator {
         for item in &kernel.items {
             if let ast::KernelItem::ComptimeFn(func) = item {
                 self.functions.insert(func.name.clone(), func.clone());
-                self.functions.insert(format!("{}::{}", kernel.name, func.name), func.clone());
+                self.functions
+                    .insert(format!("{}::{}", kernel.name, func.name), func.clone());
             }
         }
     }
@@ -97,7 +98,11 @@ impl ComptimeEvaluator {
     }
 
     /// Detailed evaluation of a comptime function call.
-    pub fn try_eval_detailed(&self, name: &str, args: &[Expr]) -> Result<Option<ComptimeValue>, String> {
+    pub fn try_eval_detailed(
+        &self,
+        name: &str,
+        args: &[Expr],
+    ) -> Result<Option<ComptimeValue>, String> {
         let func = match self.functions.get(name) {
             Some(f) => f,
             None => return Ok(None),
@@ -116,7 +121,9 @@ impl ComptimeEvaluator {
         if arg_values.len() != func.params.len() {
             return Err(format!(
                 "Comptime function '{}' expects {} arguments, got {}",
-                name, func.params.len(), arg_values.len()
+                name,
+                func.params.len(),
+                arg_values.len()
             ));
         }
 
@@ -253,7 +260,9 @@ impl ComptimeEvaluator {
                 Stmt::Expr(expr) => {
                     result = self.eval_expr(expr, env, depth)?;
                 }
-                Stmt::For { var, iter, body, .. } => {
+                Stmt::For {
+                    var, iter, body, ..
+                } => {
                     // Extract range bounds (iterator must be a range expression)
                     let (start, end, inclusive) = match iter {
                         Expr::Range {
@@ -314,7 +323,9 @@ impl ComptimeEvaluator {
                         }
                     }
                 }
-                Stmt::While { condition, body, .. } => {
+                Stmt::While {
+                    condition, body, ..
+                } => {
                     const MAX_ITERATIONS: usize = 100_000;
                     let mut iterations = 0;
 
@@ -719,7 +730,10 @@ fn fold_kernel(kernel: &mut ast::Kernel, eval: &ComptimeEvaluator, stats: &mut C
             ast::KernelItem::Const(c) => {
                 fold_expr(&mut c.value, eval, stats);
             }
-            ast::KernelItem::Struct(_) | ast::KernelItem::Enum(_) | ast::KernelItem::TypeAlias(_) | ast::KernelItem::Import(_) => {}
+            ast::KernelItem::Struct(_)
+            | ast::KernelItem::Enum(_)
+            | ast::KernelItem::TypeAlias(_)
+            | ast::KernelItem::Import(_) => {}
         }
     }
 }
@@ -785,7 +799,9 @@ fn fold_stmt(stmt: &mut Stmt, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
         Stmt::Loop { body: block, .. } => {
             fold_block(block, eval, stats);
         }
-        Stmt::While { condition, body, .. } => {
+        Stmt::While {
+            condition, body, ..
+        } => {
             fold_expr(condition, eval, stats);
             fold_block(body, eval, stats);
         }
@@ -882,15 +898,11 @@ fn fold_expr(expr: &mut Expr, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
             fold_expr(end, eval, stats);
         }
         Expr::Try(inner) => {
-
             fold_expr(inner, eval, stats);
-
         }
 
         Expr::Cast { expr: inner, .. } => {
-
             fold_expr(inner, eval, stats);
-
         }
         // Terminals - no children to fold
         Expr::Unit | Expr::Literal(_) | Expr::Ident(_) | Expr::None => {}

@@ -2,8 +2,8 @@
 //!
 //! Produces canonical BUNKER_SYMBOL_TABLE_JSON matching the specification in Track A (A-012).
 
-use std::collections::HashSet;
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 
 use crate::ast::{self, Expr, Stmt};
 
@@ -133,7 +133,14 @@ pub fn build_symbol_table_report(file: &ast::File, source: &str) -> SymbolTableR
                         });
                     }
 
-                    collect_body_symbols(&f.body, &fn_scope, &mut declarations, &mut references, &mut unique_names, source_bytes);
+                    collect_body_symbols(
+                        &f.body,
+                        &fn_scope,
+                        &mut declarations,
+                        &mut references,
+                        &mut unique_names,
+                        source_bytes,
+                    );
                 }
                 ast::KernelItem::ComptimeFn(f) => {
                     function_count += 1;
@@ -163,7 +170,14 @@ pub fn build_symbol_table_report(file: &ast::File, source: &str) -> SymbolTableR
                         });
                     }
 
-                    collect_body_symbols(&f.body, &fn_scope, &mut declarations, &mut references, &mut unique_names, source_bytes);
+                    collect_body_symbols(
+                        &f.body,
+                        &fn_scope,
+                        &mut declarations,
+                        &mut references,
+                        &mut unique_names,
+                        source_bytes,
+                    );
                 }
                 ast::KernelItem::Struct(s) => {
                     struct_count += 1;
@@ -231,7 +245,13 @@ pub fn build_symbol_table_report(file: &ast::File, source: &str) -> SymbolTableR
                         span_known: true,
                         is_pub: c.is_pub,
                     });
-                    collect_expr_references(&c.value, &kernel_scope, &mut references, &mut unique_names, source_bytes);
+                    collect_expr_references(
+                        &c.value,
+                        &kernel_scope,
+                        &mut references,
+                        &mut unique_names,
+                        source_bytes,
+                    );
                 }
                 ast::KernelItem::TypeAlias(t) => {
                     unique_names.insert(t.name.clone());
@@ -319,14 +339,34 @@ fn collect_body_symbols(
                     collect_expr_references(e, scope, references, unique_names, source_bytes);
                 }
             }
-            Stmt::If { condition, then_block, else_block } => {
+            Stmt::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
                 collect_expr_references(condition, scope, references, unique_names, source_bytes);
-                collect_body_symbols(then_block, scope, declarations, references, unique_names, source_bytes);
+                collect_body_symbols(
+                    then_block,
+                    scope,
+                    declarations,
+                    references,
+                    unique_names,
+                    source_bytes,
+                );
                 if let Some(eb) = else_block {
-                    collect_body_symbols(eb, scope, declarations, references, unique_names, source_bytes);
+                    collect_body_symbols(
+                        eb,
+                        scope,
+                        declarations,
+                        references,
+                        unique_names,
+                        source_bytes,
+                    );
                 }
             }
-            Stmt::For { var, iter, body, .. } => {
+            Stmt::For {
+                var, iter, body, ..
+            } => {
                 unique_names.insert(var.clone());
                 declarations.push(SymbolTableEntry {
                     kind: "local_var".to_string(),
@@ -338,30 +378,79 @@ fn collect_body_symbols(
                     is_pub: false,
                 });
                 collect_expr_references(iter, scope, references, unique_names, source_bytes);
-                collect_body_symbols(body, scope, declarations, references, unique_names, source_bytes);
+                collect_body_symbols(
+                    body,
+                    scope,
+                    declarations,
+                    references,
+                    unique_names,
+                    source_bytes,
+                );
             }
-            Stmt::While { condition, body, .. } => {
+            Stmt::While {
+                condition, body, ..
+            } => {
                 collect_expr_references(condition, scope, references, unique_names, source_bytes);
-                collect_body_symbols(body, scope, declarations, references, unique_names, source_bytes);
+                collect_body_symbols(
+                    body,
+                    scope,
+                    declarations,
+                    references,
+                    unique_names,
+                    source_bytes,
+                );
             }
             Stmt::Loop { body, .. } => {
-                collect_body_symbols(body, scope, declarations, references, unique_names, source_bytes);
+                collect_body_symbols(
+                    body,
+                    scope,
+                    declarations,
+                    references,
+                    unique_names,
+                    source_bytes,
+                );
             }
             Stmt::Match { expr, arms } => {
                 collect_expr_references(expr, scope, references, unique_names, source_bytes);
                 for arm in arms {
-                    collect_pattern_symbols(&arm.pattern, scope, declarations, unique_names, source_bytes);
+                    collect_pattern_symbols(
+                        &arm.pattern,
+                        scope,
+                        declarations,
+                        unique_names,
+                        source_bytes,
+                    );
                     if let Some(g) = &arm.guard {
                         collect_expr_references(g, scope, references, unique_names, source_bytes);
                     }
                     match &arm.body {
-                        ast::MatchBody::Expr(e) => collect_expr_references(e, scope, references, unique_names, source_bytes),
-                        ast::MatchBody::Block(b) => collect_body_symbols(b, scope, declarations, references, unique_names, source_bytes),
+                        ast::MatchBody::Expr(e) => collect_expr_references(
+                            e,
+                            scope,
+                            references,
+                            unique_names,
+                            source_bytes,
+                        ),
+                        ast::MatchBody::Block(b) => collect_body_symbols(
+                            b,
+                            scope,
+                            declarations,
+                            references,
+                            unique_names,
+                            source_bytes,
+                        ),
                     }
                 }
             }
             Stmt::Defer(b) => {
-                collect_body_symbols(b, scope, declarations, references, unique_names, source_bytes);
+                collect_body_symbols(
+                    b,
+                    scope,
+                    declarations,
+                    references,
+                    unique_names,
+                    source_bytes,
+                );
             }
             Stmt::Expr(e) => {
                 collect_expr_references(e, scope, references, unique_names, source_bytes);
@@ -401,7 +490,9 @@ fn collect_pattern_symbols(
                 collect_pattern_symbols(p, scope, declarations, unique_names, source_bytes);
             }
         }
-        ast::Pattern::Some(inner) | ast::Pattern::ResultOk(inner) | ast::Pattern::ResultErr(inner) => {
+        ast::Pattern::Some(inner)
+        | ast::Pattern::ResultOk(inner)
+        | ast::Pattern::ResultErr(inner) => {
             collect_pattern_symbols(inner, scope, declarations, unique_names, source_bytes);
         }
         ast::Pattern::EnumVariant { bindings, .. } | ast::Pattern::EnumPayload { bindings, .. } => {
@@ -482,7 +573,9 @@ fn collect_expr_references(
                 span_known: true,
             });
         }
-        Expr::Struct { name, fields, base, .. } => {
+        Expr::Struct {
+            name, fields, base, ..
+        } => {
             unique_names.insert(name.clone());
             references.push(SymbolTableRefEntry {
                 kind: "struct_lit".to_string(),
@@ -509,7 +602,11 @@ fn collect_expr_references(
                 collect_expr_references(e, scope, references, unique_names, source_bytes);
             }
         }
-        Expr::If { condition, then_expr, else_expr } => {
+        Expr::If {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
             collect_expr_references(condition, scope, references, unique_names, source_bytes);
             collect_expr_references(then_expr, scope, references, unique_names, source_bytes);
             collect_expr_references(else_expr, scope, references, unique_names, source_bytes);

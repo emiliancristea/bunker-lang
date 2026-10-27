@@ -1,6 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::ast::{self, Block, Expr, Function, KernelItem, Literal, MatchBody, Stmt, StructDef, Type};
+use crate::ast::{
+    self, Block, Expr, Function, KernelItem, Literal, MatchBody, Stmt, StructDef, Type,
+};
 use crate::diagnostic::{codes, Diagnostic, SourceLocation};
 
 /// An instantiation request for a generic struct or function.
@@ -173,17 +175,28 @@ pub fn infer_expr_type(
         Expr::Ident(name) => env.get(name).cloned().unwrap_or(Type::I32),
         Expr::Cast { target_type, .. } => target_type.clone(),
         Expr::Tuple(elems) => {
-            let elem_types = elems.iter().map(|e| infer_expr_type(e, env, structs, fns)).collect();
+            let elem_types = elems
+                .iter()
+                .map(|e| infer_expr_type(e, env, structs, fns))
+                .collect();
             Type::Tuple(elem_types)
         }
         Expr::Array(elems) => {
             if let Some(first) = elems.first() {
-                Type::Array(Box::new(infer_expr_type(first, env, structs, fns)), elems.len())
+                Type::Array(
+                    Box::new(infer_expr_type(first, env, structs, fns)),
+                    elems.len(),
+                )
             } else {
                 Type::Array(Box::new(Type::I32), 0)
             }
         }
-        Expr::Struct { name, type_args, fields, .. } => {
+        Expr::Struct {
+            name,
+            type_args,
+            fields,
+            ..
+        } => {
             if let Some(s) = structs.get(name) {
                 if !s.type_params.is_empty() {
                     if !type_args.is_empty() {
@@ -194,16 +207,29 @@ pub fn infer_expr_type(
                     for (fname, fval) in fields {
                         let actual_val_ty = infer_expr_type(fval, env, structs, fns);
                         if let Some(sf) = s.fields.iter().find(|f| f.name == *fname) {
-                            let _ = unify_type_param(&sf.ty, &actual_val_ty, &s.type_params, &mut mapping);
+                            let _ = unify_type_param(
+                                &sf.ty,
+                                &actual_val_ty,
+                                &s.type_params,
+                                &mut mapping,
+                            );
                         }
                     }
-                    let deduced: Vec<Type> = s.type_params.iter().map(|p| mapping.get(p).cloned().unwrap_or(Type::I32)).collect();
+                    let deduced: Vec<Type> = s
+                        .type_params
+                        .iter()
+                        .map(|p| mapping.get(p).cloned().unwrap_or(Type::I32))
+                        .collect();
                     return Type::Generic(name.clone(), deduced);
                 }
             }
             Type::Named(name.clone())
         }
-        Expr::Call { func, type_args, args } => {
+        Expr::Call {
+            func,
+            type_args,
+            args,
+        } => {
             if let Expr::Ident(name) = func.as_ref() {
                 // Check if it's a tuple struct constructor
                 if let Some(s) = structs.get(name) {
@@ -215,10 +241,19 @@ pub fn infer_expr_type(
                         for (i, arg) in args.iter().enumerate() {
                             let actual_ty = infer_expr_type(arg, env, structs, fns);
                             if let Some(sf) = s.fields.get(i) {
-                                let _ = unify_type_param(&sf.ty, &actual_ty, &s.type_params, &mut mapping);
+                                let _ = unify_type_param(
+                                    &sf.ty,
+                                    &actual_ty,
+                                    &s.type_params,
+                                    &mut mapping,
+                                );
                             }
                         }
-                        let deduced: Vec<Type> = s.type_params.iter().map(|p| mapping.get(p).cloned().unwrap_or(Type::I32)).collect();
+                        let deduced: Vec<Type> = s
+                            .type_params
+                            .iter()
+                            .map(|p| mapping.get(p).cloned().unwrap_or(Type::I32))
+                            .collect();
                         return Type::Generic(name.clone(), deduced);
                     }
                 }
@@ -233,7 +268,12 @@ pub fn infer_expr_type(
                             } else {
                                 for (p_decl, a_expr) in f.params.iter().zip(args.iter()) {
                                     let arg_ty = infer_expr_type(a_expr, env, structs, fns);
-                                    let _ = unify_type_param(&p_decl.ty, &arg_ty, &f.type_params, &mut mapping);
+                                    let _ = unify_type_param(
+                                        &p_decl.ty,
+                                        &arg_ty,
+                                        &f.type_params,
+                                        &mut mapping,
+                                    );
                                 }
                             }
                             return substitute_type(ret, &mapping);
@@ -283,8 +323,12 @@ pub fn infer_expr_type(
             let mut last_ty = Type::Unit;
             for stmt in &block.statements {
                 match stmt {
-                    Stmt::Let { name, ty, value, .. } => {
-                        let vty = ty.clone().unwrap_or_else(|| infer_expr_type(value, &local_env, structs, fns));
+                    Stmt::Let {
+                        name, ty, value, ..
+                    } => {
+                        let vty = ty
+                            .clone()
+                            .unwrap_or_else(|| infer_expr_type(value, &local_env, structs, fns));
                         local_env.insert(name.clone(), vty);
                     }
                     Stmt::Expr(e) => {
@@ -311,7 +355,9 @@ pub fn monomorphize_file(file: &mut ast::File, file_path: &str) -> Result<(), Ve
     for kernel in &file.kernels {
         for item in &kernel.items {
             match item {
-                KernelItem::Function(f) | KernelItem::ComptimeFn(f) if !f.type_params.is_empty() => {
+                KernelItem::Function(f) | KernelItem::ComptimeFn(f)
+                    if !f.type_params.is_empty() =>
+                {
                     has_generics = true;
                 }
                 KernelItem::Struct(s) if !s.type_params.is_empty() => {
@@ -344,8 +390,14 @@ pub fn monomorphize_file(file: &mut ast::File, file_path: &str) -> Result<(), Ve
                             if !seen.insert(p.clone()) {
                                 diagnostics.push(Diagnostic::error(
                                     codes::GENERIC_UNKNOWN_TYPE_PARAM,
-                                    format!("Duplicate type parameter '{}' in struct '{}'", p, s.name),
-                                    SourceLocation::with_context(file_path, format!("struct {}", s.name)),
+                                    format!(
+                                        "Duplicate type parameter '{}' in struct '{}'",
+                                        p, s.name
+                                    ),
+                                    SourceLocation::with_context(
+                                        file_path,
+                                        format!("struct {}", s.name),
+                                    ),
                                 ));
                             }
                         }
@@ -360,17 +412,37 @@ pub fn monomorphize_file(file: &mut ast::File, file_path: &str) -> Result<(), Ve
                             if !seen.insert(p.clone()) {
                                 diagnostics.push(Diagnostic::error(
                                     codes::GENERIC_UNKNOWN_TYPE_PARAM,
-                                    format!("Duplicate type parameter '{}' in function '{}'", p, f.name),
-                                    SourceLocation::with_context(file_path, format!("fn {}", f.name)),
+                                    format!(
+                                        "Duplicate type parameter '{}' in function '{}'",
+                                        p, f.name
+                                    ),
+                                    SourceLocation::with_context(
+                                        file_path,
+                                        format!("fn {}", f.name),
+                                    ),
                                 ));
                             }
                         }
                         // Validate that parameters and return types don't reference unknown type variables
                         for p_decl in &f.params {
-                            validate_type_vars(&p_decl.ty, &f.type_params, &all_structs, file_path, &format!("fn {}", f.name), &mut diagnostics);
+                            validate_type_vars(
+                                &p_decl.ty,
+                                &f.type_params,
+                                &all_structs,
+                                file_path,
+                                &format!("fn {}", f.name),
+                                &mut diagnostics,
+                            );
                         }
                         if let Some(ret) = &f.return_type {
-                            validate_type_vars(ret, &f.type_params, &all_structs, file_path, &format!("fn {}", f.name), &mut diagnostics);
+                            validate_type_vars(
+                                ret,
+                                &f.type_params,
+                                &all_structs,
+                                file_path,
+                                &format!("fn {}", f.name),
+                                &mut diagnostics,
+                            );
                         }
                         generic_functions.insert(f.name.clone(), f.clone());
                     }
@@ -605,7 +677,10 @@ pub fn monomorphize_file(file: &mut ast::File, file_path: &str) -> Result<(), Ve
                                 other => other,
                             };
                             if let Type::Named(sname) = actual_ty {
-                                if (sname.starts_with(&format!("{}_", parts[0])) || sname.starts_with(&format!("{}__", parts[0]))) && sname != parts[0] {
+                                if (sname.starts_with(&format!("{}_", parts[0]))
+                                    || sname.starts_with(&format!("{}__", parts[0])))
+                                    && sname != parts[0]
+                                {
                                     f.name = format!("{}::{}", sname, parts[1..].join("::"));
                                 }
                             }
@@ -672,7 +747,10 @@ fn validate_type_vars(
                 && !is_builtin_or_primitive(name)
             {
                 // If it looks like a single uppercase letter or type parameter (e.g. T, U, V, Item), emit unknown type param
-                if name.len() == 1 || (name.chars().next().map_or(false, |c| c.is_uppercase()) && !structs.contains_key(name)) {
+                if name.len() == 1
+                    || (name.chars().next().map_or(false, |c| c.is_uppercase())
+                        && !structs.contains_key(name))
+                {
                     diagnostics.push(Diagnostic::error(
                         codes::GENERIC_UNKNOWN_TYPE_PARAM,
                         format!("Unknown type parameter '{}' in {}", name, context),
@@ -682,7 +760,10 @@ fn validate_type_vars(
             }
         }
         Type::Generic(name, args) => {
-            if !allowed.contains(name) && !structs.contains_key(name) && !is_builtin_or_primitive(name) {
+            if !allowed.contains(name)
+                && !structs.contains_key(name)
+                && !is_builtin_or_primitive(name)
+            {
                 diagnostics.push(Diagnostic::error(
                     codes::GENERIC_UNKNOWN_TYPE_PARAM,
                     format!("Unknown generic type '{}' in {}", name, context),
@@ -718,7 +799,17 @@ fn validate_type_vars(
 fn is_builtin_or_primitive(name: &str) -> bool {
     matches!(
         name,
-        "i32" | "i64" | "f32" | "f64" | "bool" | "str" | "vec2" | "vec3" | "unit" | "never" | "Path"
+        "i32"
+            | "i64"
+            | "f32"
+            | "f64"
+            | "bool"
+            | "str"
+            | "vec2"
+            | "vec3"
+            | "unit"
+            | "never"
+            | "Path"
     )
 }
 
@@ -734,14 +825,20 @@ fn substitute_body_types(block: &mut Block, mapping: &HashMap<String, Type>) {
             Stmt::Expr(e) | Stmt::Return(Some(e)) => {
                 substitute_expr_types(e, mapping);
             }
-            Stmt::If { condition, then_block, else_block } => {
+            Stmt::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
                 substitute_expr_types(condition, mapping);
                 substitute_body_types(then_block, mapping);
                 if let Some(eb) = else_block {
                     substitute_body_types(eb, mapping);
                 }
             }
-            Stmt::While { condition, body, .. } => {
+            Stmt::While {
+                condition, body, ..
+            } => {
                 substitute_expr_types(condition, mapping);
                 substitute_body_types(body, mapping);
             }
@@ -774,7 +871,10 @@ fn substitute_body_types(block: &mut Block, mapping: &HashMap<String, Type>) {
 
 fn substitute_expr_types(expr: &mut Expr, mapping: &HashMap<String, Type>) {
     match expr {
-        Expr::Cast { target_type, expr: inner } => {
+        Expr::Cast {
+            target_type,
+            expr: inner,
+        } => {
             *target_type = substitute_type(target_type, mapping);
             substitute_expr_types(inner, mapping);
         }
@@ -783,7 +883,11 @@ fn substitute_expr_types(expr: &mut Expr, mapping: &HashMap<String, Type>) {
             substitute_expr_types(right, mapping);
         }
         Expr::Unary { expr: inner, .. } => substitute_expr_types(inner, mapping),
-        Expr::Call { func, type_args, args } => {
+        Expr::Call {
+            func,
+            type_args,
+            args,
+        } => {
             substitute_expr_types(func, mapping);
             for ta in type_args {
                 *ta = substitute_type(ta, mapping);
@@ -792,7 +896,12 @@ fn substitute_expr_types(expr: &mut Expr, mapping: &HashMap<String, Type>) {
                 substitute_expr_types(a, mapping);
             }
         }
-        Expr::Struct { type_args, fields, base, .. } => {
+        Expr::Struct {
+            type_args,
+            fields,
+            base,
+            ..
+        } => {
             for ta in type_args {
                 *ta = substitute_type(ta, mapping);
             }
@@ -813,7 +922,11 @@ fn substitute_expr_types(expr: &mut Expr, mapping: &HashMap<String, Type>) {
                 substitute_expr_types(e, mapping);
             }
         }
-        Expr::If { condition, then_expr, else_expr } => {
+        Expr::If {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
             substitute_expr_types(condition, mapping);
             substitute_expr_types(then_expr, mapping);
             substitute_expr_types(else_expr, mapping);
@@ -837,7 +950,9 @@ fn collect_requests_in_block(
 ) {
     for stmt in &mut block.statements {
         match stmt {
-            Stmt::Let { name, ty, value, .. } => {
+            Stmt::Let {
+                name, ty, value, ..
+            } => {
                 if let Some(t) = ty {
                     collect_requests_in_type(t, generic_structs, worklist);
                 }
@@ -853,7 +968,9 @@ fn collect_requests_in_block(
                     worklist,
                     diagnostics,
                 );
-                let vty = ty.clone().unwrap_or_else(|| infer_expr_type(value, env, all_structs, all_functions));
+                let vty = ty
+                    .clone()
+                    .unwrap_or_else(|| infer_expr_type(value, env, all_structs, all_functions));
                 env.insert(name.clone(), vty);
             }
             Stmt::Expr(e) | Stmt::Return(Some(e)) => {
@@ -870,49 +987,198 @@ fn collect_requests_in_block(
                     diagnostics,
                 );
             }
-            Stmt::If { condition, then_block, else_block } => {
-                collect_requests_in_expr(condition, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+            Stmt::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
+                collect_requests_in_expr(
+                    condition,
+                    env,
+                    generic_structs,
+                    generic_functions,
+                    all_structs,
+                    all_functions,
+                    file_path,
+                    context,
+                    worklist,
+                    diagnostics,
+                );
                 let mut then_env = env.clone();
-                collect_requests_in_block(then_block, &mut then_env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                collect_requests_in_block(
+                    then_block,
+                    &mut then_env,
+                    generic_structs,
+                    generic_functions,
+                    all_structs,
+                    all_functions,
+                    file_path,
+                    context,
+                    worklist,
+                    diagnostics,
+                );
                 if let Some(eb) = else_block {
                     let mut else_env = env.clone();
-                    collect_requests_in_block(eb, &mut else_env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                    collect_requests_in_block(
+                        eb,
+                        &mut else_env,
+                        generic_structs,
+                        generic_functions,
+                        all_structs,
+                        all_functions,
+                        file_path,
+                        context,
+                        worklist,
+                        diagnostics,
+                    );
                 }
             }
-            Stmt::While { condition, body, .. } => {
-                collect_requests_in_expr(condition, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+            Stmt::While {
+                condition, body, ..
+            } => {
+                collect_requests_in_expr(
+                    condition,
+                    env,
+                    generic_structs,
+                    generic_functions,
+                    all_structs,
+                    all_functions,
+                    file_path,
+                    context,
+                    worklist,
+                    diagnostics,
+                );
                 let mut body_env = env.clone();
-                collect_requests_in_block(body, &mut body_env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                collect_requests_in_block(
+                    body,
+                    &mut body_env,
+                    generic_structs,
+                    generic_functions,
+                    all_structs,
+                    all_functions,
+                    file_path,
+                    context,
+                    worklist,
+                    diagnostics,
+                );
             }
             Stmt::For { iter, body, .. } => {
-                collect_requests_in_expr(iter, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                collect_requests_in_expr(
+                    iter,
+                    env,
+                    generic_structs,
+                    generic_functions,
+                    all_structs,
+                    all_functions,
+                    file_path,
+                    context,
+                    worklist,
+                    diagnostics,
+                );
                 let mut body_env = env.clone();
-                collect_requests_in_block(body, &mut body_env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                collect_requests_in_block(
+                    body,
+                    &mut body_env,
+                    generic_structs,
+                    generic_functions,
+                    all_structs,
+                    all_functions,
+                    file_path,
+                    context,
+                    worklist,
+                    diagnostics,
+                );
             }
             Stmt::Loop { body, .. } => {
                 let mut body_env = env.clone();
-                collect_requests_in_block(body, &mut body_env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                collect_requests_in_block(
+                    body,
+                    &mut body_env,
+                    generic_structs,
+                    generic_functions,
+                    all_structs,
+                    all_functions,
+                    file_path,
+                    context,
+                    worklist,
+                    diagnostics,
+                );
             }
             Stmt::Match { expr, arms } => {
-                collect_requests_in_expr(expr, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                collect_requests_in_expr(
+                    expr,
+                    env,
+                    generic_structs,
+                    generic_functions,
+                    all_structs,
+                    all_functions,
+                    file_path,
+                    context,
+                    worklist,
+                    diagnostics,
+                );
                 for arm in arms {
                     if let Some(g) = &mut arm.guard {
-                        collect_requests_in_expr(g, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                        collect_requests_in_expr(
+                            g,
+                            env,
+                            generic_structs,
+                            generic_functions,
+                            all_structs,
+                            all_functions,
+                            file_path,
+                            context,
+                            worklist,
+                            diagnostics,
+                        );
                     }
                     match &mut arm.body {
                         MatchBody::Expr(e) => {
-                            collect_requests_in_expr(e, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                            collect_requests_in_expr(
+                                e,
+                                env,
+                                generic_structs,
+                                generic_functions,
+                                all_structs,
+                                all_functions,
+                                file_path,
+                                context,
+                                worklist,
+                                diagnostics,
+                            );
                         }
                         MatchBody::Block(b) => {
                             let mut arm_env = env.clone();
-                            collect_requests_in_block(b, &mut arm_env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                            collect_requests_in_block(
+                                b,
+                                &mut arm_env,
+                                generic_structs,
+                                generic_functions,
+                                all_structs,
+                                all_functions,
+                                file_path,
+                                context,
+                                worklist,
+                                diagnostics,
+                            );
                         }
                     }
                 }
             }
             Stmt::Defer(b) => {
                 let mut defer_env = env.clone();
-                collect_requests_in_block(b, &mut defer_env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                collect_requests_in_block(
+                    b,
+                    &mut defer_env,
+                    generic_structs,
+                    generic_functions,
+                    all_structs,
+                    all_functions,
+                    file_path,
+                    context,
+                    worklist,
+                    diagnostics,
+                );
             }
             _ => {}
         }
@@ -968,23 +1234,97 @@ fn collect_requests_in_expr(
     diagnostics: &mut Vec<Diagnostic>,
 ) {
     match expr {
-        Expr::Cast { target_type, expr: inner } => {
+        Expr::Cast {
+            target_type,
+            expr: inner,
+        } => {
             collect_requests_in_type(target_type, generic_structs, worklist);
-            collect_requests_in_expr(inner, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+            collect_requests_in_expr(
+                inner,
+                env,
+                generic_structs,
+                generic_functions,
+                all_structs,
+                all_functions,
+                file_path,
+                context,
+                worklist,
+                diagnostics,
+            );
         }
         Expr::Binary { left, right, .. } => {
-            collect_requests_in_expr(left, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
-            collect_requests_in_expr(right, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+            collect_requests_in_expr(
+                left,
+                env,
+                generic_structs,
+                generic_functions,
+                all_structs,
+                all_functions,
+                file_path,
+                context,
+                worklist,
+                diagnostics,
+            );
+            collect_requests_in_expr(
+                right,
+                env,
+                generic_structs,
+                generic_functions,
+                all_structs,
+                all_functions,
+                file_path,
+                context,
+                worklist,
+                diagnostics,
+            );
         }
         Expr::Unary { expr: inner, .. } => {
-            collect_requests_in_expr(inner, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+            collect_requests_in_expr(
+                inner,
+                env,
+                generic_structs,
+                generic_functions,
+                all_structs,
+                all_functions,
+                file_path,
+                context,
+                worklist,
+                diagnostics,
+            );
         }
-        Expr::Struct { name, type_args, fields, base } => {
+        Expr::Struct {
+            name,
+            type_args,
+            fields,
+            base,
+        } => {
             for (_, fval) in fields.iter_mut() {
-                collect_requests_in_expr(fval, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                collect_requests_in_expr(
+                    fval,
+                    env,
+                    generic_structs,
+                    generic_functions,
+                    all_structs,
+                    all_functions,
+                    file_path,
+                    context,
+                    worklist,
+                    diagnostics,
+                );
             }
             if let Some(b) = base {
-                collect_requests_in_expr(b, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                collect_requests_in_expr(
+                    b,
+                    env,
+                    generic_structs,
+                    generic_functions,
+                    all_structs,
+                    all_functions,
+                    file_path,
+                    context,
+                    worklist,
+                    diagnostics,
+                );
             }
 
             if let Some(generic_def) = generic_structs.get(name) {
@@ -1008,7 +1348,12 @@ fn collect_requests_in_expr(
                     for (fname, fval) in fields.iter() {
                         let actual_val_ty = infer_expr_type(fval, env, all_structs, all_functions);
                         if let Some(sf) = generic_def.fields.iter().find(|f| f.name == *fname) {
-                            if let Err(err_msg) = unify_type_param(&sf.ty, &actual_val_ty, &generic_def.type_params, &mut mapping) {
+                            if let Err(err_msg) = unify_type_param(
+                                &sf.ty,
+                                &actual_val_ty,
+                                &generic_def.type_params,
+                                &mut mapping,
+                            ) {
                                 diagnostics.push(Diagnostic::error(
                                     codes::GENERIC_INFERENCE_FAILED,
                                     err_msg,
@@ -1043,10 +1388,36 @@ fn collect_requests_in_expr(
                 }
             }
         }
-        Expr::Call { func, type_args, args } => {
-            collect_requests_in_expr(func, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+        Expr::Call {
+            func,
+            type_args,
+            args,
+        } => {
+            collect_requests_in_expr(
+                func,
+                env,
+                generic_structs,
+                generic_functions,
+                all_structs,
+                all_functions,
+                file_path,
+                context,
+                worklist,
+                diagnostics,
+            );
             for a in args.iter_mut() {
-                collect_requests_in_expr(a, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                collect_requests_in_expr(
+                    a,
+                    env,
+                    generic_structs,
+                    generic_functions,
+                    all_structs,
+                    all_functions,
+                    file_path,
+                    context,
+                    worklist,
+                    diagnostics,
+                );
             }
 
             // Check if calling a generic function or tuple struct
@@ -1070,9 +1441,15 @@ fn collect_requests_in_expr(
                             let mut mapping = HashMap::new();
                             let mut had_conflict = false;
                             for (i, a_expr) in args.iter().enumerate() {
-                                let actual_val_ty = infer_expr_type(a_expr, env, all_structs, all_functions);
+                                let actual_val_ty =
+                                    infer_expr_type(a_expr, env, all_structs, all_functions);
                                 if let Some(sf) = generic_struct.fields.get(i) {
-                                    if let Err(err_msg) = unify_type_param(&sf.ty, &actual_val_ty, &generic_struct.type_params, &mut mapping) {
+                                    if let Err(err_msg) = unify_type_param(
+                                        &sf.ty,
+                                        &actual_val_ty,
+                                        &generic_struct.type_params,
+                                        &mut mapping,
+                                    ) {
                                         diagnostics.push(Diagnostic::error(
                                             codes::GENERIC_INFERENCE_FAILED,
                                             err_msg,
@@ -1124,8 +1501,14 @@ fn collect_requests_in_expr(
                         let mut mapping = HashMap::new();
                         let mut had_conflict = false;
                         for (p_decl, a_expr) in generic_fn.params.iter().zip(args.iter()) {
-                            let actual_arg_ty = infer_expr_type(a_expr, env, all_structs, all_functions);
-                            if let Err(err_msg) = unify_type_param(&p_decl.ty, &actual_arg_ty, &generic_fn.type_params, &mut mapping) {
+                            let actual_arg_ty =
+                                infer_expr_type(a_expr, env, all_structs, all_functions);
+                            if let Err(err_msg) = unify_type_param(
+                                &p_decl.ty,
+                                &actual_arg_ty,
+                                &generic_fn.type_params,
+                                &mut mapping,
+                            ) {
                                 diagnostics.push(Diagnostic::error(
                                     codes::GENERIC_INFERENCE_FAILED,
                                     err_msg,
@@ -1158,7 +1541,11 @@ fn collect_requests_in_expr(
                         }
                     }
                 }
-            } else if let Expr::Field { expr: receiver, field } = func.as_mut() {
+            } else if let Expr::Field {
+                expr: receiver,
+                field,
+            } = func.as_mut()
+            {
                 // Method call on struct: receiver.method(...)
                 let receiver_ty = infer_expr_type(receiver, env, all_structs, all_functions);
                 if let Type::Generic(struct_name, s_args) = &receiver_ty {
@@ -1174,8 +1561,14 @@ fn collect_requests_in_expr(
                             }
                         }
                         for (p_decl, a_expr) in generic_fn.params.iter().skip(1).zip(args.iter()) {
-                            let actual_arg_ty = infer_expr_type(a_expr, env, all_structs, all_functions);
-                            let _ = unify_type_param(&p_decl.ty, &actual_arg_ty, &generic_fn.type_params, &mut mapping);
+                            let actual_arg_ty =
+                                infer_expr_type(a_expr, env, all_structs, all_functions);
+                            let _ = unify_type_param(
+                                &p_decl.ty,
+                                &actual_arg_ty,
+                                &generic_fn.type_params,
+                                &mut mapping,
+                            );
                         }
 
                         let mut resolved_args = Vec::new();
@@ -1193,11 +1586,44 @@ fn collect_requests_in_expr(
             }
         }
         Expr::Index { expr: inner, index } => {
-            collect_requests_in_expr(inner, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
-            collect_requests_in_expr(index, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+            collect_requests_in_expr(
+                inner,
+                env,
+                generic_structs,
+                generic_functions,
+                all_structs,
+                all_functions,
+                file_path,
+                context,
+                worklist,
+                diagnostics,
+            );
+            collect_requests_in_expr(
+                index,
+                env,
+                generic_structs,
+                generic_functions,
+                all_structs,
+                all_functions,
+                file_path,
+                context,
+                worklist,
+                diagnostics,
+            );
         }
         Expr::Field { expr: inner, .. } => {
-            collect_requests_in_expr(inner, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+            collect_requests_in_expr(
+                inner,
+                env,
+                generic_structs,
+                generic_functions,
+                all_structs,
+                all_functions,
+                file_path,
+                context,
+                worklist,
+                diagnostics,
+            );
             let inner_ty = infer_expr_type(inner, env, all_structs, all_functions);
             if let Type::Generic(struct_name, s_args) = &inner_ty {
                 if generic_structs.contains_key(struct_name) {
@@ -1207,17 +1633,76 @@ fn collect_requests_in_expr(
         }
         Expr::Array(elems) | Expr::Tuple(elems) => {
             for e in elems {
-                collect_requests_in_expr(e, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+                collect_requests_in_expr(
+                    e,
+                    env,
+                    generic_structs,
+                    generic_functions,
+                    all_structs,
+                    all_functions,
+                    file_path,
+                    context,
+                    worklist,
+                    diagnostics,
+                );
             }
         }
-        Expr::If { condition, then_expr, else_expr } => {
-            collect_requests_in_expr(condition, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
-            collect_requests_in_expr(then_expr, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
-            collect_requests_in_expr(else_expr, env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+        Expr::If {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
+            collect_requests_in_expr(
+                condition,
+                env,
+                generic_structs,
+                generic_functions,
+                all_structs,
+                all_functions,
+                file_path,
+                context,
+                worklist,
+                diagnostics,
+            );
+            collect_requests_in_expr(
+                then_expr,
+                env,
+                generic_structs,
+                generic_functions,
+                all_structs,
+                all_functions,
+                file_path,
+                context,
+                worklist,
+                diagnostics,
+            );
+            collect_requests_in_expr(
+                else_expr,
+                env,
+                generic_structs,
+                generic_functions,
+                all_structs,
+                all_functions,
+                file_path,
+                context,
+                worklist,
+                diagnostics,
+            );
         }
         Expr::Block(b) => {
             let mut local_env = env.clone();
-            collect_requests_in_block(b, &mut local_env, generic_structs, generic_functions, all_structs, all_functions, file_path, context, worklist, diagnostics);
+            collect_requests_in_block(
+                b,
+                &mut local_env,
+                generic_structs,
+                generic_functions,
+                all_structs,
+                all_functions,
+                file_path,
+                context,
+                worklist,
+                diagnostics,
+            );
         }
         _ => {}
     }
@@ -1239,14 +1724,20 @@ fn rewrite_block(
             Stmt::Expr(e) | Stmt::Return(Some(e)) => {
                 rewrite_expr(e, generic_structs, generic_functions);
             }
-            Stmt::If { condition, then_block, else_block } => {
+            Stmt::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
                 rewrite_expr(condition, generic_structs, generic_functions);
                 rewrite_block(then_block, generic_structs, generic_functions);
                 if let Some(eb) = else_block {
                     rewrite_block(eb, generic_structs, generic_functions);
                 }
             }
-            Stmt::While { condition, body, .. } => {
+            Stmt::While {
+                condition, body, ..
+            } => {
                 rewrite_expr(condition, generic_structs, generic_functions);
                 rewrite_block(body, generic_structs, generic_functions);
             }
@@ -1283,7 +1774,10 @@ fn rewrite_expr(
     generic_functions: &HashMap<String, Function>,
 ) {
     match expr {
-        Expr::Cast { target_type, expr: inner } => {
+        Expr::Cast {
+            target_type,
+            expr: inner,
+        } => {
             rewrite_type(target_type);
             rewrite_expr(inner, generic_structs, generic_functions);
         }
@@ -1294,7 +1788,12 @@ fn rewrite_expr(
         Expr::Unary { expr: inner, .. } => {
             rewrite_expr(inner, generic_structs, generic_functions);
         }
-        Expr::Struct { name, type_args, fields, base } => {
+        Expr::Struct {
+            name,
+            type_args,
+            fields,
+            base,
+        } => {
             for (_, fval) in fields.iter_mut() {
                 rewrite_expr(fval, generic_structs, generic_functions);
             }
@@ -1306,7 +1805,11 @@ fn rewrite_expr(
                 type_args.clear();
             }
         }
-        Expr::Call { func, type_args, args } => {
+        Expr::Call {
+            func,
+            type_args,
+            args,
+        } => {
             rewrite_expr(func, generic_structs, generic_functions);
             for a in args.iter_mut() {
                 rewrite_expr(a, generic_structs, generic_functions);
@@ -1336,7 +1839,11 @@ fn rewrite_expr(
                 rewrite_expr(e, generic_structs, generic_functions);
             }
         }
-        Expr::If { condition, then_expr, else_expr } => {
+        Expr::If {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
             rewrite_expr(condition, generic_structs, generic_functions);
             rewrite_expr(then_expr, generic_structs, generic_functions);
             rewrite_expr(else_expr, generic_structs, generic_functions);

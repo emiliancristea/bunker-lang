@@ -104,14 +104,20 @@ impl TypecheckReport {
     #[allow(dead_code)]
     pub fn to_json_pretty(&self) -> String {
         serde_json::to_string_pretty(self).unwrap_or_else(|e| {
-            format!("{{\"error\": \"Failed to serialize typecheck report: {}\"}}", e)
+            format!(
+                "{{\"error\": \"Failed to serialize typecheck report: {}\"}}",
+                e
+            )
         })
     }
 
     /// Convert to compact JSON (single line).
     pub fn to_json_compact(&self) -> String {
         serde_json::to_string(self).unwrap_or_else(|e| {
-            format!("{{\"error\": \"Failed to serialize typecheck report: {}\"}}", e)
+            format!(
+                "{{\"error\": \"Failed to serialize typecheck report: {}\"}}",
+                e
+            )
         })
     }
 
@@ -130,15 +136,17 @@ pub fn build_typecheck_report(
     let mut diagnostics = Vec::new();
 
     for err in type_errors {
-        let diag: Diagnostic = type_error_to_diagnostic_with_source(err, "source.bkr", Some(source));
+        let diag: Diagnostic =
+            type_error_to_diagnostic_with_source(err, "source.bkr", Some(source));
 
-        let (source_start, source_end, span_known) = if let (Some(line), Some(col)) = (diag.location.line, diag.location.column) {
-            let offset = line_col_to_byte_offset(source, line, col);
-            let len = diag.location.span_length.unwrap_or(1) as usize;
-            (offset, offset + len, true)
-        } else {
-            (0, 0, false)
-        };
+        let (source_start, source_end, span_known) =
+            if let (Some(line), Some(col)) = (diag.location.line, diag.location.column) {
+                let offset = line_col_to_byte_offset(source, line, col);
+                let len = diag.location.span_length.unwrap_or(1) as usize;
+                (offset, offset + len, true)
+            } else {
+                (0, 0, false)
+            };
 
         let kind = if diag.error_code == "E0201" {
             "type_mismatch".to_string()

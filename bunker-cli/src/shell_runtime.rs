@@ -511,7 +511,9 @@ impl<'a> Executor<'a> {
                 }
                 Ok(ControlFlow::Normal)
             }
-            ast::Stmt::For { var, iter, body, .. } => {
+            ast::Stmt::For {
+                var, iter, body, ..
+            } => {
                 // Evaluate the iterator expression
                 match iter {
                     ast::Expr::Range {
@@ -582,7 +584,9 @@ impl<'a> Executor<'a> {
                 }
                 Ok(ControlFlow::Normal)
             }
-            ast::Stmt::While { condition, body, .. } => {
+            ast::Stmt::While {
+                condition, body, ..
+            } => {
                 loop {
                     let cond = self.eval_expr(condition, env, queue)?.as_bool()?;
                     if !cond {
@@ -802,7 +806,12 @@ impl<'a> Executor<'a> {
                 Ok(Value::Array(values))
             }
             // Struct literal: Point { x: 1, y: 2 }
-            ast::Expr::Struct { name: _, fields, base, .. } => {
+            ast::Expr::Struct {
+                name: _,
+                fields,
+                base,
+                ..
+            } => {
                 let mut field_values = HashMap::new();
                 if let Some(base_expr) = base {
                     if let Value::Struct(base_fields) = self.eval_expr(base_expr, env, queue)? {
@@ -855,7 +864,10 @@ impl<'a> Executor<'a> {
                                     } else {
                                         "assertion failed".to_string()
                                     };
-                                    return Err(anyhow!("bunker runtime assertion failed: {}", msg));
+                                    return Err(anyhow!(
+                                        "bunker runtime assertion failed: {}",
+                                        msg
+                                    ));
                                 }
                             }
                             return Ok(Value::Int(0));

@@ -180,7 +180,11 @@ pub fn type_to_kind(ty: &Type) -> String {
             }
         }
         Type::Fn(params, ret) => {
-            let p = params.iter().map(type_to_kind).collect::<Vec<_>>().join(",");
+            let p = params
+                .iter()
+                .map(type_to_kind)
+                .collect::<Vec<_>>()
+                .join(",");
             format!("fn({}) -> {}", p, type_to_kind(ret))
         }
     }
@@ -351,7 +355,12 @@ pub fn build_type_graph_report(file: &ast::File, source: &str) -> TypeGraphRepor
                     let mut locals = Vec::new();
                     let mut returns = Vec::new();
 
-                    collect_locals_and_returns(&f.body, &mut locals, &mut returns, f.return_type.as_ref());
+                    collect_locals_and_returns(
+                        &f.body,
+                        &mut locals,
+                        &mut returns,
+                        f.return_type.as_ref(),
+                    );
 
                     functions.push(FunctionTypeGraphEntry {
                         name: f.name.clone(),
@@ -399,7 +408,9 @@ fn collect_locals_and_returns(
 ) {
     for stmt in &block.statements {
         match stmt {
-            Stmt::Let { name, ty, value, .. } => {
+            Stmt::Let {
+                name, ty, value, ..
+            } => {
                 let (type_kind, source) = if let Some(t) = ty {
                     (type_to_kind(t), "declared")
                 } else {
@@ -430,7 +441,11 @@ fn collect_locals_and_returns(
                     known: true,
                 });
             }
-            Stmt::If { then_block, else_block, .. } => {
+            Stmt::If {
+                then_block,
+                else_block,
+                ..
+            } => {
                 collect_locals_and_returns(then_block, locals, returns, fn_ret);
                 if let Some(eb) = else_block {
                     collect_locals_and_returns(eb, locals, returns, fn_ret);
@@ -442,7 +457,9 @@ fn collect_locals_and_returns(
             Stmt::Match { arms, .. } => {
                 for arm in arms {
                     match &arm.body {
-                        ast::MatchBody::Block(b) => collect_locals_and_returns(b, locals, returns, fn_ret),
+                        ast::MatchBody::Block(b) => {
+                            collect_locals_and_returns(b, locals, returns, fn_ret)
+                        }
                         ast::MatchBody::Expr(_) => {}
                     }
                 }

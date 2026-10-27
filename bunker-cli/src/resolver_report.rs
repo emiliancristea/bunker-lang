@@ -4,8 +4,8 @@
 //! unresolved identifier/call/struct detection, scoped symbol resolution,
 //! related declaration spans, and structured repair metadata.
 
-use std::collections::{HashMap, HashSet};
 use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 
 use crate::ast::{Block, Expr, File, KernelItem, Stmt};
 
@@ -73,14 +73,20 @@ impl ResolverReport {
     #[allow(dead_code)]
     pub fn to_json_pretty(&self) -> String {
         serde_json::to_string_pretty(self).unwrap_or_else(|e| {
-            format!("{{\"error\": \"Failed to serialize resolver report: {}\"}}", e)
+            format!(
+                "{{\"error\": \"Failed to serialize resolver report: {}\"}}",
+                e
+            )
         })
     }
 
     /// Convert to compact JSON (single line).
     pub fn to_json_compact(&self) -> String {
         serde_json::to_string(self).unwrap_or_else(|e| {
-            format!("{{\"error\": \"Failed to serialize resolver report: {}\"}}", e)
+            format!(
+                "{{\"error\": \"Failed to serialize resolver report: {}\"}}",
+                e
+            )
         })
     }
 
@@ -96,26 +102,110 @@ pub fn build_resolver_report(file: &File, source: &str) -> ResolverReport {
 
     // Track known builtins
     let builtins: HashSet<&str> = [
-        "vec_new", "vec_push", "vec_get", "vec_len", "vec_pop", "vec_clear",
-        "vec_get_opt", "vec_pop_opt", "vec_contains", "vec_is_empty", "vec_clone",
-        "vec_reverse", "vec_as_slice", "vec_slice", "vec_map", "vec_filter", "vec_fold", "vec_find",
-        "hashmap_new", "hashmap_insert", "hashmap_get", "hashmap_len", "hashmap_remove",
-        "hashmap_contains_key", "hashmap_get_opt", "hashmap_new_str", "hashmap_insert_str",
-        "hashmap_is_empty", "hashmap_values", "hashmap_clear",
-        "slice_new", "slice_len", "slice_get", "slice_sub", "slice_to_vec", "slice_contains",
-        "bytes_new", "bytes_len", "bytes_capacity", "bytes_get", "bytes_set", "bytes_push",
-        "bytes_from_str", "bytes_to_str", "bytes_as_slice", "bytes_slice",
-        "file_read", "file_write", "file_size", "file_remove", "file_read_bytes", "file_write_bytes",
-        "path_exists", "path_is_file", "path_is_dir", "path_join", "path_dir", "path_base", "path_ext", "path_is_abs",
-        "dir_create", "dir_remove",
-        "process_run", "process_run_status", "process_exit", "process_pid", "process_is_sandboxed",
-        "env_var", "env_get", "env_set", "env_has", "time_now_ms", "time_now_unix",
-        "read_file_result", "write_file_result", "parse_int_result",
-        "str_index_of", "str_replace", "str_split", "str_to_upper", "str_to_lower", "str_repeat",
-        "str_concat", "str_len", "int_to_string", "contains",
-        "Ok", "Err", "Some", "None", "panic", "assert", "print", "println", "bkr_log",
-        "result_is_ok", "result_unwrap", "result_ok", "result_err", "option_is_some", "option_unwrap",
-    ].into_iter().collect();
+        "vec_new",
+        "vec_push",
+        "vec_get",
+        "vec_len",
+        "vec_pop",
+        "vec_clear",
+        "vec_get_opt",
+        "vec_pop_opt",
+        "vec_contains",
+        "vec_is_empty",
+        "vec_clone",
+        "vec_reverse",
+        "vec_as_slice",
+        "vec_slice",
+        "vec_map",
+        "vec_filter",
+        "vec_fold",
+        "vec_find",
+        "hashmap_new",
+        "hashmap_insert",
+        "hashmap_get",
+        "hashmap_len",
+        "hashmap_remove",
+        "hashmap_contains_key",
+        "hashmap_get_opt",
+        "hashmap_new_str",
+        "hashmap_insert_str",
+        "hashmap_is_empty",
+        "hashmap_values",
+        "hashmap_clear",
+        "slice_new",
+        "slice_len",
+        "slice_get",
+        "slice_sub",
+        "slice_to_vec",
+        "slice_contains",
+        "bytes_new",
+        "bytes_len",
+        "bytes_capacity",
+        "bytes_get",
+        "bytes_set",
+        "bytes_push",
+        "bytes_from_str",
+        "bytes_to_str",
+        "bytes_as_slice",
+        "bytes_slice",
+        "file_read",
+        "file_write",
+        "file_size",
+        "file_remove",
+        "file_read_bytes",
+        "file_write_bytes",
+        "path_exists",
+        "path_is_file",
+        "path_is_dir",
+        "path_join",
+        "path_dir",
+        "path_base",
+        "path_ext",
+        "path_is_abs",
+        "dir_create",
+        "dir_remove",
+        "process_run",
+        "process_run_status",
+        "process_exit",
+        "process_pid",
+        "process_is_sandboxed",
+        "env_var",
+        "env_get",
+        "env_set",
+        "env_has",
+        "time_now_ms",
+        "time_now_unix",
+        "read_file_result",
+        "write_file_result",
+        "parse_int_result",
+        "str_index_of",
+        "str_replace",
+        "str_split",
+        "str_to_upper",
+        "str_to_lower",
+        "str_repeat",
+        "str_concat",
+        "str_len",
+        "int_to_string",
+        "contains",
+        "Ok",
+        "Err",
+        "Some",
+        "None",
+        "panic",
+        "assert",
+        "print",
+        "println",
+        "bkr_log",
+        "result_is_ok",
+        "result_unwrap",
+        "result_ok",
+        "result_err",
+        "option_is_some",
+        "option_unwrap",
+    ]
+    .into_iter()
+    .collect();
 
     // 1. Check duplicate kernels
     let mut kernel_names: HashMap<String, usize> = HashMap::new();
@@ -147,7 +237,10 @@ pub fn build_resolver_report(file: &File, source: &str) -> ResolverReport {
                 fix_confidence: "high".to_string(),
                 safe_edit_available: false,
                 suggested_edits: Vec::new(),
-                repair_hint: format!("A kernel named '{}' is already declared in this file.", kernel.name),
+                repair_hint: format!(
+                    "A kernel named '{}' is already declared in this file.",
+                    kernel.name
+                ),
             });
         } else {
             kernel_names.insert(kernel.name.clone(), start);
@@ -187,12 +280,18 @@ pub fn build_resolver_report(file: &File, source: &str) -> ResolverReport {
                                 source_start: first_start,
                                 source_end: first_start + f.name.len(),
                             }],
-                            suggested_action: format!("Rename function '{}' to avoid duplicate symbol", f.name),
+                            suggested_action: format!(
+                                "Rename function '{}' to avoid duplicate symbol",
+                                f.name
+                            ),
                             fix_applicability: "manual_review".to_string(),
                             fix_confidence: "high".to_string(),
                             safe_edit_available: false,
                             suggested_edits: Vec::new(),
-                            repair_hint: format!("Function '{}' is already defined in {}.", f.name, kernel_scope),
+                            repair_hint: format!(
+                                "Function '{}' is already defined in {}.",
+                                f.name, kernel_scope
+                            ),
                         });
                     } else {
                         declared_fns.insert(f.name.clone(), start);
@@ -221,12 +320,18 @@ pub fn build_resolver_report(file: &File, source: &str) -> ResolverReport {
                                 source_start: first_start,
                                 source_end: first_start + s.name.len(),
                             }],
-                            suggested_action: format!("Rename struct '{}' to avoid duplicate symbol", s.name),
+                            suggested_action: format!(
+                                "Rename struct '{}' to avoid duplicate symbol",
+                                s.name
+                            ),
                             fix_applicability: "manual_review".to_string(),
                             fix_confidence: "high".to_string(),
                             safe_edit_available: false,
                             suggested_edits: Vec::new(),
-                            repair_hint: format!("Struct '{}' is already defined in {}.", s.name, kernel_scope),
+                            repair_hint: format!(
+                                "Struct '{}' is already defined in {}.",
+                                s.name, kernel_scope
+                            ),
                         });
                     } else {
                         declared_structs.insert(s.name.clone(), start);
@@ -255,12 +360,18 @@ pub fn build_resolver_report(file: &File, source: &str) -> ResolverReport {
                                 source_start: first_start,
                                 source_end: first_start + e.name.len(),
                             }],
-                            suggested_action: format!("Rename enum '{}' to avoid duplicate symbol", e.name),
+                            suggested_action: format!(
+                                "Rename enum '{}' to avoid duplicate symbol",
+                                e.name
+                            ),
                             fix_applicability: "manual_review".to_string(),
                             fix_confidence: "high".to_string(),
                             safe_edit_available: false,
                             suggested_edits: Vec::new(),
-                            repair_hint: format!("Enum '{}' is already defined in {}.", e.name, kernel_scope),
+                            repair_hint: format!(
+                                "Enum '{}' is already defined in {}.",
+                                e.name, kernel_scope
+                            ),
                         });
                     } else {
                         declared_enums.insert(e.name.clone(), start);
@@ -289,12 +400,18 @@ pub fn build_resolver_report(file: &File, source: &str) -> ResolverReport {
                                 source_start: first_start,
                                 source_end: first_start + c.name.len(),
                             }],
-                            suggested_action: format!("Rename const '{}' to avoid duplicate symbol", c.name),
+                            suggested_action: format!(
+                                "Rename const '{}' to avoid duplicate symbol",
+                                c.name
+                            ),
                             fix_applicability: "manual_review".to_string(),
                             fix_confidence: "high".to_string(),
                             safe_edit_available: false,
                             suggested_edits: Vec::new(),
-                            repair_hint: format!("Const '{}' is already defined in {}.", c.name, kernel_scope),
+                            repair_hint: format!(
+                                "Const '{}' is already defined in {}.",
+                                c.name, kernel_scope
+                            ),
                         });
                     } else {
                         declared_consts.insert(c.name.clone(), start);
@@ -426,7 +543,11 @@ fn walk_block_for_resolver(
                     diagnostics,
                 );
             }
-            Stmt::If { condition, then_block, else_block } => {
+            Stmt::If {
+                condition,
+                then_block,
+                else_block,
+            } => {
                 walk_expr_for_resolver(
                     condition,
                     scope,
@@ -468,7 +589,9 @@ fn walk_block_for_resolver(
                     );
                 }
             }
-            Stmt::While { condition, body, .. } => {
+            Stmt::While {
+                condition, body, ..
+            } => {
                 walk_expr_for_resolver(
                     condition,
                     scope,
@@ -495,7 +618,9 @@ fn walk_block_for_resolver(
                     diagnostics,
                 );
             }
-            Stmt::For { var, iter, body, .. } => {
+            Stmt::For {
+                var, iter, body, ..
+            } => {
                 walk_expr_for_resolver(
                     iter,
                     scope,
@@ -613,7 +738,10 @@ fn walk_expr_for_resolver(
                         fix_confidence: "high".to_string(),
                         safe_edit_available: false,
                         suggested_edits: Vec::new(),
-                        repair_hint: format!("Identifier '{}' is not declared in scope '{}'.", name, scope),
+                        repair_hint: format!(
+                            "Identifier '{}' is not declared in scope '{}'.",
+                            name, scope
+                        ),
                     });
                 }
             }
@@ -642,12 +770,18 @@ fn walk_expr_for_resolver(
                         expected: "callable function or constructor".to_string(),
                         actual: format!("unresolved call to '{}'", name),
                         related_declarations: Vec::new(),
-                        suggested_action: format!("Define function '{}' or import its owning module", name),
+                        suggested_action: format!(
+                            "Define function '{}' or import its owning module",
+                            name
+                        ),
                         fix_applicability: "manual_review".to_string(),
                         fix_confidence: "high".to_string(),
                         safe_edit_available: false,
                         suggested_edits: Vec::new(),
-                        repair_hint: format!("Function or constructor '{}' cannot be resolved in '{}'.", name, scope),
+                        repair_hint: format!(
+                            "Function or constructor '{}' cannot be resolved in '{}'.",
+                            name, scope
+                        ),
                     });
                 }
             } else {
@@ -679,7 +813,9 @@ fn walk_expr_for_resolver(
                 );
             }
         }
-        Expr::Struct { name, fields, base, .. } => {
+        Expr::Struct {
+            name, fields, base, ..
+        } => {
             let bare_name = name.split("::").last().unwrap_or(name);
             if !declared_structs.contains_key(bare_name) {
                 let (start, end) = find_ident_span(source, bare_name);
@@ -830,7 +966,11 @@ fn walk_expr_for_resolver(
                 );
             }
         }
-        Expr::If { condition, then_expr, else_expr } => {
+        Expr::If {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
             walk_expr_for_resolver(
                 condition,
                 scope,

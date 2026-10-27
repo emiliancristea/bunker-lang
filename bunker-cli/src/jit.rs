@@ -228,7 +228,9 @@ extern "C" fn bunker_panic(msg_ptr: i64) {
             let ptr = msg_ptr as *const u8;
             let len = *(ptr as *const i64) as usize;
             let data = std::slice::from_raw_parts(ptr.add(8), len);
-            std::str::from_utf8(data).unwrap_or("<invalid utf8>").to_string()
+            std::str::from_utf8(data)
+                .unwrap_or("<invalid utf8>")
+                .to_string()
         }
     };
     eprintln!("bunker runtime panic: {}", msg_str);
@@ -245,7 +247,9 @@ extern "C" fn bunker_assert(cond: i8, msg_ptr: i64) {
                 let ptr = msg_ptr as *const u8;
                 let len = *(ptr as *const i64) as usize;
                 let data = std::slice::from_raw_parts(ptr.add(8), len);
-                std::str::from_utf8(data).unwrap_or("<invalid utf8>").to_string()
+                std::str::from_utf8(data)
+                    .unwrap_or("<invalid utf8>")
+                    .to_string()
             }
         };
         eprintln!("bunker runtime assertion failed: {}", msg_str);
@@ -783,7 +787,11 @@ extern "C" fn bunker_vec_is_empty(vec_ptr: i64) -> i64 {
     }
     unsafe {
         let length = *((vec_ptr as *const i64).offset(1));
-        if length == 0 { 1 } else { 0 }
+        if length == 0 {
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -1445,7 +1453,11 @@ extern "C" fn bunker_hashmap_is_empty(map_ptr: i64) -> i64 {
     }
     unsafe {
         let length = *((map_ptr as *const i64).offset(1));
-        if length == 0 { 1 } else { 0 }
+        if length == 0 {
+            1
+        } else {
+            0
+        }
     }
 }
 
@@ -1726,7 +1738,11 @@ extern "C" fn bunker_path_is_abs(path_ptr: i64) -> i64 {
     }
     let bytes = p.as_bytes();
     let is_abs = bytes[0] == b'/' || bytes[0] == b'\\' || (bytes.len() >= 2 && bytes[1] == b':');
-    if is_abs { 1 } else { 0 }
+    if is_abs {
+        1
+    } else {
+        0
+    }
 }
 
 extern "C" fn bunker_env_var(key_ptr: i64) -> i64 {
@@ -1775,7 +1791,11 @@ extern "C" fn bunker_env_set(key_ptr: i64, val_ptr: i64) -> i64 {
 extern "C" fn bunker_env_has(key_ptr: i64) -> i64 {
     let key = unsafe { read_bunker_string(key_ptr) };
     if let Some(key) = key {
-        if std::env::var(&key).is_ok() { 1 } else { 0 }
+        if std::env::var(&key).is_ok() {
+            1
+        } else {
+            0
+        }
     } else {
         0
     }
@@ -1828,7 +1848,9 @@ extern "C" fn bunker_bytes_new(capacity: i64) -> i64 {
     let data_layout = std::alloc::Layout::from_size_align(cap as usize, 1).unwrap();
     let data_ptr = unsafe { std::alloc::alloc_zeroed(data_layout) };
     if data_ptr.is_null() {
-        unsafe { std::alloc::dealloc(header_ptr, header_layout); }
+        unsafe {
+            std::alloc::dealloc(header_ptr, header_layout);
+        }
         return 0;
     }
     unsafe {
@@ -1840,7 +1862,9 @@ extern "C" fn bunker_bytes_new(capacity: i64) -> i64 {
 }
 
 extern "C" fn bunker_bytes_len(handle: i64) -> i64 {
-    if handle == 0 { return 0; }
+    if handle == 0 {
+        return 0;
+    }
     unsafe {
         let header = handle as *const i64;
         *header.offset(1)
@@ -1848,7 +1872,9 @@ extern "C" fn bunker_bytes_len(handle: i64) -> i64 {
 }
 
 extern "C" fn bunker_bytes_capacity(handle: i64) -> i64 {
-    if handle == 0 { return 0; }
+    if handle == 0 {
+        return 0;
+    }
     unsafe {
         let header = handle as *const i64;
         *header
@@ -1856,22 +1882,30 @@ extern "C" fn bunker_bytes_capacity(handle: i64) -> i64 {
 }
 
 extern "C" fn bunker_bytes_get(handle: i64, index: i64) -> i32 {
-    if handle == 0 || index < 0 { return 0; }
+    if handle == 0 || index < 0 {
+        return 0;
+    }
     unsafe {
         let header = handle as *const i64;
         let len = *header.offset(1);
-        if index >= len { return 0; }
+        if index >= len {
+            return 0;
+        }
         let data = *header.offset(2) as *const u8;
         *data.add(index as usize) as i32
     }
 }
 
 extern "C" fn bunker_bytes_set(handle: i64, index: i64, val: i32) -> i32 {
-    if handle == 0 || index < 0 { return 0; }
+    if handle == 0 || index < 0 {
+        return 0;
+    }
     unsafe {
         let header = handle as *mut i64;
         let len = *header.offset(1);
-        if index >= len { return 0; }
+        if index >= len {
+            return 0;
+        }
         let data = *header.offset(2) as *mut u8;
         *data.add(index as usize) = (val & 0xFF) as u8;
         1
@@ -1879,7 +1913,9 @@ extern "C" fn bunker_bytes_set(handle: i64, index: i64, val: i32) -> i32 {
 }
 
 extern "C" fn bunker_bytes_push(handle: i64, val: i32) -> i32 {
-    if handle == 0 { return 0; }
+    if handle == 0 {
+        return 0;
+    }
     unsafe {
         let header = handle as *mut i64;
         let capacity = *header;
@@ -1905,12 +1941,16 @@ extern "C" fn bunker_bytes_push(handle: i64, val: i32) -> i32 {
 }
 
 extern "C" fn bunker_bytes_from_str(str_ptr: i64) -> i64 {
-    if str_ptr == 0 { return bunker_bytes_new(8); }
+    if str_ptr == 0 {
+        return bunker_bytes_new(8);
+    }
     unsafe {
         let len = *(str_ptr as *const i64) as usize;
         let slice = std::slice::from_raw_parts((str_ptr + 8) as *const u8, len);
         let handle = bunker_bytes_new(len as i64);
-        if handle == 0 { return 0; }
+        if handle == 0 {
+            return 0;
+        }
         let header = handle as *mut i64;
         let data_ptr = *header.offset(2) as *mut u8;
         std::ptr::copy_nonoverlapping(slice.as_ptr(), data_ptr, len);
@@ -1920,7 +1960,9 @@ extern "C" fn bunker_bytes_from_str(str_ptr: i64) -> i64 {
 }
 
 extern "C" fn bunker_bytes_to_str(handle: i64) -> i64 {
-    if handle == 0 { return alloc_bunker_string(""); }
+    if handle == 0 {
+        return alloc_bunker_string("");
+    }
     unsafe {
         let header = handle as *const i64;
         let len = *header.offset(1) as usize;
@@ -1953,7 +1995,9 @@ extern "C" fn bunker_slice_new(data_ptr: i64, len: i64, elem_size: i64) -> i64 {
 }
 
 extern "C" fn bunker_slice_len(slice_ptr: i64) -> i64 {
-    if slice_ptr == 0 { return 0; }
+    if slice_ptr == 0 {
+        return 0;
+    }
     unsafe {
         let ptr = slice_ptr as *const i64;
         *ptr.offset(1)
@@ -1961,13 +2005,17 @@ extern "C" fn bunker_slice_len(slice_ptr: i64) -> i64 {
 }
 
 extern "C" fn bunker_slice_get(slice_ptr: i64, index: i64) -> i64 {
-    if slice_ptr == 0 || index < 0 { return 0; }
+    if slice_ptr == 0 || index < 0 {
+        return 0;
+    }
     unsafe {
         let ptr = slice_ptr as *const i64;
         let data = *ptr as *const u8;
         let len = *ptr.offset(1);
         let esize = *ptr.offset(2);
-        if data.is_null() || index >= len { return 0; }
+        if data.is_null() || index >= len {
+            return 0;
+        }
         match esize {
             1 => *data.add(index as usize) as i64,
             2 => *(data.add((index * 2) as usize) as *const i16) as i64,
@@ -1990,18 +2038,26 @@ extern "C" fn bunker_slice_sub(slice_ptr: i64, start: i64, sub_len: i64) -> i64 
             return bunker_slice_new(0, 0, esize);
         }
         let available = len - start;
-        let actual_len = if sub_len > available { available } else { sub_len };
+        let actual_len = if sub_len > available {
+            available
+        } else {
+            sub_len
+        };
         let new_data = data.add((start * esize) as usize) as i64;
         bunker_slice_new(new_data, actual_len, esize)
     }
 }
 
 extern "C" fn bunker_slice_contains(slice_ptr: i64, item: i64) -> i8 {
-    if slice_ptr == 0 { return 0; }
+    if slice_ptr == 0 {
+        return 0;
+    }
     unsafe {
         let ptr = slice_ptr as *const i64;
         let len = *ptr.offset(1);
-        if len <= 0 { return 0; }
+        if len <= 0 {
+            return 0;
+        }
         for i in 0..len {
             if bunker_slice_get(slice_ptr, i) == item {
                 return 1;
@@ -2013,7 +2069,9 @@ extern "C" fn bunker_slice_contains(slice_ptr: i64, item: i64) -> i8 {
 
 extern "C" fn bunker_slice_to_vec(slice_ptr: i64) -> i64 {
     let vec_handle = bunker_vec_new();
-    if slice_ptr == 0 { return vec_handle; }
+    if slice_ptr == 0 {
+        return vec_handle;
+    }
     unsafe {
         let ptr = slice_ptr as *const i64;
         let len = *ptr.offset(1);
@@ -2026,7 +2084,9 @@ extern "C" fn bunker_slice_to_vec(slice_ptr: i64) -> i64 {
 }
 
 extern "C" fn bunker_vec_as_slice(vec_handle: i64) -> i64 {
-    if vec_handle == 0 { return bunker_slice_new(0, 0, 8); }
+    if vec_handle == 0 {
+        return bunker_slice_new(0, 0, 8);
+    }
     unsafe {
         let header = vec_handle as *const i64;
         let len = *header.offset(1);
@@ -2041,7 +2101,9 @@ extern "C" fn bunker_vec_slice(vec_handle: i64, start: i64, sub_len: i64) -> i64
 }
 
 extern "C" fn bunker_bytes_as_slice(handle: i64) -> i64 {
-    if handle == 0 { return bunker_slice_new(0, 0, 1); }
+    if handle == 0 {
+        return bunker_slice_new(0, 0, 1);
+    }
     unsafe {
         let header = handle as *const i64;
         let len = *header.offset(1);
@@ -2060,7 +2122,9 @@ extern "C" fn bunker_bytes_slice(handle: i64, start: i64, sub_len: i64) -> i64 {
 // ============================================================================
 
 fn read_bunker_path(ptr: i64) -> Option<String> {
-    if ptr == 0 { return None; }
+    if ptr == 0 {
+        return None;
+    }
     unsafe {
         let first_word = *(ptr as *const i64);
         if first_word > 0x10000 {
@@ -2073,18 +2137,36 @@ fn read_bunker_path(ptr: i64) -> Option<String> {
 }
 
 extern "C" fn bunker_path_exists(path_ptr: i64) -> i8 {
-    let Some(p) = read_bunker_path(path_ptr) else { return 0; };
-    if std::path::Path::new(&p).exists() { 1 } else { 0 }
+    let Some(p) = read_bunker_path(path_ptr) else {
+        return 0;
+    };
+    if std::path::Path::new(&p).exists() {
+        1
+    } else {
+        0
+    }
 }
 
 extern "C" fn bunker_path_is_file(path_ptr: i64) -> i8 {
-    let Some(p) = read_bunker_path(path_ptr) else { return 0; };
-    if std::path::Path::new(&p).is_file() { 1 } else { 0 }
+    let Some(p) = read_bunker_path(path_ptr) else {
+        return 0;
+    };
+    if std::path::Path::new(&p).is_file() {
+        1
+    } else {
+        0
+    }
 }
 
 extern "C" fn bunker_path_is_dir(path_ptr: i64) -> i8 {
-    let Some(p) = read_bunker_path(path_ptr) else { return 0; };
-    if std::path::Path::new(&p).is_dir() { 1 } else { 0 }
+    let Some(p) = read_bunker_path(path_ptr) else {
+        return 0;
+    };
+    if std::path::Path::new(&p).is_dir() {
+        1
+    } else {
+        0
+    }
 }
 
 extern "C" fn bunker_file_read(path_ptr: i64) -> i64 {
@@ -2567,36 +2649,81 @@ fn eval_const_expr(expr: &ast::Expr, evaluated: &HashMap<String, ConstVal>) -> O
             let l = eval_const_expr(left, evaluated)?;
             let r = eval_const_expr(right, evaluated)?;
             match (op, l, r) {
-                (ast::BinaryOp::Add, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a + b)),
-                (ast::BinaryOp::Sub, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a - b)),
-                (ast::BinaryOp::Mul, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a * b)),
-                (ast::BinaryOp::Div, ConstVal::Int(a), ConstVal::Int(b)) if b != 0 => Some(ConstVal::Int(a / b)),
-                (ast::BinaryOp::Mod, ConstVal::Int(a), ConstVal::Int(b)) if b != 0 => Some(ConstVal::Int(a % b)),
-                (ast::BinaryOp::Shl, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a << (b as u32))),
-                (ast::BinaryOp::Shr, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a >> (b as u32))),
-                (ast::BinaryOp::BitAnd, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a & b)),
-                (ast::BinaryOp::BitOr, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a | b)),
-                (ast::BinaryOp::BitXor, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Int(a ^ b)),
-                (ast::BinaryOp::Add, ConstVal::Float(a), ConstVal::Float(b)) => Some(ConstVal::Float(a + b)),
-                (ast::BinaryOp::Sub, ConstVal::Float(a), ConstVal::Float(b)) => Some(ConstVal::Float(a - b)),
-                (ast::BinaryOp::Mul, ConstVal::Float(a), ConstVal::Float(b)) => Some(ConstVal::Float(a * b)),
-                (ast::BinaryOp::Div, ConstVal::Float(a), ConstVal::Float(b)) => Some(ConstVal::Float(a / b)),
-                (ast::BinaryOp::Add, ConstVal::Str(a), ConstVal::Str(b)) => Some(ConstVal::Str(format!("{}{}", a, b))),
-                (ast::BinaryOp::Eq, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a == b)),
-                (ast::BinaryOp::Ne, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a != b)),
-                (ast::BinaryOp::Lt, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a < b)),
-                (ast::BinaryOp::Le, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a <= b)),
-                (ast::BinaryOp::Gt, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a > b)),
-                (ast::BinaryOp::Ge, ConstVal::Int(a), ConstVal::Int(b)) => Some(ConstVal::Bool(a >= b)),
-                (ast::BinaryOp::And, ConstVal::Bool(a), ConstVal::Bool(b)) => Some(ConstVal::Bool(a && b)),
-                (ast::BinaryOp::Or, ConstVal::Bool(a), ConstVal::Bool(b)) => Some(ConstVal::Bool(a || b)),
+                (ast::BinaryOp::Add, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a + b))
+                }
+                (ast::BinaryOp::Sub, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a - b))
+                }
+                (ast::BinaryOp::Mul, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a * b))
+                }
+                (ast::BinaryOp::Div, ConstVal::Int(a), ConstVal::Int(b)) if b != 0 => {
+                    Some(ConstVal::Int(a / b))
+                }
+                (ast::BinaryOp::Mod, ConstVal::Int(a), ConstVal::Int(b)) if b != 0 => {
+                    Some(ConstVal::Int(a % b))
+                }
+                (ast::BinaryOp::Shl, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a << (b as u32)))
+                }
+                (ast::BinaryOp::Shr, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a >> (b as u32)))
+                }
+                (ast::BinaryOp::BitAnd, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a & b))
+                }
+                (ast::BinaryOp::BitOr, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a | b))
+                }
+                (ast::BinaryOp::BitXor, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Int(a ^ b))
+                }
+                (ast::BinaryOp::Add, ConstVal::Float(a), ConstVal::Float(b)) => {
+                    Some(ConstVal::Float(a + b))
+                }
+                (ast::BinaryOp::Sub, ConstVal::Float(a), ConstVal::Float(b)) => {
+                    Some(ConstVal::Float(a - b))
+                }
+                (ast::BinaryOp::Mul, ConstVal::Float(a), ConstVal::Float(b)) => {
+                    Some(ConstVal::Float(a * b))
+                }
+                (ast::BinaryOp::Div, ConstVal::Float(a), ConstVal::Float(b)) => {
+                    Some(ConstVal::Float(a / b))
+                }
+                (ast::BinaryOp::Add, ConstVal::Str(a), ConstVal::Str(b)) => {
+                    Some(ConstVal::Str(format!("{}{}", a, b)))
+                }
+                (ast::BinaryOp::Eq, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Bool(a == b))
+                }
+                (ast::BinaryOp::Ne, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Bool(a != b))
+                }
+                (ast::BinaryOp::Lt, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Bool(a < b))
+                }
+                (ast::BinaryOp::Le, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Bool(a <= b))
+                }
+                (ast::BinaryOp::Gt, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Bool(a > b))
+                }
+                (ast::BinaryOp::Ge, ConstVal::Int(a), ConstVal::Int(b)) => {
+                    Some(ConstVal::Bool(a >= b))
+                }
+                (ast::BinaryOp::And, ConstVal::Bool(a), ConstVal::Bool(b)) => {
+                    Some(ConstVal::Bool(a && b))
+                }
+                (ast::BinaryOp::Or, ConstVal::Bool(a), ConstVal::Bool(b)) => {
+                    Some(ConstVal::Bool(a || b))
+                }
                 _ => None,
             }
         }
         _ => None,
     }
 }
-
 
 impl KernelJit {
     pub fn from_file(file: &ast::File) -> Result<Self> {
@@ -2659,7 +2786,10 @@ impl KernelJit {
         builder.symbol("bunker_vec_set", bunker_vec_set as *const u8);
         builder.symbol("bunker_vec_clear", bunker_vec_clear as *const u8);
         builder.symbol("bunker_vec_contains", bunker_vec_contains as *const u8);
-        builder.symbol("bunker_vec_contains_str", bunker_vec_contains_str as *const u8);
+        builder.symbol(
+            "bunker_vec_contains_str",
+            bunker_vec_contains_str as *const u8,
+        );
         builder.symbol("bunker_vec_is_empty", bunker_vec_is_empty as *const u8);
         builder.symbol("bunker_vec_clone", bunker_vec_clone as *const u8);
         builder.symbol("bunker_vec_reverse", bunker_vec_reverse as *const u8);
@@ -2667,7 +2797,10 @@ impl KernelJit {
         builder.symbol("bunker_vec_filter", bunker_vec_filter as *const u8);
         builder.symbol("bunker_vec_fold", bunker_vec_fold as *const u8);
         builder.symbol("bunker_vec_find", bunker_vec_find as *const u8);
-        builder.symbol("bunker_hashmap_is_empty", bunker_hashmap_is_empty as *const u8);
+        builder.symbol(
+            "bunker_hashmap_is_empty",
+            bunker_hashmap_is_empty as *const u8,
+        );
         builder.symbol("bunker_hashmap_values", bunker_hashmap_values as *const u8);
         // Result operations
         builder.symbol("bunker_result_ok", bunker_result_ok as *const u8);
@@ -2693,14 +2826,32 @@ impl KernelJit {
         builder.symbol("bunker_hashmap_len", bunker_hashmap_len as *const u8);
         builder.symbol("bunker_hashmap_clear", bunker_hashmap_clear as *const u8);
         builder.symbol("bunker_hashmap_keys", bunker_hashmap_keys as *const u8);
-        builder.symbol("bunker_hashmap_get_opt", bunker_hashmap_get_opt as *const u8);
-        builder.symbol("bunker_hashmap_new_str", bunker_hashmap_new_str as *const u8);
-        builder.symbol("bunker_hashmap_insert_str", bunker_hashmap_insert_str as *const u8);
+        builder.symbol(
+            "bunker_hashmap_get_opt",
+            bunker_hashmap_get_opt as *const u8,
+        );
+        builder.symbol(
+            "bunker_hashmap_new_str",
+            bunker_hashmap_new_str as *const u8,
+        );
+        builder.symbol(
+            "bunker_hashmap_insert_str",
+            bunker_hashmap_insert_str as *const u8,
+        );
         builder.symbol("bunker_vec_get_opt", bunker_vec_get_opt as *const u8);
         builder.symbol("bunker_vec_pop_opt", bunker_vec_pop_opt as *const u8);
-        builder.symbol("bunker_read_file_result", bunker_read_file_result as *const u8);
-        builder.symbol("bunker_write_file_result", bunker_write_file_result as *const u8);
-        builder.symbol("bunker_parse_int_result", bunker_parse_int_result as *const u8);
+        builder.symbol(
+            "bunker_read_file_result",
+            bunker_read_file_result as *const u8,
+        );
+        builder.symbol(
+            "bunker_write_file_result",
+            bunker_write_file_result as *const u8,
+        );
+        builder.symbol(
+            "bunker_parse_int_result",
+            bunker_parse_int_result as *const u8,
+        );
         builder.symbol("bunker_str_index_of", bunker_str_index_of as *const u8);
         builder.symbol("bunker_str_replace", bunker_str_replace as *const u8);
         builder.symbol("bunker_str_split", bunker_str_split as *const u8);
@@ -2718,10 +2869,22 @@ impl KernelJit {
         builder.symbol("bunker_env_has", bunker_env_has as *const u8);
         builder.symbol("bunker_time_now_ms", bunker_time_now_ms as *const u8);
         builder.symbol("bunker_time_now_unix", bunker_time_now_unix as *const u8);
-        builder.symbol("bunker_runtime_version_major", bunker_runtime_version_major as *const u8);
-        builder.symbol("bunker_runtime_version_minor", bunker_runtime_version_minor as *const u8);
-        builder.symbol("bunker_runtime_version_patch", bunker_runtime_version_patch as *const u8);
-        builder.symbol("bunker_runtime_version_str", bunker_runtime_version_str as *const u8);
+        builder.symbol(
+            "bunker_runtime_version_major",
+            bunker_runtime_version_major as *const u8,
+        );
+        builder.symbol(
+            "bunker_runtime_version_minor",
+            bunker_runtime_version_minor as *const u8,
+        );
+        builder.symbol(
+            "bunker_runtime_version_patch",
+            bunker_runtime_version_patch as *const u8,
+        );
+        builder.symbol(
+            "bunker_runtime_version_str",
+            bunker_runtime_version_str as *const u8,
+        );
         builder.symbol("bunker_bytes_new", bunker_bytes_new as *const u8);
         builder.symbol("bunker_bytes_len", bunker_bytes_len as *const u8);
         builder.symbol("bunker_bytes_capacity", bunker_bytes_capacity as *const u8);
@@ -2747,15 +2910,27 @@ impl KernelJit {
         builder.symbol("bunker_file_write", bunker_file_write as *const u8);
         builder.symbol("bunker_file_size", bunker_file_size as *const u8);
         builder.symbol("bunker_file_remove", bunker_file_remove as *const u8);
-        builder.symbol("bunker_file_read_bytes", bunker_file_read_bytes as *const u8);
-        builder.symbol("bunker_file_write_bytes", bunker_file_write_bytes as *const u8);
+        builder.symbol(
+            "bunker_file_read_bytes",
+            bunker_file_read_bytes as *const u8,
+        );
+        builder.symbol(
+            "bunker_file_write_bytes",
+            bunker_file_write_bytes as *const u8,
+        );
         builder.symbol("bunker_dir_create", bunker_dir_create as *const u8);
         builder.symbol("bunker_dir_remove", bunker_dir_remove as *const u8);
         builder.symbol("bunker_process_run", bunker_process_run as *const u8);
-        builder.symbol("bunker_process_run_status", bunker_process_run_status as *const u8);
+        builder.symbol(
+            "bunker_process_run_status",
+            bunker_process_run_status as *const u8,
+        );
         builder.symbol("bunker_process_exit", bunker_process_exit as *const u8);
         builder.symbol("bunker_process_pid", bunker_process_pid as *const u8);
-        builder.symbol("bunker_process_is_sandboxed", bunker_process_is_sandboxed as *const u8);
+        builder.symbol(
+            "bunker_process_is_sandboxed",
+            bunker_process_is_sandboxed as *const u8,
+        );
 
         let mut module = JITModule::new(builder);
         let alloc_func = declare_alloc_func(&mut module)?;
@@ -3028,8 +3203,8 @@ impl KernelJit {
         })
     }
 
-        #[allow(dead_code)]
-        #[allow(dead_code)]
+    #[allow(dead_code)]
+    #[allow(dead_code)]
     fn compile_kernel(&mut self, kernel: &ast::Kernel) -> Result<()> {
         self.collect_kernel_declarations(kernel)?;
         self.declare_kernel_functions(kernel)?;
@@ -3043,13 +3218,16 @@ impl KernelJit {
                 ast::KernelItem::Struct(s) => {
                     let layout = compute_struct_layout(s, &self.structs);
                     self.structs.insert(s.name.clone(), layout.clone());
-                    self.structs.insert(format!("{}::{}", kernel.name, s.name), layout);
+                    self.structs
+                        .insert(format!("{}::{}", kernel.name, s.name), layout);
                 }
                 ast::KernelItem::Const(c) => {
                     self.constants
                         .insert(c.name.clone(), (c.ty.clone(), c.value.clone()));
-                    self.constants
-                        .insert(format!("{}::{}", kernel.name, c.name), (c.ty.clone(), c.value.clone()));
+                    self.constants.insert(
+                        format!("{}::{}", kernel.name, c.name),
+                        (c.ty.clone(), c.value.clone()),
+                    );
                 }
                 _ => {}
             }
@@ -3061,10 +3239,14 @@ impl KernelJit {
         for item in &kernel.items {
             if let ast::KernelItem::Function(func) = item {
                 let params: Vec<_> = func.params.iter().map(|p| p.ty.clone()).collect();
-                self.fn_sigs
-                    .insert(func.name.clone(), (params.clone(), func.return_type.clone()));
-                self.fn_sigs
-                    .insert(format!("{}::{}", kernel.name, func.name), (params, func.return_type.clone()));
+                self.fn_sigs.insert(
+                    func.name.clone(),
+                    (params.clone(), func.return_type.clone()),
+                );
+                self.fn_sigs.insert(
+                    format!("{}::{}", kernel.name, func.name),
+                    (params, func.return_type.clone()),
+                );
                 let func_id = self.declare_function(&kernel.name, func)?;
                 self.functions
                     .insert(format!("{}::{}", kernel.name, func.name), func_id);
@@ -3112,7 +3294,8 @@ impl KernelJit {
             .declare_function(&symbol_name, linkage, &sig)
             .map_err(|e| anyhow!("Failed to declare function {}: {}", symbol_name, e))?;
 
-        self.functions.insert(format!("{}::{}", kernel_name, func.name), func_id);
+        self.functions
+            .insert(format!("{}::{}", kernel_name, func.name), func_id);
         self.functions.insert(func.name.clone(), func_id);
         Ok(func_id)
     }
@@ -3201,12 +3384,13 @@ impl KernelJit {
                                 builder.ins().f32const(*f as f32)
                             }
                         }
-                        ConstVal::Bool(b) => {
-                            builder.ins().iconst(cr_type, if *b { 1 } else { 0 })
-                        }
-                        ConstVal::Str(s) => {
-                            compile_string_literal(&mut builder, &mut self.module, self.alloc_func, s)?
-                        }
+                        ConstVal::Bool(b) => builder.ins().iconst(cr_type, if *b { 1 } else { 0 }),
+                        ConstVal::Str(s) => compile_string_literal(
+                            &mut builder,
+                            &mut self.module,
+                            self.alloc_func,
+                            s,
+                        )?,
                     };
                     builder.def_var(var, cr_val);
                     variables.insert(name.clone(), var);
@@ -3582,14 +3766,17 @@ fn compile_stmt_inline(
     loop_stack: &[(Option<String>, Block, Block)],
 ) -> Result<()> {
     match stmt {
-        ast::Stmt::Let { name, ty, value, .. } => {
+        ast::Stmt::Let {
+            name, ty, value, ..
+        } => {
             let val_opt = if let ast::Expr::Call { func, args, .. } = value {
                 if let ast::Expr::Ident(fn_name) = func.as_ref() {
                     if fn_name == "hashmap_new" && args.is_empty() {
                         if let Some(ast::Type::HashMap(key_ty, _)) = ty {
                             if matches!(key_ty.as_ref(), ast::Type::Str) {
                                 if let Some(&func_id) = functions.get("hashmap_new_str") {
-                                    let func_ref = module.declare_func_in_func(func_id, builder.func);
+                                    let func_ref =
+                                        module.declare_func_in_func(func_id, builder.func);
                                     let call = builder.ins().call(func_ref, &[]);
                                     Some(builder.inst_results(call)[0])
                                 } else {
@@ -3614,20 +3801,20 @@ fn compile_stmt_inline(
                 v
             } else {
                 compile_expr_inline(
-                builder,
-                module,
-                alloc_func,
-                arena_push_func,
-                arena_pop_func,
-                functions,
-                structs,
-                fn_sigs,
-                variables,
-                var_types,
-                var_index,
-                defer_stack,
-                value,
-            )?
+                    builder,
+                    module,
+                    alloc_func,
+                    arena_push_func,
+                    arena_pop_func,
+                    functions,
+                    structs,
+                    fn_sigs,
+                    variables,
+                    var_types,
+                    var_index,
+                    defer_stack,
+                    value,
+                )?
             };
             let var = Variable::new(*var_index as usize);
             *var_index += 1;
@@ -4138,18 +4325,21 @@ fn compile_stmt_inline(
                 let elem_addr = builder.ins().iadd(arr_base_data, offset);
                 let elem_val = match arr_ty {
                     ast::Type::Vec(_) => {
-                        let raw = builder.ins().load(types::I64, MemFlags::new(), elem_addr, 0);
+                        let raw = builder
+                            .ins()
+                            .load(types::I64, MemFlags::new(), elem_addr, 0);
                         match convert_ast_type(&elem_ty) {
                             types::I32 => builder.ins().ireduce(types::I32, raw),
                             types::I8 => builder.ins().ireduce(types::I8, raw),
                             _ => raw,
                         }
                     }
-                    _ => {
-                        builder
-                            .ins()
-                            .load(convert_ast_type(&elem_ty), MemFlags::new(), elem_addr, 0)
-                    }
+                    _ => builder.ins().load(
+                        convert_ast_type(&elem_ty),
+                        MemFlags::new(),
+                        elem_addr,
+                        0,
+                    ),
                 };
                 builder.def_var(loop_var, elem_val);
 
@@ -4333,7 +4523,9 @@ fn compile_stmt_inline(
                 builder.ins().jump(*continue_block, &[]);
                 *returned = true; // Mark as returned to stop further code gen in this block
             } else {
-                return Err(anyhow!("continue statement outside of loop or invalid label"));
+                return Err(anyhow!(
+                    "continue statement outside of loop or invalid label"
+                ));
             }
         }
         ast::Stmt::Match { expr, arms } => {
@@ -4834,7 +5026,11 @@ fn compile_pattern_cond(
             if !pattern_has_cond(sub_pat) {
                 Ok(not_null)
             } else {
-                let dummy_slot = builder.create_sized_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, 16, 3));
+                let dummy_slot = builder.create_sized_stack_slot(StackSlotData::new(
+                    StackSlotKind::ExplicitSlot,
+                    16,
+                    3,
+                ));
                 let dummy_ptr = builder.ins().stack_addr(types::I64, dummy_slot, 0);
                 let safe_ptr = builder.ins().select(not_null, val, dummy_ptr);
                 let inner_val = builder.ins().load(types::I64, MemFlags::new(), safe_ptr, 0);
@@ -4903,8 +5099,12 @@ fn compile_pattern_cond(
                             .map(|(_, o, t)| (*o, t.clone()))
                         {
                             let cr_ty = convert_ast_type(&field_ty);
-                            let field_val = builder.ins().load(cr_ty, MemFlags::new(), ptr, offset as i32);
-                            let sub_cond = compile_pattern_cond(builder, field_val, sub_pat, structs)?;
+                            let field_val =
+                                builder
+                                    .ins()
+                                    .load(cr_ty, MemFlags::new(), ptr, offset as i32);
+                            let sub_cond =
+                                compile_pattern_cond(builder, field_val, sub_pat, structs)?;
                             let sub_cond_i8 = bool_value_to_i8(builder, sub_cond)?;
                             cond = builder.ins().band(cond, sub_cond_i8);
                         }
@@ -5035,7 +5235,9 @@ fn bind_match_pattern(
                         .map(|(_, o, t)| (*o, t.clone()))
                     {
                         let cr_ty = convert_ast_type(&field_ty);
-                        let loaded = builder.ins().load(cr_ty, MemFlags::new(), ptr, offset as i32);
+                        let loaded = builder
+                            .ins()
+                            .load(cr_ty, MemFlags::new(), ptr, offset as i32);
                         bind_match_pattern(
                             builder,
                             sub_pat,
@@ -5051,14 +5253,7 @@ fn bind_match_pattern(
             }
         }
         ast::Pattern::EnumPayload { bindings, .. } => {
-            bind_enum_payload_fields(
-                builder,
-                val,
-                bindings,
-                var_index,
-                local_vars,
-                local_types,
-            );
+            bind_enum_payload_fields(builder, val, bindings, var_index, local_vars, local_types);
         }
         _ => {}
     }
@@ -5636,7 +5831,9 @@ fn compile_expr_inline(
                                 arg,
                             )?;
                             let val = cast_value(builder, val, convert_ast_type(field_ty));
-                            builder.ins().store(MemFlags::new(), val, ptr, *offset as i32);
+                            builder
+                                .ins()
+                                .store(MemFlags::new(), val, ptr, *offset as i32);
                         }
                     }
                     return Ok(ptr);
@@ -5647,7 +5844,8 @@ fn compile_expr_inline(
                         Some(ast::Type::Fn(params, ret)) => {
                             let p_tys = params.iter().map(convert_ast_type).collect::<Vec<_>>();
                             let r_ty = convert_ast_type(ret);
-                            let has_ret = !matches!(ret.as_ref(), ast::Type::Unit | ast::Type::Never);
+                            let has_ret =
+                                !matches!(ret.as_ref(), ast::Type::Unit | ast::Type::Never);
                             (p_tys, r_ty, has_ret)
                         }
                         _ => {
@@ -5814,7 +6012,11 @@ fn compile_expr_inline(
                         Err(anyhow!("Undefined method: {}", method_name))
                     }
                 } else {
-                    Err(anyhow!("Cannot call method '{}' on non-struct type {:?}", field, base_ty))
+                    Err(anyhow!(
+                        "Cannot call method '{}' on non-struct type {:?}",
+                        field,
+                        base_ty
+                    ))
                 }
             } else {
                 let callee_val = compile_expr_inline(
@@ -5886,7 +6088,12 @@ fn compile_expr_inline(
             }
         }
         ast::Expr::Index { expr: arr, index } => {
-            if let ast::Expr::Range { start, end, inclusive } = index.as_ref() {
+            if let ast::Expr::Range {
+                start,
+                end,
+                inclusive,
+            } = index.as_ref()
+            {
                 let arr_ptr = compile_expr_inline(
                     builder,
                     module,
@@ -5943,15 +6150,25 @@ fn compile_expr_inline(
                 let arr_ty = infer_expr_type(arr, var_types, structs, fn_sigs);
                 match arr_ty {
                     ast::Type::Slice(_) => {
-                        let sub_func = functions.get("slice_sub").copied().ok_or_else(|| anyhow!("missing slice_sub function"))?;
+                        let sub_func = functions
+                            .get("slice_sub")
+                            .copied()
+                            .ok_or_else(|| anyhow!("missing slice_sub function"))?;
                         let local_func = module.declare_func_in_func(sub_func, builder.func);
-                        let call = builder.ins().call(local_func, &[arr_ptr, start_i64, sub_len]);
+                        let call = builder
+                            .ins()
+                            .call(local_func, &[arr_ptr, start_i64, sub_len]);
                         return Ok(builder.inst_results(call)[0]);
                     }
                     ast::Type::Vec(_) => {
-                        let vec_sub_func = functions.get("vec_slice").copied().ok_or_else(|| anyhow!("missing vec_slice function"))?;
+                        let vec_sub_func = functions
+                            .get("vec_slice")
+                            .copied()
+                            .ok_or_else(|| anyhow!("missing vec_slice function"))?;
                         let local_func = module.declare_func_in_func(vec_sub_func, builder.func);
-                        let call = builder.ins().call(local_func, &[arr_ptr, start_i64, sub_len]);
+                        let call = builder
+                            .ins()
+                            .call(local_func, &[arr_ptr, start_i64, sub_len]);
                         return Ok(builder.inst_results(call)[0]);
                     }
                     _ => {
@@ -5965,9 +6182,14 @@ fn compile_expr_inline(
                         let elem_size = builder.ins().iconst(types::I64, elem_size_bytes as i64);
                         let byte_offset = builder.ins().imul(start_i64, elem_size);
                         let start_addr = builder.ins().iadd(arr_ptr, byte_offset);
-                        let slice_new_func = functions.get("slice_new").copied().ok_or_else(|| anyhow!("missing slice_new function"))?;
+                        let slice_new_func = functions
+                            .get("slice_new")
+                            .copied()
+                            .ok_or_else(|| anyhow!("missing slice_new function"))?;
                         let local_func = module.declare_func_in_func(slice_new_func, builder.func);
-                        let call = builder.ins().call(local_func, &[start_addr, sub_len, elem_size]);
+                        let call = builder
+                            .ins()
+                            .call(local_func, &[start_addr, sub_len, elem_size]);
                         return Ok(builder.inst_results(call)[0]);
                     }
                 }
@@ -6005,9 +6227,7 @@ fn compile_expr_inline(
             )?;
             let arr_ty = infer_expr_type(arr, var_types, structs, fn_sigs);
             let base_data_ptr = match arr_ty {
-                ast::Type::Slice(_) => {
-                    builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 0)
-                }
+                ast::Type::Slice(_) => builder.ins().load(types::I64, MemFlags::new(), arr_ptr, 0),
                 _ => arr_ptr,
             };
             let (elem_ty, elem_size_bytes) =
@@ -6097,7 +6317,9 @@ fn compile_expr_inline(
                 };
 
                 let matched_bb = builder.create_block();
-                builder.ins().brif(cond, matched_bb, &[], fallthrough_bb, &[]);
+                builder
+                    .ins()
+                    .brif(cond, matched_bb, &[], fallthrough_bb, &[]);
                 builder.switch_to_block(matched_bb);
                 builder.seal_block(matched_bb);
 
@@ -6133,7 +6355,9 @@ fn compile_expr_inline(
                     )?;
                     let guard_cond = bool_value_to_i8(builder, guard_val)?;
                     let guarded_body_bb = builder.create_block();
-                    builder.ins().brif(guard_cond, guarded_body_bb, &[], fallthrough_bb, &[]);
+                    builder
+                        .ins()
+                        .brif(guard_cond, guarded_body_bb, &[], fallthrough_bb, &[]);
                     builder.switch_to_block(guarded_body_bb);
                     builder.seal_block(guarded_body_bb);
                 }
@@ -6306,7 +6530,9 @@ fn compile_expr_inline(
 
             Ok(ptr)
         }
-        ast::Expr::Struct { name, fields, base, .. } => {
+        ast::Expr::Struct {
+            name, fields, base, ..
+        } => {
             let Some(layout) = structs.get(name) else {
                 return Ok(builder.ins().iconst(types::I64, 0));
             };
@@ -6331,8 +6557,12 @@ fn compile_expr_inline(
                 )?;
                 for (_fname, offset, field_ty) in &layout.fields {
                     let cr_ty = convert_ast_type(field_ty);
-                    let val = builder.ins().load(cr_ty, MemFlags::new(), base_ptr, *offset as i32);
-                    builder.ins().store(MemFlags::new(), val, ptr, *offset as i32);
+                    let val = builder
+                        .ins()
+                        .load(cr_ty, MemFlags::new(), base_ptr, *offset as i32);
+                    builder
+                        .ins()
+                        .store(MemFlags::new(), val, ptr, *offset as i32);
                 }
             }
 
@@ -6450,7 +6680,9 @@ fn compile_expr_inline(
                 builder.switch_to_block(some_bb);
                 builder.seal_block(some_bb);
                 let some_cr_ty = convert_ast_type(&val_ty);
-                let loaded = builder.ins().load(some_cr_ty, MemFlags::new(), inner_val_i64, 0);
+                let loaded = builder
+                    .ins()
+                    .load(some_cr_ty, MemFlags::new(), inner_val_i64, 0);
                 Ok(loaded)
             } else {
                 let ok_ty = match &inner_ty {
@@ -6458,7 +6690,9 @@ fn compile_expr_inline(
                     _ => ast::Type::I32,
                 };
                 let inner_val_i64 = cast_value(builder, inner_val, types::I64);
-                let tag = builder.ins().load(types::I64, MemFlags::new(), inner_val_i64, 0);
+                let tag = builder
+                    .ins()
+                    .load(types::I64, MemFlags::new(), inner_val_i64, 0);
                 let is_err = builder.ins().icmp_imm(IntCC::NotEqual, tag, 0);
 
                 let err_bb = builder.create_block();
@@ -6495,7 +6729,9 @@ fn compile_expr_inline(
                 builder.switch_to_block(ok_bb);
                 builder.seal_block(ok_bb);
                 let ok_cr_ty = convert_ast_type(&ok_ty);
-                let loaded = builder.ins().load(ok_cr_ty, MemFlags::new(), inner_val_i64, 8);
+                let loaded = builder
+                    .ins()
+                    .load(ok_cr_ty, MemFlags::new(), inner_val_i64, 8);
                 Ok(loaded)
             }
         }
@@ -6893,11 +7129,14 @@ fn infer_expr_type(
             if let Some(ty) = var_types.get(name) {
                 ty.clone()
             } else if let Some((params, ret)) = fn_sigs.get(name) {
-                ast::Type::Fn(params.clone(), Box::new(ret.clone().unwrap_or(ast::Type::I32)))
+                ast::Type::Fn(
+                    params.clone(),
+                    Box::new(ret.clone().unwrap_or(ast::Type::I32)),
+                )
             } else {
                 ast::Type::I32
             }
-        },
+        }
         ast::Expr::Unary { op, expr } => {
             let inner = infer_expr_type(expr, var_types, structs, fn_sigs);
             match op {
@@ -7053,13 +7292,11 @@ fn infer_expr_type(
         }
         ast::Expr::None => ast::Type::Option(Box::new(ast::Type::I32)),
         ast::Expr::Copy(expr) => infer_expr_type(expr, var_types, structs, fn_sigs),
-        ast::Expr::Try(inner) => {
-            match infer_expr_type(inner, var_types, structs, fn_sigs) {
-                ast::Type::Result(ok_ty, _) => *ok_ty,
-                ast::Type::Option(val_ty) => *val_ty,
-                _ => ast::Type::I32,
-            }
-        }
+        ast::Expr::Try(inner) => match infer_expr_type(inner, var_types, structs, fn_sigs) {
+            ast::Type::Result(ok_ty, _) => *ok_ty,
+            ast::Type::Option(val_ty) => *val_ty,
+            _ => ast::Type::I32,
+        },
         ast::Expr::Tuple(elements) => {
             let elem_tys = elements
                 .iter()
@@ -7124,7 +7361,9 @@ fn infer_block_value_type(
     let mut last = None;
     for stmt in &block.statements {
         match stmt {
-            ast::Stmt::Let { name, ty, value, .. } => {
+            ast::Stmt::Let {
+                name, ty, value, ..
+            } => {
                 let inferred = ty
                     .clone()
                     .unwrap_or_else(|| infer_expr_type(value, &env, structs, fn_sigs));
@@ -8169,7 +8408,12 @@ fn declare_runtime_version_major_func(module: &mut JITModule) -> Result<FuncId> 
     sig.returns.push(AbiParam::new(types::I64));
     module
         .declare_function("bunker_runtime_version_major", Linkage::Import, &sig)
-        .map_err(|e| anyhow!("Failed to declare runtime bunker_runtime_version_major: {}", e))
+        .map_err(|e| {
+            anyhow!(
+                "Failed to declare runtime bunker_runtime_version_major: {}",
+                e
+            )
+        })
 }
 
 fn declare_runtime_version_minor_func(module: &mut JITModule) -> Result<FuncId> {
@@ -8177,7 +8421,12 @@ fn declare_runtime_version_minor_func(module: &mut JITModule) -> Result<FuncId> 
     sig.returns.push(AbiParam::new(types::I64));
     module
         .declare_function("bunker_runtime_version_minor", Linkage::Import, &sig)
-        .map_err(|e| anyhow!("Failed to declare runtime bunker_runtime_version_minor: {}", e))
+        .map_err(|e| {
+            anyhow!(
+                "Failed to declare runtime bunker_runtime_version_minor: {}",
+                e
+            )
+        })
 }
 
 fn declare_runtime_version_patch_func(module: &mut JITModule) -> Result<FuncId> {
@@ -8185,7 +8434,12 @@ fn declare_runtime_version_patch_func(module: &mut JITModule) -> Result<FuncId> 
     sig.returns.push(AbiParam::new(types::I64));
     module
         .declare_function("bunker_runtime_version_patch", Linkage::Import, &sig)
-        .map_err(|e| anyhow!("Failed to declare runtime bunker_runtime_version_patch: {}", e))
+        .map_err(|e| {
+            anyhow!(
+                "Failed to declare runtime bunker_runtime_version_patch: {}",
+                e
+            )
+        })
 }
 
 fn declare_runtime_version_str_func(module: &mut JITModule) -> Result<FuncId> {
@@ -8193,7 +8447,12 @@ fn declare_runtime_version_str_func(module: &mut JITModule) -> Result<FuncId> {
     sig.returns.push(AbiParam::new(types::I64));
     module
         .declare_function("bunker_runtime_version_str", Linkage::Import, &sig)
-        .map_err(|e| anyhow!("Failed to declare runtime bunker_runtime_version_str: {}", e))
+        .map_err(|e| {
+            anyhow!(
+                "Failed to declare runtime bunker_runtime_version_str: {}",
+                e
+            )
+        })
 }
 
 fn declare_bytes_new_func(module: &mut JITModule) -> Result<FuncId> {
@@ -8478,7 +8737,12 @@ fn declare_process_is_sandboxed_func(module: &mut JITModule) -> Result<FuncId> {
     sig.returns.push(AbiParam::new(types::I8));
     module
         .declare_function("bunker_process_is_sandboxed", Linkage::Import, &sig)
-        .map_err(|e| anyhow!("Failed to declare runtime bunker_process_is_sandboxed: {}", e))
+        .map_err(|e| {
+            anyhow!(
+                "Failed to declare runtime bunker_process_is_sandboxed: {}",
+                e
+            )
+        })
 }
 
 fn declare_process_pid_func(module: &mut JITModule) -> Result<FuncId> {

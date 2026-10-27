@@ -414,7 +414,7 @@ jobs:
           set -euo pipefail
           ast='self-host/modules/ast.bkr'
           grep -q 'struct AstMatch {' "$ast"
-          grep -q 'fn ast_match_record(scrutinee: i64, patterns: i64, bodies: i64) -> AstMatch' "$ast"
+          grep -q 'fn ast_match_record(scrutinee: i64, patterns: i64, bodies: i64, guards: i64) -> AstMatch' "$ast"
           grep -q 'fn ast_match_pack(expr: AstMatch) -> Vec<i64>' "$ast"
           grep -q 'fn ast_match_unpack(node: Vec<i64>) -> AstMatch' "$ast"
           grep -q 'fn ast_expr_ref_match(expr_ref: AstExprRef) -> AstMatch' "$ast"
@@ -1583,7 +1583,7 @@ jobs:
             -o /tmp/94_node_kind_typed_api.c
           test -s /tmp/94_node_kind_typed_api.c
           ! grep -q "Parse error at token" /tmp/94_node_kind_typed_api.c
-          grep -q "int main(void)" /tmp/94_node_kind_typed_api.c
+          grep -q "int main(" /tmp/94_node_kind_typed_api.c
           grep -q "echo_kind" /tmp/94_node_kind_typed_api.c
           grep -q "bkr_i64" /tmp/94_node_kind_typed_api.c
 
@@ -1595,7 +1595,7 @@ jobs:
             -o /tmp/95_token_kind_typed_api.c
           test -s /tmp/95_token_kind_typed_api.c
           ! grep -q "Parse error at token" /tmp/95_token_kind_typed_api.c
-          grep -q "int main(void)" /tmp/95_token_kind_typed_api.c
+          grep -q "int main(" /tmp/95_token_kind_typed_api.c
           grep -q "echo_kind" /tmp/95_token_kind_typed_api.c
           grep -q "bkr_i64" /tmp/95_token_kind_typed_api.c
 
@@ -1607,7 +1607,7 @@ jobs:
             -o /tmp/96_pattern_type_kind_typed_api.c
           test -s /tmp/96_pattern_type_kind_typed_api.c
           ! grep -q "Parse error at token" /tmp/96_pattern_type_kind_typed_api.c
-          grep -q "int main(void)" /tmp/96_pattern_type_kind_typed_api.c
+          grep -q "int main(" /tmp/96_pattern_type_kind_typed_api.c
           grep -q "echo_pattern" /tmp/96_pattern_type_kind_typed_api.c
           grep -q "echo_type" /tmp/96_pattern_type_kind_typed_api.c
           grep -q "bkr_i64" /tmp/96_pattern_type_kind_typed_api.c
@@ -1620,7 +1620,7 @@ jobs:
             -o /tmp/97_ast_span_struct.c
           test -s /tmp/97_ast_span_struct.c
           ! grep -q "Parse error at token" /tmp/97_ast_span_struct.c
-          grep -q "int main(void)" /tmp/97_ast_span_struct.c
+          grep -q "int main(" /tmp/97_ast_span_struct.c
           grep -q "make_span" /tmp/97_ast_span_struct.c
           grep -q "bkr_i64" /tmp/97_ast_span_struct.c
 
@@ -1632,7 +1632,7 @@ jobs:
             -o /tmp/98_ast_pattern_struct.c
           test -s /tmp/98_ast_pattern_struct.c
           ! grep -q "Parse error at token" /tmp/98_ast_pattern_struct.c
-          grep -q "int main(void)" /tmp/98_ast_pattern_struct.c
+          grep -q "int main(" /tmp/98_ast_pattern_struct.c
           grep -q "make_int" /tmp/98_ast_pattern_struct.c
           grep -q "bkr_i64" /tmp/98_ast_pattern_struct.c
 
@@ -1644,7 +1644,7 @@ jobs:
             -o /tmp/100_ast_type_struct.c
           test -s /tmp/100_ast_type_struct.c
           ! grep -q "Parse error at token" /tmp/100_ast_type_struct.c
-          grep -q "int main(void)" /tmp/100_ast_type_struct.c
+          grep -q "int main(" /tmp/100_ast_type_struct.c
           grep -q "make_i64" /tmp/100_ast_type_struct.c
           grep -q "bkr_i64" /tmp/100_ast_type_struct.c
 
@@ -1656,7 +1656,7 @@ jobs:
             -o /tmp/101_ast_atom_struct.c
           test -s /tmp/101_ast_atom_struct.c
           ! grep -q "Parse error at token" /tmp/101_ast_atom_struct.c
-          grep -q "int main(void)" /tmp/101_ast_atom_struct.c
+          grep -q "int main(" /tmp/101_ast_atom_struct.c
           grep -q "make_int" /tmp/101_ast_atom_struct.c
           grep -q "bkr_i64" /tmp/101_ast_atom_struct.c
 
@@ -1668,7 +1668,7 @@ jobs:
             -o /tmp/102_ast_binary_struct.c
           test -s /tmp/102_ast_binary_struct.c
           ! grep -q "Parse error at token" /tmp/102_ast_binary_struct.c
-          grep -q "int main(void)" /tmp/102_ast_binary_struct.c
+          grep -q "int main(" /tmp/102_ast_binary_struct.c
           grep -q "make_add" /tmp/102_ast_binary_struct.c
           grep -q "bkr_i64" /tmp/102_ast_binary_struct.c
 
@@ -1680,7 +1680,7 @@ jobs:
             -o /tmp/103_ast_call_struct.c
           test -s /tmp/103_ast_call_struct.c
           ! grep -q "Parse error at token" /tmp/103_ast_call_struct.c
-          grep -q "int main(void)" /tmp/103_ast_call_struct.c
+          grep -q "int main(" /tmp/103_ast_call_struct.c
           grep -q "make_call" /tmp/103_ast_call_struct.c
           grep -q "bkr_i64" /tmp/103_ast_call_struct.c
 
@@ -1692,7 +1692,7 @@ jobs:
             -o /tmp/104_ast_index_struct.c
           test -s /tmp/104_ast_index_struct.c
           ! grep -q "Parse error at token" /tmp/104_ast_index_struct.c
-          grep -q "int main(void)" /tmp/104_ast_index_struct.c
+          grep -q "int main(" /tmp/104_ast_index_struct.c
           grep -q "make_index" /tmp/104_ast_index_struct.c
           grep -q "bkr_i64" /tmp/104_ast_index_struct.c
 
@@ -1704,7 +1704,7 @@ jobs:
             -o /tmp/105_ast_let_struct.c
           test -s /tmp/105_ast_let_struct.c
           ! grep -q "Parse error at token" /tmp/105_ast_let_struct.c
-          grep -q "int main(void)" /tmp/105_ast_let_struct.c
+          grep -q "int main(" /tmp/105_ast_let_struct.c
           grep -q "make_let" /tmp/105_ast_let_struct.c
           grep -q "bkr_i64" /tmp/105_ast_let_struct.c
 
@@ -1716,7 +1716,7 @@ jobs:
             -o /tmp/106_ast_if_struct.c
           test -s /tmp/106_ast_if_struct.c
           ! grep -q "Parse error at token" /tmp/106_ast_if_struct.c
-          grep -q "int main(void)" /tmp/106_ast_if_struct.c
+          grep -q "int main(" /tmp/106_ast_if_struct.c
           grep -q "make_if" /tmp/106_ast_if_struct.c
           grep -q "bkr_i64" /tmp/106_ast_if_struct.c
 
@@ -1728,7 +1728,7 @@ jobs:
             -o /tmp/107_ast_for_struct.c
           test -s /tmp/107_ast_for_struct.c
           ! grep -q "Parse error at token" /tmp/107_ast_for_struct.c
-          grep -q "int main(void)" /tmp/107_ast_for_struct.c
+          grep -q "int main(" /tmp/107_ast_for_struct.c
           grep -q "make_for" /tmp/107_ast_for_struct.c
           grep -q "bkr_i64" /tmp/107_ast_for_struct.c
 
@@ -1740,7 +1740,7 @@ jobs:
             -o /tmp/108_ast_assign_struct.c
           test -s /tmp/108_ast_assign_struct.c
           ! grep -q "Parse error at token" /tmp/108_ast_assign_struct.c
-          grep -q "int main(void)" /tmp/108_ast_assign_struct.c
+          grep -q "int main(" /tmp/108_ast_assign_struct.c
           grep -q "make_assign" /tmp/108_ast_assign_struct.c
           grep -q "bkr_i64" /tmp/108_ast_assign_struct.c
 
@@ -1752,7 +1752,7 @@ jobs:
             -o /tmp/109_ast_ternary_struct.c
           test -s /tmp/109_ast_ternary_struct.c
           ! grep -q "Parse error at token" /tmp/109_ast_ternary_struct.c
-          grep -q "int main(void)" /tmp/109_ast_ternary_struct.c
+          grep -q "int main(" /tmp/109_ast_ternary_struct.c
           grep -q "make_ternary" /tmp/109_ast_ternary_struct.c
           grep -q "bkr_i64" /tmp/109_ast_ternary_struct.c
 
@@ -1764,7 +1764,7 @@ jobs:
             -o /tmp/110_ast_array_lit_struct.c
           test -s /tmp/110_ast_array_lit_struct.c
           ! grep -q "Parse error at token" /tmp/110_ast_array_lit_struct.c
-          grep -q "int main(void)" /tmp/110_ast_array_lit_struct.c
+          grep -q "int main(" /tmp/110_ast_array_lit_struct.c
           grep -q "make_array" /tmp/110_ast_array_lit_struct.c
           grep -q "bkr_i64" /tmp/110_ast_array_lit_struct.c
 
@@ -1776,7 +1776,7 @@ jobs:
             -o /tmp/111_ast_match_struct.c
           test -s /tmp/111_ast_match_struct.c
           ! grep -q "Parse error at token" /tmp/111_ast_match_struct.c
-          grep -q "int main(void)" /tmp/111_ast_match_struct.c
+          grep -q "int main(" /tmp/111_ast_match_struct.c
           grep -q "make_match" /tmp/111_ast_match_struct.c
           grep -q "bkr_i64" /tmp/111_ast_match_struct.c
 
@@ -1788,7 +1788,7 @@ jobs:
             -o /tmp/112_ast_fn_struct.c
           test -s /tmp/112_ast_fn_struct.c
           ! grep -q "Parse error at token" /tmp/112_ast_fn_struct.c
-          grep -q "int main(void)" /tmp/112_ast_fn_struct.c
+          grep -q "int main(" /tmp/112_ast_fn_struct.c
           grep -q "make_fn" /tmp/112_ast_fn_struct.c
           grep -q "bkr_i64" /tmp/112_ast_fn_struct.c
 
@@ -1800,7 +1800,7 @@ jobs:
             -o /tmp/113_ast_const_struct.c
           test -s /tmp/113_ast_const_struct.c
           ! grep -q "Parse error at token" /tmp/113_ast_const_struct.c
-          grep -q "int main(void)" /tmp/113_ast_const_struct.c
+          grep -q "int main(" /tmp/113_ast_const_struct.c
           grep -q "make_const" /tmp/113_ast_const_struct.c
           grep -q "bkr_i64" /tmp/113_ast_const_struct.c
 
@@ -1812,7 +1812,7 @@ jobs:
             -o /tmp/114_ast_struct_item.c
           test -s /tmp/114_ast_struct_item.c
           ! grep -q "Parse error at token" /tmp/114_ast_struct_item.c
-          grep -q "int main(void)" /tmp/114_ast_struct_item.c
+          grep -q "int main(" /tmp/114_ast_struct_item.c
           grep -q "make_struct" /tmp/114_ast_struct_item.c
           grep -q "bkr_i64" /tmp/114_ast_struct_item.c
 
@@ -1824,7 +1824,7 @@ jobs:
             -o /tmp/115_ast_kernel_struct.c
           test -s /tmp/115_ast_kernel_struct.c
           ! grep -q "Parse error at token" /tmp/115_ast_kernel_struct.c
-          grep -q "int main(void)" /tmp/115_ast_kernel_struct.c
+          grep -q "int main(" /tmp/115_ast_kernel_struct.c
           grep -q "make_kernel" /tmp/115_ast_kernel_struct.c
           grep -q "bkr_i64" /tmp/115_ast_kernel_struct.c
 
@@ -1836,7 +1836,7 @@ jobs:
             -o /tmp/93_pattern_type_kind_enums.c
           test -s /tmp/93_pattern_type_kind_enums.c
           ! grep -q "Parse error at token" /tmp/93_pattern_type_kind_enums.c
-          grep -q "int main(void)" /tmp/93_pattern_type_kind_enums.c
+          grep -q "int main(" /tmp/93_pattern_type_kind_enums.c
           grep -q "PAT_INT" /tmp/93_pattern_type_kind_enums.c
 
       - name: Compile token-kind enum fixture through self-host compiler
@@ -1847,7 +1847,7 @@ jobs:
             -o /tmp/92_token_kind_enum.c
           test -s /tmp/92_token_kind_enum.c
           ! grep -q "Parse error at token" /tmp/92_token_kind_enum.c
-          grep -q "int main(void)" /tmp/92_token_kind_enum.c
+          grep -q "int main(" /tmp/92_token_kind_enum.c
           grep -q "TOK_IDENT" /tmp/92_token_kind_enum.c
 
       - name: Compile node-kind enum fixture through self-host compiler
@@ -1858,7 +1858,7 @@ jobs:
             -o /tmp/91_node_kind_enum.c
           test -s /tmp/91_node_kind_enum.c
           ! grep -q "Parse error at token" /tmp/91_node_kind_enum.c
-          grep -q "int main(void)" /tmp/91_node_kind_enum.c
+          grep -q "int main(" /tmp/91_node_kind_enum.c
           grep -q "NODE_FN" /tmp/91_node_kind_enum.c
 
       - name: Compile unit enum fixture through self-host compiler
@@ -1869,7 +1869,7 @@ jobs:
             -o /tmp/88_kernel_unit_enum.c
           test -s /tmp/88_kernel_unit_enum.c
           ! grep -q "Parse error at token" /tmp/88_kernel_unit_enum.c
-          grep -q "int main(void)" /tmp/88_kernel_unit_enum.c
+          grep -q "int main(" /tmp/88_kernel_unit_enum.c
           grep -q "bkr_i64" /tmp/88_kernel_unit_enum.c
           grep -q '"enum_count":1' /tmp/88_kernel_unit_enum.c
           ! grep -q '"kind":"non_exhaustive_match"' /tmp/88_kernel_unit_enum.c
@@ -1896,7 +1896,7 @@ jobs:
             -o /tmp/117_enum_payload_decl.c
           test -s /tmp/117_enum_payload_decl.c
           ! grep -q "Parse error" /tmp/117_enum_payload_decl.c
-          grep -q "int main(void)" /tmp/117_enum_payload_decl.c
+          grep -q "int main(" /tmp/117_enum_payload_decl.c
           grep -q '"enum_count":1' /tmp/117_enum_payload_decl.c
           grep -q '"variant_count":2' /tmp/117_enum_payload_decl.c
           grep -q '"payload_count":1' /tmp/117_enum_payload_decl.c
@@ -1953,7 +1953,7 @@ jobs:
             -o /tmp/120_enum_multi_payload_decl.c
           test -s /tmp/120_enum_multi_payload_decl.c
           ! grep -q "Parse error" /tmp/120_enum_multi_payload_decl.c
-          grep -q "int main(void)" /tmp/120_enum_multi_payload_decl.c
+          grep -q "int main(" /tmp/120_enum_multi_payload_decl.c
           grep -q '"enum_count":1' /tmp/120_enum_multi_payload_decl.c
           grep -q '"variant_count":2' /tmp/120_enum_multi_payload_decl.c
           grep -q '"payload_count":1' /tmp/120_enum_multi_payload_decl.c
