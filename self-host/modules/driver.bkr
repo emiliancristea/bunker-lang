@@ -802,12 +802,14 @@
         let err_count = parser_error_count_ref(p);
         let first_expected = token_name(parser_error_expected_ref(p));
         let first_actual = token_name(parser_error_actual_ref(p));
-        let first_span: AstSpan = parser_error_span_ref(p);
-        let first_start = first_span.start;
-        let first_end = first_span.end;
+        let error_span: AstSpan = parser_error_span_ref(p);
+        let source_start = error_span.start;
+        let first_start = source_start;
+        let first_end = error_span.end;
         let first_line = source_line_at(source, first_start);
         let first_column = source_column_at(source, first_start);
-        let first_excerpt = source_line_excerpt_at(source, first_start);
+        let source_excerpt = source_line_excerpt_at(source, source_start);
+        let first_excerpt = source_excerpt;
         let repair_hint = "Inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, match expressions, Option<T> via Some/None, Result<T,E> via result_* builtins, Vec<T> and HashMap<i32,V> runtime handles, for-in ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary expressions, bitwise operators, and basic expressions.";
         let first_message = "Parse error at token " + int_to_string(parser_error_position_ref(p)) +
             ": expected " + first_expected + ", got " + first_actual;
