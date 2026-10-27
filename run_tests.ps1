@@ -179,6 +179,8 @@ $expectedResults = @{
     "259_semantic_validation_missing_return_paths" = 42
     "260_pure_bunker_typechecker_complete" = 42
     "261_typechecker_expression_statement_matrix" = 42
+    "262_pure_bunker_c_codegen_modular" = 42
+    "263_typed_c_emission_matrix" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -414,7 +416,9 @@ if (-not $JitOnly) {
         "tests\258_semantic_validation_loop_unreachable.bkr",
         "tests\259_semantic_validation_missing_return_paths.bkr",
         "tests\260_pure_bunker_typechecker_complete.bkr",
-        "tests\261_typechecker_expression_statement_matrix.bkr"
+        "tests\261_typechecker_expression_statement_matrix.bkr",
+        "tests\262_pure_bunker_c_codegen_modular.bkr",
+        "tests\263_typed_c_emission_matrix.bkr"
     )
 
     $subsetOk = $true
