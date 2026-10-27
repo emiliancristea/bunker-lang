@@ -665,13 +665,15 @@
         if tok == TOK_IF {
             parser_advance_ref(p);
             let cond_ref: AstExprRef = parse_expr_ref(p);
-            let then_ref: AstExprRef = ast_expr_ref_from_handle(ast_block_ref_handle(parse_block_ref(p)));
+            let then_block: AstBlockRef = parse_block_ref(p);
+            let then_ref: AstExprRef = ast_expr_ref_from_handle(ast_block_ref_handle(then_block));
             parser_expect_ref(p, TOK_ELSE);
             let else_ref: AstExprRef = ast_expr_ref_from_handle(0);
             if parser_peek_ref(p) == TOK_IF {
                 else_ref = parse_atom_ref(p);
             } else {
-                else_ref = ast_expr_ref_from_handle(ast_block_ref_handle(parse_block_ref(p)));
+                let else_block: AstBlockRef = parse_block_ref(p);
+                else_ref = ast_expr_ref_from_handle(ast_block_ref_handle(else_block));
             }
             return parser_set_expr_ref_span_from_start(p, ast_ternary_ref(cond_ref, then_ref, else_ref), start);
         }
