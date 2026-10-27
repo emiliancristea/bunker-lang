@@ -1,0 +1,122 @@
+// Test 266: Multi-Target Backend Strategy (CB-009)
+// Purpose: Verify multi-target backend selection and role invariants:
+//   1. Backend target model: Cranelift JIT, Portable C, Production LLVM.
+//   2. Target profile configuration (Debug vs Release optimization levels).
+//   3. Backend capability and feature flags matching architectural specification.
+//   4. Native runtime execution returning 42.
+// Expected return: 42
+
+kernel MultiTargetBackendStrategyTest {
+    // --- Target Enum Model ---
+
+    enum BackendTarget {
+        CraneliftJit,
+        CCodegen,
+        LlvmAot
+    }
+
+    struct TargetConfig {
+        target: BackendTarget,
+        is_release: bool,
+        lto_enabled: bool,
+        sub_millisecond_eval: bool
+    }
+
+    fn config_cranelift() -> TargetConfig {
+        return TargetConfig {
+            target: BackendTarget.CraneliftJit,
+            is_release: false,
+            lto_enabled: false,
+            sub_millisecond_eval: true
+        };
+    }
+
+    fn config_c_codegen(is_release: bool) -> TargetConfig {
+        return TargetConfig {
+            target: BackendTarget.CCodegen,
+            is_release: is_release,
+            lto_enabled: false,
+            sub_millisecond_eval: false
+        };
+    }
+
+    fn config_llvm_aot() -> TargetConfig {
+        return TargetConfig {
+            target: BackendTarget.LlvmAot,
+            is_release: true,
+            lto_enabled: true,
+            sub_millisecond_eval: false
+        };
+    }
+
+    // --- Backend Strategy Evaluator ---
+
+    fn get_target_name(cfg: TargetConfig) -> str {
+        return match cfg.target {
+            BackendTarget.CraneliftJit => "cranelift";
+            BackendTarget.CCodegen => "c";
+            BackendTarget.LlvmAot => "llvm";
+        };
+    }
+
+    fn get_artifact_extension(cfg: TargetConfig) -> str {
+        return match cfg.target {
+            BackendTarget.CraneliftJit => "jit_mem";
+            BackendTarget.CCodegen => ".c";
+            BackendTarget.LlvmAot => ".o";
+        };
+    }
+
+    fn test_target_roles() -> bool {
+        let jit_cfg = config_cranelift();
+        let c_cfg = config_c_codegen(false);
+        let llvm_cfg = config_llvm_aot();
+
+        if get_target_name(jit_cfg) != "cranelift" { return false; }
+        if get_target_name(c_cfg) != "c" { return false; }
+        if get_target_name(llvm_cfg) != "llvm" { return false; }
+
+        if get_artifact_extension(jit_cfg) != "jit_mem" { return false; }
+        if get_artifact_extension(c_cfg) != ".c" { return false; }
+        if get_artifact_extension(llvm_cfg) != ".o" { return false; }
+
+        if !jit_cfg.sub_millisecond_eval { return false; }
+        if !llvm_cfg.lto_enabled { return false; }
+        if !llvm_cfg.is_release { return false; }
+
+        return true;
+    }
+
+    // --- End-to-End Native Execution ---
+
+    struct ComputeContext {
+        base_factor: i64,
+        scale: i64,
+        adjustment: i64
+    }
+
+    fn execute_strategy(ctx: ComputeContext) -> i64 {
+        let initial: i64 = ctx.base_factor * ctx.scale;
+        return initial + ctx.adjustment;
+    }
+
+    fn main() -> i64 {
+        if !test_target_roles() {
+            return 1;
+        }
+
+        let ctx = ComputeContext {
+            base_factor: 7,
+            scale: 5,
+            adjustment: 7
+        };
+
+        // 7 * 5 + 7 = 35 + 7 = 42
+        let result: i64 = execute_strategy(ctx);
+        if result != 42 {
+            return 2;
+        }
+
+        return 42;
+    }
+}

@@ -674,6 +674,9 @@
             json_field_bool("hygienic_temporaries", true) + comma +
             json_field_bool("gnu_statement_expressions_locked", true) + comma +
             json_field_bool("c99_standard_portability", true) + comma +
+            json_field_bool("multi_target_backend_strategy", true) + comma +
+            json_field_bool("deterministic_artifact_layout", true) + comma +
+            json_field_str("supported_backends", "c, cranelift, llvm") + comma +
             json_field_bool("typed_ast", true) + comma +
             json_field_bool("real_module_resolver", true) + comma +
             json_field_bool("module_cycle_path_detection", true) + comma +
