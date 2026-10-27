@@ -709,6 +709,7 @@
             json_field_bool("migration_guides", true) + comma +
             json_field_bool("contribution_guide", true) + comma +
             json_field_bool("spec_sync", true) + comma +
+            json_field_bool("roadmap_ci_gates", true) + comma +
             json_field_bool("typed_ast", true) + comma +
             json_field_bool("real_module_resolver", true) + comma +
             json_field_bool("module_cycle_path_detection", true) + comma +
