@@ -1310,7 +1310,7 @@
             return false;
         }
         let kind: i64 = ast_pattern_ref_kind(left_ref);
-        if kind == PAT_SOME || kind == PAT_RESULT_OK || kind == PAT_RESULT_ERR {
+        if ast_pattern_ref_kind(left_ref) == PAT_SOME || kind == PAT_RESULT_OK || kind == PAT_RESULT_ERR {
             let left_aux: i64 = ast_pattern_ref_aux(left_ref);
             let right_aux: i64 = ast_pattern_ref_aux(right_ref);
             if left_aux != 0 || right_aux != 0 {
