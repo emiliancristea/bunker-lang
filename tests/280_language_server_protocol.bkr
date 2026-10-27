@@ -1,0 +1,255 @@
+// Test 280: Language Server Protocol Architecture (G-003)
+// Purpose: Verify language server framing, lifecycle, diagnostics, and hover queries:
+//   1. JSON-RPC 2.0 message framing with Content-Length header.
+//   2. Initialize response with server capabilities (hoverProvider, textDocumentSync).
+//   3. Real-time diagnostic notification construction (publishDiagnostics) with Range and severity.
+//   4. Semantic hover query response with signature and markdown documentation.
+//   5. Native calculation returning 42.
+// Expected return: 42
+
+kernel LanguageServerProtocolTest {
+    // --- Data Structures ---
+
+    struct LspPosition {
+        line: i64,
+        character: i64
+    }
+
+    struct LspRange {
+        start: LspPosition,
+        end: LspPosition
+    }
+
+    struct LspDiagnostic {
+        range: LspRange,
+        severity: i64,
+        code: str,
+        message: str
+    }
+
+    struct LspHoverResponse {
+        signature: str,
+        doc: str
+    }
+
+    // --- Framing Helpers ---
+
+    fn make_jsonrpc_frame(content: str) -> str {
+        let cr = from_char_code(13);
+        let lf = from_char_code(10);
+        let crlf = cr + lf;
+        let content_len = len(content);
+        return "Content-Length: " + int_to_string(content_len) + crlf + crlf + content;
+    }
+
+    fn parse_content_length(header: str) -> i64 {
+        let prefix = "Content-Length: ";
+        if len(header) >= len(prefix) && substring(header, 0, len(prefix)) == prefix {
+            let num_part = substring(header, len(prefix), len(header));
+            return string_to_int(num_part);
+        }
+        return 0;
+    }
+
+    // --- LSP Message Builders ---
+
+    fn build_initialize_result(req_id: i64) -> str {
+        let nl = from_char_code(10);
+        let mut json = "{" + nl;
+        json = json + "  \"jsonrpc\": \"2.0\"," + nl;
+        json = json + "  \"id\": " + int_to_string(req_id) + "," + nl;
+        json = json + "  \"result\": {" + nl;
+        json = json + "    \"capabilities\": {" + nl;
+        json = json + "      \"textDocumentSync\": 1," + nl;
+        json = json + "      \"hoverProvider\": true," + nl;
+        json = json + "      \"definitionProvider\": true" + nl;
+        json = json + "    }," + nl;
+        json = json + "    \"serverInfo\": { \"name\": \"bunker-lsp\", \"version\": \"1.0.0\" }" + nl;
+        json = json + "  }" + nl;
+        json = json + "}";
+        return json;
+    }
+
+    fn build_publish_diagnostics(uri: str, diag: LspDiagnostic) -> str {
+        let nl = from_char_code(10);
+        let mut json = "{" + nl;
+        json = json + "  \"jsonrpc\": \"2.0\"," + nl;
+        json = json + "  \"method\": \"textDocument/publishDiagnostics\"," + nl;
+        json = json + "  \"params\": {" + nl;
+        json = json + "    \"uri\": \"" + uri + "\"," + nl;
+        json = json + "    \"diagnostics\": [{" + nl;
+        json = json + "      \"severity\": " + int_to_string(diag.severity) + "," + nl;
+        json = json + "      \"code\": \"" + diag.code + "\"," + nl;
+        json = json + "      \"message\": \"" + diag.message + "\"" + nl;
+        json = json + "    }]" + nl;
+        json = json + "  }" + nl;
+        json = json + "}";
+        return json;
+    }
+
+    fn format_hover_markdown(hover: LspHoverResponse) -> str {
+        let nl = from_char_code(10);
+        return "```bunker" + nl + hover.signature + nl + "```" + nl + nl + hover.doc;
+    }
+
+    // --- String Helpers ---
+
+    fn string_contains(haystack: str, needle: str) -> bool {
+        let needle_len = len(needle);
+        let haystack_len = len(haystack);
+        if needle_len == 0 {
+            return true;
+        }
+        if needle_len > haystack_len {
+            return false;
+        }
+        let limit = haystack_len - needle_len + 1;
+        let mut i: i64 = 0;
+        while i < limit {
+            if substring(haystack, i, i + needle_len) == needle {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn string_to_int(s: str) -> i64 {
+        let mut res: i64 = 0;
+        let n = len(s);
+        let mut i: i64 = 0;
+        while i < n {
+            let code = char_code_at(s, i);
+            if code >= 48 && code <= 57 {
+                res = res * 10 + (code - 48);
+            }
+            i = i + 1;
+        }
+        return res;
+    }
+
+    fn int_to_string(v: i64) -> str {
+        if v == 0 {
+            return "0";
+        }
+        let mut is_neg: bool = false;
+        let mut n: i64 = v;
+        if n < 0 {
+            is_neg = true;
+            n = 0 - n;
+        }
+        let mut digits: str = "";
+        while n > 0 {
+            let d: i64 = n % 10;
+            digits = from_char_code(48 + d) + digits;
+            n = n / 10;
+        }
+        if is_neg {
+            return "-" + digits;
+        }
+        return digits;
+    }
+
+    // --- Verification Suites ---
+
+    fn test_jsonrpc_framing() -> bool {
+        let payload = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"test\"}";
+        let frame = make_jsonrpc_frame(payload);
+
+        if !string_contains(frame, "Content-Length: " + int_to_string(len(payload))) {
+            return false;
+        }
+        if !string_contains(frame, payload) {
+            return false;
+        }
+
+        let header_line = "Content-Length: 42";
+        let parsed_len = parse_content_length(header_line);
+        if parsed_len != 42 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_initialize_handshake() -> bool {
+        let resp = build_initialize_result(1);
+        if !string_contains(resp, "\"jsonrpc\": \"2.0\"") {
+            return false;
+        }
+        if !string_contains(resp, "\"id\": 1") {
+            return false;
+        }
+        if !string_contains(resp, "\"hoverProvider\": true") {
+            return false;
+        }
+        if !string_contains(resp, "\"serverInfo\": { \"name\": \"bunker-lsp\"") {
+            return false;
+        }
+        return true;
+    }
+
+    fn test_publish_diagnostics() -> bool {
+        let p_start = LspPosition { line: 10, character: 4 };
+        let p_end = LspPosition { line: 10, character: 12 };
+        let rng = LspRange { start: p_start, end: p_end };
+        let diag = LspDiagnostic {
+            range: rng,
+            severity: 1, // Error
+            code: "E0201",
+            message: "Type mismatch: expected i32 found str"
+        };
+
+        let notif = build_publish_diagnostics("file:///src/main.bkr", diag);
+        if !string_contains(notif, "\"method\": \"textDocument/publishDiagnostics\"") {
+            return false;
+        }
+        if !string_contains(notif, "\"severity\": 1") {
+            return false;
+        }
+        if !string_contains(notif, "\"code\": \"E0201\"") {
+            return false;
+        }
+        return true;
+    }
+
+    fn test_hover_response() -> bool {
+        let hover = LspHoverResponse {
+            signature: "fn compute_hash(data: str) -> i64",
+            doc: "Computes a 64-bit deterministic hash."
+        };
+
+        let md = format_hover_markdown(hover);
+        if !string_contains(md, "```bunker") {
+            return false;
+        }
+        if !string_contains(md, "fn compute_hash(data: str) -> i64") {
+            return false;
+        }
+        if !string_contains(md, "Computes a 64-bit deterministic hash.") {
+            return false;
+        }
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_jsonrpc_framing() {
+            return 1;
+        }
+
+        if !test_initialize_handshake() {
+            return 2;
+        }
+
+        if !test_publish_diagnostics() {
+            return 3;
+        }
+
+        if !test_hover_response() {
+            return 4;
+        }
+
+        // Return 42 on verified pass
+        return 42;
+    }
+}

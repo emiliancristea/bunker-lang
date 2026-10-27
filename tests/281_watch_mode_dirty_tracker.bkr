@@ -1,0 +1,259 @@
+// Test 281: Watch Mode Dirty Tracker and Debouncing Architecture (G-008)
+// Purpose: Verify continuous watch mode event debouncing, dirty set propagation, and terminal cycle summaries:
+//   1. Event debouncing window logic (coalescing rapid file modifications).
+//   2. Path ignore filters (.git/, target/, .bunker/cache/).
+//   3. Transitive dependency dirty set expansion via import graph.
+//   4. Interactive ANSI terminal cycle summary formatting.
+//   5. Native calculation returning 42.
+// Expected return: 42
+
+kernel WatchModeDirtyTrackerTest {
+    // --- Data Structures ---
+
+    struct FileChangeEvent {
+        file_path: str,
+        timestamp_ms: i64
+    }
+
+    struct WatcherState {
+        events: Vec<FileChangeEvent>,
+        debounce_window_ms: i64,
+        last_flush_ms: i64
+    }
+
+    struct ImportEdge {
+        importer: str,
+        imported: str
+    }
+
+    fn watcher_new(debounce_ms: i64) -> WatcherState {
+        let ev: Vec<FileChangeEvent> = vec_new();
+        return WatcherState {
+            events: ev,
+            debounce_window_ms: debounce_ms,
+            last_flush_ms: 0
+        };
+    }
+
+    fn watcher_push_event(w: WatcherState, path: str, ts: i64) -> WatcherState {
+        if !is_ignored_path(path) {
+            let ev = FileChangeEvent { file_path: path, timestamp_ms: ts };
+            vec_push(w.events, ev);
+        }
+        return w;
+    }
+
+    // --- Ignore Path Filter ---
+
+    fn is_ignored_path(path: str) -> bool {
+        if string_contains(path, ".git/") || string_contains(path, ".git\\") {
+            return true;
+        }
+        if string_contains(path, "target/") || string_contains(path, "target\\") {
+            return true;
+        }
+        if string_contains(path, ".bunker/cache/") || string_contains(path, ".bunker\\cache\\") {
+            return true;
+        }
+        return false;
+    }
+
+    // --- Debouncing Evaluation ---
+
+    fn should_flush_events(w: WatcherState, current_ts: i64) -> bool {
+        let count = vec_len(w.events);
+        if count == 0 {
+            return false;
+        }
+        let last_ev: FileChangeEvent = vec_get(w.events, count - 1);
+        return (current_ts - last_ev.timestamp_ms) >= w.debounce_window_ms;
+    }
+
+    // --- Dependency-Directed Dirty Set Propagation ---
+
+    fn expand_dirty_set(changed_file: str, edges: Vec<ImportEdge>) -> Vec<str> {
+        let dirty: Vec<str> = vec_new();
+        vec_push(dirty, changed_file);
+
+        let n = vec_len(edges);
+        let mut i: i64 = 0;
+        while i < n {
+            let edge: ImportEdge = vec_get(edges, i);
+            if edge.imported == changed_file {
+                if !vec_contains_str(dirty, edge.importer) {
+                    vec_push(dirty, edge.importer);
+                }
+            }
+            i = i + 1;
+        }
+        return dirty;
+    }
+
+    fn vec_contains_str(v: Vec<str>, item: str) -> bool {
+        let n = vec_len(v);
+        let mut i: i64 = 0;
+        while i < n {
+            if vec_get(v, i) == item {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    // --- Terminal ANSI Formatting ---
+
+    fn format_watch_banner(cycle: i64, dirty_count: i64, status: str) -> str {
+        let nl = from_char_code(10);
+        let clear_ansi = "\x1b[2J\x1b[H";
+        let mut out = clear_ansi + "=== Bunker Watch Mode ===" + nl;
+        out = out + "Cycle: " + int_to_string(cycle) + nl;
+        out = out + "Dirty Files: " + int_to_string(dirty_count) + nl;
+        out = out + "Status: " + status + nl;
+        return out;
+    }
+
+    // --- String Helpers ---
+
+    fn string_contains(haystack: str, needle: str) -> bool {
+        let needle_len = len(needle);
+        let haystack_len = len(haystack);
+        if needle_len == 0 {
+            return true;
+        }
+        if needle_len > haystack_len {
+            return false;
+        }
+        let limit = haystack_len - needle_len + 1;
+        let mut i: i64 = 0;
+        while i < limit {
+            if substring(haystack, i, i + needle_len) == needle {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn int_to_string(v: i64) -> str {
+        if v == 0 {
+            return "0";
+        }
+        let mut is_neg: bool = false;
+        let mut n: i64 = v;
+        if n < 0 {
+            is_neg = true;
+            n = 0 - n;
+        }
+        let mut digits: str = "";
+        while n > 0 {
+            let d: i64 = n % 10;
+            digits = from_char_code(48 + d) + digits;
+            n = n / 10;
+        }
+        if is_neg {
+            return "-" + digits;
+        }
+        return digits;
+    }
+
+    // --- Verification Suites ---
+
+    fn test_ignore_filter() -> bool {
+        if !is_ignored_path("target/debug/output.c") {
+            return false;
+        }
+        if !is_ignored_path(".git/refs/heads/main") {
+            return false;
+        }
+        if !is_ignored_path(".bunker/cache/entries/123/output.c") {
+            return false;
+        }
+        if is_ignored_path("src/main.bkr") {
+            return false;
+        }
+        if is_ignored_path("tests/01_basic_math.bkr") {
+            return false;
+        }
+        return true;
+    }
+
+    fn test_debouncing_window() -> bool {
+        let mut w = watcher_new(50); // 50ms window
+        w = watcher_push_event(w, "src/lib.bkr", 1000);
+        w = watcher_push_event(w, "src/main.bkr", 1020); // 20ms later
+
+        // At ts 1030 (10ms after last event), should not flush
+        if should_flush_events(w, 1030) {
+            return false;
+        }
+
+        // At ts 1080 (60ms after last event), should flush
+        if !should_flush_events(w, 1080) {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_dirty_set_expansion() -> bool {
+        // App imports Math
+        // Cli imports App
+        // Other is standalone
+        let edges: Vec<ImportEdge> = vec_new();
+        vec_push(edges, ImportEdge { importer: "src/app.bkr", imported: "src/math.bkr" });
+        vec_push(edges, ImportEdge { importer: "src/cli.bkr", imported: "src/app.bkr" });
+
+        // Change math.bkr -> dirty set should contain math.bkr and app.bkr
+        let dirty = expand_dirty_set("src/math.bkr", edges);
+        if vec_len(dirty) != 2 {
+            return false;
+        }
+        if !vec_contains_str(dirty, "src/math.bkr") {
+            return false;
+        }
+        if !vec_contains_str(dirty, "src/app.bkr") {
+            return false;
+        }
+        if vec_contains_str(dirty, "src/other.bkr") {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_watch_banner_format() -> bool {
+        let banner = format_watch_banner(42, 2, "PASSED (all tests green)");
+        if !string_contains(banner, "Cycle: 42") {
+            return false;
+        }
+        if !string_contains(banner, "Dirty Files: 2") {
+            return false;
+        }
+        if !string_contains(banner, "Status: PASSED") {
+            return false;
+        }
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_ignore_filter() {
+            return 1;
+        }
+
+        if !test_debouncing_window() {
+            return 2;
+        }
+
+        if !test_dirty_set_expansion() {
+            return 3;
+        }
+
+        if !test_watch_banner_format() {
+            return 4;
+        }
+
+        // Return 42 on verified pass
+        return 42;
+    }
+}

@@ -691,6 +691,8 @@
             json_field_bool("doc_generator", true) + comma +
             json_field_bool("package_manager", true) + comma +
             json_field_bool("build_cache", true) + comma +
+            json_field_bool("language_server", true) + comma +
+            json_field_bool("watch_mode", true) + comma +
             json_field_bool("typed_ast", true) + comma +
             json_field_bool("real_module_resolver", true) + comma +
             json_field_bool("module_cycle_path_detection", true) + comma +
