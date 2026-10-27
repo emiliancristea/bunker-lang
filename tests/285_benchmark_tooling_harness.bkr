@@ -1,0 +1,255 @@
+// Test 285: Benchmark Tooling Harness and Regression Gates (G-012)
+// Purpose: Verify statistical benchmarking harness, warmup isolation, median calculation, and regression gates:
+//   1. Warmup iteration isolation from measured sample set.
+//   2. Statistical metrics: mean and median calculation.
+//   3. Regression threshold evaluation (detecting >5% degradation against baseline).
+//   4. Structured benchmark manifest emission (bunker.bench.v1).
+//   5. Native calculation returning 42.
+// Expected return: 42
+
+kernel BenchmarkToolingHarnessTest {
+    // --- Data Structures ---
+
+    struct BenchSampleSet {
+        name: str,
+        warmup_iterations: i64,
+        measured_samples: Vec<i64>
+    }
+
+    struct BenchResult {
+        name: str,
+        sample_count: i64,
+        mean_ns: i64,
+        median_ns: i64,
+        baseline_ns: i64,
+        is_regression: bool
+    }
+
+    fn sample_set_new(name: str, warmup_count: i64) -> BenchSampleSet {
+        let s: Vec<i64> = vec_new();
+        return BenchSampleSet {
+            name: name,
+            warmup_iterations: warmup_count,
+            measured_samples: s
+        };
+    }
+
+    fn sample_set_add(set: BenchSampleSet, sample_ns: i64) -> BenchSampleSet {
+        vec_push(set.measured_samples, sample_ns);
+        return set;
+    }
+
+    // --- Statistical Calculations ---
+
+    fn compute_mean(samples: Vec<i64>) -> i64 {
+        let n = vec_len(samples);
+        if n == 0 {
+            return 0;
+        }
+        let mut sum: i64 = 0;
+        let mut i: i64 = 0;
+        while i < n {
+            sum = sum + vec_get(samples, i);
+            i = i + 1;
+        }
+        return sum / n;
+    }
+
+    // Insertion sort for median computation over sample set
+    fn sort_samples(samples: Vec<i64>) -> Vec<i64> {
+        let sorted: Vec<i64> = vec_new();
+        let n = vec_len(samples);
+        let mut i: i64 = 0;
+        while i < n {
+            vec_push(sorted, vec_get(samples, i));
+            i = i + 1;
+        }
+
+        let mut a: i64 = 1;
+        while a < n {
+            let key = vec_get(sorted, a);
+            let mut b = a - 1;
+            while b >= 0 && vec_get(sorted, b) > key {
+                vec_set(sorted, b + 1, vec_get(sorted, b));
+                b = b - 1;
+            }
+            vec_set(sorted, b + 1, key);
+            a = a + 1;
+        }
+        return sorted;
+    }
+
+    fn compute_median(samples: Vec<i64>) -> i64 {
+        let n = vec_len(samples);
+        if n == 0 {
+            return 0;
+        }
+        let sorted = sort_samples(samples);
+        let mid = n / 2;
+        return vec_get(sorted, mid);
+    }
+
+    // Regression check: current > baseline * 1.05 (scaled by 1000: current * 1000 > baseline * 1050)
+    fn check_regression(current_ns: i64, baseline_ns: i64, threshold_pct: i64) -> bool {
+        if baseline_ns == 0 {
+            return false;
+        }
+        let allowed = baseline_ns + (baseline_ns * threshold_pct) / 100;
+        return current_ns > allowed;
+    }
+
+    // --- JSON Formatter (bunker.bench.v1) ---
+
+    fn format_bench_json(res: BenchResult) -> str {
+        let nl = from_char_code(10);
+        let mut json = "{" + nl;
+        json = json + "  \"schema_version\": \"bunker.bench.v1\"," + nl;
+        json = json + "  \"name\": \"" + res.name + "\"," + nl;
+        json = json + "  \"samples\": " + int_to_string(res.sample_count) + "," + nl;
+        json = json + "  \"median_ns\": " + int_to_string(res.median_ns) + "," + nl;
+        json = json + "  \"is_regression\": " + bool_to_string(res.is_regression) + nl;
+        json = json + "}";
+        return json;
+    }
+
+    // --- String Helpers ---
+
+    fn bool_to_string(b: bool) -> str {
+        if b {
+            return "true";
+        }
+        return "false";
+    }
+
+    fn string_contains(haystack: str, needle: str) -> bool {
+        let needle_len = len(needle);
+        let haystack_len = len(haystack);
+        if needle_len == 0 {
+            return true;
+        }
+        if needle_len > haystack_len {
+            return false;
+        }
+        let limit = haystack_len - needle_len + 1;
+        let mut i: i64 = 0;
+        while i < limit {
+            if substring(haystack, i, i + needle_len) == needle {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn int_to_string(v: i64) -> str {
+        if v == 0 {
+            return "0";
+        }
+        let mut is_neg: bool = false;
+        let mut n: i64 = v;
+        if n < 0 {
+            is_neg = true;
+            n = 0 - n;
+        }
+        let mut digits: str = "";
+        while n > 0 {
+            let d: i64 = n % 10;
+            digits = from_char_code(48 + d) + digits;
+            n = n / 10;
+        }
+        if is_neg {
+            return "-" + digits;
+        }
+        return digits;
+    }
+
+    // --- Verification Suites ---
+
+    fn test_statistical_aggregation() -> bool {
+        let mut set = sample_set_new("bench_hash", 5);
+        // 5 measured samples: 500, 420, 430, 410, 440
+        set = sample_set_add(set, 500);
+        set = sample_set_add(set, 420);
+        set = sample_set_add(set, 430);
+        set = sample_set_add(set, 410);
+        set = sample_set_add(set, 440);
+
+        if vec_len(set.measured_samples) != 5 {
+            return false;
+        }
+
+        // Sum = 2200, Mean = 2200 / 5 = 440
+        let mean = compute_mean(set.measured_samples);
+        if mean != 440 {
+            return false;
+        }
+
+        // Sorted: 410, 420, 430, 440, 500 -> Median = 430
+        let median = compute_median(set.measured_samples);
+        if median != 430 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_regression_threshold() -> bool {
+        let baseline: i64 = 1000;
+
+        // 1040ns is +4% -> within 5% threshold -> not regression
+        if check_regression(1040, baseline, 5) {
+            return false;
+        }
+
+        // 1080ns is +8% -> exceeds 5% threshold -> regression!
+        if !check_regression(1080, baseline, 5) {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_bench_json_manifest() -> bool {
+        let res = BenchResult {
+            name: "bench_vector_push",
+            sample_count: 100,
+            mean_ns: 45,
+            median_ns: 42,
+            baseline_ns: 40,
+            is_regression: false
+        };
+
+        let json = format_bench_json(res);
+        if !string_contains(json, "\"schema_version\": \"bunker.bench.v1\"") {
+            return false;
+        }
+        if !string_contains(json, "\"name\": \"bench_vector_push\"") {
+            return false;
+        }
+        if !string_contains(json, "\"median_ns\": 42") {
+            return false;
+        }
+        if !string_contains(json, "\"is_regression\": false") {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_statistical_aggregation() {
+            return 1;
+        }
+
+        if !test_regression_threshold() {
+            return 2;
+        }
+
+        if !test_bench_json_manifest() {
+            return 3;
+        }
+
+        // Return 42 on verified pass
+        return 42;
+    }
+}

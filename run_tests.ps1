@@ -201,6 +201,8 @@ $expectedResults = @{
     "281_watch_mode_dirty_tracker" = 42
     "282_debugger_hooks_unwinding" = 42
     "283_runtime_profiler_metrics" = 42
+    "284_code_coverage_tooling" = 42
+    "285_benchmark_tooling_harness" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -458,7 +460,9 @@ if (-not $JitOnly) {
         "tests\280_language_server_protocol.bkr",
         "tests\281_watch_mode_dirty_tracker.bkr",
         "tests\282_debugger_hooks_unwinding.bkr",
-        "tests\283_runtime_profiler_metrics.bkr"
+        "tests\283_runtime_profiler_metrics.bkr",
+        "tests\284_code_coverage_tooling.bkr",
+        "tests\285_benchmark_tooling_harness.bkr"
     )
 
     $subsetOk = $true
