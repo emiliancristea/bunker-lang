@@ -699,6 +699,8 @@
             json_field_bool("benchmark_tooling", true) + comma +
             json_field_bool("fuzzing_harness", true) + comma +
             json_field_bool("differential_testing", true) + comma +
+            json_field_bool("property_testing", true) + comma +
+            json_field_bool("stress_testing", true) + comma +
             json_field_bool("typed_ast", true) + comma +
             json_field_bool("real_module_resolver", true) + comma +
             json_field_bool("module_cycle_path_detection", true) + comma +
