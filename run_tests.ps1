@@ -216,6 +216,7 @@ $expectedResults = @{
     "296_contribution_rfc_lifecycle" = 42
     "297_spec_sync_cross_referencer" = 42
     "298_roadmap_ci_gates_verifier" = 42
+    "299_borrow_resource_checker" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -488,7 +489,8 @@ if (-not $JitOnly) {
         "tests\295_language_migration_conventions.bkr",
         "tests\296_contribution_rfc_lifecycle.bkr",
         "tests\297_spec_sync_cross_referencer.bkr",
-        "tests\298_roadmap_ci_gates_verifier.bkr"
+        "tests\298_roadmap_ci_gates_verifier.bkr",
+        "tests\299_borrow_resource_checker.bkr"
     )
 
     $subsetOk = $true
