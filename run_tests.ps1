@@ -195,6 +195,8 @@ $expectedResults = @{
     "275_static_linter_safety_rules" = 42
     "276_native_test_runner_harness" = 42
     "277_doc_comment_generator" = 42
+    "278_package_manager_manifest" = 42
+    "279_build_cache_fingerprint" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -446,7 +448,9 @@ if (-not $JitOnly) {
         "tests\274_code_formatter_deterministic.bkr",
         "tests\275_static_linter_safety_rules.bkr",
         "tests\276_native_test_runner_harness.bkr",
-        "tests\277_doc_comment_generator.bkr"
+        "tests\277_doc_comment_generator.bkr",
+        "tests\278_package_manager_manifest.bkr",
+        "tests\279_build_cache_fingerprint.bkr"
     )
 
     $subsetOk = $true

@@ -1,0 +1,220 @@
+// Test 279: Build Cache Fingerprinting and Invalidation Architecture (G-007)
+// Purpose: Verify content-addressed build cache fingerprinting, hit/miss resolution, and invalidation:
+//   1. Deterministic content hashing over source content, flags, and targets.
+//   2. Cache key generation: Fingerprint = Hash(source + flags + target + compiler).
+//   3. Invalidation invariant: any mutation to source or flags alters the cache key (MISS).
+//   4. Cache artifact path hierarchy: .bunker/cache/entries/<hash>/
+//   5. Structured cache manifest emission (bunker.cache.v1).
+//   6. Native calculation returning 42.
+// Expected return: 42
+
+kernel BuildCacheFingerprintTest {
+    // --- Hash Logic (FNV-1a 64-bit variant) ---
+
+    fn hash_fnv1a(data: str) -> i64 {
+        // Offset basis: 14695981039346656037 (positive representation for non-overflow: use 2166136261)
+        let mut h: i64 = 2166136261;
+        let prime: i64 = 16777619;
+        let n: i64 = len(data);
+        let mut i: i64 = 0;
+        while i < n {
+            let b: i64 = char_code_at(data, i);
+            h = (h ^ b) * prime;
+            // Bound to positive 48-bit integer space
+            h = h % 1000000007;
+            i = i + 1;
+        }
+        return h;
+    }
+
+    // --- Build Cache Key Generation ---
+
+    struct BuildInputs {
+        source_content: str,
+        compiler_version: str,
+        optimization_flags: str,
+        target_triple: str
+    }
+
+    fn make_build_inputs(src: str, ver: str, flags: str, target: str) -> BuildInputs {
+        return BuildInputs {
+            source_content: src,
+            compiler_version: ver,
+            optimization_flags: flags,
+            target_triple: target
+        };
+    }
+
+    fn compute_cache_key(inputs: BuildInputs) -> str {
+        let combined = inputs.source_content + "|" +
+                       inputs.compiler_version + "|" +
+                       inputs.optimization_flags + "|" +
+                       inputs.target_triple;
+        let hash_val = hash_fnv1a(combined);
+        return "bkr_cache_" + int_to_string(hash_val);
+    }
+
+    fn derive_cache_entry_path(cache_key: str) -> str {
+        return ".bunker/cache/entries/" + cache_key + "/output.c";
+    }
+
+    // --- Cache Lookup Simulation ---
+
+    struct CacheEntry {
+        key: str,
+        artifact_size: i64,
+        time_saved_ms: i64
+    }
+
+    fn simulate_cache_lookup(current_key: str, cached_entry: CacheEntry) -> bool {
+        return current_key == cached_entry.key;
+    }
+
+    // --- Cache Manifest Formatter (bunker.cache.v1) ---
+
+    fn format_cache_manifest(key: str, is_hit: bool, size: i64, saved_ms: i64) -> str {
+        let nl = from_char_code(10);
+        let mut status = "MISS";
+        if is_hit {
+            status = "HIT";
+        }
+        let mut json = "{" + nl;
+        json = json + "  \"schema_version\": \"bunker.cache.v1\"," + nl;
+        json = json + "  \"fingerprint\": \"" + key + "\"," + nl;
+        json = json + "  \"status\": \"" + status + "\"," + nl;
+        json = json + "  \"compilation_time_saved_ms\": " + int_to_string(saved_ms) + "," + nl;
+        json = json + "  \"artifact_size_bytes\": " + int_to_string(size) + nl;
+        json = json + "}";
+        return json;
+    }
+
+    // --- String Helpers ---
+
+    fn string_contains(haystack: str, needle: str) -> bool {
+        let needle_len = len(needle);
+        let haystack_len = len(haystack);
+        if needle_len == 0 {
+            return true;
+        }
+        if needle_len > haystack_len {
+            return false;
+        }
+        let limit = haystack_len - needle_len + 1;
+        let mut i: i64 = 0;
+        while i < limit {
+            if substring(haystack, i, i + needle_len) == needle {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn int_to_string(v: i64) -> str {
+        if v == 0 {
+            return "0";
+        }
+        let mut is_neg: bool = false;
+        let mut n: i64 = v;
+        if n < 0 {
+            is_neg = true;
+            n = 0 - n;
+        }
+        let mut digits: str = "";
+        while n > 0 {
+            let d: i64 = n % 10;
+            digits = from_char_code(48 + d) + digits;
+            n = n / 10;
+        }
+        if is_neg {
+            return "-" + digits;
+        }
+        return digits;
+    }
+
+    // --- Verification Suites ---
+
+    fn test_fingerprint_determinism() -> bool {
+        let inp1 = make_build_inputs("fn main() -> i32 { return 42; }", "1.0.0", "-O2", "x86_64-pc-windows-msvc");
+        let inp2 = make_build_inputs("fn main() -> i32 { return 42; }", "1.0.0", "-O2", "x86_64-pc-windows-msvc");
+
+        let k1 = compute_cache_key(inp1);
+        let k2 = compute_cache_key(inp2);
+
+        // Deterministic: identical inputs produce identical cache key
+        return k1 == k2;
+    }
+
+    fn test_invalidation_on_source_change() -> bool {
+        let inp1 = make_build_inputs("fn main() -> i32 { return 42; }", "1.0.0", "-O2", "x86_64-pc-windows-msvc");
+        let inp2 = make_build_inputs("fn main() -> i32 { return 43; }", "1.0.0", "-O2", "x86_64-pc-windows-msvc");
+
+        let k1 = compute_cache_key(inp1);
+        let k2 = compute_cache_key(inp2);
+
+        // Different source must produce different cache key
+        return k1 != k2;
+    }
+
+    fn test_invalidation_on_flag_change() -> bool {
+        let inp1 = make_build_inputs("fn main() -> i32 { return 42; }", "1.0.0", "-O2", "x86_64-pc-windows-msvc");
+        let inp2 = make_build_inputs("fn main() -> i32 { return 42; }", "1.0.0", "-O3", "x86_64-pc-windows-msvc");
+
+        let k1 = compute_cache_key(inp1);
+        let k2 = compute_cache_key(inp2);
+
+        // Different optimization flag must produce different cache key
+        return k1 != k2;
+    }
+
+    fn test_cache_lookup_and_manifest() -> bool {
+        let inp = make_build_inputs("kernel App {}", "1.0.0", "-O2", "x86_64-linux-gnu");
+        let k = compute_cache_key(inp);
+
+        let entry = CacheEntry { key: k, artifact_size: 4096, time_saved_ms: 150 };
+
+        let hit = simulate_cache_lookup(k, entry);
+        if !hit {
+            return false;
+        }
+
+        let path = derive_cache_entry_path(k);
+        if !string_contains(path, ".bunker/cache/entries/") || !string_contains(path, "/output.c") {
+            return false;
+        }
+
+        let manifest = format_cache_manifest(k, hit, 4096, 150);
+        if !string_contains(manifest, "\"schema_version\": \"bunker.cache.v1\"") {
+            return false;
+        }
+        if !string_contains(manifest, "\"status\": \"HIT\"") {
+            return false;
+        }
+        if !string_contains(manifest, "\"compilation_time_saved_ms\": 150") {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_fingerprint_determinism() {
+            return 1;
+        }
+
+        if !test_invalidation_on_source_change() {
+            return 2;
+        }
+
+        if !test_invalidation_on_flag_change() {
+            return 3;
+        }
+
+        if !test_cache_lookup_and_manifest() {
+            return 4;
+        }
+
+        // Return 42 on verified pass
+        return 42;
+    }
+}
