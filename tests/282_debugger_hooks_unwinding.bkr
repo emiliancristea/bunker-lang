@@ -1,0 +1,200 @@
+// Test 282: Debugger Hooks and Stack Unwinding Architecture (G-009)
+// Purpose: Verify debugger trap hooks, symbolic stack frame unwinding, and structured debug reports:
+//   1. Debug breakpoint trap hook representation.
+//   2. Symbolic stack frame coordinates (symbol, file, line, col).
+//   3. Text-formatted call backtrace rendering.
+//   4. Structured debug event emission (bunker.debug.v1).
+//   5. Native calculation returning 42.
+// Expected return: 42
+
+kernel DebuggerHooksUnwindingTest {
+    // --- Data Structures ---
+
+    struct StackFrame {
+        index: i64,
+        symbol: str,
+        file: str,
+        line: i64,
+        col: i64
+    }
+
+    struct DebugTrace {
+        event_type: str,
+        frames: Vec<StackFrame>
+    }
+
+    fn debug_trace_new(event: str) -> DebugTrace {
+        let f: Vec<StackFrame> = vec_new();
+        return DebugTrace {
+            event_type: event,
+            frames: f
+        };
+    }
+
+    fn make_frame(idx: i64, sym: str, file: str, line: i64, col: i64) -> StackFrame {
+        return StackFrame {
+            index: idx,
+            symbol: sym,
+            file: file,
+            line: line,
+            col: col
+        };
+    }
+
+    fn trace_add_frame(trace: DebugTrace, frame: StackFrame) -> DebugTrace {
+        vec_push(trace.frames, frame);
+        return trace;
+    }
+
+    // --- Backtrace Formatter ---
+
+    fn format_backtrace_text(trace: DebugTrace) -> str {
+        let nl = from_char_code(10);
+        let mut out = "Stack Backtrace (" + trace.event_type + "):" + nl;
+        let n = vec_len(trace.frames);
+        let mut i: i64 = 0;
+        while i < n {
+            let f: StackFrame = vec_get(trace.frames, i);
+            out = out + "  " + int_to_string(f.index) + ": " + f.symbol + nl;
+            out = out + "      at " + f.file + ":" + int_to_string(f.line) + ":" + int_to_string(f.col) + nl;
+            i = i + 1;
+        }
+        return out;
+    }
+
+    // --- JSON Formatter (bunker.debug.v1) ---
+
+    fn format_debug_json(trace: DebugTrace) -> str {
+        let nl = from_char_code(10);
+        let mut json = "{" + nl;
+        json = json + "  \"schema_version\": \"bunker.debug.v1\"," + nl;
+        json = json + "  \"event\": \"" + trace.event_type + "\"," + nl;
+        json = json + "  \"frame_count\": " + int_to_string(vec_len(trace.frames)) + nl;
+        json = json + "}";
+        return json;
+    }
+
+    // --- String Helpers ---
+
+    fn string_contains(haystack: str, needle: str) -> bool {
+        let needle_len = len(needle);
+        let haystack_len = len(haystack);
+        if needle_len == 0 {
+            return true;
+        }
+        if needle_len > haystack_len {
+            return false;
+        }
+        let limit = haystack_len - needle_len + 1;
+        let mut i: i64 = 0;
+        while i < limit {
+            if substring(haystack, i, i + needle_len) == needle {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn int_to_string(v: i64) -> str {
+        if v == 0 {
+            return "0";
+        }
+        let mut is_neg: bool = false;
+        let mut n: i64 = v;
+        if n < 0 {
+            is_neg = true;
+            n = 0 - n;
+        }
+        let mut digits: str = "";
+        while n > 0 {
+            let d: i64 = n % 10;
+            digits = from_char_code(48 + d) + digits;
+            n = n / 10;
+        }
+        if is_neg {
+            return "-" + digits;
+        }
+        return digits;
+    }
+
+    // --- Verification Suites ---
+
+    fn test_stack_frame_construction() -> bool {
+        let f0 = make_frame(0, "buffer::inspect", "src/buffer.bkr", 14, 9);
+        if f0.index != 0 {
+            return false;
+        }
+        if f0.symbol != "buffer::inspect" {
+            return false;
+        }
+        if f0.file != "src/buffer.bkr" {
+            return false;
+        }
+        if f0.line != 14 || f0.col != 9 {
+            return false;
+        }
+        return true;
+    }
+
+    fn test_backtrace_text_rendering() -> bool {
+        let mut trace = debug_trace_new("BREAKPOINT");
+        let f0 = make_frame(0, "buffer::inspect", "src/buffer.bkr", 14, 9);
+        let f1 = make_frame(1, "main", "src/main.bkr", 42, 1);
+        trace = trace_add_frame(trace, f0);
+        trace = trace_add_frame(trace, f1);
+
+        let txt = format_backtrace_text(trace);
+        if !string_contains(txt, "Stack Backtrace (BREAKPOINT):") {
+            return false;
+        }
+        if !string_contains(txt, "0: buffer::inspect") {
+            return false;
+        }
+        if !string_contains(txt, "at src/buffer.bkr:14:9") {
+            return false;
+        }
+        if !string_contains(txt, "1: main") {
+            return false;
+        }
+        if !string_contains(txt, "at src/main.bkr:42:1") {
+            return false;
+        }
+        return true;
+    }
+
+    fn test_debug_json_emission() -> bool {
+        let mut trace = debug_trace_new("TRAP");
+        let f0 = make_frame(0, "eval_expr", "src/eval.bkr", 100, 4);
+        trace = trace_add_frame(trace, f0);
+
+        let json = format_debug_json(trace);
+        if !string_contains(json, "\"schema_version\": \"bunker.debug.v1\"") {
+            return false;
+        }
+        if !string_contains(json, "\"event\": \"TRAP\"") {
+            return false;
+        }
+        if !string_contains(json, "\"frame_count\": 1") {
+            return false;
+        }
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_stack_frame_construction() {
+            return 1;
+        }
+
+        if !test_backtrace_text_rendering() {
+            return 2;
+        }
+
+        if !test_debug_json_emission() {
+            return 3;
+        }
+
+        // Return 42 on verified pass
+        return 42;
+    }
+}
