@@ -193,6 +193,8 @@ $expectedResults = @{
     "273_closure_captures_environment" = 42
     "274_code_formatter_deterministic" = 42
     "275_static_linter_safety_rules" = 42
+    "276_native_test_runner_harness" = 42
+    "277_doc_comment_generator" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -442,7 +444,9 @@ if (-not $JitOnly) {
         "tests\272_lambda_expressions_syntax.bkr",
         "tests\273_closure_captures_environment.bkr",
         "tests\274_code_formatter_deterministic.bkr",
-        "tests\275_static_linter_safety_rules.bkr"
+        "tests\275_static_linter_safety_rules.bkr",
+        "tests\276_native_test_runner_harness.bkr",
+        "tests\277_doc_comment_generator.bkr"
     )
 
     $subsetOk = $true
