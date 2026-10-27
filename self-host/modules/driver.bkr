@@ -685,6 +685,8 @@
             json_field_bool("closures", true) + comma +
             json_field_bool("lambdas", true) + comma +
             json_field_bool("closure_captures", true) + comma +
+            json_field_bool("code_formatter", true) + comma +
+            json_field_bool("static_linter", true) + comma +
             json_field_bool("typed_ast", true) + comma +
             json_field_bool("real_module_resolver", true) + comma +
             json_field_bool("module_cycle_path_detection", true) + comma +

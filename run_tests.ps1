@@ -191,6 +191,8 @@ $expectedResults = @{
     "271_debug_source_mapping_parity" = 42
     "272_lambda_expressions_syntax" = 42
     "273_closure_captures_environment" = 42
+    "274_code_formatter_deterministic" = 42
+    "275_static_linter_safety_rules" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -438,7 +440,9 @@ if (-not $JitOnly) {
         "tests\270_c_codegen_source_line_directives.bkr",
         "tests\271_debug_source_mapping_parity.bkr",
         "tests\272_lambda_expressions_syntax.bkr",
-        "tests\273_closure_captures_environment.bkr"
+        "tests\273_closure_captures_environment.bkr",
+        "tests\274_code_formatter_deterministic.bkr",
+        "tests\275_static_linter_safety_rules.bkr"
     )
 
     $subsetOk = $true
