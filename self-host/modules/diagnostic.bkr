@@ -99,6 +99,7 @@
         if code == "E0211" { return "BKR_SELF_AMBIGUOUS_TYPE"; }
         if code == "E0212" { return "BKR_SELF_MATCH_PATTERN"; }
         if code == "E0213" { return "BKR_SELF_VOID_VALUE"; }
+        if code == "E0214" { return "BKR_SELF_UNREACHABLE_CODE"; }
         if code == "E0301" { return "BKR_SELF_CONTRACT"; }
         if code == "E0302" { return "BKR_SELF_CONTRACT"; }
         if code == "E0303" { return "BKR_SELF_SMT_TIMEOUT"; }
@@ -131,6 +132,7 @@
         if rule_id == "BKR_SELF_STRUCT_LITERAL" { return "E0210"; }
         if rule_id == "BKR_SELF_AMBIGUOUS_TYPE" { return "E0211"; }
         if rule_id == "BKR_SELF_VOID_VALUE" { return "E0213"; }
+        if rule_id == "BKR_SELF_UNREACHABLE_CODE" { return "E0214"; }
         if rule_id == "BKR_SELF_CONTRACT" { return "E0301"; }
         if rule_id == "BKR_SELF_SMT_TIMEOUT" { return "E0303"; }
         if rule_id == "BKR_SELF_SMT_UNAVAILABLE" { return "E0304"; }
@@ -154,7 +156,7 @@
         if code == "BKR_SELF_UNRESOLVED_SYMBOL" || code == "BKR_SELF_DUPLICATE_SYMBOL" { return "name_resolution"; }
         if starts_with(code, "E03") || code == "BKR_SELF_CONTRACT" { return "contract"; }
         if starts_with(code, "E04") || code == "BKR_SELF_USE_AFTER_MOVE" { return "linear_types"; }
-        if starts_with(code, "E05") || code == "BKR_SELF_CONTROL_FLOW" || code == "BKR_SELF_RETURN_PATH" { return "control_flow"; }
+        if starts_with(code, "E05") || code == "BKR_SELF_CONTROL_FLOW" || code == "BKR_SELF_RETURN_PATH" || code == "BKR_SELF_UNREACHABLE_CODE" || code == "E0214" { return "control_flow"; }
         if starts_with(code, "E06") || code == "BKR_SELF_VIEW_BINDING" { return "reactive_state"; }
         if starts_with(code, "E07") || starts_with(code, "BKR_SELF_IMPORT") { return "module"; }
         if starts_with(code, "E08") || starts_with(code, "BKR_SELF_GENERIC_") { return "generics"; }
@@ -167,7 +169,7 @@
         if starts_with(code, "E02") || starts_with(code, "BKR_SELF_TYPE_") || starts_with(code, "BKR_SELF_ARITY_") { return "typecheck"; }
         if starts_with(code, "E03") || code == "BKR_SELF_CONTRACT" { return "verify"; }
         if starts_with(code, "E04") || code == "BKR_SELF_USE_AFTER_MOVE" { return "ownership"; }
-        if starts_with(code, "E05") || code == "BKR_SELF_CONTROL_FLOW" || code == "BKR_SELF_RETURN_PATH" { return "typecheck"; }
+        if starts_with(code, "E05") || code == "BKR_SELF_CONTROL_FLOW" || code == "BKR_SELF_RETURN_PATH" || code == "BKR_SELF_UNREACHABLE_CODE" || code == "E0214" { return "typecheck"; }
         if starts_with(code, "E06") || code == "BKR_SELF_VIEW_BINDING" { return "view"; }
         if starts_with(code, "E07") || starts_with(code, "BKR_SELF_IMPORT") { return "import"; }
         if starts_with(code, "E08") || starts_with(code, "BKR_SELF_GENERIC_") { return "typecheck"; }
@@ -189,6 +191,7 @@
         if code == "E0211" || code == "BKR_SELF_AMBIGUOUS_TYPE" { return "None requires explicit Option<T> type annotation."; }
         if code == "E0212" || code == "BKR_SELF_MATCH_PATTERN" { return "Match arm pattern type incompatible with scrutinee."; }
         if code == "E0213" || code == "BKR_SELF_VOID_VALUE" { return "Match block expression does not produce a value."; }
+        if code == "E0214" || code == "BKR_SELF_UNREACHABLE_CODE" { return "Statement cannot execute because a previous statement terminates control flow."; }
         if code == "E0301" || code == "BKR_SELF_CONTRACT" { return "Contract precondition or postcondition violated."; }
         if code == "E0302" { return "Unsupported postcondition in verification mode."; }
         if code == "E0303" || code == "BKR_SELF_SMT_TIMEOUT" { return "SMT solver query timed out."; }

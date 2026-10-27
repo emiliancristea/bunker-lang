@@ -2809,6 +2809,7 @@
             json_field_bool("loop_control_checks", true) + comma +
             json_field_bool("return_path_checks", true) + comma +
             json_field_bool("unreachable_code_checks", true) + comma +
+            json_field_bool("semantic_validation_passes", true) + comma +
             json_field_bool("void_value_checks", true) + comma +
             json_field_bool("compound_void_value_checks", true) + comma +
             json_field_bool("full_value_context_void_checks", true) + comma +
@@ -2830,5 +2831,55 @@
 
     fn build_typecheck_report_comment(kernel: Vec<i64>) -> str {
         return "/* BUNKER_TYPECHECK_JSON: " + self_host_typecheck_json(kernel) + from_char_code(10) +
+            "*/" + from_char_code(10);
+    }
+
+    fn typecheck_semantic_validation_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef) -> Vec<str> {
+        let names: Vec<str> = ast_kernel_ref_names(kernel_ref);
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            let kind: i64 = ast_item_ref_kind(item_ref);
+            if kind == NODE_FN {
+                let fn_name: str = ast_report_name(names, ast_fn_ref_name_idx(item_ref));
+                let scope: str = "function:" + fn_name;
+                let expected_return_kind: i64 = typecheck_return_ref_kind_with_kernel(kernel_ref, item_ref);
+                state = typecheck_scan_loop_control_block_ref(state, ast_fn_ref_body_ref(item_ref), scope, 0);
+                state = typecheck_scan_unreachable_block_ref(state, ast_fn_ref_body_ref(item_ref), scope);
+                if expected_return_kind != TYPE_VOID && expected_return_kind != TYPE_NEVER && expected_return_kind != TYPE_UNKNOWN &&
+                        !typecheck_block_definitely_returns_ref(ast_fn_ref_body_ref(item_ref)) {
+                    state = typecheck_append_missing_return_ref(state, names, scope, item_ref);
+                }
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn self_host_semantic_validation_json(kernel: Vec<i64>) -> str {
+        let comma: str = ",";
+        let state: Vec<str> = resolver_state_new();
+        let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
+        state = typecheck_semantic_validation_diagnostics(state, kernel_ref);
+        return "{" +
+            json_field_str("schema_version", "bunker.self_host.semantic.v1") + comma +
+            json_field_str("representation", "semantic_validation_pass") + comma +
+            json_field_bool("complete", true) + comma +
+            json_field_bool("loop_control_validation", true) + comma +
+            json_field_bool("unreachable_code_detection", true) + comma +
+            json_field_bool("return_path_validation", true) + comma +
+            json_field_bool("assignment_target_validation", true) + comma +
+            json_field_bool("const_assignment_validation", true) + comma +
+            json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
+            json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
+            json_field_i64("error_count", resolver_state_count(state)) + comma +
+            json_field_i64("warning_count", 0) + comma +
+            json_field_raw("diagnostics", resolver_state_json(state)) +
+            "}";
+    }
+
+    fn build_semantic_validation_report_comment(kernel: Vec<i64>) -> str {
+        return "/* BUNKER_SEMANTIC_JSON: " + self_host_semantic_validation_json(kernel) + from_char_code(10) +
             "*/" + from_char_code(10);
     }

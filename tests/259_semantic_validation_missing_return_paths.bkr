@@ -1,0 +1,238 @@
+// Test 259: Semantic Validation - Return Path Exhaustiveness & Assignment Immutability (CF-010)
+// Purpose: Verify semantic validation passes:
+//   1. Return path exhaustiveness (definite return analysis on all branches).
+//   2. Fallthrough detection for non-void functions emitting E0206 / BKR_SELF_RETURN_PATH.
+//   3. Constant reassignment rejection emitting E0502 / BKR_SELF_CONST_ASSIGNMENT.
+//   4. Invalid assignment target rejection emitting E0501 / BKR_SELF_ASSIGNMENT_TARGET.
+// Expected return: 42
+
+kernel SemanticValidationMissingReturnPathsTest {
+    struct SemanticDiagnostic {
+        kind: str,
+        code: str,
+        rule_id: str,
+        scope: str,
+        expected: str,
+        found: str,
+        hint: str
+    }
+
+    fn sem_diag_new(kind: str, rule_id: str, scope: str, expected: str, found: str, hint: str) -> SemanticDiagnostic {
+        let code: str = rule_id == "BKR_SELF_RETURN_PATH" ? "E0206" :
+                       (rule_id == "BKR_SELF_CONST_ASSIGNMENT" ? "E0502" :
+                       (rule_id == "BKR_SELF_ASSIGNMENT_TARGET" ? "E0501" : "E0000"));
+        return SemanticDiagnostic {
+            kind: kind,
+            code: code,
+            rule_id: rule_id,
+            scope: scope,
+            expected: expected,
+            found: found,
+            hint: hint
+        };
+    }
+
+    // --- Return Path Exhaustiveness Scanner Simulation ---
+
+    fn check_function_return_paths(is_void: bool, has_unconditional_return: bool,
+                                   has_if_else: bool, then_returns: bool,
+                                   else_returns: bool, scope: str) -> Vec<SemanticDiagnostic> {
+        let diags: Vec<SemanticDiagnostic> = vec_new();
+        if is_void {
+            return diags;
+        }
+
+        let mut definitely_returns: bool = false;
+        if has_unconditional_return {
+            definitely_returns = true;
+        } else if has_if_else && then_returns && else_returns {
+            definitely_returns = true;
+        }
+
+        if !definitely_returns {
+            let diag: SemanticDiagnostic = sem_diag_new(
+                "missing_return",
+                "BKR_SELF_RETURN_PATH",
+                scope,
+                "return value on every path",
+                "function can fall through",
+                "Add a return statement on every path or change the function return type to void."
+            );
+            vec_push(diags, diag);
+        }
+        return diags;
+    }
+
+    // --- Assignment Target & Constant Immutability Scanner Simulation ---
+
+    fn check_assignment_target(target_kind: str, is_const: bool, target_name: str, scope: str) -> Vec<SemanticDiagnostic> {
+        let diags: Vec<SemanticDiagnostic> = vec_new();
+
+        // 1. Check for constant assignment
+        if is_const {
+            let diag: SemanticDiagnostic = sem_diag_new(
+                "const_assignment",
+                "BKR_SELF_CONST_ASSIGNMENT",
+                scope,
+                "mutable assignment target",
+                "constant declaration",
+                "Do not assign to a const; introduce a local binding for mutable state."
+            );
+            vec_push(diags, diag);
+            return diags;
+        }
+
+        // 2. Check for invalid assignment target (not ident, field_access, or index)
+        let is_valid_lvalue: bool = target_kind == "ident" || target_kind == "field_access" || target_kind == "index";
+        if !is_valid_lvalue {
+            let diag2: SemanticDiagnostic = sem_diag_new(
+                "invalid_assignment_target",
+                "BKR_SELF_ASSIGNMENT_TARGET",
+                scope,
+                "valid lvalue target (ident, field, index)",
+                target_kind,
+                "Assign only to variable identifiers, struct fields, or array indexes."
+            );
+            vec_push(diags, diag2);
+            return diags;
+        }
+
+        return diags;
+    }
+
+    // --- Real Runtime Logic ---
+
+    fn branch_return_calculation(x: i64) -> i64 {
+        if x > 10 {
+            if x > 20 {
+                return x * 2;
+            } else {
+                return x + 10;
+            }
+        } else {
+            return 42;
+        }
+    }
+
+    fn fallback_return_calculation(flag: bool) -> i64 {
+        if flag {
+            return 100;
+        }
+        return 42;
+    }
+
+    // --- Test Suites ---
+
+    fn test_return_path_validation() -> bool {
+        // 1. Function returning void with no return statements -> accepted
+        let void_diags = check_function_return_paths(true, false, false, false, false, "function:log_event");
+        if vec_len(void_diags) != 0 {
+            return false;
+        }
+
+        // 2. Non-void function with unconditional return -> accepted
+        let direct_diags = check_function_return_paths(false, true, false, false, false, "function:get_id");
+        if vec_len(direct_diags) != 0 {
+            return false;
+        }
+
+        // 3. Non-void function with if-else where both return -> accepted
+        let both_diags = check_function_return_paths(false, false, true, true, true, "function:branch_calc");
+        if vec_len(both_diags) != 0 {
+            return false;
+        }
+
+        // 4. Non-void function with if without else -> rejected with BKR_SELF_RETURN_PATH / E0206
+        let if_only_diags = check_function_return_paths(false, false, false, true, false, "function:incomplete");
+        if vec_len(if_only_diags) != 1 {
+            return false;
+        }
+        let diag1: SemanticDiagnostic = vec_get(if_only_diags, 0);
+        if diag1.code != "E0206" || diag1.rule_id != "BKR_SELF_RETURN_PATH" {
+            return false;
+        }
+        if diag1.expected != "return value on every path" || diag1.found != "function can fall through" {
+            return false;
+        }
+
+        // 5. Non-void function with if-else where else falls through -> rejected
+        let else_fallthrough = check_function_return_paths(false, false, true, true, false, "function:partial_branch");
+        if vec_len(else_fallthrough) != 1 {
+            return false;
+        }
+        let diag2: SemanticDiagnostic = vec_get(else_fallthrough, 0);
+        if diag2.code != "E0206" {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_assignment_target_and_const() -> bool {
+        // 1. Assign to valid identifier -> accepted
+        let valid_ident = check_assignment_target("ident", false, "x", "function:test");
+        if vec_len(valid_ident) != 0 {
+            return false;
+        }
+
+        // 2. Assign to valid field access -> accepted
+        let valid_field = check_assignment_target("field_access", false, "p.x", "function:test");
+        if vec_len(valid_field) != 0 {
+            return false;
+        }
+
+        // 3. Assign to valid index -> accepted
+        let valid_idx = check_assignment_target("index", false, "arr[0]", "function:test");
+        if vec_len(valid_idx) != 0 {
+            return false;
+        }
+
+        // 4. Assign to constant -> rejected with BKR_SELF_CONST_ASSIGNMENT / E0502
+        let const_assign = check_assignment_target("ident", true, "MAX_ITEMS", "function:test");
+        if vec_len(const_assign) != 1 {
+            return false;
+        }
+        let diag_const: SemanticDiagnostic = vec_get(const_assign, 0);
+        if diag_const.code != "E0502" || diag_const.rule_id != "BKR_SELF_CONST_ASSIGNMENT" {
+            return false;
+        }
+        if diag_const.expected != "mutable assignment target" || diag_const.found != "constant declaration" {
+            return false;
+        }
+
+        // 5. Assign to call expression -> rejected with BKR_SELF_ASSIGNMENT_TARGET / E0501
+        let call_assign = check_assignment_target("call", false, "get_target()", "function:test");
+        if vec_len(call_assign) != 1 {
+            return false;
+        }
+        let diag_target: SemanticDiagnostic = vec_get(call_assign, 0);
+        if diag_target.code != "E0501" || diag_target.rule_id != "BKR_SELF_ASSIGNMENT_TARGET" {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i64 {
+        if !test_return_path_validation() {
+            return 1;
+        }
+
+        if !test_assignment_target_and_const() {
+            return 2;
+        }
+
+        // Test real execution logic
+        let res1: i64 = branch_return_calculation(5); // Returns 42
+        if res1 != 42 {
+            return 3;
+        }
+
+        let res2: i64 = fallback_return_calculation(false); // Returns 42
+        if res2 != 42 {
+            return 4;
+        }
+
+        return 42;
+    }
+}
