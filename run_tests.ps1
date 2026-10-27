@@ -189,6 +189,8 @@ $expectedResults = @{
     "269_incremental_compilation_cache" = 42
     "270_c_codegen_source_line_directives" = 42
     "271_debug_source_mapping_parity" = 42
+    "272_lambda_expressions_syntax" = 42
+    "273_closure_captures_environment" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -434,7 +436,9 @@ if (-not $JitOnly) {
         "tests\268_constant_folding_optimizations.bkr",
         "tests\269_incremental_compilation_cache.bkr",
         "tests\270_c_codegen_source_line_directives.bkr",
-        "tests\271_debug_source_mapping_parity.bkr"
+        "tests\271_debug_source_mapping_parity.bkr",
+        "tests\272_lambda_expressions_syntax.bkr",
+        "tests\273_closure_captures_environment.bkr"
     )
 
     $subsetOk = $true

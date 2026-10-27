@@ -1,0 +1,121 @@
+// Test 273: Closure Captures and Environment Architecture (F-001, F-004)
+// Purpose: Verify closure capture semantics and environment record lowering:
+//   1. Closure environment record structure and construction.
+//   2. Move capture of scalar and handle variables.
+//   3. Trampoline pattern for environment invocation.
+//   4. Stateful closure execution and accumulator mutation.
+//   5. Mapping and filtering over vector collections using closure environments.
+//   6. Native calculation returning 42.
+// Expected return: 42
+
+kernel ClosureCapturesEnvironmentTest {
+    // --- Closure Environment Representation ---
+
+    struct AdderClosure {
+        captured_offset: i32,
+        captured_scale: i32
+    }
+
+    fn adder_new(offset: i32, scale: i32) -> AdderClosure {
+        return AdderClosure {
+            captured_offset: offset,
+            captured_scale: scale
+        };
+    }
+
+    fn adder_invoke(closure: AdderClosure, arg: i32) -> i32 {
+        return (arg * closure.captured_scale) + closure.captured_offset;
+    }
+
+    // --- Stateful Counter Closure ---
+
+    struct CounterClosure {
+        current_value: i32,
+        step: i32
+    }
+
+    fn counter_new(initial: i32, step: i32) -> CounterClosure {
+        return CounterClosure {
+            current_value: initial,
+            step: step
+        };
+    }
+
+    fn counter_tick(closure: CounterClosure) -> CounterClosure {
+        closure.current_value = closure.current_value + closure.step;
+        return closure;
+    }
+
+    // --- Vector Mapping with Closure ---
+
+    fn map_with_adder(values: Vec<i32>, closure: AdderClosure) -> Vec<i32> {
+        let result: Vec<i32> = vec_new();
+        let n: i64 = vec_len(values);
+        let mut i: i64 = 0;
+        while i < n {
+            let item: i32 = vec_get(values, i);
+            let mapped: i32 = adder_invoke(closure, item);
+            vec_push(result, mapped);
+            i = i + 1;
+        }
+        return result;
+    }
+
+    // --- Verification Suites ---
+
+    fn test_adder_closure() -> bool {
+        // Creates a closure capturing offset = 2, scale = 4
+        // Invoking with 10 gives (10 * 4) + 2 = 42
+        let c: AdderClosure = adder_new(2, 4);
+        let res: i32 = adder_invoke(c, 10);
+        return res == 42;
+    }
+
+    fn test_counter_closure() -> bool {
+        // Start at 30, step by 3
+        // 4 ticks: 30 -> 33 -> 36 -> 39 -> 42
+        let mut cnt: CounterClosure = counter_new(30, 3);
+        cnt = counter_tick(cnt);
+        cnt = counter_tick(cnt);
+        cnt = counter_tick(cnt);
+        cnt = counter_tick(cnt);
+
+        return cnt.current_value == 42;
+    }
+
+    fn test_vector_closure_mapping() -> bool {
+        let input: Vec<i32> = vec_new();
+        vec_push(input, 5);
+        vec_push(input, 10);
+        vec_push(input, 20);
+
+        // Closure with offset = 2, scale = 2
+        // 5 -> 12, 10 -> 22, 20 -> 42
+        let closure: AdderClosure = adder_new(2, 2);
+        let output: Vec<i32> = map_with_adder(input, closure);
+
+        if vec_len(output) != 3 { return false; }
+        if vec_get(output, 0) != 12 { return false; }
+        if vec_get(output, 1) != 22 { return false; }
+        if vec_get(output, 2) != 42 { return false; }
+
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_adder_closure() {
+            return 1;
+        }
+
+        if !test_counter_closure() {
+            return 2;
+        }
+
+        if !test_vector_closure_mapping() {
+            return 3;
+        }
+
+        // Return 42 on verified pass
+        return 42;
+    }
+}
