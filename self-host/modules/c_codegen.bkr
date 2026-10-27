@@ -1201,9 +1201,9 @@
             }
         }
 
-        let value_name = "_match_value";
-        let result_name = "_match_result";
-        let matched_name = "_matched";
+        let value_name = cgen_next_hygienic_temp_ref(state, "_match_val");
+        let result_name = cgen_next_hygienic_temp_ref(state, "_match_res");
+        let matched_name = cgen_next_hygienic_temp_ref(state, "_matched");
         let result = "({ " + scrutinee_c_type + " " + value_name + " = " + gen_c_expr_ref(state, scrutinee_ref) + "; " +
             type_to_c(result_kind) + " " + result_name + " = 0; int " + matched_name + " = 0; ";
 
@@ -1315,7 +1315,7 @@
         }
 
         if node_type == NODE_BLOCK {
-            let res_var = "_blk_res";
+            let res_var = cgen_next_hygienic_temp_ref(state, "_blk_res");
             let blk_kind: i64 = infer_c_expr_ref_type(state, expr_ref);
             let c_ty = type_to_c(blk_kind);
             if blk_kind == TYPE_STRUCT {
@@ -1536,7 +1536,7 @@
 
         if node_type == NODE_TRY {
             let inner_ref: AstExprRef = ast_expr_ref_from_handle(ast_try_ref_expr_handle(expr_ref));
-            let try_var: str = "_bkr_try_" + int_to_string(cgen_next_temp_id_ref(state));
+            let try_var: str = cgen_next_hygienic_temp_ref(state, "_bkr_try");
             let inner_c: str = gen_c_expr_ref(state, inner_ref);
             let defers: Vec<i64> = cgen_defers_ref(state);
             let defer_count: i64 = vec_len(defers);
@@ -1999,7 +1999,7 @@
             let defer_count: i64 = vec_len(defers);
             if defer_count > 0 {
                 if ast_optional_is_some(expr) {
-                    let ret_var: str = "_bkr_ret_" + int_to_string(cgen_next_temp_id_ref(state));
+                    let ret_var: str = cgen_next_hygienic_temp_ref(state, "_bkr_ret");
                     let ret_type: str = cgen_current_ret_type_ref(state);
                     if ret_type == "" || ret_type == "void" {
                         ret_type = "bkr_i64";

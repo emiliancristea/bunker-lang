@@ -358,6 +358,11 @@
         return cur;
     }
 
+    fn cgen_next_hygienic_temp_ref(state_ref: CgenStateRef, prefix: str) -> str {
+        let id: i64 = cgen_next_temp_id_ref(state_ref);
+        return prefix + "_" + int_to_string(id);
+    }
+
     fn cgen_add_fn_type(state: Vec<i64>, name_idx: i64, kind: i64) -> Vec<i64> {
         cgen_add_fn_type_ref(cgen_state_ref_from_state(state), name_idx, kind);
         return state;

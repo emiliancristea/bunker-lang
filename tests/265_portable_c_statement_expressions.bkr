@@ -1,0 +1,80 @@
+// Test 265: Portable C Statement Expressions (CB-004)
+// Purpose: Verify statement expression lowering rules across expression positions:
+//   1. Block expression in let binding position.
+//   2. Block expression in binary operator operand position.
+//   3. Block expression yielding struct values.
+//   4. Multi-level statement expression composition returning 42.
+// Expected return: 42
+
+kernel PortableCStatementExpressionsTest {
+    struct Vector2D {
+        x: i64,
+        y: i64
+    }
+
+    fn test_let_statement_expression() -> bool {
+        let val: i64 = {
+            let p: i64 = 15;
+            let q: i64 = 25;
+            p + q;
+        };
+        return val == 40;
+    }
+
+    fn test_binary_statement_expressions() -> bool {
+        // Two statement expressions composed via binary addition
+        let sum: i64 = {
+            let left: i64 = 10;
+            left * 2;
+        } + {
+            let right: i64 = 11;
+            right * 2;
+        };
+        // 20 + 22 = 42
+        return sum == 42;
+    }
+
+    fn test_struct_statement_expression() -> bool {
+        let vec: Vector2D = {
+            let coord_x: i64 = 20;
+            let coord_y: i64 = 22;
+            Vector2D {
+                x: coord_x,
+                y: coord_y
+            };
+        };
+        return (vec.x + vec.y) == 42;
+    }
+
+    fn test_nested_ternary_statement_expression() -> bool {
+        let condition: bool = true;
+        let chosen: i64 = condition ? {
+            let branch_a: i64 = 30;
+            let branch_b: i64 = 12;
+            branch_a + branch_b;
+        } : {
+            0;
+        };
+        return chosen == 42;
+    }
+
+    fn main() -> i64 {
+        if !test_let_statement_expression() {
+            return 1;
+        }
+
+        if !test_binary_statement_expressions() {
+            return 2;
+        }
+
+        if !test_struct_statement_expression() {
+            return 3;
+        }
+
+        if !test_nested_ternary_statement_expression() {
+            return 4;
+        }
+
+        return 42;
+    }
+}

@@ -181,6 +181,8 @@ $expectedResults = @{
     "261_typechecker_expression_statement_matrix" = 42
     "262_pure_bunker_c_codegen_modular" = 42
     "263_typed_c_emission_matrix" = 42
+    "264_codegen_hygienic_temporaries" = 42
+    "265_portable_c_statement_expressions" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -418,7 +420,9 @@ if (-not $JitOnly) {
         "tests\260_pure_bunker_typechecker_complete.bkr",
         "tests\261_typechecker_expression_statement_matrix.bkr",
         "tests\262_pure_bunker_c_codegen_modular.bkr",
-        "tests\263_typed_c_emission_matrix.bkr"
+        "tests\263_typed_c_emission_matrix.bkr",
+        "tests\264_codegen_hygienic_temporaries.bkr",
+        "tests\265_portable_c_statement_expressions.bkr"
     )
 
     $subsetOk = $true

@@ -1,0 +1,128 @@
+// Test 264: Codegen Hygienic Temporaries (CB-003)
+// Purpose: Verify hygienic temporary variable allocation and nested expression stability:
+//   1. Monotonic unique temporary identifier generation.
+//   2. Collision avoidance across nested block expressions.
+//   3. Collision avoidance across nested pattern match expressions.
+//   4. Multi-level nested expressions returning 42.
+// Expected return: 42
+
+kernel CodegenHygienicTemporariesTest {
+    // --- Monotonic Temporary Generator Model ---
+
+    struct TempAllocator {
+        counter: i64
+    }
+
+    fn temp_alloc_new() -> TempAllocator {
+        return TempAllocator { counter: 0 };
+    }
+
+    fn temp_alloc_next(alloc: TempAllocator, prefix: str) -> str {
+        let id: i64 = alloc.counter;
+        alloc.counter = alloc.counter + 1;
+        return prefix + "_" + int_to_string(id);
+    }
+
+    fn test_monotonic_generation() -> bool {
+        let mut alloc = temp_alloc_new();
+        let t0 = temp_alloc_next(alloc, "_blk_res");
+        let t1 = temp_alloc_next(alloc, "_match_val");
+        let t2 = temp_alloc_next(alloc, "_match_res");
+        let t3 = temp_alloc_next(alloc, "_matched");
+        let t4 = temp_alloc_next(alloc, "_blk_res");
+
+        if t0 != "_blk_res_0" { return false; }
+        if t1 != "_match_val_1" { return false; }
+        if t2 != "_match_res_2" { return false; }
+        if t3 != "_matched_3" { return false; }
+        if t4 != "_blk_res_4" { return false; }
+
+        return true;
+    }
+
+    // --- Nested Expression-Oriented Block Execution ---
+
+    fn test_nested_block_expressions() -> bool {
+        // Outer block containing inner nested blocks
+        let result: i64 = {
+            let a: i64 = {
+                let inner1: i64 = 10;
+                let inner2: i64 = {
+                    let deep: i64 = 5;
+                    deep * 2;
+                };
+                inner1 + inner2;
+            };
+            let b: i64 = {
+                let x: i64 = 11;
+                x * 2;
+            };
+            a + b;
+        };
+
+        // 10 + (5*2) = 20
+        // 11 * 2 = 22
+        // 20 + 22 = 42
+        return result == 42;
+    }
+
+    // --- Nested Pattern Matching Execution ---
+
+    enum Level {
+        Low,
+        High(i64),
+    }
+
+    enum Status {
+        Active(i64),
+        Inactive,
+    }
+
+    fn evaluate_status(status: Status, is_high: bool) -> i64 {
+        return match status {
+            Status.Active(val) => match is_high {
+                true => val + 2;
+                false => 10;
+            };
+            Status.Inactive => 0;
+        };
+    }
+
+    fn test_nested_match_expressions() -> bool {
+        let s1: Status = Status.Active(40);
+        let val1: i64 = evaluate_status(s1, true);
+        if val1 != 42 {
+            return false;
+        }
+
+        let s2: Status = Status.Active(40);
+        let val2: i64 = evaluate_status(s2, false);
+        if val2 != 10 {
+            return false;
+        }
+
+        let s3: Status = Status.Inactive;
+        let val3: i64 = evaluate_status(s3, false);
+        if val3 != 0 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i64 {
+        if !test_monotonic_generation() {
+            return 1;
+        }
+
+        if !test_nested_block_expressions() {
+            return 2;
+        }
+
+        if !test_nested_match_expressions() {
+            return 3;
+        }
+
+        return 42;
+    }
+}
