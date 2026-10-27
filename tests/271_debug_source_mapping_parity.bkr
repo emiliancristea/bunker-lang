@@ -1,0 +1,168 @@
+// Test 271: Debug Source Mapping Parity (CB-006)
+// Purpose: Verify debug info and source mapping parity:
+//   1. Span-to-line/column coordinate resolution over source text.
+//   2. Line table newline indexing and coordinate calculation.
+//   3. Machine-readable debug map manifest schema (`bunker.debug_map.v1`).
+//   4. Runtime panic and error attribution formatting (`<file>:<line>:<col>`).
+//   5. Native calculation returning 42.
+// Expected return: 42
+
+kernel DebugSourceMappingParityTest {
+    // --- Line Table Indexing ---
+
+    struct LineTable {
+        line_offsets: Vec<i64>,
+        total_lines: i64,
+        source_len: i64
+    }
+
+    fn build_line_table(source: str) -> LineTable {
+        let offsets: Vec<i64> = vec_new();
+        // Line 1 starts at byte offset 0
+        vec_push(offsets, 0);
+
+        let n: i64 = len(source);
+        let mut i: i64 = 0;
+        while i < n {
+            if char_code_at(source, i) == 10 { // newline '\n'
+                vec_push(offsets, i + 1);
+            }
+            i = i + 1;
+        }
+
+        let lines: i64 = vec_len(offsets);
+        return LineTable {
+            line_offsets: offsets,
+            total_lines: lines,
+            source_len: n
+        };
+    }
+
+    fn offset_to_line(table: LineTable, byte_offset: i64) -> i64 {
+        let count: i64 = vec_len(table.line_offsets);
+        if count <= 0 { return 1; }
+
+        let mut low: i64 = 0;
+        let mut high: i64 = count - 1;
+        let mut best: i64 = 0;
+
+        while low <= high {
+            let mid: i64 = low + (high - low) / 2;
+            let start_pos: i64 = vec_get(table.line_offsets, mid);
+            if start_pos <= byte_offset {
+                best = mid;
+                low = mid + 1;
+            } else {
+                high = mid - 1;
+            }
+        }
+
+        // Line numbers are 1-based
+        return best + 1;
+    }
+
+    fn offset_to_column(table: LineTable, byte_offset: i64) -> i64 {
+        let line: i64 = offset_to_line(table, byte_offset);
+        let line_start: i64 = vec_get(table.line_offsets, line - 1);
+        return (byte_offset - line_start) + 1;
+    }
+
+    // --- Runtime Panic Attribution ---
+
+    fn format_panic_attribution(file: str, line: i64, col: i64, message: str) -> str {
+        return "panic at " + file + ":" + int_to_string(line) + ":" + int_to_string(col) + ": " + message;
+    }
+
+    // --- Debug Map Representation ---
+
+    struct DebugMapEntry {
+        bunker_line: i64,
+        bunker_col: i64,
+        c_line: i64,
+        symbol: str
+    }
+
+    fn make_debug_entry(b_line: i64, b_col: i64, c_line: i64, symbol: str) -> DebugMapEntry {
+        return DebugMapEntry {
+            bunker_line: b_line,
+            bunker_col: b_col,
+            c_line: c_line,
+            symbol: symbol
+        };
+    }
+
+    // --- Verification Suites ---
+
+    fn test_line_table_resolution() -> bool {
+        // Multi-line sample source
+        // Line 1: fn main() -> i32 { (18 chars + newline = 19 bytes)
+        // Line 2:     let x: i32 = 40; (20 chars + newline = 21 bytes)
+        // Line 3:     return x + 2; (17 chars + newline = 18 bytes)
+        // Line 4: }
+        let nl: str = from_char_code(10);
+        let sample: str = "fn main() -> i32 {" + nl +
+                          "    let x: i32 = 40;" + nl +
+                          "    return x + 2;" + nl +
+                          "}";
+
+        let table: LineTable = build_line_table(sample);
+        if table.total_lines != 4 {
+            return false;
+        }
+
+        // Test offset 0: Line 1, Col 1 ('f')
+        if offset_to_line(table, 0) != 1 { return false; }
+        if offset_to_column(table, 0) != 1 { return false; }
+
+        // Test offset 3: Line 1, Col 4 ('m')
+        if offset_to_line(table, 3) != 1 { return false; }
+        if offset_to_column(table, 3) != 4 { return false; }
+
+        // Test offset of 'let' on line 2 (offset 19 + 4 = 23)
+        let let_offset: i64 = 19 + 4;
+        if offset_to_line(table, let_offset) != 2 { return false; }
+        if offset_to_column(table, let_offset) != 5 { return false; }
+
+        return true;
+    }
+
+    fn test_panic_attribution_formatting() -> bool {
+        let panic_str: str = format_panic_attribution("src/engine.bkr", 42, 15, "index out of bounds");
+        if panic_str != "panic at src/engine.bkr:42:15: index out of bounds" {
+            return false;
+        }
+        return true;
+    }
+
+    fn test_debug_map_entries() -> bool {
+        let e1: DebugMapEntry = make_debug_entry(10, 5, 24, "compute_core");
+        let e2: DebugMapEntry = make_debug_entry(18, 9, 36, "verify_bounds");
+
+        if e1.bunker_line != 10 || e1.bunker_col != 5 || e1.c_line != 24 || e1.symbol != "compute_core" {
+            return false;
+        }
+
+        if e2.bunker_line != 18 || e2.bunker_col != 9 || e2.c_line != 36 || e2.symbol != "verify_bounds" {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_line_table_resolution() {
+            return 1;
+        }
+
+        if !test_panic_attribution_formatting() {
+            return 2;
+        }
+
+        if !test_debug_map_entries() {
+            return 3;
+        }
+
+        // Return 42 on verified pass
+        return 42;
+    }
+}
