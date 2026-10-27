@@ -121,6 +121,12 @@
                 ast_type_ref_array_elem_kind_value(type_ref),
                 ast_type_ref_array_len_value(type_ref));
         }
+        if ast_type_ref_kind_value(type_ref) == TYPE_VEC {
+            let elem_k: i64 = ast_type_ref_array_elem_kind_value(type_ref);
+            if elem_k != TYPE_UNKNOWN && elem_k != 0 {
+                cgen_add_array_type_ref(state, name_idx, elem_k, 0);
+            }
+        }
         return state;
     }
 

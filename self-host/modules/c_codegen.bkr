@@ -218,6 +218,7 @@
         if raw == "vec_set" { return "vec_set"; }
         if raw == "vec_len" { return "vec_len"; }
         if raw == "vec_pop" { return "vec_pop"; }
+        if raw == "vec_clear" { return "vec_clear"; }
         if raw == "vec_contains" { return "vec_contains"; }
         if raw == "vec_is_empty" { return "vec_is_empty"; }
         if raw == "vec_clone" { return "vec_clone"; }
@@ -361,6 +362,7 @@
         if raw == "vec_set" { return TYPE_BOOL; }
         if raw == "vec_len" { return TYPE_I64; }
         if raw == "vec_pop" { return TYPE_I64; }
+        if raw == "vec_clear" { return TYPE_VOID; }
         if raw == "hashmap_new" { return TYPE_I64; }
         if raw == "hashmap_insert" { return TYPE_BOOL; }
         if raw == "hashmap_get" { return TYPE_I64; }
@@ -812,6 +814,18 @@
             if raw == "Ok" || raw == "Err" {
                 return TYPE_RESULT;
             }
+            if raw == "vec_get" || raw == "vec_pop" {
+                let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
+                if ast_node_list_ref_count(args_ref) > 0 {
+                    let v_arg: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0));
+                    if ast_expr_ref_kind(v_arg) == NODE_IDENT {
+                        let elem_k: i64 = cgen_lookup_array_elem_type_ref(state, ast_ident_ref_name_idx(v_arg));
+                        if elem_k != TYPE_UNKNOWN && elem_k != 0 {
+                            return elem_k;
+                        }
+                    }
+                }
+            }
             let builtin_kind: i64 = builtin_return_type(raw);
             if builtin_kind != TYPE_UNKNOWN {
                 return builtin_kind;
@@ -1042,7 +1056,32 @@
             }
             return base_cond;
         }
-        if kind == PAT_TUPLE || kind == PAT_STRUCT {
+        if kind == PAT_TUPLE {
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pats: Vec<i64> = aux as Vec<i64>;
+                let cond: str = "";
+                let i: i64 = 0;
+                while i < vec_len(sub_pats) {
+                    let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(vec_get(sub_pats, i));
+                    let elem_expr: str = "bkr_tuple_get(" + value_name + ", " + int_to_string(i) + ")";
+                    let sub_cond: str = gen_c_match_condition_ref(state, elem_expr, sub_pat);
+                    if sub_cond != "BKR_TRUE" {
+                        if cond == "" {
+                            cond = "(" + sub_cond + ")";
+                        } else {
+                            cond = "(" + cond + " && " + sub_cond + ")";
+                        }
+                    }
+                    i = i + 1;
+                }
+                if cond != "" {
+                    return cond;
+                }
+            }
+            return "BKR_TRUE";
+        }
+        if kind == PAT_STRUCT {
             return "BKR_TRUE";
         }
         if kind == PAT_ENUM_VARIANT {
@@ -1114,6 +1153,19 @@
             return res;
         }
         if kind == PAT_TUPLE {
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pats: Vec<i64> = aux as Vec<i64>;
+                let res: str = "";
+                let i: i64 = 0;
+                while i < vec_len(sub_pats) {
+                    let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(vec_get(sub_pats, i));
+                    let elem_expr: str = "bkr_tuple_get(" + value_name + ", " + int_to_string(i) + ")";
+                    res = res + gen_c_match_bindings_ref(state, elem_expr, sub_pat, TYPE_I64);
+                    i = i + 1;
+                }
+                return res;
+            }
             let bind1: i64 = ast_pattern_ref_bind(pattern_ref);
             let bind2: i64 = ast_pattern_ref_bind2(pattern_ref);
             let bind3: i64 = ast_pattern_ref_value(pattern_ref);
@@ -1980,6 +2032,12 @@
                 if kind == TYPE_STRUCT {
                     struct_name_idx = ast_type_ref_struct_name_idx_value(ast_type_ref_from_handle(type_node));
                 }
+                if kind == TYPE_VEC {
+                    let elem_k: i64 = ast_type_ref_array_elem_kind_value(ast_type_ref_from_handle(type_node));
+                    if elem_k != TYPE_UNKNOWN && elem_k != 0 {
+                        cgen_add_array_type_ref(state, name_idx, elem_k, 0);
+                    }
+                }
             } else if ast_optional_is_some(init) {
                 let init_kind: i64 = infer_c_expr_handle_ref_type(state, init);
                 if init_kind != TYPE_UNKNOWN && init_kind != TYPE_VOID {
@@ -2329,6 +2387,12 @@
                 }
             } else {
                 cgen_add_local_type_ref(state, ast_param_ref_name_idx(param_ref), p_kind);
+            }
+            if p_kind == TYPE_VEC {
+                let elem_k: i64 = ast_type_ref_array_elem_kind_value(p_type_ref);
+                if elem_k != TYPE_UNKNOWN && elem_k != 0 {
+                    cgen_add_array_type_ref(state, ast_param_ref_name_idx(param_ref), elem_k, 0);
+                }
             }
             i = i + 1;
         }

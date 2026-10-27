@@ -238,6 +238,7 @@
         if name == "vec_set" { return true; }
         if name == "vec_len" { return true; }
         if name == "vec_pop" { return true; }
+        if name == "vec_clear" { return true; }
         if name == "hashmap_new" { return true; }
         if name == "hashmap_insert" { return true; }
         if name == "hashmap_get" { return true; }
@@ -491,19 +492,37 @@
         let kind: i64 = ast_pattern_ref_kind(pattern_ref);
         if kind == PAT_BIND || kind == PAT_SOME || kind == PAT_RESULT_OK || kind == PAT_RESULT_ERR {
             let name_idx: i64 = ast_pattern_ref_value(pattern_ref);
-            if resolver_i64_vec_contains(bindings, name_idx) {
-                state = resolver_append_duplicate_pattern_ref(state, ast_report_name(names, name_idx), scope, pattern_ref);
-            } else {
-                vec_push(bindings, name_idx);
+            if name_idx >= 0 {
+                if resolver_i64_vec_contains(bindings, name_idx) {
+                    state = resolver_append_duplicate_pattern_ref(state, ast_report_name(names, name_idx), scope, pattern_ref);
+                } else {
+                    vec_push(bindings, name_idx);
+                }
+            }
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                state = resolver_pattern_ref_bindings(state, names, sub_pat, scope, bindings);
             }
         }
         if kind == PAT_TUPLE {
-            let b1 = ast_pattern_ref_bind(pattern_ref);
-            let b2 = ast_pattern_ref_bind2(pattern_ref);
-            let b3 = ast_pattern_ref_value(pattern_ref);
-            if b1 >= 0 { vec_push(bindings, b1); }
-            if b2 >= 0 { vec_push(bindings, b2); }
-            if b3 >= 0 { vec_push(bindings, b3); }
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pats: Vec<i64> = aux as Vec<i64>;
+                let i: i64 = 0;
+                while i < vec_len(sub_pats) {
+                    let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(vec_get(sub_pats, i));
+                    state = resolver_pattern_ref_bindings(state, names, sub_pat, scope, bindings);
+                    i = i + 1;
+                }
+            } else {
+                let b1 = ast_pattern_ref_bind(pattern_ref);
+                let b2 = ast_pattern_ref_bind2(pattern_ref);
+                let b3 = ast_pattern_ref_value(pattern_ref);
+                if b1 >= 0 { vec_push(bindings, b1); }
+                if b2 >= 0 { vec_push(bindings, b2); }
+                if b3 >= 0 { vec_push(bindings, b3); }
+            }
         }
         if kind == PAT_STRUCT {
             let b1 = ast_pattern_ref_bind(pattern_ref);

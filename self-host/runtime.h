@@ -234,6 +234,15 @@ static inline void vec_free(bkr_i64 handle) {
     (void)handle;
 }
 
+static inline void vec_clear(bkr_i64 handle) {
+    BkrVec* v = (BkrVec*)(intptr_t)handle;
+    if (v) v->len = 0;
+}
+
+static inline void bkr_vec_clear(bkr_i64 handle) {
+    vec_clear(handle);
+}
+
 static inline bkr_bool vec_contains(bkr_i64 handle, bkr_i64 item) {
     BkrVec* v = (BkrVec*)(intptr_t)handle;
     if (!v || !v->data) return BKR_FALSE;

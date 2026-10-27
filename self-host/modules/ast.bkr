@@ -697,7 +697,7 @@
 
     fn ast_type_ref_array_elem_kind_value(type_ref: AstTypeRef) -> TypeKind {
         let rec: AstType = ast_type_ref_record(type_ref);
-        if rec.kind == TypeKind.Array {
+        if rec.kind == TypeKind.Array || rec.kind == TypeKind.Vec {
             return rec.payload;
         }
         return TYPE_UNKNOWN;

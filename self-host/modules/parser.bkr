@@ -392,19 +392,41 @@
                 parser_advance_ref(p);
                 return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new(PAT_WILDCARD, 0), start);
             }
-            let bind1 = parser_expect_name(p);
+            let sub_pats: Vec<i64> = vec_new();
+            let p1: AstPatternRef = parse_match_pattern_ref(p);
+            vec_push(sub_pats, ast_pattern_ref_handle(p1));
+            let bind1: i64 = -1;
+            if ast_pattern_ref_kind(p1) == PAT_BIND {
+                bind1 = ast_pattern_ref_value(p1);
+            }
             let bind2: i64 = -1;
             let bind3: i64 = -1;
             if parser_peek_ref(p) == TOK_COMMA {
                 parser_advance_ref(p);
-                bind2 = parser_expect_name(p);
-                if parser_peek_ref(p) == TOK_COMMA {
-                    parser_advance_ref(p);
-                    bind3 = parser_expect_name(p);
+                if parser_peek_ref(p) != TOK_RPAREN {
+                    let p2: AstPatternRef = parse_match_pattern_ref(p);
+                    vec_push(sub_pats, ast_pattern_ref_handle(p2));
+                    if ast_pattern_ref_kind(p2) == PAT_BIND {
+                        bind2 = ast_pattern_ref_value(p2);
+                    }
+                    if parser_peek_ref(p) == TOK_COMMA {
+                        parser_advance_ref(p);
+                        if parser_peek_ref(p) != TOK_RPAREN {
+                            let p3: AstPatternRef = parse_match_pattern_ref(p);
+                            vec_push(sub_pats, ast_pattern_ref_handle(p3));
+                            if ast_pattern_ref_kind(p3) == PAT_BIND {
+                                bind3 = ast_pattern_ref_value(p3);
+                            }
+                            if parser_peek_ref(p) == TOK_COMMA {
+                                parser_advance_ref(p);
+                            }
+                        }
+                    }
                 }
             }
             parser_expect_ref(p, TOK_RPAREN);
-            return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new4(PAT_TUPLE, bind3, 0, bind1, bind2), start);
+            let aux_handle: i64 = sub_pats as i64;
+            return parser_set_pattern_ref_span_from_start(p, ast_pattern_ref_new4(PAT_TUPLE, bind3, aux_handle, bind1, bind2), start);
         }
 
         if tok == TOK_INT {
@@ -640,6 +662,20 @@
             return parse_match_expr_ref(p);
         }
 
+        if tok == TOK_IF {
+            parser_advance_ref(p);
+            let cond_ref: AstExprRef = parse_expr_ref(p);
+            let then_ref: AstExprRef = ast_expr_ref_from_handle(ast_block_ref_handle(parse_block_ref(p)));
+            parser_expect_ref(p, TOK_ELSE);
+            let else_ref: AstExprRef = ast_expr_ref_from_handle(0);
+            if parser_peek_ref(p) == TOK_IF {
+                else_ref = parse_atom_ref(p);
+            } else {
+                else_ref = ast_expr_ref_from_handle(ast_block_ref_handle(parse_block_ref(p)));
+            }
+            return parser_set_expr_ref_span_from_start(p, ast_ternary_ref(cond_ref, then_ref, else_ref), start);
+        }
+
         if tok == TOK_LBRACE {
             let block_ref: AstBlockRef = parse_block_ref(p);
             return ast_expr_ref_from_handle(ast_block_ref_handle(block_ref));
@@ -750,9 +786,13 @@
 
         if is_name_token(tok) {
             let name_idx = parser_peek_value_ref(p);
-            parser_advance_ref(p);
-
             let raw_name = parser_get_name_ref(p, name_idx);
+            if raw_name == "copy" {
+                parser_advance_ref(p);
+                let operand_ref: AstExprRef = parse_atom_ref(p);
+                return parser_set_expr_ref_span_from_start(p, operand_ref, start);
+            }
+            parser_advance_ref(p);
             let is_type_name = len(raw_name) > 0 && char_code_at(raw_name, 0) >= 65 && char_code_at(raw_name, 0) <= 90;
             let after_lbrace = parser_peek_at_ref(p, 1);
             let after_field = parser_peek_at_ref(p, 2);

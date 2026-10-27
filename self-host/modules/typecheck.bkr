@@ -501,6 +501,7 @@
         if name == "vec_set" { return 3; }
         if name == "vec_len" { return 1; }
         if name == "vec_pop" { return 1; }
+        if name == "vec_clear" { return 1; }
         if name == "hashmap_new" { return 0; }
         if name == "hashmap_insert" { return 3; }
         if name == "hashmap_get" { return 2; }
@@ -640,6 +641,7 @@
         if name == "vec_set" && index == 1 { return TYPE_I64; }
         if name == "vec_len" && index == 0 { return TYPE_I64; }
         if name == "vec_pop" && index == 0 { return TYPE_I64; }
+        if name == "vec_clear" && index == 0 { return TYPE_I64; }
         if name == "hashmap_insert" && index == 0 { return TYPE_I64; }
         if name == "hashmap_get" && index == 0 { return TYPE_I64; }
         if name == "hashmap_contains" && index == 0 { return TYPE_I64; }
@@ -1281,15 +1283,67 @@
 
     fn typecheck_pattern_is_catch_all_ref(pattern_ref: AstPatternRef) -> bool {
         let kind: i64 = ast_pattern_ref_kind(pattern_ref);
-        return kind == PAT_WILDCARD || kind == PAT_BIND || kind == PAT_TUPLE || kind == PAT_STRUCT;
+        if kind == PAT_WILDCARD || kind == PAT_BIND || kind == PAT_STRUCT {
+            return true;
+        }
+        if kind == PAT_TUPLE {
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pats: Vec<i64> = aux as Vec<i64>;
+                let i: i64 = 0;
+                while i < vec_len(sub_pats) {
+                    let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(vec_get(sub_pats, i));
+                    if !typecheck_pattern_is_catch_all_ref(sub_pat) {
+                        return false;
+                    }
+                    i = i + 1;
+                }
+                return true;
+            }
+            return true;
+        }
+        return false;
     }
 
     fn typecheck_patterns_same_literal_ref(left_ref: AstPatternRef, right_ref: AstPatternRef) -> bool {
         if ast_pattern_ref_kind(left_ref) != ast_pattern_ref_kind(right_ref) {
             return false;
         }
-        if ast_pattern_ref_kind(left_ref) == PAT_SOME || ast_pattern_ref_kind(left_ref) == PAT_RESULT_OK || ast_pattern_ref_kind(left_ref) == PAT_RESULT_ERR {
+        let kind: i64 = ast_pattern_ref_kind(left_ref);
+        if kind == PAT_SOME || kind == PAT_RESULT_OK || kind == PAT_RESULT_ERR {
+            let left_aux: i64 = ast_pattern_ref_aux(left_ref);
+            let right_aux: i64 = ast_pattern_ref_aux(right_ref);
+            if left_aux != 0 || right_aux != 0 {
+                if left_aux != 0 && right_aux != 0 {
+                    let sub_left: AstPatternRef = ast_pattern_ref_from_handle(left_aux);
+                    let sub_right: AstPatternRef = ast_pattern_ref_from_handle(right_aux);
+                    return typecheck_patterns_same_literal_ref(sub_left, sub_right);
+                }
+                return false;
+            }
             return true;
+        }
+        if kind == PAT_TUPLE {
+            let left_aux: i64 = ast_pattern_ref_aux(left_ref);
+            let right_aux: i64 = ast_pattern_ref_aux(right_ref);
+            if left_aux != 0 && right_aux != 0 {
+                let left_pats: Vec<i64> = left_aux as Vec<i64>;
+                let right_pats: Vec<i64> = right_aux as Vec<i64>;
+                if vec_len(left_pats) != vec_len(right_pats) {
+                    return false;
+                }
+                let i: i64 = 0;
+                while i < vec_len(left_pats) {
+                    let l: AstPatternRef = ast_pattern_ref_from_handle(vec_get(left_pats, i));
+                    let r: AstPatternRef = ast_pattern_ref_from_handle(vec_get(right_pats, i));
+                    if !typecheck_patterns_same_literal_ref(l, r) {
+                        return false;
+                    }
+                    i = i + 1;
+                }
+                return true;
+            }
+            return false;
         }
         if !typecheck_pattern_is_literal_like_ref(left_ref) {
             return false;
@@ -1392,8 +1446,81 @@
         return false;
     }
 
+    fn typecheck_subpatterns_cover_type_ref(subpats: Vec<i64>) -> bool {
+        let i: i64 = 0;
+        let has_some: bool = false;
+        let has_none: bool = false;
+        let has_ok: bool = false;
+        let has_err: bool = false;
+        let has_true: bool = false;
+        let has_false: bool = false;
+        while i < vec_len(subpats) {
+            let pat_ref: AstPatternRef = ast_pattern_ref_from_handle(vec_get(subpats, i));
+            if typecheck_pattern_is_catch_all_ref(pat_ref) {
+                return true;
+            }
+            let kind: i64 = ast_pattern_ref_kind(pat_ref);
+            if kind == PAT_SOME {
+                let aux: i64 = ast_pattern_ref_aux(pat_ref);
+                if aux == 0 {
+                    has_some = true;
+                } else {
+                    let inner_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                    if typecheck_pattern_is_catch_all_ref(inner_pat) {
+                        has_some = true;
+                    }
+                }
+            }
+            if kind == PAT_NONE {
+                has_none = true;
+            }
+            if kind == PAT_RESULT_OK {
+                let aux: i64 = ast_pattern_ref_aux(pat_ref);
+                if aux == 0 {
+                    has_ok = true;
+                } else {
+                    let inner_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                    if typecheck_pattern_is_catch_all_ref(inner_pat) {
+                        has_ok = true;
+                    }
+                }
+            }
+            if kind == PAT_RESULT_ERR {
+                let aux: i64 = ast_pattern_ref_aux(pat_ref);
+                if aux == 0 {
+                    has_err = true;
+                } else {
+                    let inner_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                    if typecheck_pattern_is_catch_all_ref(inner_pat) {
+                        has_err = true;
+                    }
+                }
+            }
+            if kind == PAT_BOOL {
+                if ast_pattern_ref_value(pat_ref) == 1 {
+                    has_true = true;
+                }
+                if ast_pattern_ref_value(pat_ref) == 0 {
+                    has_false = true;
+                }
+            }
+            i = i + 1;
+        }
+        if has_some && has_none {
+            return true;
+        }
+        if has_ok && has_err {
+            return true;
+        }
+        if has_true && has_false {
+            return true;
+        }
+        return false;
+    }
+
     fn typecheck_match_patterns_cover_option_ref(guards_ref: AstI64ListRef, patterns_ref: AstPatternListRef, pattern_kind: i64) -> bool {
         let i: i64 = 0;
+        let subpats: Vec<i64> = vec_new();
         while i < ast_pattern_list_ref_count(patterns_ref) {
             if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
                 i = i + 1;
@@ -1405,14 +1532,23 @@
             }
             if ast_pattern_ref_kind(pattern_ref) == pattern_kind {
                 if pattern_kind == PAT_SOME {
-                    if ast_pattern_ref_aux(pattern_ref) == 0 {
+                    let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+                    if aux == 0 {
                         return true;
                     }
+                    let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                    if typecheck_pattern_is_catch_all_ref(sub_pat) {
+                        return true;
+                    }
+                    vec_push(subpats, aux);
                 } else {
                     return true;
                 }
             }
             i = i + 1;
+        }
+        if pattern_kind == PAT_SOME && vec_len(subpats) > 0 {
+            return typecheck_subpatterns_cover_type_ref(subpats);
         }
         return false;
     }
@@ -1528,6 +1664,7 @@
         let covers_none: bool = false;
         let exhausted: bool = false;
         let i: i64 = 0;
+        let subpats: Vec<i64> = vec_new();
         while i < ast_pattern_list_ref_count(patterns_ref) {
             let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
@@ -1543,8 +1680,19 @@
             }
             if !has_guard {
                 if ast_pattern_ref_kind(pattern_ref) == PAT_SOME {
-                    if ast_pattern_ref_aux(pattern_ref) == 0 {
+                    let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+                    if aux == 0 {
                         covers_some = true;
+                    } else {
+                        let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                        if typecheck_pattern_is_catch_all_ref(sub_pat) {
+                            covers_some = true;
+                        } else {
+                            vec_push(subpats, aux);
+                            if typecheck_subpatterns_cover_type_ref(subpats) {
+                                covers_some = true;
+                            }
+                        }
                     }
                 }
                 if ast_pattern_ref_kind(pattern_ref) == PAT_NONE {
@@ -1574,6 +1722,7 @@
 
     fn typecheck_match_patterns_cover_result_ref(guards_ref: AstI64ListRef, patterns_ref: AstPatternListRef, pattern_kind: i64) -> bool {
         let i: i64 = 0;
+        let subpats: Vec<i64> = vec_new();
         while i < ast_pattern_list_ref_count(patterns_ref) {
             if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
                 i = i + 1;
@@ -1584,11 +1733,20 @@
                 return true;
             }
             if ast_pattern_ref_kind(pattern_ref) == pattern_kind {
-                if ast_pattern_ref_aux(pattern_ref) == 0 {
+                let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+                if aux == 0 {
                     return true;
                 }
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                if typecheck_pattern_is_catch_all_ref(sub_pat) {
+                    return true;
+                }
+                vec_push(subpats, aux);
             }
             i = i + 1;
+        }
+        if vec_len(subpats) > 0 {
+            return typecheck_subpatterns_cover_type_ref(subpats);
         }
         return false;
     }
@@ -1634,6 +1792,8 @@
         let covers_err: bool = false;
         let exhausted: bool = false;
         let i: i64 = 0;
+        let ok_subpats: Vec<i64> = vec_new();
+        let err_subpats: Vec<i64> = vec_new();
         while i < ast_pattern_list_ref_count(patterns_ref) {
             let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
@@ -1649,13 +1809,35 @@
             }
             if !has_guard {
                 if ast_pattern_ref_kind(pattern_ref) == PAT_RESULT_OK {
-                    if ast_pattern_ref_aux(pattern_ref) == 0 {
+                    let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+                    if aux == 0 {
                         covers_ok = true;
+                    } else {
+                        let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                        if typecheck_pattern_is_catch_all_ref(sub_pat) {
+                            covers_ok = true;
+                        } else {
+                            vec_push(ok_subpats, aux);
+                            if typecheck_subpatterns_cover_type_ref(ok_subpats) {
+                                covers_ok = true;
+                            }
+                        }
                     }
                 }
                 if ast_pattern_ref_kind(pattern_ref) == PAT_RESULT_ERR {
-                    if ast_pattern_ref_aux(pattern_ref) == 0 {
+                    let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+                    if aux == 0 {
                         covers_err = true;
+                    } else {
+                        let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                        if typecheck_pattern_is_catch_all_ref(sub_pat) {
+                            covers_err = true;
+                        } else {
+                            vec_push(err_subpats, aux);
+                            if typecheck_subpatterns_cover_type_ref(err_subpats) {
+                                covers_err = true;
+                            }
+                        }
                     }
                 }
                 if covers_ok && covers_err {

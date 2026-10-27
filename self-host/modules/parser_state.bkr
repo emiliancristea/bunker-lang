@@ -188,6 +188,11 @@
             parser_advance_ref(p_ref);
             return true;
         }
+        if expected == TOK_GT && parser_peek_ref(p_ref) == TOK_SHR {
+            let idx = parser_position_ref(p_ref) * 3;
+            vec_set(parser_tokens_ref(p_ref), idx, TOK_GT);
+            return true;
+        }
         parser_mark_error_ref(p_ref, expected);
         return false;
     }
