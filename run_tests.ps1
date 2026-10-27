@@ -211,6 +211,8 @@ $expectedResults = @{
     "291_versioning_rules_contract" = 42
     "292_package_registry_archive" = 42
     "293_stdlib_documentation_catalog" = 42
+    "294_construct_examples_matrix" = 42
+    "295_language_migration_conventions" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -478,7 +480,9 @@ if (-not $JitOnly) {
         "tests\290_cross_platform_ci_matrix.bkr",
         "tests\291_versioning_rules_contract.bkr",
         "tests\292_package_registry_archive.bkr",
-        "tests\293_stdlib_documentation_catalog.bkr"
+        "tests\293_stdlib_documentation_catalog.bkr",
+        "tests\294_construct_examples_matrix.bkr",
+        "tests\295_language_migration_conventions.bkr"
     )
 
     $subsetOk = $true

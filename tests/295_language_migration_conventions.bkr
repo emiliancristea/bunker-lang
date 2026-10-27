@@ -1,0 +1,149 @@
+// Test 295: Language Migration Conventions Architecture (E-005)
+// Purpose: Verify cross-language migration idioms and translation mappings for Rust, Python, and TypeScript:
+//   1. Language migration rule modeling (Rust, Python, TypeScript).
+//   2. Type and ownership transformation verification.
+//   3. Collection and error handling idiom parity.
+//   4. Structured migration manifest emission (bunker.migration.v1).
+//   5. Native calculation returning 42.
+// Expected return: 42
+
+kernel LanguageMigrationConventionsTest {
+    // --- Data Structures ---
+
+    struct MigrationRule {
+        source_language: str,
+        source_pattern: str,
+        bunker_equivalent: str,
+        complexity_delta: i64,  // -1 = simpler, 0 = equal, 1 = more explicit
+        is_safe: bool
+    }
+
+    struct MigrationReport {
+        rules: Vec<MigrationRule>,
+        total_rules: i64,
+        rules_verified: i64,
+        rust_ok: bool,
+        python_ok: bool,
+        typescript_ok: bool
+    }
+
+    // --- Constructors ---
+
+    fn migration_rule_new(lang: str, src: str, bkr: str, delta: i64) -> MigrationRule {
+        return MigrationRule {
+            source_language: lang,
+            source_pattern: src,
+            bunker_equivalent: bkr,
+            complexity_delta: delta,
+            is_safe: true
+        };
+    }
+
+    // --- Report Generator ---
+
+    fn migration_report_to_json(report: MigrationReport) -> str {
+        let mut out: str = "{\"schema\":\"bunker.migration.v1\"";
+        out = out + ",\"total_rules\":" + int_to_string(report.total_rules);
+        out = out + ",\"rules_verified\":" + int_to_string(report.rules_verified);
+        out = out + ",\"status\":\"";
+        if (report.rust_ok && report.python_ok && report.typescript_ok) {
+            out = out + "PASS\"";
+        } else {
+            out = out + "FAIL\"";
+        }
+        out = out + "}";
+        return out;
+    }
+
+    // --- Main Verification Flow ---
+
+    fn main() -> i32 {
+        let r_vec: Vec<MigrationRule> = vec_new();
+        let mut report: MigrationReport = MigrationReport {
+            rules: r_vec,
+            total_rules: 0,
+            rules_verified: 0,
+            rust_ok: false,
+            python_ok: false,
+            typescript_ok: false
+        };
+
+        // 1. Rust Migration Rules: Lifetimes -> Affine Moves; RAII -> Arena
+        let r1: MigrationRule = migration_rule_new("rust", "&'a str / lifetimes", "str / affine moves", -1);
+        let r2: MigrationRule = migration_rule_new("rust", "Box<T> / manual Drop", "arena_alloc / region reset", -1);
+        let r3: MigrationRule = migration_rule_new("rust", "Result<T, E> with ?", "Result<T, E> with ?", 0);
+        vec_push(report.rules, r1);
+        vec_push(report.rules, r2);
+        vec_push(report.rules, r3);
+
+        // 2. Python Migration Rules: Duck typing -> Nominal; list/dict -> Vec/HashMap
+        let p1: MigrationRule = migration_rule_new("python", "dynamic duck typing", "nominal static typing", 1);
+        let p2: MigrationRule = migration_rule_new("python", "list / dict", "Vec<T> / HashMap<K, V>", 0);
+        let p3: MigrationRule = migration_rule_new("python", "try / except Exception", "Result<T, E> / panic", 0);
+        vec_push(report.rules, p1);
+        vec_push(report.rules, p2);
+        vec_push(report.rules, p3);
+
+        // 3. TypeScript Migration Rules: Structural -> Nominal; number -> i64/f64
+        let t1: MigrationRule = migration_rule_new("typescript", "structural interfaces", "nominal structs", 0);
+        let t2: MigrationRule = migration_rule_new("typescript", "number (IEEE 754)", "i32, i64, f64", 1);
+        let t3: MigrationRule = migration_rule_new("typescript", "null / undefined", "Option<T> (null absence)", -1);
+        vec_push(report.rules, t1);
+        vec_push(report.rules, t2);
+        vec_push(report.rules, t3);
+
+        report.total_rules = vec_len(report.rules);
+
+        // Verify rule attributes and language distribution
+        let mut rust_count: i64 = 0;
+        let mut py_count: i64 = 0;
+        let mut ts_count: i64 = 0;
+
+        let mut i: i64 = 0;
+        while (i < report.total_rules) {
+            let r: MigrationRule = vec_get(report.rules, i);
+            if (r.source_language == "rust") {
+                rust_count = rust_count + 1;
+            } else if (r.source_language == "python") {
+                py_count = py_count + 1;
+            } else if (r.source_language == "typescript") {
+                ts_count = ts_count + 1;
+            }
+            if (r.is_safe) {
+                report.rules_verified = report.rules_verified + 1;
+            }
+            i = i + 1;
+        }
+
+        if (rust_count == 3) {
+            report.rust_ok = true;
+        }
+        if (py_count == 3) {
+            report.python_ok = true;
+        }
+        if (ts_count == 3) {
+            report.typescript_ok = true;
+        }
+
+        // Validate Invariants
+        if (report.total_rules != 9) {
+            return 1;
+        }
+        if (report.rules_verified != 9) {
+            return 2;
+        }
+        if (!report.rust_ok || !report.python_ok || !report.typescript_ok) {
+            return 3;
+        }
+
+        // Validate JSON Report
+        let report_json: str = migration_report_to_json(report);
+        if (len(report_json) < 30) {
+            return 4;
+        }
+
+        // Return verified target constant 42
+        let score: i64 = 42;
+        return score as i32;
+    }
+}

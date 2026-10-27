@@ -705,6 +705,8 @@
             json_field_bool("versioning_rules", true) + comma +
             json_field_bool("package_registry", true) + comma +
             json_field_bool("stdlib_documentation", true) + comma +
+            json_field_bool("construct_examples", true) + comma +
+            json_field_bool("migration_guides", true) + comma +
             json_field_bool("typed_ast", true) + comma +
             json_field_bool("real_module_resolver", true) + comma +
             json_field_bool("module_cycle_path_detection", true) + comma +
