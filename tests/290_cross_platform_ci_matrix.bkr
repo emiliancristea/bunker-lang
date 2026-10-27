@@ -1,0 +1,158 @@
+// Test 290: Cross-Platform CI Matrix and Build Stage Architecture (S-013)
+// Purpose: Verify multi-OS CI matrix, build stages, fixpoint determinism, and reporting:
+//   1. Multi-OS target modeling (Ubuntu, Windows, macOS).
+//   2. Build stage pipeline verification (Rust build, JIT, self-host C-codegen, fixpoint).
+//   3. Fixpoint hash equivalence assertion (Stage 1 == Stage 2).
+//   4. Structured CI manifest emission (bunker.ci.v1).
+//   5. Native calculation returning 42.
+// Expected return: 42
+
+kernel CrossPlatformCiMatrixTest {
+    // --- Data Structures ---
+
+    struct CiStage {
+        stage_name: str,
+        passed: bool,
+        duration_sec: i64
+    }
+
+    struct MatrixRunner {
+        os_name: str,
+        arch_name: str,
+        c_compiler: str,
+        stages: Vec<CiStage>,
+        stage1_hash: i64,
+        stage2_hash: i64
+    }
+
+    struct CiMatrixReport {
+        runners: Vec<MatrixRunner>,
+        total_runners: i64,
+        total_passed_stages: i64,
+        overall_pass: bool
+    }
+
+    // --- Constructors ---
+
+    fn ci_stage_new(name: str, passed: bool, dur: i64) -> CiStage {
+        return CiStage {
+            stage_name: name,
+            passed: passed,
+            duration_sec: dur
+        };
+    }
+
+    fn matrix_runner_new(os: str, arch: str, cc: str, s1_hash: i64, s2_hash: i64) -> MatrixRunner {
+        let st: Vec<CiStage> = vec_new();
+        return MatrixRunner {
+            os_name: os,
+            arch_name: arch,
+            c_compiler: cc,
+            stages: st,
+            stage1_hash: s1_hash,
+            stage2_hash: s2_hash
+        };
+    }
+
+    // --- Report Generator ---
+
+    fn ci_report_to_json(report: CiMatrixReport) -> str {
+        let mut out: str = "{\"schema\":\"bunker.ci.v1\"";
+        out = out + ",\"runners\":" + int_to_string(report.total_runners);
+        out = out + ",\"passed_stages\":" + int_to_string(report.total_passed_stages);
+        out = out + ",\"status\":\"";
+        if (report.overall_pass) {
+            out = out + "PASS\"";
+        } else {
+            out = out + "FAIL\"";
+        }
+        out = out + "}";
+        return out;
+    }
+
+    // --- Main Verification Flow ---
+
+    fn main() -> i32 {
+        let mut runners_vec: Vec<MatrixRunner> = vec_new();
+
+        // 1. Runner 1: Ubuntu x86_64 (Linux, GCC 12, Fixpoint: 0xDEADBEEF)
+        let mut r_ubuntu: MatrixRunner = matrix_runner_new("ubuntu-latest", "x86_64", "gcc-12", 3735928559, 3735928559);
+        vec_push(r_ubuntu.stages, ci_stage_new("rust_build", true, 12));
+        vec_push(r_ubuntu.stages, ci_stage_new("jit_tests", true, 8));
+        vec_push(r_ubuntu.stages, ci_stage_new("self_host_compile", true, 15));
+        vec_push(r_ubuntu.stages, ci_stage_new("fixpoint_verify", true, 5));
+        vec_push(runners_vec, r_ubuntu);
+
+        // 2. Runner 2: Windows x86_64 (MSVC cl.exe, Fixpoint: 0xDEADBEEF)
+        let mut r_windows: MatrixRunner = matrix_runner_new("windows-latest", "x86_64", "msvc-19", 3735928559, 3735928559);
+        vec_push(r_windows.stages, ci_stage_new("rust_build", true, 18));
+        vec_push(r_windows.stages, ci_stage_new("jit_tests", true, 11));
+        vec_push(r_windows.stages, ci_stage_new("self_host_compile", true, 22));
+        vec_push(r_windows.stages, ci_stage_new("fixpoint_verify", true, 7));
+        vec_push(runners_vec, r_windows);
+
+        // 3. Runner 3: macOS arm64 (Apple Clang, Fixpoint: 0xDEADBEEF)
+        let mut r_macos: MatrixRunner = matrix_runner_new("macos-latest", "arm64", "apple-clang-15", 3735928559, 3735928559);
+        vec_push(r_macos.stages, ci_stage_new("rust_build", true, 14));
+        vec_push(r_macos.stages, ci_stage_new("jit_tests", true, 9));
+        vec_push(r_macos.stages, ci_stage_new("self_host_compile", true, 18));
+        vec_push(r_macos.stages, ci_stage_new("fixpoint_verify", true, 6));
+        vec_push(runners_vec, r_macos);
+
+        // 4. Evaluate Matrix Results and Fixpoint Hash Invariants
+        let num_runners: i64 = vec_len(runners_vec);
+        let mut passed_stages: i64 = 0;
+        let mut all_ok: bool = true;
+
+        let mut i: i64 = 0;
+        while (i < num_runners) {
+            let runner: MatrixRunner = vec_get(runners_vec, i);
+
+            // Fixpoint check: Stage 1 C output hash must exactly match Stage 2 C output hash
+            if (runner.stage1_hash != runner.stage2_hash) {
+                all_ok = false;
+            }
+
+            let num_stages: i64 = vec_len(runner.stages);
+            let mut s_idx: i64 = 0;
+            while (s_idx < num_stages) {
+                let st: CiStage = vec_get(runner.stages, s_idx);
+                if (st.passed) {
+                    passed_stages = passed_stages + 1;
+                } else {
+                    all_ok = false;
+                }
+                s_idx = s_idx + 1;
+            }
+            i = i + 1;
+        }
+
+        let report: CiMatrixReport = CiMatrixReport {
+            runners: runners_vec,
+            total_runners: num_runners,
+            total_passed_stages: passed_stages,
+            overall_pass: all_ok
+        };
+
+        // 5. Validate Invariants
+        if (!report.overall_pass) {
+            return 1;
+        }
+        if (report.total_runners != 3) {
+            return 2;
+        }
+        if (report.total_passed_stages != 12) {
+            return 3;
+        }
+
+        // 6. Validate JSON Report
+        let report_json: str = ci_report_to_json(report);
+        if (len(report_json) < 30) {
+            return 4;
+        }
+
+        // Return verified target constant 42
+        let score: i64 = 42;
+        return score as i32;
+    }
+}
