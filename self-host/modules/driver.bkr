@@ -584,6 +584,7 @@
         let comma = ",";
         return "{" +
             json_field_str("code", code) + comma +
+            json_field_str("rule_id", code) + comma +
             json_field_str("phase", phase) + comma +
             json_field_str("category", category) + comma +
             json_field_str("description", description) +
