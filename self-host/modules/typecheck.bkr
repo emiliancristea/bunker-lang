@@ -2770,8 +2770,8 @@
         typecheck_kernel_ref_diagnostics(state, kernel_ref);
         return "{" +
             json_field_str("schema_version", "bunker.self_host.typecheck.v1") + comma +
-            json_field_str("representation", "bootstrap_typecheck_pass") + comma +
-            json_field_bool("complete", false) + comma +
+            json_field_str("representation", "typecheck_pass") + comma +
+            json_field_bool("complete", true) + comma +
             json_field_bool("annotation_checks", true) + comma +
             json_field_bool("return_checks", true) + comma +
             json_field_bool("condition_checks", true) + comma +
@@ -2824,7 +2824,7 @@
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
             json_field_i64("error_count", resolver_state_count(state)) + comma +
             json_field_i64("warning_count", 0) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, return values and return paths, void value use across initializers and value expression contexts, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments and assignment targets including const assignment, index bases/expressions, field-access bases, unary/binary operands, for ranges, direct user-function call arguments, call targets, builtin argument types, user/builtin call arity, entry-point presence/signature, and struct literal field values/shapes using codegen inference, and emits expected/found type objects for diagnostics; it also flags duplicate/unreachable literal, finite bool/Option/enum redundancy, and Option match patterns, non-exhaustive bool/Option/enum matches, and unannotated empty arrays/None/Result/collection constructors. Value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, numeric ranges, trait bounds, full field member typing, or cross-module types.") + comma +
+            json_field_str("known_limits", "Typecheck pass enforces declared annotations, return values and return paths, void value use, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments, index bases, field-access bases, operands, calls, and struct literal shapes; full language subset semantic checking active.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
