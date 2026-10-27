@@ -173,6 +173,8 @@ $expectedResults = @{
     "253_parse_recovery_multi_error" = 42
     "254_unified_diagnostic_envelope" = 42
     "255_diagnostic_code_registry_parity" = 42
+    "256_module_resolver_cycle_paths" = 42
+    "257_name_resolver_visibility_cross_file" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -402,7 +404,9 @@ if (-not $JitOnly) {
         "tests\252_parser_recovery_diagnostics.bkr",
         "tests\253_parse_recovery_multi_error.bkr",
         "tests\254_unified_diagnostic_envelope.bkr",
-        "tests\255_diagnostic_code_registry_parity.bkr"
+        "tests\255_diagnostic_code_registry_parity.bkr",
+        "tests\256_module_resolver_cycle_paths.bkr",
+        "tests\257_name_resolver_visibility_cross_file.bkr"
     )
 
     $subsetOk = $true

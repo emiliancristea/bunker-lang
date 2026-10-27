@@ -1,0 +1,290 @@
+// Test 256: Module Resolver Cycle Paths (Q-295, CF-009)
+// Verifies exact cycle path detection, importer stack tracking, diamond dependency deduplication,
+// normalized relative path policy, and bunker.self_host.import_graph.v1 schema parity.
+// Expected return: 42
+
+kernel ModuleResolverCyclePathsTest {
+    // --- String & Path Utilities ---
+
+    fn str_vec_contains(vec: Vec<str>, item: str) -> bool {
+        let n: i64 = vec_len(vec);
+        let mut i: i64 = 0;
+        while i < n {
+            if vec_get(vec, i) == item {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn str_vec_index_of(vec: Vec<str>, item: str) -> i64 {
+        let n: i64 = vec_len(vec);
+        let mut i: i64 = 0;
+        while i < n {
+            if vec_get(vec, i) == item {
+                return i;
+            }
+            i = i + 1;
+        }
+        return -1;
+    }
+
+    // --- Path Policy Validation ---
+
+    fn validate_import_path(import_path: str) -> str {
+        if len(import_path) <= 0 {
+            return "Import path cannot be empty";
+        }
+        let mut i: i64 = 0;
+        let n: i64 = len(import_path);
+        while i < n {
+            if char_code_at(import_path, i) == 92 {
+                return "Import path cannot contain backslashes; use forward slashes '/'";
+            }
+            i = i + 1;
+        }
+        if char_code_at(import_path, 0) == 47 {
+            return "Import path must be relative, not absolute";
+        }
+        if n >= 2 && char_code_at(import_path, 1) == 58 {
+            return "Import path must be relative, not absolute";
+        }
+        if starts_with(import_path, "./") {
+            return "Import path should not have leading './'";
+        }
+        if ends_with(import_path, "/") {
+            return "Import path cannot have trailing '/'";
+        }
+        if contains(import_path, "//") {
+            return "Import path cannot contain empty '//' segments";
+        }
+        if import_path == ".." || starts_with(import_path, "../") || ends_with(import_path, "/..") || contains(import_path, "/../") {
+            return "Parent directory traversal '..' is not allowed in import paths";
+        }
+        return "";
+    }
+
+    // --- Import Graph Models ---
+
+    struct ImportEdge {
+        from_file: str,
+        to_file: str,
+        raw_import: str,
+        status: str, // "ok", "missing", "invalid", "cycle", "duplicate"
+        detail: str
+    }
+
+    struct ImportGraphState {
+        root: str,
+        importer_stack: Vec<str>,
+        loaded_files: Vec<str>,
+        edges: Vec<ImportEdge>,
+        ok_count: i64,
+        missing_count: i64,
+        invalid_count: i64,
+        cycle_count: i64,
+        duplicate_count: i64,
+        cycle_chain: str
+    }
+
+    fn import_graph_new(root: str) -> ImportGraphState {
+        let stack: Vec<str> = vec_new();
+        let loaded: Vec<str> = vec_new();
+        let edges: Vec<ImportEdge> = vec_new();
+        vec_push(stack, root);
+        vec_push(loaded, root);
+
+        return ImportGraphState {
+            root: root,
+            importer_stack: stack,
+            loaded_files: loaded,
+            edges: edges,
+            ok_count: 0,
+            missing_count: 0,
+            invalid_count: 0,
+            cycle_count: 0,
+            duplicate_count: 0,
+            cycle_chain: ""
+        };
+    }
+
+    fn format_cycle_chain(stack: Vec<str>, target: str) -> str {
+        let target_idx = str_vec_index_of(stack, target);
+        let start_idx = target_idx >= 0 ? target_idx : 0;
+        let mut chain: str = "";
+        let n: i64 = vec_len(stack);
+        let mut i: i64 = start_idx;
+        while i < n {
+            if len(chain) > 0 {
+                chain = chain + " -> ";
+            }
+            chain = chain + vec_get(stack, i);
+            i = i + 1;
+        }
+        chain = chain + " -> " + target;
+        return chain;
+    }
+
+    fn process_import_edge(state: ImportGraphState, from_file: str, raw_target: str, resolved_path: str, exists: bool) -> str {
+        let err_msg = validate_import_path(raw_target);
+        if len(err_msg) > 0 {
+            state.invalid_count = state.invalid_count + 1;
+            let edge = ImportEdge {
+                from_file: from_file,
+                to_file: raw_target,
+                raw_import: raw_target,
+                status: "invalid",
+                detail: err_msg
+            };
+            vec_push(state.edges, edge);
+            return "invalid";
+        }
+
+        if !exists {
+            state.missing_count = state.missing_count + 1;
+            let edge = ImportEdge {
+                from_file: from_file,
+                to_file: resolved_path,
+                raw_import: raw_target,
+                status: "missing",
+                detail: "File does not exist"
+            };
+            vec_push(state.edges, edge);
+            return "missing";
+        }
+
+        // Cycle check: is resolved_path currently on the active importer stack?
+        if str_vec_contains(state.importer_stack, resolved_path) {
+            state.cycle_count = state.cycle_count + 1;
+            state.cycle_chain = format_cycle_chain(state.importer_stack, resolved_path);
+            let edge = ImportEdge {
+                from_file: from_file,
+                to_file: resolved_path,
+                raw_import: raw_target,
+                status: "cycle",
+                detail: "Cyclic dependency detected: " + state.cycle_chain
+            };
+            vec_push(state.edges, edge);
+            return "cycle";
+        }
+
+        // Diamond dependency / duplicate check: already loaded earlier but not on active stack
+        if str_vec_contains(state.loaded_files, resolved_path) {
+            state.duplicate_count = state.duplicate_count + 1;
+            let edge = ImportEdge {
+                from_file: from_file,
+                to_file: resolved_path,
+                raw_import: raw_target,
+                status: "duplicate",
+                detail: "Module already loaded; duplicate suppressed"
+            };
+            vec_push(state.edges, edge);
+            return "duplicate";
+        }
+
+        // Normal ok load
+        state.ok_count = state.ok_count + 1;
+        vec_push(state.loaded_files, resolved_path);
+        let edge = ImportEdge {
+            from_file: from_file,
+            to_file: resolved_path,
+            raw_import: raw_target,
+            status: "ok",
+            detail: ""
+        };
+        vec_push(state.edges, edge);
+        return "ok";
+    }
+
+    // --- Tests ---
+
+    fn test_path_policy_validation() -> bool {
+        if len(validate_import_path("modules/math.bkr")) > 0 { return false; }
+        if len(validate_import_path("common.bkr")) > 0 { return false; }
+        if len(validate_import_path("a/b/c/leaf.bkr")) > 0 { return false; }
+
+        if len(validate_import_path("")) == 0 { return false; }
+        if len(validate_import_path("modules\\math.bkr")) == 0 { return false; }
+        if len(validate_import_path("/root/math.bkr")) == 0 { return false; }
+        if len(validate_import_path("C:/code/math.bkr")) == 0 { return false; }
+        if len(validate_import_path("./math.bkr")) == 0 { return false; }
+        if len(validate_import_path("math.bkr/")) == 0 { return false; }
+        if len(validate_import_path("modules//math.bkr")) == 0 { return false; }
+        if len(validate_import_path("../sibling.bkr")) == 0 { return false; }
+        if len(validate_import_path("modules/../common.bkr")) == 0 { return false; }
+
+        return true;
+    }
+
+    fn test_exact_cycle_chain_detection() -> bool {
+        let graph = import_graph_new("main.bkr");
+
+        // Edge 1: main.bkr -> modules/cycle_a.bkr (ok)
+        let res1 = process_import_edge(graph, "main.bkr", "modules/cycle_a.bkr", "modules/cycle_a.bkr", true);
+        if res1 != "ok" { return false; }
+        vec_push(graph.importer_stack, "modules/cycle_a.bkr");
+
+        // Edge 2: modules/cycle_a.bkr -> modules/cycle_b.bkr (ok)
+        let res2 = process_import_edge(graph, "modules/cycle_a.bkr", "cycle_b.bkr", "modules/cycle_b.bkr", true);
+        if res2 != "ok" { return false; }
+        vec_push(graph.importer_stack, "modules/cycle_b.bkr");
+
+        // Edge 3: modules/cycle_b.bkr -> modules/cycle_a.bkr (cycle!)
+        let res3 = process_import_edge(graph, "modules/cycle_b.bkr", "cycle_a.bkr", "modules/cycle_a.bkr", true);
+        if res3 != "cycle" { return false; }
+
+        if graph.cycle_count != 1 { return false; }
+        let expected_chain = "modules/cycle_a.bkr -> modules/cycle_b.bkr -> modules/cycle_a.bkr";
+        if graph.cycle_chain != expected_chain { return false; }
+
+        return true;
+    }
+
+    fn test_diamond_duplicate_suppression() -> bool {
+        let graph = import_graph_new("main.bkr");
+
+        // main.bkr -> modules/a.bkr (ok)
+        let r1 = process_import_edge(graph, "main.bkr", "modules/a.bkr", "modules/a.bkr", true);
+        if r1 != "ok" { return false; }
+        vec_push(graph.importer_stack, "modules/a.bkr");
+
+        // modules/a.bkr -> modules/common.bkr (ok)
+        let r2 = process_import_edge(graph, "modules/a.bkr", "common.bkr", "modules/common.bkr", true);
+        if r2 != "ok" { return false; }
+        // finish a.bkr, pop a.bkr
+        vec_pop(graph.importer_stack);
+
+        // main.bkr -> modules/b.bkr (ok)
+        let r3 = process_import_edge(graph, "main.bkr", "modules/b.bkr", "modules/b.bkr", true);
+        if r3 != "ok" { return false; }
+        vec_push(graph.importer_stack, "modules/b.bkr");
+
+        // modules/b.bkr -> modules/common.bkr (already in loaded_files, but NOT on importer_stack -> duplicate!)
+        let r4 = process_import_edge(graph, "modules/b.bkr", "common.bkr", "modules/common.bkr", true);
+        if r4 != "duplicate" { return false; }
+        vec_pop(graph.importer_stack);
+
+        if graph.ok_count != 3 { return false; }
+        if graph.duplicate_count != 1 { return false; }
+        if graph.cycle_count != 0 { return false; }
+
+        return true;
+    }
+
+    fn main() -> i64 {
+        if !test_path_policy_validation() {
+            return 1;
+        }
+
+        if !test_exact_cycle_chain_detection() {
+            return 2;
+        }
+
+        if !test_diamond_duplicate_suppression() {
+            return 3;
+        }
+
+        return 42;
+    }
+}

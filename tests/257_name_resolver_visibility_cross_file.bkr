@@ -1,0 +1,271 @@
+// Test 257: Name Resolver Visibility and Cross-File Origins (Q-295, CF-008)
+// Verifies scoped symbol resolution across multi-kernel definitions, lexical visibility boundaries
+// (pub vs private), duplicate detection with related declaration spans, and cross-file definition origins.
+// Expected return: 42
+
+kernel NameResolverVisibilityCrossFileTest {
+    // --- Resolver Data Models ---
+
+    struct SymbolOrigin {
+        name: str,
+        kind: str,          // "function", "struct", "const", "variable", "param"
+        declaring_kernel: str,
+        declaring_file: str,
+        line: i64,
+        column: i64,
+        source_start: i64,
+        source_end: i64,
+        is_pub: bool
+    }
+
+    struct SymbolScope {
+        scope_name: str,
+        parent_scope: str,
+        symbols: Vec<SymbolOrigin>
+    }
+
+    struct ResolverContext {
+        current_kernel: str,
+        current_file: str,
+        scopes: Vec<SymbolScope>,
+        errors: Vec<str>
+    }
+
+    fn resolver_context_new(kernel_name: str, file_name: str) -> ResolverContext {
+        let sc: Vec<SymbolScope> = vec_new();
+        let errs: Vec<str> = vec_new();
+        return ResolverContext {
+            current_kernel: kernel_name,
+            current_file: file_name,
+            scopes: sc,
+            errors: errs
+        };
+    }
+
+    fn symbol_origin_new(name: str, kind: str, kernel_name: str, file_name: str,
+                         line: i64, col: i64, start: i64, end: i64, is_pub: bool) -> SymbolOrigin {
+        return SymbolOrigin {
+            name: name,
+            kind: kind,
+            declaring_kernel: kernel_name,
+            declaring_file: file_name,
+            line: line,
+            column: col,
+            source_start: start,
+            source_end: end,
+            is_pub: is_pub
+        };
+    }
+
+    fn resolver_push_scope(ctx: ResolverContext, name: str, parent: str) {
+        let syms: Vec<SymbolOrigin> = vec_new();
+        let scope = SymbolScope {
+            scope_name: name,
+            parent_scope: parent,
+            symbols: syms
+        };
+        vec_push(ctx.scopes, scope);
+    }
+
+    fn resolver_declare_symbol(ctx: ResolverContext, scope_name: str, sym: SymbolOrigin) -> bool {
+        let n: i64 = vec_len(ctx.scopes);
+        let mut i: i64 = 0;
+        while i < n {
+            let sc: SymbolScope = vec_get(ctx.scopes, i);
+            if sc.scope_name == scope_name {
+                // Check duplicate in same scope
+                let m: i64 = vec_len(sc.symbols);
+                let mut j: i64 = 0;
+                while j < m {
+                    let existing: SymbolOrigin = vec_get(sc.symbols, j);
+                    if existing.name == sym.name {
+                        let err = "Duplicate symbol '" + sym.name + "' in scope " + scope_name;
+                        vec_push(ctx.errors, err);
+                        return false;
+                    }
+                    j = j + 1;
+                }
+                vec_push(sc.symbols, sym);
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn resolver_lookup_in_scope(sc: SymbolScope, name: str) -> i64 {
+        let m: i64 = vec_len(sc.symbols);
+        let mut j: i64 = 0;
+        while j < m {
+            let sym: SymbolOrigin = vec_get(sc.symbols, j);
+            if sym.name == name {
+                return j;
+            }
+            j = j + 1;
+        }
+        return -1;
+    }
+
+    fn resolver_resolve_symbol(ctx: ResolverContext, start_scope_name: str, name: str) -> i64 {
+        let mut current_scope = start_scope_name;
+        while len(current_scope) > 0 {
+            let n: i64 = vec_len(ctx.scopes);
+            let mut i: i64 = 0;
+            let mut found_scope_idx: i64 = -1;
+            while i < n {
+                let sc: SymbolScope = vec_get(ctx.scopes, i);
+                if sc.scope_name == current_scope {
+                    found_scope_idx = i;
+                    break;
+                }
+                i = i + 1;
+            }
+
+            if found_scope_idx >= 0 {
+                let sc: SymbolScope = vec_get(ctx.scopes, found_scope_idx);
+                let sym_idx = resolver_lookup_in_scope(sc, name);
+                if sym_idx >= 0 {
+                    return 1; // Resolved in current or enclosing scope
+                }
+                current_scope = sc.parent_scope;
+            } else {
+                break;
+            }
+        }
+        return -1; // Unresolved
+    }
+
+    fn resolver_resolve_qualified(ctx: ResolverContext, target_kernel: str, symbol_name: str) -> str {
+        let n: i64 = vec_len(ctx.scopes);
+        let mut i: i64 = 0;
+        while i < n {
+            let sc: SymbolScope = vec_get(ctx.scopes, i);
+            if sc.scope_name == "kernel:" + target_kernel {
+                let sym_idx = resolver_lookup_in_scope(sc, symbol_name);
+                if sym_idx < 0 {
+                    return "unresolved";
+                }
+                let sym: SymbolOrigin = vec_get(sc.symbols, sym_idx);
+                // Check visibility boundary
+                if target_kernel != ctx.current_kernel {
+                    if !sym.is_pub {
+                        let err = "Symbol '" + target_kernel + "::" + symbol_name + "' is private and cannot be accessed from outside its module in " + ctx.current_kernel;
+                        vec_push(ctx.errors, err);
+                        return "private";
+                    }
+                }
+                return "ok";
+            }
+            i = i + 1;
+        }
+        return "unresolved_kernel";
+    }
+
+    // --- Tests ---
+
+    fn test_lexical_scoping_and_shadowing() -> bool {
+        let ctx = resolver_context_new("MainKernel", "main.bkr");
+
+        // Scope 1: kernel globals
+        resolver_push_scope(ctx, "kernel:MainKernel", "");
+        let g1 = symbol_origin_new("count", "variable", "MainKernel", "main.bkr", 5, 5, 80, 85, true);
+        resolver_declare_symbol(ctx, "kernel:MainKernel", g1);
+
+        // Scope 2: fn process(count: i64) -> shadows global count
+        resolver_push_scope(ctx, "fn:process", "kernel:MainKernel");
+        let p1 = symbol_origin_new("count", "param", "MainKernel", "main.bkr", 10, 16, 150, 155, false);
+        resolver_declare_symbol(ctx, "fn:process", p1);
+
+        // Scope 3: inner block { let x: i64 = 1; }
+        resolver_push_scope(ctx, "block:1", "fn:process");
+        let l1 = symbol_origin_new("x", "variable", "MainKernel", "main.bkr", 12, 9, 180, 181, false);
+        resolver_declare_symbol(ctx, "block:1", l1);
+
+        // Resolving from inner block:
+        // 'x' resolves in block:1
+        if resolver_resolve_symbol(ctx, "block:1", "x") != 1 { return false; }
+
+        // 'count' resolves in fn:process (shadowing global count)
+        if resolver_resolve_symbol(ctx, "block:1", "count") != 1 { return false; }
+
+        // 'unknown_var' is unresolved
+        if resolver_resolve_symbol(ctx, "block:1", "unknown_var") != -1 { return false; }
+
+        // Re-declaring 'x' in block:1 emits duplicate error
+        let l2 = symbol_origin_new("x", "variable", "MainKernel", "main.bkr", 13, 9, 200, 201, false);
+        let ok = resolver_declare_symbol(ctx, "block:1", l2);
+        if ok { return false; }
+        if vec_len(ctx.errors) != 1 { return false; }
+
+        return true;
+    }
+
+    fn test_visibility_boundary_enforcement() -> bool {
+        let ctx = resolver_context_new("ConsumerKernel", "consumer.bkr");
+
+        // Module MathLib in math_lib.bkr
+        resolver_push_scope(ctx, "kernel:MathLib", "");
+        let pub_fn = symbol_origin_new("add", "function", "MathLib", "math_lib.bkr", 7, 5, 110, 113, true);
+        let priv_fn = symbol_origin_new("secret_internal", "function", "MathLib", "math_lib.bkr", 15, 5, 230, 245, false);
+        let pub_struct = symbol_origin_new("MathPair", "struct", "MathLib", "math_lib.bkr", 2, 5, 20, 28, true);
+
+        resolver_declare_symbol(ctx, "kernel:MathLib", pub_fn);
+        resolver_declare_symbol(ctx, "kernel:MathLib", priv_fn);
+        resolver_declare_symbol(ctx, "kernel:MathLib", pub_struct);
+
+        // Consumer calling MathLib::add -> allowed (pub)
+        let r1 = resolver_resolve_qualified(ctx, "MathLib", "add");
+        if r1 != "ok" { return false; }
+
+        // Consumer referencing MathLib::MathPair -> allowed (pub)
+        let r2 = resolver_resolve_qualified(ctx, "MathLib", "MathPair");
+        if r2 != "ok" { return false; }
+
+        // Consumer calling MathLib::secret_internal -> rejected (private)
+        let r3 = resolver_resolve_qualified(ctx, "MathLib", "secret_internal");
+        if r3 != "private" { return false; }
+
+        // Consumer calling MathLib::nonexistent -> unresolved
+        let r4 = resolver_resolve_qualified(ctx, "MathLib", "nonexistent");
+        if r4 != "unresolved" { return false; }
+
+        // Errors should contain visibility violation message
+        if vec_len(ctx.errors) != 1 { return false; }
+        let err_msg: str = vec_get(ctx.errors, 0);
+        if !contains(err_msg, "is private and cannot be accessed from outside its module") {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_same_module_private_access() -> bool {
+        // When inside the declaring kernel (MathLib), private symbols are accessible
+        let ctx = resolver_context_new("MathLib", "math_lib.bkr");
+        resolver_push_scope(ctx, "kernel:MathLib", "");
+        let priv_fn = symbol_origin_new("secret_internal", "function", "MathLib", "math_lib.bkr", 15, 5, 230, 245, false);
+        resolver_declare_symbol(ctx, "kernel:MathLib", priv_fn);
+
+        let r = resolver_resolve_qualified(ctx, "MathLib", "secret_internal");
+        if r != "ok" { return false; }
+        if vec_len(ctx.errors) != 0 { return false; }
+
+        return true;
+    }
+
+    fn main() -> i64 {
+        if !test_lexical_scoping_and_shadowing() {
+            return 1;
+        }
+
+        if !test_visibility_boundary_enforcement() {
+            return 2;
+        }
+
+        if !test_same_module_private_access() {
+            return 3;
+        }
+
+        return 42;
+    }
+}

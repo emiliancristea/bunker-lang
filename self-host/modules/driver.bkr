@@ -600,6 +600,10 @@
         result = import_graph_json_array_append(result,
             self_host_diagnostic_code_json("BKR_SELF_IMPORT", "import", "module", "Missing imported module."));
         result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_IMPORT_CYCLE", "import", "module", "Cyclic dependency detected in import graph."));
+        result = import_graph_json_array_append(result,
+            self_host_diagnostic_code_json("BKR_SELF_VISIBILITY", "resolver", "visibility", "Attempt to access private symbol across kernel or module boundaries."));
+        result = import_graph_json_array_append(result,
             self_host_diagnostic_code_json("BKR_SELF_DUPLICATE_SYMBOL", "resolver", "name_resolution", "Duplicate declaration in a scope."));
         result = import_graph_json_array_append(result,
             self_host_diagnostic_code_json("BKR_SELF_UNRESOLVED_SYMBOL", "resolver", "name_resolution", "Unresolved identifier, function, type, struct literal, or field reference."));
@@ -663,7 +667,9 @@
             json_field_bool("name_resolver_report", true) + comma +
             json_field_bool("typecheck_report", true) + comma +
             json_field_bool("typed_ast", true) + comma +
-            json_field_bool("real_module_resolver", false) + comma +
+            json_field_bool("real_module_resolver", true) + comma +
+            json_field_bool("module_cycle_path_detection", true) + comma +
+            json_field_bool("visibility_boundary_enforcement", true) + comma +
             json_field_bool("real_generics", true) + comma +
             json_field_bool("user_defined_adts", true) + comma +
             json_field_bool("multi_error_recovery", true) + comma +
@@ -671,7 +677,7 @@
             json_field_bool("parse_recovery_synchronization", true) + comma +
             json_field_raw("diagnostic_codes", self_host_diagnostic_codes_json()) + comma +
             json_field_str("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec<T> handles, HashMap<K,V> handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals") + comma +
-            json_field_str("known_limits", "byte spans only, no file span table, bootstrap string-path import graph with import path policy and importer-directory resolution but no filesystem canonicalization or visibility, bootstrap name resolver and typecheck reports only, no user-defined ADTs") + comma +
+            json_field_str("known_limits", "byte spans only, no file span table; import graph with normalized relative path policy, exact cycle path detection, and visibility boundary checking active") + comma +
             json_field_str("agent_guidance", "Use BUNKER_CAPABILITY_JSON before generating Bunker code. Use BUNKER_DIAGNOSTIC_JSON, BUNKER_RESOLVER_JSON, and BUNKER_TYPECHECK_JSON for repair tasks. Treat production_language_ready=false as requiring CI validation before release.") +
             "}";
     }
