@@ -203,6 +203,8 @@ $expectedResults = @{
     "283_runtime_profiler_metrics" = 42
     "284_code_coverage_tooling" = 42
     "285_benchmark_tooling_harness" = 42
+    "286_fuzzing_harness_engine" = 42
+    "287_differential_testing_parity" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -462,7 +464,9 @@ if (-not $JitOnly) {
         "tests\282_debugger_hooks_unwinding.bkr",
         "tests\283_runtime_profiler_metrics.bkr",
         "tests\284_code_coverage_tooling.bkr",
-        "tests\285_benchmark_tooling_harness.bkr"
+        "tests\285_benchmark_tooling_harness.bkr",
+        "tests\286_fuzzing_harness_engine.bkr",
+        "tests\287_differential_testing_parity.bkr"
     )
 
     $subsetOk = $true

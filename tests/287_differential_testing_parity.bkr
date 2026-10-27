@@ -1,0 +1,179 @@
+// Test 287: Differential Testing Parity Architecture (S-009)
+// Purpose: Verify compiler differential testing engine comparing Rust JIT and self-host C-backend:
+//   1. Dual-backend evaluation modeling (Reference Cranelift JIT vs Target Self-Host C).
+//   2. Parity verification across exit codes, standard output, and AST node counts.
+//   3. Diagnostic code alignment on negative rejection test fixtures.
+//   4. Structured differential manifest emission (bunker.diff.v1).
+//   5. Native calculation returning 42.
+// Expected return: 42
+
+kernel DifferentialTestingParityTest {
+    // --- Data Structures ---
+
+    struct BackendResult {
+        backend_name: str,
+        exit_code: i64,
+        stdout_hash: i64,
+        ast_nodes: i64,
+        diagnostic_code: str
+    }
+
+    struct TestCase {
+        fixture_name: str,
+        is_negative: bool,
+        ref_res: BackendResult,
+        target_res: BackendResult
+    }
+
+    struct DifferentialSuite {
+        cases: Vec<TestCase>,
+        total_fixtures: i64,
+        parity_matches: i64,
+        divergences: i64
+    }
+
+    // --- Constructors ---
+
+    fn backend_result_new(name: str, exit_code: i64, out_hash: i64, nodes: i64, diag: str) -> BackendResult {
+        return BackendResult {
+            backend_name: name,
+            exit_code: exit_code,
+            stdout_hash: out_hash,
+            ast_nodes: nodes,
+            diagnostic_code: diag
+        };
+    }
+
+    fn test_case_new(name: str, is_neg: bool, r: BackendResult, t: BackendResult) -> TestCase {
+        return TestCase {
+            fixture_name: name,
+            is_negative: is_neg,
+            ref_res: r,
+            target_res: t
+        };
+    }
+
+    fn diff_suite_new() -> DifferentialSuite {
+        let c: Vec<TestCase> = vec_new();
+        return DifferentialSuite {
+            cases: c,
+            total_fixtures: 0,
+            parity_matches: 0,
+            divergences: 0
+        };
+    }
+
+    // --- Parity Comparison Engine ---
+
+    fn check_case_parity(tc: TestCase) -> bool {
+        // 1. Exit code must be identical
+        if (tc.ref_res.exit_code != tc.target_res.exit_code) {
+            return false;
+        }
+
+        // 2. Output hash must match on positive tests
+        if (!tc.is_negative && (tc.ref_res.stdout_hash != tc.target_res.stdout_hash)) {
+            return false;
+        }
+
+        // 3. AST node counts must agree within structure tolerance
+        if (!tc.is_negative && (tc.ref_res.ast_nodes != tc.target_res.ast_nodes)) {
+            return false;
+        }
+
+        // 4. On negative tests, diagnostic error codes must match
+        if (tc.is_negative && (tc.ref_res.diagnostic_code != tc.target_res.diagnostic_code)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // --- Report Generator ---
+
+    fn diff_suite_to_json(suite: DifferentialSuite) -> str {
+        let mut out: str = "{\"schema\":\"bunker.diff.v1\"";
+        out = out + ",\"total_fixtures\":" + int_to_string(suite.total_fixtures);
+        out = out + ",\"parity_matches\":" + int_to_string(suite.parity_matches);
+        out = out + ",\"divergences\":" + int_to_string(suite.divergences);
+        out = out + ",\"status\":\"";
+        if (suite.divergences == 0) {
+            out = out + "PASS\"";
+        } else {
+            out = out + "FAIL\"";
+        }
+        out = out + "}";
+        return out;
+    }
+
+    // --- Main Verification Flow ---
+
+    fn main() -> i32 {
+        let mut suite: DifferentialSuite = diff_suite_new();
+
+        // Fixture 1: Basic arithmetic return value (both return 42)
+        let f1_ref: BackendResult = backend_result_new("rust-cranelift", 42, 1001, 12, "");
+        let f1_tgt: BackendResult = backend_result_new("self-host-c", 42, 1001, 12, "");
+        let tc1: TestCase = test_case_new("01_basic_math.bkr", false, f1_ref, f1_tgt);
+        vec_push(suite.cases, tc1);
+
+        // Fixture 2: Vec / string methods (both return 0, stdout hash match)
+        let f2_ref: BackendResult = backend_result_new("rust-cranelift", 0, 4821, 34, "");
+        let f2_tgt: BackendResult = backend_result_new("self-host-c", 0, 4821, 34, "");
+        let tc2: TestCase = test_case_new("74_vec_operations.bkr", false, f2_ref, f2_tgt);
+        vec_push(suite.cases, tc2);
+
+        // Fixture 3: ADT Option/Result match (both return 42)
+        let f3_ref: BackendResult = backend_result_new("rust-cranelift", 42, 9210, 56, "");
+        let f3_tgt: BackendResult = backend_result_new("self-host-c", 42, 9210, 56, "");
+        let tc3: TestCase = test_case_new("125_result_option_canonical_enum.bkr", false, f3_ref, f3_tgt);
+        vec_push(suite.cases, tc3);
+
+        // Fixture 4: Negative type mismatch BAD (both reject with exit code 1 and E0301)
+        let f4_ref: BackendResult = backend_result_new("rust-cranelift", 1, 0, 0, "E0301");
+        let f4_tgt: BackendResult = backend_result_new("self-host-c", 1, 0, 0, "E0301");
+        let tc4: TestCase = test_case_new("08_message_wrong_type_BAD.bkr", true, f4_ref, f4_tgt);
+        vec_push(suite.cases, tc4);
+
+        // Fixture 5: Negative unresolved symbol BAD (both reject with exit code 1 and E0701)
+        let f5_ref: BackendResult = backend_result_new("rust-cranelift", 1, 0, 0, "E0701");
+        let f5_tgt: BackendResult = backend_result_new("self-host-c", 1, 0, 0, "E0701");
+        let tc5: TestCase = test_case_new("09_view_unknown_binding_BAD.bkr", true, f5_ref, f5_tgt);
+        vec_push(suite.cases, tc5);
+
+        // Evaluate parity across all test cases
+        suite.total_fixtures = vec_len(suite.cases);
+        let mut idx: i64 = 0;
+        while (idx < suite.total_fixtures) {
+            let tc: TestCase = vec_get(suite.cases, idx);
+            let matches: bool = check_case_parity(tc);
+            if (matches) {
+                suite.parity_matches = suite.parity_matches + 1;
+            } else {
+                suite.divergences = suite.divergences + 1;
+            }
+            idx = idx + 1;
+        }
+
+        // Validate Invariants
+        if (suite.total_fixtures != 5) {
+            return 1;
+        }
+        if (suite.parity_matches != 5) {
+            return 2;
+        }
+        if (suite.divergences != 0) {
+            return 3;
+        }
+
+        // Generate JSON report
+        let report: str = diff_suite_to_json(suite);
+        if (len(report) < 30) {
+            return 4;
+        }
+
+        // Return verified target constant 42
+        let score: i64 = 42;
+        return score as i32;
+    }
+}

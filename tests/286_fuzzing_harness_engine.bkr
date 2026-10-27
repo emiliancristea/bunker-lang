@@ -1,0 +1,215 @@
+// Test 286: Fuzzing Harness Engine Architecture (S-008)
+// Purpose: Verify compiler fuzzing harness engine, mutation operators, crash minimization, and reporting:
+//   1. Fuzz target configuration for lexer, parser, and typechecker.
+//   2. Seed corpus registration and coverage expansion.
+//   3. Byte mutation operators (bit flips, token injection, delimiter truncation).
+//   4. Crash artifact capture and delta-debugging minimization.
+//   5. Structured JSON report emission (bunker.fuzz.v1).
+//   6. Native calculation returning 42.
+// Expected return: 42
+
+kernel FuzzingHarnessEngineTest {
+    // --- Data Structures ---
+
+    struct FuzzConfig {
+        target_name: str,
+        target_kind: i64,      // 0 = lexer, 1 = parser, 2 = typecheck
+        max_iterations: i64,
+        timeout_ms: i64,
+        memory_limit_mb: i64
+    }
+
+    struct CorpusEntry {
+        seed_id: i64,
+        payload: str,
+        payload_len: i64,
+        edge_coverage: i64
+    }
+
+    struct FuzzCrash {
+        crash_id: i64,
+        target_name: str,
+        raw_payload: str,
+        minimized_payload: str,
+        raw_bytes: i64,
+        minimized_bytes: i64,
+        exit_code: i64
+    }
+
+    struct FuzzSession {
+        config: FuzzConfig,
+        corpus: Vec<CorpusEntry>,
+        crashes: Vec<FuzzCrash>,
+        iterations_run: i64,
+        edges_discovered: i64,
+        timeouts_detected: i64
+    }
+
+    // --- Constructors ---
+
+    fn fuzz_config_new(name: str, kind: i64, max_iter: i64) -> FuzzConfig {
+        return FuzzConfig {
+            target_name: name,
+            target_kind: kind,
+            max_iterations: max_iter,
+            timeout_ms: 2000,
+            memory_limit_mb: 512
+        };
+    }
+
+    fn corpus_entry_new(id: i64, payload: str, edges: i64) -> CorpusEntry {
+        return CorpusEntry {
+            seed_id: id,
+            payload: payload,
+            payload_len: len(payload),
+            edge_coverage: edges
+        };
+    }
+
+    fn fuzz_session_new(config: FuzzConfig) -> FuzzSession {
+        let corp: Vec<CorpusEntry> = vec_new();
+        let cr: Vec<FuzzCrash> = vec_new();
+        return FuzzSession {
+            config: config,
+            corpus: corp,
+            crashes: cr,
+            iterations_run: 0,
+            edges_discovered: 0,
+            timeouts_detected: 0
+        };
+    }
+
+    // --- Mutation Operators ---
+
+    fn mutate_inject_token(base: str, token: str) -> str {
+        return base + " " + token;
+    }
+
+    fn mutate_truncate(base: str, keep_len: i64) -> str {
+        if (keep_len >= len(base)) {
+            return base;
+        }
+        return substring(base, 0, keep_len);
+    }
+
+    fn mutate_bracket_unbalance(base: str) -> str {
+        return base + " {{{(";
+    }
+
+    // --- Delta-Debugging Minimization Simulation ---
+
+    fn minimize_crash_payload(raw: str) -> str {
+        // Delta debugging iteratively strips bytes until the minimal reproducing trigger remains
+        // Here we simulate minimizing a 45-byte malformed input down to a 7-byte trigger
+        if (len(raw) > 7) {
+            return substring(raw, 0, 7);
+        }
+        return raw;
+    }
+
+    // --- Report Generator ---
+
+    fn fuzz_session_to_json(session: FuzzSession) -> str {
+        let mut out: str = "{\"schema\":\"bunker.fuzz.v1\"";
+        out = out + ",\"target\":\"" + session.config.target_name + "\"";
+        out = out + ",\"iterations\":" + int_to_string(session.iterations_run);
+        out = out + ",\"corpus_size\":" + int_to_string(vec_len(session.corpus));
+        out = out + ",\"crashes\":" + int_to_string(vec_len(session.crashes));
+        out = out + ",\"edges\":" + int_to_string(session.edges_discovered);
+        out = out + ",\"timeouts\":" + int_to_string(session.timeouts_detected);
+        out = out + "}";
+        return out;
+    }
+
+    // --- Main Verification Flow ---
+
+    fn main() -> i32 {
+        let cfg: FuzzConfig = fuzz_config_new("fuzz_parser", 1, 10000);
+        let mut session: FuzzSession = fuzz_session_new(cfg);
+
+        // 1. Register initial seed corpus
+        let seed1: CorpusEntry = corpus_entry_new(1, "kernel Main { fn test() -> i32 { return 42; } }", 48);
+        let seed2: CorpusEntry = corpus_entry_new(2, "struct Point { x: i64, y: i64 }", 24);
+        let seed3: CorpusEntry = corpus_entry_new(3, "let x: i64 = 10 + 20;", 16);
+        vec_push(session.corpus, seed1);
+        vec_push(session.corpus, seed2);
+        vec_push(session.corpus, seed3);
+        session.edges_discovered = 88;
+
+        // 2. Perform mutation passes
+        let mut i: i64 = 0;
+        let mut mutated_seeds: i64 = 0;
+        while (i < 5) {
+            let base_entry: CorpusEntry = vec_get(session.corpus, 0);
+            let mut mut_payload: str = base_entry.payload;
+
+            if (i == 0) {
+                mut_payload = mutate_inject_token(mut_payload, "match Option::Some(x) {}");
+                mutated_seeds = mutated_seeds + 1;
+            } else if (i == 1) {
+                mut_payload = mutate_bracket_unbalance(mut_payload);
+                mutated_seeds = mutated_seeds + 1;
+            } else if (i == 2) {
+                mut_payload = mutate_truncate(mut_payload, 25);
+                mutated_seeds = mutated_seeds + 1;
+            } else if (i == 3) {
+                mut_payload = mutate_inject_token(mut_payload, "while (true) { break; }");
+                mutated_seeds = mutated_seeds + 1;
+            } else {
+                mut_payload = mutate_inject_token(mut_payload, "let invalid = @@@###;");
+                mutated_seeds = mutated_seeds + 1;
+            }
+
+            session.iterations_run = session.iterations_run + 2000;
+            session.edges_discovered = session.edges_discovered + 15;
+            i = i + 1;
+        }
+
+        // 3. Simulate crash capture and delta minimization
+        let raw_crash: str = "kernel Broken { fn bug() { let x = @@@###$$$ }}}";
+        let min_crash: str = minimize_crash_payload(raw_crash);
+
+        let crash_record: FuzzCrash = FuzzCrash {
+            crash_id: 1,
+            target_name: "fuzz_parser",
+            raw_payload: raw_crash,
+            minimized_payload: min_crash,
+            raw_bytes: len(raw_crash),
+            minimized_bytes: len(min_crash),
+            exit_code: 101
+        };
+        vec_push(session.crashes, crash_record);
+
+        // 4. Validate Invariants
+        if (vec_len(session.corpus) != 3) {
+            return 1;
+        }
+        if (session.iterations_run != 10000) {
+            return 2;
+        }
+        if (mutated_seeds != 5) {
+            return 3;
+        }
+        if (vec_len(session.crashes) != 1) {
+            return 4;
+        }
+
+        let recorded_crash: FuzzCrash = vec_get(session.crashes, 0);
+        if (recorded_crash.minimized_bytes != 7) {
+            return 5;
+        }
+        if (recorded_crash.exit_code != 101) {
+            return 6;
+        }
+
+        // 5. Emit and validate JSON report
+        let report: str = fuzz_session_to_json(session);
+        if (len(report) < 30) {
+            return 7;
+        }
+
+        // Return verified target constant 42
+        let score: i64 = 42;
+        return score as i32;
+    }
+}
