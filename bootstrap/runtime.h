@@ -1749,4 +1749,82 @@ static inline void process_exit(bkr_i32 code) { bkr_process_exit(code); }
 static inline bkr_i32 process_pid(void) { return bkr_process_pid(); }
 static inline bkr_bool process_is_sandboxed(void) { return bkr_process_is_sandboxed(); }
 
+/* ============================================
+ * Shell Actor Runtime Primitives (BKR-SPEC-SHELL-001)
+ * ============================================ */
+
+typedef struct BkrActorMessage {
+    char* target;
+    char* source;
+    char* message;
+    bkr_i64 payload;
+    struct BkrActorMessage* next;
+} BkrActorMessage;
+
+typedef struct {
+    BkrActorMessage* head;
+    BkrActorMessage* tail;
+    size_t count;
+    size_t step_count;
+    bkr_bool terminated;
+} BkrActorSystem;
+
+static inline BkrActorSystem* bkr_actor_system_new(void) {
+    BkrActorSystem* sys = (BkrActorSystem*)bkr_arena_alloc(sizeof(BkrActorSystem), 8);
+    if (sys) {
+        sys->head = NULL;
+        sys->tail = NULL;
+        sys->count = 0;
+        sys->step_count = 0;
+        sys->terminated = BKR_FALSE;
+    }
+    return sys;
+}
+
+static inline bkr_bool bkr_actor_send(BkrActorSystem* sys, bkr_str target, bkr_str source, bkr_str message, bkr_i64 payload) {
+    if (!sys) return BKR_FALSE;
+    BkrActorMessage* msg = (BkrActorMessage*)bkr_arena_alloc(sizeof(BkrActorMessage), 8);
+    if (!msg) return BKR_FALSE;
+    msg->target = target;
+    msg->source = source;
+    msg->message = message;
+    msg->payload = payload;
+    msg->next = NULL;
+    if (sys->tail) {
+        sys->tail->next = msg;
+        sys->tail = msg;
+    } else {
+        sys->head = msg;
+        sys->tail = msg;
+    }
+    sys->count++;
+    return BKR_TRUE;
+}
+
+static inline BkrActorMessage* bkr_actor_pop(BkrActorSystem* sys) {
+    if (!sys || !sys->head) return NULL;
+    BkrActorMessage* msg = sys->head;
+    sys->head = msg->next;
+    if (!sys->head) {
+        sys->tail = NULL;
+    }
+    sys->count--;
+    sys->step_count++;
+    return msg;
+}
+
+static inline bkr_bool bkr_actor_terminate(BkrActorSystem* sys) {
+    if (!sys) return BKR_FALSE;
+    sys->terminated = BKR_TRUE;
+    return BKR_TRUE;
+}
+
+static inline bkr_i64 actor_system_new(void) { return (bkr_i64)(intptr_t)bkr_actor_system_new(); }
+static inline bkr_bool actor_send(bkr_i64 sys, bkr_str target, bkr_str source, bkr_str message, bkr_i64 payload) {
+    return bkr_actor_send((BkrActorSystem*)(intptr_t)sys, target, source, message, payload);
+}
+static inline bkr_bool actor_terminate(bkr_i64 sys) {
+    return bkr_actor_terminate((BkrActorSystem*)(intptr_t)sys);
+}
+
 #endif /* BUNKER_RUNTIME_H */

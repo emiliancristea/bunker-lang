@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 This release completes the entire 14-track roadmap (Tracks A, CF, CB, F, R, S, TL, E, M, etc. — 167/168 items pure DONE at 99.4%, with 100.0% of actionable non-deferred items complete) and stabilizes the Bunker self-host compiler (`bkrc`) across the continuous integration multi-OS matrix (Ubuntu, Windows, macOS). All 314 test fixtures pass with zero regressions, and all GitHub Actions CI matrix jobs are 100% green.
 
 ### Added
+- **Pure Bunker Shell Layer & Actor Runtime (Q-320, SHL-001, SHL-002)**:
+  - Authored canonical specification `docs/SHELL_ACTOR_ARCHITECTURE.md` (`BKR-SPEC-SHELL-001`) formalizing shared-nothing actor state isolation, asynchronous FIFO mailboxes, deterministic event loop stepping, and reactive state inspection (`bunker.shell.v1`).
+  - Implemented pure Bunker module `self-host/modules/shell.bkr` (`ShellMessage`, `ShellSystem`, `shell_send`, `shell_pop_message`, `shell_step_advance`, `shell_terminate`).
+  - Added native C actor runtime hooks to `self-host/runtime.h` (`bkr_actor_system_new`, `bkr_actor_send`, `bkr_actor_pop`, `bkr_actor_terminate`).
+  - Added positive acceptance test fixtures `tests/300_pure_bunker_shell_actor.bkr` and `tests/301_shell_agent_ping_pong.bkr` (both returning 42).
 - **Self-Host Primary & Rust Removal Gate Completion (Q-319, Gate 8)**:
   - Updated test runner `run_tests.ps1` with configurable `$CompilerPath` and automatic discovery for pure Bunker self-host compiler binaries (`bkrc` / `bkrc.exe`).
   - Formally demoted `bunker-cli` (Rust) to an optional bootstrap/reference tool and certified `bkrc` as the primary compiler of the repository.
