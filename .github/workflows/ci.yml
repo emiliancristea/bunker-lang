@@ -3448,7 +3448,7 @@ jobs:
           cp self-host/runtime.h self-host-artifacts/runtime.h
           (cd self-host-artifacts && sha256sum bkrc-stage1.c bkrc-stage2.c runtime.h > SHA256SUMS)
           cat self-host-artifacts/SHA256SUMS
-          sha256sum -c self-host-artifacts/SHA256SUMS
+          (cd self-host-artifacts && sha256sum -c SHA256SUMS)
 
       - name: Upload self-host compiler artifacts
         uses: actions/upload-artifact@v4
