@@ -239,7 +239,11 @@
     }
 
     fn parser_get_name_ref(p_ref: ParserStateRef, idx: i64) -> str {
-        return vec_get(parser_names_ref(p_ref), idx);
+        let names: Vec<str> = parser_names_ref(p_ref);
+        if idx < 0 || idx >= vec_len(names) {
+            return "";
+        }
+        return vec_get(names, idx);
     }
 
     fn parser_intern_ref(p_ref: ParserStateRef, text: str) -> i64 {
@@ -269,7 +273,11 @@
     }
 
     fn parser_get_string_ref(p_ref: ParserStateRef, idx: i64) -> str {
-        return vec_get(parser_strings_ref(p_ref), idx);
+        let strings: Vec<str> = parser_strings_ref(p_ref);
+        if idx < 0 || idx >= vec_len(strings) {
+            return "";
+        }
+        return vec_get(strings, idx);
     }
 
     fn parser_has_error(p: Vec<i64>) -> bool {

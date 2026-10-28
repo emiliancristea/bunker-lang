@@ -670,6 +670,8 @@ static inline bkr_str join_lines(bkr_i64 handle) {
 }
 
 static inline bkr_bool bkr_str_eq(bkr_str a, bkr_str b) {
+    if (a == b) return BKR_TRUE;
+    if (!a || !b) return BKR_FALSE;
     return strcmp(a, b) == 0 ? BKR_TRUE : BKR_FALSE;
 }
 

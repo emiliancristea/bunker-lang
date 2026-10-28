@@ -226,7 +226,7 @@
             return value;
         }
         parser_mark_error_ref(p, TOK_IDENT);
-        return value;
+        return parser_intern_ref(p, "");
     }
 
     fn parser_peek_ident_is(p: ParserStateRef, name: str) -> bool {
