@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 This release completes the entire 14-track roadmap (Tracks A, CF, CB, F, R, S, TL, E, M, etc. — 167/168 items pure DONE at 99.4%, with 100.0% of actionable non-deferred items complete) and stabilizes the Bunker self-host compiler (`bkrc`) across the continuous integration multi-OS matrix (Ubuntu, Windows, macOS). All 314 test fixtures pass with zero regressions, and all GitHub Actions CI matrix jobs are 100% green.
 
 ### Added
+- **Standalone C11 Bootstrap Package & Zero-Rust Toolchain (`bootstrap/`, Q-318)**:
+  - Distributed the certified, reproducible C11 bootstrap compiler seed (`bootstrap/bkrc-stage1.c`, `bootstrap/runtime.h`, and `bootstrap/SHA256SUMS`).
+  - Added zero-dependency build scripts (`bootstrap/build.sh` for POSIX and `bootstrap/build.bat` for Windows) allowing `bkrc` to be compiled directly with any standard C compiler (`cc`, `gcc`, `clang`, `cl.exe`) without needing Rust or Cargo installed.
+  - Promoted `Self-Host Typed` to `DONE` and `Self-Host Primary` to `IN PROGRESS` in `docs/IMPLEMENTATION_TRACKER.md`.
 - **AST Report Ref Accessors (PR #146, Q-122)**:
   - Routed AST report serialization for `for` loops, statements, blocks, assign fields, expression statements, while loops, and if statements through `AstStmtRef` and `AstBlockRef` accessors.
   - Eliminated raw numeric index leaking and untyped pointer access in AST diagnostic emitters.
