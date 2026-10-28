@@ -33,6 +33,11 @@
 #include <unistd.h>
 #endif
 
+#if defined(__GNUC__) || defined(__clang__)
+#pragma GCC diagnostic ignored "-Wint-conversion"
+#pragma GCC diagnostic ignored "-Wincompatible-pointer-types"
+#endif
+
 /* ============================================
  * Runtime ABI Versioning (BKR-SPEC-ABI-001)
  * ============================================ */
