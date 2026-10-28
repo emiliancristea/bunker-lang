@@ -3147,7 +3147,11 @@ jobs:
           cc -std=c11 /tmp/bkrc.c -o /tmp/bkrc
 
           echo "[self-host smoke] test direct CLI driver with arguments: bkrc input.bkr -o output.c"
+          set +e
           /tmp/bkrc tests/01_basic_math.bkr -o /tmp/direct_cli_basic_math.c
+          direct_cli_status=$?
+          set -e
+          test "$direct_cli_status" -eq 42
           test -s /tmp/direct_cli_basic_math.c
           ! grep -q "Parse error" /tmp/direct_cli_basic_math.c
           cc -std=c11 /tmp/direct_cli_basic_math.c -o /tmp/direct_cli_basic_math
