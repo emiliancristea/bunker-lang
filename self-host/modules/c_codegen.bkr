@@ -1750,7 +1750,25 @@
             if raw == "Some" && arg_count == 1 {
                 return "(((" + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0))) + ") << 1) | 1)";
             }
-            if (raw == "len" || raw == "strlen") && arg_count == 1 {
+            if raw == "len" && arg_count == 1 {
+                let len_arg_ref: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0));
+                let len_kind: i64 = ast_expr_ref_kind(len_arg_ref);
+                if len_kind == NODE_IDENT {
+                    let array_len: i64 = cgen_lookup_array_length_ref(state, ast_expr_ref_name_idx(len_arg_ref));
+                    if array_len >= 0 {
+                        return int_to_string(array_len);
+                    }
+                }
+                if len_kind == NODE_ARRAY_LIT {
+                    let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(len_arg_ref);
+                    return int_to_string(ast_node_list_ref_count(elements_ref));
+                }
+                if len_kind == NODE_ARRAY_REPEAT {
+                    return int_to_string(ast_array_repeat_ref_count(len_arg_ref));
+                }
+                return "bkr_len((bkr_str)(intptr_t)(" + gen_c_expr_ref(state, len_arg_ref) + "))";
+            }
+            if raw == "strlen" && arg_count == 1 {
                 let arg_expr: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0));
                 return "bkr_len((bkr_str)(intptr_t)(" + gen_c_expr_ref(state, arg_expr) + "))";
             }
@@ -1945,15 +1963,6 @@
                     return "bkr_result_unwrap_err(" + arg6 + ")";
                 }
                 return "bkr_result_value(" + arg6 + ")";
-            }
-            if raw == "len" && arg_count == 1 {
-                let len_arg_ref: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0));
-                if ast_expr_ref_kind(len_arg_ref) == NODE_IDENT {
-                    let array_len: i64 = cgen_lookup_array_length_ref(state, ast_expr_ref_name_idx(len_arg_ref));
-                    if array_len >= 0 {
-                        return int_to_string(array_len);
-                    }
-                }
             }
             let name: str = name_to_c_ref(state, name_idx);
             let result = "";

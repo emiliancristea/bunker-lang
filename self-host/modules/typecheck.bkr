@@ -615,7 +615,7 @@
     }
 
     fn typecheck_builtin_expected_arg_kind(name: str, index: i64) -> i64 {
-        if name == "len" && index == 0 { return TYPE_STR; }
+        if name == "len" && index == 0 { return TYPE_UNKNOWN; }
         if name == "substr" && index == 0 { return TYPE_STR; }
         if name == "substr" && index == 1 { return TYPE_I64; }
         if name == "substr" && index == 2 { return TYPE_I64; }
@@ -795,14 +795,24 @@
         let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
         let i: i64 = 0;
         while i < ast_node_list_ref_count(args_ref) {
-            let expected_kind: i64 = typecheck_builtin_expected_arg_kind(fn_name, i);
-            if expected_kind != TYPE_UNKNOWN {
-                let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+            if fn_name == "len" && i == 0 {
+                let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, 0);
                 let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_node_ref(arg_node_ref));
-                let hint: str = "Change argument " + int_to_string(i + 1) + " for builtin " +
-                    fn_name + " to match the expected type.";
-                state = typecheck_maybe_append_mismatch_ref(state, "builtin_argument_type_mismatch",
-                    fn_name, scope, arg_node_ref, expected_kind, found_kind, hint);
+                if found_kind != TYPE_STR && found_kind != TYPE_ARRAY {
+                    let hint: str = "Change argument 1 for builtin len to match the expected type.";
+                    state = typecheck_maybe_append_mismatch_ref(state, "builtin_argument_type_mismatch",
+                        fn_name, scope, arg_node_ref, TYPE_STR, found_kind, hint);
+                }
+            } else {
+                let expected_kind: i64 = typecheck_builtin_expected_arg_kind(fn_name, i);
+                if expected_kind != TYPE_UNKNOWN {
+                    let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+                    let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_node_ref(arg_node_ref));
+                    let hint: str = "Change argument " + int_to_string(i + 1) + " for builtin " +
+                        fn_name + " to match the expected type.";
+                    state = typecheck_maybe_append_mismatch_ref(state, "builtin_argument_type_mismatch",
+                        fn_name, scope, arg_node_ref, expected_kind, found_kind, hint);
+                }
             }
             i = i + 1;
         }
