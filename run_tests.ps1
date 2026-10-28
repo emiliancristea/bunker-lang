@@ -3,7 +3,8 @@
 
 param(
     [switch]$Verbose,
-    [switch]$JitOnly
+    [switch]$JitOnly,
+    [string]$CompilerPath
 )
 
 if ($env:GITHUB_ACTIONS -ne "true") {
@@ -12,7 +13,17 @@ if ($env:GITHUB_ACTIONS -ne "true") {
 }
 
 $ErrorActionPreference = "Continue"
-$bunker = ".\bunker-cli\target\release\bunker-cli.exe"
+
+# Support both pure-Bunker self-host compiler (bkrc) and bootstrap reference (bunker-cli)
+if ($CompilerPath -and (Test-Path $CompilerPath)) {
+    $bunker = $CompilerPath
+} elseif (Test-Path ".\bkrc.exe") {
+    $bunker = ".\bkrc.exe"
+} elseif (Test-Path ".\bkrc") {
+    $bunker = ".\bkrc"
+} else {
+    $bunker = ".\bunker-cli\target\release\bunker-cli.exe"
+}
 
 # Expected results for JIT Kernel tests (main() return values - integers)
 $expectedResults = @{

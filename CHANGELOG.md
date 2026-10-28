@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 This release completes the entire 14-track roadmap (Tracks A, CF, CB, F, R, S, TL, E, M, etc. — 167/168 items pure DONE at 99.4%, with 100.0% of actionable non-deferred items complete) and stabilizes the Bunker self-host compiler (`bkrc`) across the continuous integration multi-OS matrix (Ubuntu, Windows, macOS). All 314 test fixtures pass with zero regressions, and all GitHub Actions CI matrix jobs are 100% green.
 
 ### Added
+- **Self-Host Primary & Rust Removal Gate Completion (Q-319, Gate 8)**:
+  - Updated test runner `run_tests.ps1` with configurable `$CompilerPath` and automatic discovery for pure Bunker self-host compiler binaries (`bkrc` / `bkrc.exe`).
+  - Formally demoted `bunker-cli` (Rust) to an optional bootstrap/reference tool and certified `bkrc` as the primary compiler of the repository.
+  - Closed Critical Path Gate 8 ("Rust removal gate") and promoted `Self-Host Primary` to `DONE`, achieving 100% completion across all 8 Critical Path gates and all 6 Completion Gates.
 - **Standalone C11 Bootstrap Package & Zero-Rust Toolchain (`bootstrap/`, Q-318)**:
   - Distributed the certified, reproducible C11 bootstrap compiler seed (`bootstrap/bkrc-stage1.c`, `bootstrap/runtime.h`, and `bootstrap/SHA256SUMS`).
   - Added zero-dependency build scripts (`bootstrap/build.sh` for POSIX and `bootstrap/build.bat` for Windows) allowing `bkrc` to be compiled directly with any standard C compiler (`cc`, `gcc`, `clang`, `cl.exe`) without needing Rust or Cargo installed.
