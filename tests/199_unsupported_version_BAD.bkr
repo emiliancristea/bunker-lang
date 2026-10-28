@@ -1,0 +1,11 @@
+// Test 199: Unsupported Language Version (Negative Test)
+// Purpose: Verify unsupported language version in version attribute is rejected.
+// Expected: Type error: Unsupported language version '99.0', expected '0.1' or '1.0'
+
+#![version = "99.0"]
+
+kernel Main {
+    fn main() -> i32 {
+        return 42;
+    }
+}

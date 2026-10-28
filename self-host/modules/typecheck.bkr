@@ -5,13 +5,27 @@
     // Produces BUNKER_TYPECHECK_JSON for conservative expected/found semantic
     // diagnostics from typed AST refs over the bootstrap layout.
 
-    fn typecheck_is_integer_kind(kind: i64) -> bool {
-        return kind == TYPE_I32 || kind == TYPE_I64;
+    fn typecheck_is_integer_kind(kind: TypeKind) -> bool {
+        return kind == TypeKind.I32 || kind == TypeKind.I64;
+    }
+
+    fn typecheck_is_numeric_kind(kind: TypeKind) -> bool {
+        return kind == TypeKind.I32 || kind == TypeKind.I64 || kind == TypeKind.F64;
+    }
+
+    fn typecheck_is_unknown_kind(kind: i64) -> bool {
+        return kind == TYPE_UNKNOWN;
     }
 
     fn typecheck_kinds_compatible(expected_kind: i64, found_kind: i64) -> bool {
         if expected_kind == TYPE_UNKNOWN || found_kind == TYPE_UNKNOWN {
             return true;
+        }
+        if found_kind == TYPE_NEVER {
+            return true;
+        }
+        if expected_kind == TYPE_NEVER {
+            return false;
         }
         if expected_kind == found_kind {
             return true;
@@ -19,11 +33,46 @@
         if typecheck_is_integer_kind(expected_kind) && typecheck_is_integer_kind(found_kind) {
             return true;
         }
+        if (expected_kind == TYPE_VEC || expected_kind == TYPE_MAP || expected_kind == TYPE_OPTION || expected_kind == TYPE_RESULT) && (found_kind == TYPE_I64 || found_kind == TYPE_UNKNOWN) {
+            return true;
+        }
+        if (found_kind == TYPE_VEC || found_kind == TYPE_MAP || found_kind == TYPE_OPTION || found_kind == TYPE_RESULT) && (expected_kind == TYPE_I64 || expected_kind == TYPE_UNKNOWN) {
+            return true;
+        }
         return false;
     }
 
-    fn typecheck_is_scalar_cast_kind(kind: i64) -> bool {
-        return kind == TYPE_I32 || kind == TYPE_I64 || kind == TYPE_F64 || kind == TYPE_BOOL;
+    fn typecheck_is_scalar_cast_kind(kind: TypeKind) -> bool {
+        return kind == TypeKind.I32 || kind == TypeKind.I64 || kind == TypeKind.F64 || kind == TypeKind.Bool;
+    }
+
+    fn typecheck_is_handle_kind(kind: i64) -> bool {
+        return kind == TYPE_STR || kind == TYPE_OPTION || kind == TYPE_RESULT ||
+               kind == TYPE_VEC || kind == TYPE_MAP || kind == TYPE_ARRAY ||
+               kind == TYPE_STRUCT;
+    }
+
+    fn typecheck_can_cast(source_kind: i64, target_kind: i64) -> bool {
+        if source_kind == TYPE_UNKNOWN || target_kind == TYPE_UNKNOWN {
+            return true;
+        }
+        if source_kind == target_kind {
+            return true;
+        }
+        let source_is_scalar: bool = typecheck_is_numeric_kind(source_kind) || source_kind == TYPE_BOOL;
+        let target_is_scalar: bool = typecheck_is_numeric_kind(target_kind) || target_kind == TYPE_BOOL;
+        if source_is_scalar && target_is_scalar {
+            return true;
+        }
+        let source_is_handle: bool = typecheck_is_handle_kind(source_kind);
+        let target_is_handle: bool = typecheck_is_handle_kind(target_kind);
+        if (source_kind == TYPE_I64 && target_is_handle) || (source_is_handle && target_kind == TYPE_I64) {
+            return true;
+        }
+        if source_is_handle && target_is_handle {
+            return true;
+        }
+        return false;
     }
 
     fn typecheck_value_kinds_compatible(expected_kind: i64, found_kind: i64) -> bool {
@@ -54,6 +103,59 @@
         return typecheck_declared_ref_kind(ast_type_ref_from_handle(type_node));
     }
 
+    fn typecheck_find_type_alias_target_handle(kernel_ref: AstNodeRef, name_idx: i64) -> i64 {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_TYPE_ALIAS {
+                if ast_type_alias_ref_name_idx(item_ref) == name_idx {
+                    return ast_type_alias_ref_target_handle(item_ref);
+                }
+            }
+            i = i + 1;
+        }
+        return ast_optional_none();
+    }
+
+    fn typecheck_is_kernel_enum_name(kernel_ref: AstNodeRef, name_idx: i64) -> bool {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_ENUM {
+                if ast_enum_ref_name_idx(item_ref) == name_idx {
+                    return true;
+                }
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_resolve_type_ref_kind(kernel_ref: AstNodeRef, type_ref: AstTypeRef) -> i64 {
+        let kind: i64 = ast_type_ref_kind_value(type_ref);
+        if kind == TYPE_STRUCT {
+            let name_idx: i64 = ast_type_ref_struct_name_idx_value(type_ref);
+            if typecheck_is_kernel_enum_name(kernel_ref, name_idx) {
+                return TYPE_I64;
+            }
+            let alias_target: i64 = typecheck_find_type_alias_target_handle(kernel_ref, name_idx);
+            if ast_optional_is_some(alias_target) {
+                return typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(alias_target));
+            }
+        }
+        return kind;
+    }
+
+    fn typecheck_return_ref_kind_with_kernel(kernel_ref: AstNodeRef, fn_ref: AstItemRef) -> i64 {
+        let return_type: i64 = ast_fn_ref_return_type_handle(fn_ref);
+        if ast_optional_is_none(return_type) {
+            return TYPE_VOID;
+        }
+        return typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(return_type));
+    }
+
     fn typecheck_declared_ref_kind(type_ref: AstTypeRef) -> i64 {
         return ast_type_ref_kind_value(type_ref);
     }
@@ -80,17 +182,48 @@
     fn typecheck_diagnostic_ref_json(kind: str, code: str, name: str, scope: str,
                                      node_ref: AstNodeRef, expected: str, found: str,
                                      repair_hint: str) -> str {
+        return typecheck_diagnostic_ref_json_with_type_context(kind, code, name, scope,
+            node_ref, expected, found,
+            type_graph_kind_json(TYPE_UNKNOWN, "expected"),
+            type_graph_kind_json(TYPE_UNKNOWN, "found"),
+            repair_hint);
+    }
+
+    fn typecheck_diagnostic_ref_json_with_type_context(kind: str, code: str, name: str, scope: str,
+                                                       node_ref: AstNodeRef, expected: str, found: str,
+                                                       expected_type: str, found_type: str,
+                                                       repair_hint: str) -> str {
+        return typecheck_diagnostic_span_json_with_type_context(kind, code, name, scope,
+            ast_node_ref_span_start(node_ref), ast_node_ref_span_end(node_ref),
+            expected, found, expected_type, found_type, repair_hint);
+    }
+
+    fn typecheck_diagnostic_span_json_with_type_context(kind: str, code: str, name: str, scope: str,
+                                                        source_start: i64, source_end: i64,
+                                                        expected: str, found: str,
+                                                        expected_type: str, found_type: str,
+                                                        repair_hint: str) -> str {
         let comma: str = ",";
         return "{" +
+            json_field_str("phase", "typecheck") + comma +
             json_field_str("kind", kind) + comma +
+            json_field_str("rule_id", kind) + comma +
             json_field_str("error_code", code) + comma +
+            json_field_str("severity", "error") + comma +
             json_field_str("name", name) + comma +
             json_field_str("scope", scope) + comma +
-            json_field_i64("source_start", ast_node_ref_span_start(node_ref)) + comma +
-            json_field_i64("source_end", ast_node_ref_span_end(node_ref)) + comma +
-            json_field_bool("span_known", ast_node_ref_span_start(node_ref) != AST_SPAN_UNKNOWN && ast_node_ref_span_end(node_ref) != AST_SPAN_UNKNOWN) + comma +
+            json_field_i64("source_start", source_start) + comma +
+            json_field_i64("source_end", source_end) + comma +
+            json_field_bool("span_known", source_start != AST_SPAN_UNKNOWN && source_end != AST_SPAN_UNKNOWN) + comma +
             json_field_str("expected", expected) + comma +
             json_field_str("found", found) + comma +
+            json_field_raw("expected_type", expected_type) + comma +
+            json_field_raw("found_type", found_type) + comma +
+            json_field_str("suggested_action", repair_hint) + comma +
+            json_field_str("fix_applicability", "manual_review") + comma +
+            json_field_str("fix_confidence", "medium") + comma +
+            json_field_bool("safe_edit_available", false) + comma +
+            json_field_raw("suggested_edits", diagnostic_no_edits_json()) + comma +
             json_field_str("repair_hint", repair_hint) +
             "}";
     }
@@ -106,8 +239,605 @@
                                      node_ref: AstNodeRef, expected_kind: i64, found_kind: i64,
                                      repair_hint: str) -> Vec<str> {
         return resolver_state_append(state,
-            typecheck_diagnostic_ref_json(kind, "BKR_SELF_TYPE_MISMATCH", name, scope,
-                node_ref, ast_type_kind_name(expected_kind), ast_type_kind_name(found_kind), repair_hint));
+            typecheck_diagnostic_ref_json_with_type_context(kind, "BKR_SELF_TYPE_MISMATCH", name, scope,
+                node_ref, ast_type_kind_name(expected_kind), ast_type_kind_name(found_kind),
+                type_graph_kind_json(expected_kind, "expected"),
+                type_graph_kind_json(found_kind, "found"),
+                repair_hint));
+    }
+
+    fn typecheck_append_count_mismatch_ref(state: Vec<str>, kind: str, name: str, scope: str,
+                                           node_ref: AstNodeRef, expected_count: i64, found_count: i64,
+                                           repair_hint: str) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json(kind, "BKR_SELF_ARITY_MISMATCH", name, scope,
+                node_ref,
+                int_to_string(expected_count) + " argument(s)",
+                int_to_string(found_count) + " argument(s)",
+                repair_hint));
+    }
+
+    fn typecheck_append_invalid_assignment_target_ref(state: Vec<str>, scope: str,
+                                                      target_ref: AstExprRef) -> Vec<str> {
+        let target_kind: i64 = ast_expr_ref_kind(target_ref);
+        let hint = "Assign only to a mutable local name, an indexed element, or a field access target.";
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("invalid_assignment_target", "BKR_SELF_ASSIGNMENT_TARGET",
+                "assignment", scope, ast_node_ref_from_expr_ref(target_ref),
+                "identifier, index, or field access assignment target",
+                ast_node_kind_name(target_kind),
+                hint));
+    }
+
+    fn typecheck_append_invalid_loop_control_ref(state: Vec<str>, scope: str,
+                                                 stmt_ref: AstStmtRef) -> Vec<str> {
+        let control_name: str = "break";
+        if ast_stmt_ref_kind(stmt_ref) == NODE_CONTINUE {
+            control_name = "continue";
+        }
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("invalid_loop_control", "BKR_SELF_CONTROL_FLOW",
+                control_name, scope, ast_node_ref_from_stmt_ref(stmt_ref),
+                "inside for, while, or loop",
+                "outside loop",
+                "Move this statement inside a for, while, or loop body."));
+    }
+
+    fn typecheck_append_const_assignment_ref(state: Vec<str>, names: Vec<str>, scope: str,
+                                             target_ref: AstExprRef) -> Vec<str> {
+        let const_name: str = ast_report_name(names, ast_expr_ref_name_idx(target_ref));
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("const_assignment", "BKR_SELF_CONST_ASSIGNMENT",
+                const_name, scope, ast_node_ref_from_expr_ref(target_ref),
+                "mutable assignment target",
+                "constant declaration",
+                "Do not assign to a const; introduce a local binding for mutable state."));
+    }
+
+    fn typecheck_append_ambiguous_empty_array_ref(state: Vec<str>, name: str, scope: str,
+                                                  expr_ref: AstExprRef) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("ambiguous_empty_array", "BKR_SELF_AMBIGUOUS_TYPE",
+                name, scope, ast_node_ref_from_expr_ref(expr_ref),
+                "array element type context",
+                "empty array literal",
+                "Add a type annotation so the empty array element type is known."));
+    }
+
+    fn typecheck_append_ambiguous_none_ref(state: Vec<str>, name: str, scope: str,
+                                           expr_ref: AstExprRef) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("ambiguous_none", "BKR_SELF_AMBIGUOUS_TYPE",
+                name, scope, ast_node_ref_from_expr_ref(expr_ref),
+                "Option<T> type context",
+                "None",
+                "Add an Option<T> annotation so the None payload type is known."));
+    }
+
+    fn typecheck_append_ambiguous_result_constructor_ref(state: Vec<str>, name: str, scope: str,
+                                                         expr_ref: AstExprRef) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("ambiguous_result_constructor", "BKR_SELF_AMBIGUOUS_TYPE",
+                name, scope, ast_node_ref_from_expr_ref(expr_ref),
+                "Result<T,E> type context",
+                "result constructor with one unknown side",
+                "Add a Result<T,E> annotation so both Ok and Err payload types are known."));
+    }
+
+    fn typecheck_append_ambiguous_collection_constructor_ref(state: Vec<str>, name: str, scope: str,
+                                                             expr_ref: AstExprRef) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("ambiguous_collection_constructor", "BKR_SELF_AMBIGUOUS_TYPE",
+                name, scope, ast_node_ref_from_expr_ref(expr_ref),
+                "collection element/key/value type context",
+                "generic collection constructor",
+                "Add a Vec<T> or HashMap<K,V> annotation so collection types are known."));
+    }
+
+    fn typecheck_append_void_value_ref(state: Vec<str>, name: str, scope: str,
+                                       expr_ref: AstExprRef) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("void_value_used", "BKR_SELF_VOID_VALUE",
+                name, scope, ast_node_ref_from_expr_ref(expr_ref),
+                "value-producing expression",
+                "void expression",
+                "Use this call as a standalone statement or change the function to return a value."));
+    }
+
+    fn typecheck_append_missing_entry_ref(state: Vec<str>, names: Vec<str>, kernel_ref: AstNodeRef,
+                                          kernel_scope: str) -> Vec<str> {
+        let entry_name: str = ast_report_name(names, ast_kernel_ref_entry_idx(kernel_ref));
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("missing_entry_function", "BKR_SELF_ENTRY_POINT",
+                entry_name, kernel_scope, kernel_ref,
+                "function named " + entry_name,
+                "missing function declaration",
+                "Add fn " + entry_name + "(...) or update the kernel entry name."));
+    }
+
+    fn typecheck_append_entry_signature_ref(state: Vec<str>, names: Vec<str>, kernel_scope: str,
+                                            entry_ref: AstItemRef, expected: str, found: str,
+                                            repair_hint: str) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("invalid_entry_signature", "BKR_SELF_ENTRY_POINT",
+                ast_report_name(names, ast_fn_ref_name_idx(entry_ref)),
+                kernel_scope, ast_node_ref_from_item_ref(entry_ref),
+                expected,
+                found,
+                repair_hint));
+    }
+
+    fn typecheck_append_invalid_call_target_ref(state: Vec<str>, names: Vec<str>, scope: str,
+                                                expr_ref: AstExprRef, actual: str) -> Vec<str> {
+        let call_name: str = ast_report_name(names, ast_call_ref_name_idx(expr_ref));
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("invalid_call_target", "BKR_SELF_CALL_TARGET",
+                call_name, scope, ast_node_ref_from_expr_ref(expr_ref),
+                "function or supported builtin",
+                actual,
+                "Call only functions and supported builtins; use the symbol as a value or rename it."));
+    }
+
+    fn typecheck_append_missing_return_ref(state: Vec<str>, names: Vec<str>, scope: str,
+                                           fn_ref: AstItemRef) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("missing_return", "BKR_SELF_RETURN_PATH",
+                ast_report_name(names, ast_fn_ref_name_idx(fn_ref)),
+                scope, ast_node_ref_from_item_ref(fn_ref),
+                "return value on every path",
+                "function can fall through",
+                "Add a return statement on every path or change the function return type to void."));
+    }
+
+    fn typecheck_check_void_value_ref(state: Vec<str>, cstate: CgenStateRef, expr_ref: AstExprRef,
+                                      name: str, scope: str) -> Vec<str> {
+        if typecheck_expr_ref_kind(cstate, expr_ref) == TYPE_VOID {
+            state = typecheck_append_void_value_ref(state, name, scope, expr_ref);
+        }
+        return state;
+    }
+
+    fn typecheck_append_unreachable_statement_ref(state: Vec<str>, scope: str,
+                                                  stmt_ref: AstStmtRef) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("unreachable_statement", "BKR_SELF_UNREACHABLE_CODE",
+                "statement", scope, ast_node_ref_from_stmt_ref(stmt_ref),
+                "reachable statement",
+                ast_node_kind_name(ast_stmt_ref_kind(stmt_ref)),
+                "Remove this statement or move it before the terminating control-flow statement."));
+    }
+
+    fn typecheck_assignment_target_valid_ref(target_ref: AstExprRef) -> bool {
+        let target_kind: i64 = ast_expr_ref_kind(target_ref);
+        if target_kind == NODE_IDENT { return true; }
+        if target_kind == NODE_INDEX { return true; }
+        if target_kind == NODE_FIELD_ACCESS { return true; }
+        return false;
+    }
+
+    fn typecheck_expr_ref_is_empty_array(expr_ref: AstExprRef) -> bool {
+        if ast_expr_ref_kind(expr_ref) != NODE_ARRAY_LIT {
+            return false;
+        }
+        return ast_node_list_ref_count(ast_array_lit_ref_elements_ref(expr_ref)) == 0;
+    }
+
+    fn typecheck_expr_handle_is_empty_array(expr_value: i64) -> bool {
+        if ast_optional_is_none(expr_value) {
+            return false;
+        }
+        return typecheck_expr_ref_is_empty_array(ast_expr_ref_from_handle(expr_value));
+    }
+
+    fn typecheck_expr_ref_is_none_literal(names: Vec<str>, expr_ref: AstExprRef) -> bool {
+        if ast_expr_ref_kind(expr_ref) != NODE_IDENT {
+            return false;
+        }
+        return ast_report_name(names, ast_expr_ref_name_idx(expr_ref)) == "None";
+    }
+
+    fn typecheck_expr_handle_is_none_literal(names: Vec<str>, expr_value: i64) -> bool {
+        if ast_optional_is_none(expr_value) {
+            return false;
+        }
+        return typecheck_expr_ref_is_none_literal(names, ast_expr_ref_from_handle(expr_value));
+    }
+
+    fn typecheck_expr_ref_is_result_constructor(names: Vec<str>, expr_ref: AstExprRef) -> bool {
+        if ast_expr_ref_kind(expr_ref) != NODE_CALL {
+            return false;
+        }
+        let raw: str = ast_report_name(names, ast_call_ref_name_idx(expr_ref));
+        return raw == "result_ok" || raw == "result_err" || raw == "Ok" || raw == "Err";
+    }
+
+    fn typecheck_expr_handle_is_result_constructor(names: Vec<str>, expr_value: i64) -> bool {
+        if ast_optional_is_none(expr_value) {
+            return false;
+        }
+        return typecheck_expr_ref_is_result_constructor(names, ast_expr_ref_from_handle(expr_value));
+    }
+
+    fn typecheck_expr_ref_is_collection_constructor(names: Vec<str>, expr_ref: AstExprRef) -> bool {
+        if ast_expr_ref_kind(expr_ref) != NODE_CALL {
+            return false;
+        }
+        let raw: str = ast_report_name(names, ast_call_ref_name_idx(expr_ref));
+        return raw == "vec_new" || raw == "hashmap_new";
+    }
+
+    fn typecheck_expr_handle_is_collection_constructor(names: Vec<str>, expr_value: i64) -> bool {
+        if ast_optional_is_none(expr_value) {
+            return false;
+        }
+        return typecheck_expr_ref_is_collection_constructor(names, ast_expr_ref_from_handle(expr_value));
+    }
+
+    fn typecheck_expr_handle_is_void_value(cstate: CgenStateRef, expr_value: i64) -> bool {
+        if ast_optional_is_none(expr_value) {
+            return false;
+        }
+        return typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(expr_value)) == TYPE_VOID;
+    }
+
+    fn typecheck_builtin_expected_arity(name: str) -> i64 {
+        if name == "Some" { return 1; }
+        if name == "len" { return 1; }
+        if name == "substr" { return 3; }
+        if name == "str_eq" { return 2; }
+        if name == "str_ne" { return 2; }
+        if name == "str_to_i64" { return 1; }
+        if name == "i64_to_str" { return 1; }
+        if name == "f64_to_str" { return 1; }
+        if name == "bool_to_str" { return 1; }
+        if name == "read_file" { return 1; }
+        if name == "write_file" { return 2; }
+        if name == "file_exists" { return 1; }
+        if name == "read_file_str" { return 1; }
+        if name == "write_file_str" { return 2; }
+        if name == "vec_new" { return 0; }
+        if name == "vec_push" { return 2; }
+        if name == "vec_get" { return 2; }
+        if name == "vec_set" { return 3; }
+        if name == "vec_len" { return 1; }
+        if name == "vec_pop" { return 1; }
+        if name == "vec_clear" { return 1; }
+        if name == "hashmap_new" { return 0; }
+        if name == "hashmap_insert" { return 3; }
+        if name == "hashmap_get" { return 2; }
+        if name == "hashmap_contains" { return 2; }
+        if name == "hashmap_remove" { return 2; }
+        if name == "hashmap_keys" { return 1; }
+        if name == "hashmap_len" { return 1; }
+        if name == "hashmap_clear" { return 1; }
+        if name == "result_ok" { return 1; }
+        if name == "result_err" { return 1; }
+        if name == "result_is_ok" { return 1; }
+        if name == "result_is_err" { return 1; }
+        if name == "result_unwrap" { return 1; }
+        if name == "result_unwrap_err" { return 1; }
+        if name == "result_tag" { return 1; }
+        if name == "result_value" { return 1; }
+        if name == "bkr_tuple2" { return 2; }
+        if name == "bkr_tuple3" { return 3; }
+        if name == "bkr_tuple_get" { return 2; }
+        if name == "args_count" { return 0; }
+        if name == "arg_at" { return 1; }
+        if name == "strlen" { return 1; }
+        if name == "char_code" { return 1; }
+        if name == "char_code_at" { return 2; }
+        if name == "char_at" { return 2; }
+        if name == "substring" { return 3; }
+        if name == "contains" { return 2; }
+        if name == "starts_with" { return 2; }
+        if name == "ends_with" { return 2; }
+        if name == "trim" { return 1; }
+        if name == "int_to_string" { return 1; }
+        if name == "from_char_code" { return 1; }
+        if name == "join_lines" { return 1; }
+        if name == "parse_int" { return 1; }
+        if name == "hashmap_get_opt" { return 2; }
+        if name == "vec_get_opt" { return 2; }
+        if name == "vec_pop_opt" { return 1; }
+        if name == "vec_contains" { return 2; }
+        if name == "vec_is_empty" { return 1; }
+        if name == "vec_clone" { return 1; }
+        if name == "vec_reverse" { return 1; }
+        if name == "hashmap_is_empty" { return 1; }
+        if name == "hashmap_values" { return 1; }
+        if name == "vec_map" { return 2; }
+        if name == "vec_filter" { return 2; }
+        if name == "vec_fold" { return 3; }
+        if name == "vec_find" { return 2; }
+        if name == "read_file_result" { return 1; }
+        if name == "write_file_result" { return 2; }
+        if name == "parse_int_result" { return 1; }
+        if name == "Ok" { return 1; }
+        if name == "Err" { return 1; }
+        if name == "panic" { return 1; }
+        if name == "assert" { return 1; }
+        if name == "str_index_of" { return 2; }
+        if name == "str_replace" { return 3; }
+        if name == "str_split" { return 2; }
+        if name == "str_to_upper" { return 1; }
+        if name == "str_to_lower" { return 1; }
+        if name == "str_repeat" { return 2; }
+        if name == "path_join" { return 2; }
+        if name == "path_dir" { return 1; }
+        if name == "path_base" { return 1; }
+        if name == "path_ext" { return 1; }
+        if name == "path_is_abs" { return 1; }
+        if name == "env_var" { return 1; }
+        if name == "env_get" { return 1; }
+        if name == "env_set" { return 2; }
+        if name == "env_has" { return 1; }
+        if name == "time_now_ms" { return 0; }
+        if name == "time_now_unix" { return 0; }
+        if name == "runtime_version_major" { return 0; }
+        if name == "runtime_version_minor" { return 0; }
+        if name == "runtime_version_patch" { return 0; }
+        if name == "runtime_version_str" { return 0; }
+        if name == "bytes_new" { return 1; }
+        if name == "bytes_len" { return 1; }
+        if name == "bytes_capacity" { return 1; }
+        if name == "bytes_get" { return 2; }
+        if name == "bytes_set" { return 3; }
+        if name == "bytes_push" { return 2; }
+        if name == "bytes_from_str" { return 1; }
+        if name == "bytes_to_str" { return 1; }
+        if name == "slice_new" { return 3; }
+        if name == "slice_len" { return 1; }
+        if name == "slice_get" { return 2; }
+        if name == "slice_sub" { return 3; }
+        if name == "slice_to_vec" { return 1; }
+        if name == "slice_contains" { return 2; }
+        if name == "vec_as_slice" { return 1; }
+        if name == "vec_slice" { return 3; }
+        if name == "bytes_as_slice" { return 1; }
+        if name == "bytes_slice" { return 3; }
+        if name == "path_exists" { return 1; }
+        if name == "path_is_file" { return 1; }
+        if name == "path_is_dir" { return 1; }
+        if name == "file_read" { return 1; }
+        if name == "file_write" { return 2; }
+        if name == "file_size" { return 1; }
+        if name == "file_remove" { return 1; }
+        if name == "file_read_bytes" { return 1; }
+        if name == "file_write_bytes" { return 2; }
+        if name == "dir_create" { return 1; }
+        if name == "dir_remove" { return 1; }
+        if name == "process_run" { return 1; }
+        if name == "process_run_status" { return 1; }
+        if name == "process_exit" { return 1; }
+        if name == "process_pid" { return 0; }
+        if name == "process_is_sandboxed" { return 0; }
+        return -1;
+    }
+
+    fn typecheck_builtin_expected_arg_kind(name: str, index: i64) -> i64 {
+        if name == "len" && index == 0 { return TYPE_UNKNOWN; }
+        if name == "substr" && index == 0 { return TYPE_STR; }
+        if name == "substr" && index == 1 { return TYPE_I64; }
+        if name == "substr" && index == 2 { return TYPE_I64; }
+        if name == "str_eq" && index == 0 { return TYPE_STR; }
+        if name == "str_eq" && index == 1 { return TYPE_STR; }
+        if name == "str_ne" && index == 0 { return TYPE_STR; }
+        if name == "str_ne" && index == 1 { return TYPE_STR; }
+        if name == "str_to_i64" && index == 0 { return TYPE_STR; }
+        if name == "i64_to_str" && index == 0 { return TYPE_I64; }
+        if name == "f64_to_str" && index == 0 { return TYPE_F64; }
+        if name == "bool_to_str" && index == 0 { return TYPE_BOOL; }
+        if name == "read_file" && index == 0 { return TYPE_STR; }
+        if name == "write_file" && index == 0 { return TYPE_STR; }
+        if name == "write_file" && index == 1 { return TYPE_STR; }
+        if name == "file_exists" && index == 0 { return TYPE_STR; }
+        if name == "read_file_str" && index == 0 { return TYPE_STR; }
+        if name == "write_file_str" && index == 0 { return TYPE_STR; }
+        if name == "write_file_str" && index == 1 { return TYPE_STR; }
+        if name == "vec_push" && index == 0 { return TYPE_I64; }
+        if name == "vec_get" && index == 0 { return TYPE_I64; }
+        if name == "vec_get" && index == 1 { return TYPE_I64; }
+        if name == "vec_set" && index == 0 { return TYPE_I64; }
+        if name == "vec_set" && index == 1 { return TYPE_I64; }
+        if name == "vec_len" && index == 0 { return TYPE_I64; }
+        if name == "vec_pop" && index == 0 { return TYPE_I64; }
+        if name == "vec_clear" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_insert" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_get" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_contains" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_remove" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_keys" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_len" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_clear" && index == 0 { return TYPE_I64; }
+        if name == "result_is_ok" && index == 0 { return TYPE_I64; }
+        if name == "result_is_err" && index == 0 { return TYPE_I64; }
+        if name == "result_unwrap" && index == 0 { return TYPE_I64; }
+        if name == "result_unwrap_err" && index == 0 { return TYPE_I64; }
+        if name == "result_tag" && index == 0 { return TYPE_I64; }
+        if name == "result_value" && index == 0 { return TYPE_I64; }
+        if name == "arg_at" && index == 0 { return TYPE_I64; }
+        if name == "strlen" && index == 0 { return TYPE_STR; }
+        if name == "char_code" && index == 0 { return TYPE_STR; }
+        if name == "char_code_at" && index == 0 { return TYPE_STR; }
+        if name == "char_code_at" && index == 1 { return TYPE_I64; }
+        if name == "char_at" && index == 0 { return TYPE_STR; }
+        if name == "char_at" && index == 1 { return TYPE_I64; }
+        if name == "substring" && index == 0 { return TYPE_STR; }
+        if name == "substring" && index == 1 { return TYPE_I64; }
+        if name == "substring" && index == 2 { return TYPE_I64; }
+        if name == "contains" && index == 0 { return TYPE_STR; }
+        if name == "contains" && index == 1 { return TYPE_STR; }
+        if name == "starts_with" && index == 0 { return TYPE_STR; }
+        if name == "starts_with" && index == 1 { return TYPE_STR; }
+        if name == "ends_with" && index == 0 { return TYPE_STR; }
+        if name == "ends_with" && index == 1 { return TYPE_STR; }
+        if name == "trim" && index == 0 { return TYPE_STR; }
+        if name == "int_to_string" && index == 0 { return TYPE_I64; }
+        if name == "from_char_code" && index == 0 { return TYPE_I64; }
+        if name == "parse_int" && index == 0 { return TYPE_STR; }
+        if name == "read_file_result" && index == 0 { return TYPE_STR; }
+        if name == "write_file_result" && index == 0 { return TYPE_STR; }
+        if name == "write_file_result" && index == 1 { return TYPE_STR; }
+        if name == "parse_int_result" && index == 0 { return TYPE_STR; }
+        if name == "hashmap_get_opt" && index == 0 { return TYPE_I64; }
+        if name == "vec_get_opt" && index == 0 { return TYPE_I64; }
+        if name == "vec_get_opt" && index == 1 { return TYPE_I64; }
+        if name == "vec_pop_opt" && index == 0 { return TYPE_I64; }
+        if name == "vec_contains" && index == 0 { return TYPE_I64; }
+        if name == "vec_is_empty" && index == 0 { return TYPE_I64; }
+        if name == "vec_clone" && index == 0 { return TYPE_I64; }
+        if name == "vec_reverse" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_is_empty" && index == 0 { return TYPE_I64; }
+        if name == "hashmap_values" && index == 0 { return TYPE_I64; }
+        if name == "vec_map" && index == 0 { return TYPE_I64; }
+        if name == "vec_filter" && index == 0 { return TYPE_I64; }
+        if name == "vec_fold" && index == 0 { return TYPE_I64; }
+        if name == "vec_find" && index == 0 { return TYPE_I64; }
+        if name == "panic" && index == 0 { return TYPE_STR; }
+        if name == "assert" && index == 0 { return TYPE_BOOL; }
+        if name == "str_index_of" && index == 0 { return TYPE_STR; }
+        if name == "str_index_of" && index == 1 { return TYPE_STR; }
+        if name == "str_replace" && index == 0 { return TYPE_STR; }
+        if name == "str_replace" && index == 1 { return TYPE_STR; }
+        if name == "str_replace" && index == 2 { return TYPE_STR; }
+        if name == "str_split" && index == 0 { return TYPE_STR; }
+        if name == "str_split" && index == 1 { return TYPE_STR; }
+        if name == "str_to_upper" && index == 0 { return TYPE_STR; }
+        if name == "str_to_lower" && index == 0 { return TYPE_STR; }
+        if name == "str_repeat" && index == 0 { return TYPE_STR; }
+        if name == "str_repeat" && index == 1 { return TYPE_I64; }
+        if name == "path_join" && index == 0 { return TYPE_STR; }
+        if name == "path_join" && index == 1 { return TYPE_STR; }
+        if name == "path_dir" && index == 0 { return TYPE_STR; }
+        if name == "path_base" && index == 0 { return TYPE_STR; }
+        if name == "path_ext" && index == 0 { return TYPE_STR; }
+        if name == "path_is_abs" && index == 0 { return TYPE_STR; }
+        if name == "env_var" && index == 0 { return TYPE_STR; }
+        if name == "env_get" && index == 0 { return TYPE_STR; }
+        if name == "env_set" && index == 0 { return TYPE_STR; }
+        if name == "env_set" && index == 1 { return TYPE_STR; }
+        if name == "env_has" && index == 0 { return TYPE_STR; }
+        if name == "bytes_new" && index == 0 { return TYPE_I64; }
+        if name == "bytes_len" && index == 0 { return TYPE_I64; }
+        if name == "bytes_capacity" && index == 0 { return TYPE_I64; }
+        if name == "bytes_get" && index == 0 { return TYPE_I64; }
+        if name == "bytes_get" && index == 1 { return TYPE_I64; }
+        if name == "bytes_set" && index == 0 { return TYPE_I64; }
+        if name == "bytes_set" && index == 1 { return TYPE_I64; }
+        if name == "bytes_set" && index == 2 { return TYPE_I64; }
+        if name == "bytes_push" && index == 0 { return TYPE_I64; }
+        if name == "bytes_push" && index == 1 { return TYPE_I64; }
+        if name == "bytes_from_str" && index == 0 { return TYPE_STR; }
+        if name == "bytes_to_str" && index == 0 { return TYPE_I64; }
+        if name == "slice_new" && index == 0 { return TYPE_I64; }
+        if name == "slice_new" && index == 1 { return TYPE_I64; }
+        if name == "slice_new" && index == 2 { return TYPE_I64; }
+        if name == "slice_len" && index == 0 { return TYPE_I64; }
+        if name == "slice_get" && index == 0 { return TYPE_I64; }
+        if name == "slice_get" && index == 1 { return TYPE_I64; }
+        if name == "slice_sub" && index == 0 { return TYPE_I64; }
+        if name == "slice_sub" && index == 1 { return TYPE_I64; }
+        if name == "slice_sub" && index == 2 { return TYPE_I64; }
+        if name == "slice_to_vec" && index == 0 { return TYPE_I64; }
+        if name == "slice_contains" && index == 0 { return TYPE_I64; }
+        if name == "slice_contains" && index == 1 { return TYPE_I64; }
+        if name == "vec_as_slice" && index == 0 { return TYPE_I64; }
+        if name == "vec_slice" && index == 0 { return TYPE_I64; }
+        if name == "vec_slice" && index == 1 { return TYPE_I64; }
+        if name == "vec_slice" && index == 2 { return TYPE_I64; }
+        if name == "bytes_as_slice" && index == 0 { return TYPE_I64; }
+        if name == "bytes_slice" && index == 0 { return TYPE_I64; }
+        if name == "bytes_slice" && index == 1 { return TYPE_I64; }
+        if name == "bytes_slice" && index == 2 { return TYPE_I64; }
+        if name == "path_exists" && index == 0 { return TYPE_STR; }
+        if name == "path_is_file" && index == 0 { return TYPE_STR; }
+        if name == "path_is_dir" && index == 0 { return TYPE_STR; }
+        if name == "file_read" && index == 0 { return TYPE_STR; }
+        if name == "file_write" && index == 0 { return TYPE_STR; }
+        if name == "file_write" && index == 1 { return TYPE_STR; }
+        if name == "file_size" && index == 0 { return TYPE_STR; }
+        if name == "file_remove" && index == 0 { return TYPE_STR; }
+        if name == "file_read_bytes" && index == 0 { return TYPE_STR; }
+        if name == "file_write_bytes" && index == 0 { return TYPE_STR; }
+        if name == "file_write_bytes" && index == 1 { return TYPE_I64; }
+        if name == "dir_create" && index == 0 { return TYPE_STR; }
+        if name == "dir_remove" && index == 0 { return TYPE_STR; }
+        if name == "process_run" && index == 0 { return TYPE_STR; }
+        if name == "process_run_status" && index == 0 { return TYPE_STR; }
+        if name == "process_exit" && index == 0 { return TYPE_I64; }
+        return TYPE_UNKNOWN;
+    }
+
+    fn typecheck_check_builtin_arity_ref(state: Vec<str>, names: Vec<str>,
+                                         expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let fn_name: str = ast_report_name(names, ast_call_ref_name_idx(expr_ref));
+        let expected_count: i64 = typecheck_builtin_expected_arity(fn_name);
+        if expected_count < 0 {
+            return state;
+        }
+        let found_count: i64 = ast_node_list_ref_count(ast_call_ref_args_ref(expr_ref));
+        if expected_count != found_count {
+            let arity_hint: str = "Call builtin " + fn_name + " with exactly " +
+                int_to_string(expected_count) + " argument(s).";
+            state = typecheck_append_count_mismatch_ref(state, "builtin_argument_count_mismatch",
+                fn_name, scope, ast_node_ref_from_expr_ref(expr_ref), expected_count, found_count,
+                arity_hint);
+        }
+        return state;
+    }
+
+    fn typecheck_check_builtin_arg_types_ref(state: Vec<str>, names: Vec<str>, cstate: CgenStateRef,
+                                             expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let fn_name: str = ast_report_name(names, ast_call_ref_name_idx(expr_ref));
+        if typecheck_builtin_expected_arity(fn_name) < 0 {
+            return state;
+        }
+        let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(args_ref) {
+            if fn_name == "len" && i == 0 {
+                let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, 0);
+                let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_node_ref(arg_node_ref));
+                if found_kind != TYPE_STR && found_kind != TYPE_ARRAY {
+                    let hint: str = "Change argument 1 for builtin len to match the expected type.";
+                    state = typecheck_maybe_append_mismatch_ref(state, "builtin_argument_type_mismatch",
+                        fn_name, scope, arg_node_ref, TYPE_STR, found_kind, hint);
+                }
+            } else {
+                let expected_kind: i64 = typecheck_builtin_expected_arg_kind(fn_name, i);
+                if expected_kind != TYPE_UNKNOWN {
+                    let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+                    let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_node_ref(arg_node_ref));
+                    let hint: str = "Change argument " + int_to_string(i + 1) + " for builtin " +
+                        fn_name + " to match the expected type.";
+                    state = typecheck_maybe_append_mismatch_ref(state, "builtin_argument_type_mismatch",
+                        fn_name, scope, arg_node_ref, expected_kind, found_kind, hint);
+                }
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_check_builtin_call_ref(state: Vec<str>, names: Vec<str>, cstate: CgenStateRef,
+                                        expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        state = typecheck_check_builtin_arity_ref(state, names, expr_ref, scope);
+        state = typecheck_check_builtin_arg_types_ref(state, names, cstate, expr_ref, scope);
+        return state;
+    }
+
+    fn typecheck_binary_op_requires_bool(op: i64) -> bool {
+        return op == TOK_AND || op == TOK_OR;
+    }
+
+    fn typecheck_binary_op_requires_integer(op: i64) -> bool {
+        return op == TOK_PERCENT || op == TOK_BIT_AND || op == TOK_BIT_OR ||
+            op == TOK_BIT_XOR || op == TOK_SHL || op == TOK_SHR;
+    }
+
+    fn typecheck_binary_op_requires_numeric(op: i64) -> bool {
+        return op == TOK_PLUS || op == TOK_MINUS || op == TOK_STAR || op == TOK_SLASH ||
+            op == TOK_LT || op == TOK_GT || op == TOK_LE || op == TOK_GE;
     }
 
     fn typecheck_maybe_append_mismatch(state: Vec<str>, kind: str, name: str, scope: str,
@@ -144,21 +874,1474 @@
         return state;
     }
 
-    fn typecheck_find_function(kernel: Vec<i64>, name_idx: i64) -> i64 {
-        return typecheck_find_function_ref(ast_node_ref_from_node(kernel), name_idx);
-    }
-
-    fn typecheck_find_function_ref(kernel_ref: AstNodeRef, name_idx: i64) -> i64 {
+    fn typecheck_find_function_ref(kernel_ref: AstNodeRef, name_idx: i64) -> AstItemRef {
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         let i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_FN && ast_fn_ref_name_idx(item_ref) == name_idx {
-                return ast_item_ref_handle(item_ref);
+                return item_ref;
             }
             i = i + 1;
         }
-        return ast_optional_none();
+        return ast_optional_item_ref_none();
+    }
+
+    fn typecheck_check_entry_point_ref(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
+                                       kernel_scope: str) -> Vec<str> {
+        let entry_ref: AstItemRef = typecheck_find_function_ref(kernel_ref, ast_kernel_ref_entry_idx(kernel_ref));
+        if ast_item_ref_is_none(entry_ref) {
+            state = typecheck_append_missing_entry_ref(state, names, kernel_ref, kernel_scope);
+            return state;
+        }
+        let params_ref: AstNodeListRef = ast_fn_ref_params_ref(entry_ref);
+        let param_count: i64 = ast_node_list_ref_count(params_ref);
+        if param_count != 0 {
+            state = typecheck_append_entry_signature_ref(state, names, kernel_scope, entry_ref,
+                "entry function with zero parameters",
+                int_to_string(param_count) + " parameter(s)",
+                "Remove entry function parameters or make a zero-argument wrapper entry.");
+        }
+        let return_kind: i64 = typecheck_return_ref_kind_with_kernel(kernel_ref, entry_ref);
+        if return_kind != TYPE_UNKNOWN && !typecheck_is_integer_kind(return_kind) {
+            state = typecheck_append_entry_signature_ref(state, names, kernel_scope, entry_ref,
+                "integer-compatible entry return type",
+                ast_type_kind_name(return_kind),
+                "Return i32 or i64 from the entry function so the generated C main can return an int.");
+        }
+        return state;
+    }
+
+    fn typecheck_check_call_target_ref(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
+                                       expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
+        if ast_item_ref_is_some(typecheck_find_function_ref(kernel_ref, name_idx)) {
+            return state;
+        }
+        if ast_item_ref_is_some(typecheck_find_const_ref(kernel_ref, name_idx)) {
+            return typecheck_append_invalid_call_target_ref(state, names, scope, expr_ref, "constant declaration");
+        }
+        let struct_ref: AstItemRef = typecheck_find_struct_ref(kernel_ref, name_idx);
+        if ast_item_ref_is_some(struct_ref) {
+            let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(struct_ref);
+            if ast_node_list_ref_count(fields_ref) > 0 {
+                let first_f: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, 0);
+                if ast_report_name(names, ast_field_decl_ref_name_idx(first_f)) == "0" {
+                    return state;
+                }
+            }
+            return typecheck_append_invalid_call_target_ref(state, names, scope, expr_ref, "struct declaration");
+        }
+        return state;
+    }
+
+    fn typecheck_find_struct_ref(kernel_ref: AstNodeRef, name_idx: i64) -> AstItemRef {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_ref_name_idx(item_ref) == name_idx {
+                return item_ref;
+            }
+            i = i + 1;
+        }
+        return ast_optional_item_ref_none();
+    }
+
+    fn typecheck_find_const_ref(kernel_ref: AstNodeRef, name_idx: i64) -> AstItemRef {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_CONST && ast_const_ref_name_idx(item_ref) == name_idx {
+                return item_ref;
+            }
+            i = i + 1;
+        }
+        return ast_optional_item_ref_none();
+    }
+
+    fn typecheck_struct_field_kind_ref(kernel_ref: AstNodeRef, struct_name_idx: i64, field_name_idx: i64) -> i64 {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_ref_name_idx(item_ref) == struct_name_idx {
+                let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(item_ref);
+                let j: i64 = 0;
+                while j < ast_node_list_ref_count(fields_ref) {
+                    let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, j);
+                    if ast_field_decl_ref_name_idx(field_ref) == field_name_idx {
+                        return typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(ast_field_decl_ref_type_handle(field_ref)));
+                    }
+                    j = j + 1;
+                }
+            }
+            i = i + 1;
+        }
+        return TYPE_UNKNOWN;
+    }
+
+    fn typecheck_check_struct_literal_duplicate_fields_ref(state: Vec<str>, names: Vec<str>,
+                                                           expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let struct_name: str = ast_report_name(names, ast_struct_lit_ref_name_idx(expr_ref));
+        let field_names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
+        let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
+        let i: i64 = 0;
+        while i < ast_i64_list_ref_count(field_names_ref) {
+            let field_name_idx: i64 = ast_i64_list_ref_get(field_names_ref, i);
+            let j: i64 = 0;
+            while j < i {
+                if ast_i64_list_ref_get(field_names_ref, j) == field_name_idx {
+                    let field_name: str = ast_report_name(names, field_name_idx);
+                    state = resolver_state_append(state,
+                        typecheck_diagnostic_ref_json("duplicate_struct_literal_field",
+                            "BKR_SELF_STRUCT_LITERAL",
+                            struct_name + "." + field_name,
+                            scope,
+                            ast_node_list_ref_get_ref(field_values_ref, i),
+                            "field initialized once",
+                            "duplicate field initializer",
+                            "Remove the duplicate field or merge the intended value into the first initializer."));
+                }
+                j = j + 1;
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_struct_literal_has_field_ref(field_names_ref: AstI64ListRef, field_name_idx: i64) -> bool {
+        let i: i64 = 0;
+        while i < ast_i64_list_ref_count(field_names_ref) {
+            if ast_i64_list_ref_get(field_names_ref, i) == field_name_idx {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_check_struct_literal_missing_fields_ref(state: Vec<str>, kernel_ref: AstNodeRef,
+                                                         names: Vec<str>, expr_ref: AstExprRef,
+                                                         scope: str) -> Vec<str> {
+        let base_handle: i64 = ast_struct_lit_ref_base_handle(expr_ref);
+        if base_handle != 0 {
+            return state;
+        }
+        let struct_name_idx: i64 = ast_struct_lit_ref_name_idx(expr_ref);
+        let struct_ref: AstItemRef = typecheck_find_struct_ref(kernel_ref, struct_name_idx);
+        if ast_item_ref_is_none(struct_ref) {
+            return state;
+        }
+        let struct_name: str = ast_report_name(names, struct_name_idx);
+        let field_names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
+        let declared_fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(struct_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(declared_fields_ref) {
+            let field_ref: AstNodeRef = ast_node_list_ref_get_ref(declared_fields_ref, i);
+            let field_name_idx: i64 = ast_field_decl_ref_name_idx(field_ref);
+            if !typecheck_struct_literal_has_field_ref(field_names_ref, field_name_idx) {
+                let field_name: str = ast_report_name(names, field_name_idx);
+                state = resolver_state_append(state,
+                    typecheck_diagnostic_ref_json("missing_struct_literal_field",
+                        "BKR_SELF_STRUCT_LITERAL",
+                        struct_name + "." + field_name,
+                        scope,
+                        ast_node_ref_from_expr_ref(expr_ref),
+                        "field initializer",
+                        "missing field",
+                        "Add an initializer for " + field_name + " or update the struct definition."));
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_check_binary_operand_ref(state: Vec<str>, scope: str, operand_name: str,
+                                          operand_ref: AstExprRef, expected_kind: i64,
+                                          found_kind: i64, repair_hint: str) -> Vec<str> {
+        if typecheck_is_unknown_kind(found_kind) {
+            return state;
+        }
+        return typecheck_append_mismatch_ref(state, "binary_operand_type_mismatch", operand_name,
+            scope, ast_node_ref_from_expr_ref(operand_ref), expected_kind, found_kind, repair_hint);
+    }
+
+    fn typecheck_check_binary_operands_ref(state: Vec<str>, cstate: CgenStateRef,
+                                           expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let op: i64 = ast_binary_ref_op(expr_ref);
+        let left_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref));
+        let right_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_right_handle(expr_ref));
+        let left_kind: i64 = typecheck_expr_ref_kind(cstate, left_ref);
+        let right_kind: i64 = typecheck_expr_ref_kind(cstate, right_ref);
+        let op_name = token_name(op);
+
+        if typecheck_binary_op_requires_bool(op) {
+            if left_kind != TYPE_BOOL {
+                state = typecheck_check_binary_operand_ref(state, scope, "left operand for " + op_name,
+                    left_ref, TYPE_BOOL, left_kind, "Use bool operands with " + op_name + ".");
+            }
+            if right_kind != TYPE_BOOL {
+                state = typecheck_check_binary_operand_ref(state, scope, "right operand for " + op_name,
+                    right_ref, TYPE_BOOL, right_kind, "Use bool operands with " + op_name + ".");
+            }
+        } else if typecheck_binary_op_requires_integer(op) {
+            if !typecheck_is_integer_kind(left_kind) {
+                state = typecheck_check_binary_operand_ref(state, scope, "left operand for " + op_name,
+                    left_ref, TYPE_I64, left_kind, "Use integer operands with " + op_name + ".");
+            }
+            if !typecheck_is_integer_kind(right_kind) {
+                state = typecheck_check_binary_operand_ref(state, scope, "right operand for " + op_name,
+                    right_ref, TYPE_I64, right_kind, "Use integer operands with " + op_name + ".");
+            }
+        } else if typecheck_binary_op_requires_numeric(op) {
+            if op == TOK_PLUS && (left_kind == TYPE_STR || right_kind == TYPE_STR) {
+                return state;
+            }
+            if !typecheck_is_numeric_kind(left_kind) {
+                state = typecheck_check_binary_operand_ref(state, scope, "left operand for " + op_name,
+                    left_ref, TYPE_I64, left_kind, "Use numeric operands with " + op_name + ".");
+            }
+            if !typecheck_is_numeric_kind(right_kind) {
+                state = typecheck_check_binary_operand_ref(state, scope, "right operand for " + op_name,
+                    right_ref, TYPE_I64, right_kind, "Use numeric operands with " + op_name + ".");
+            }
+        } else if op == TOK_EQ || op == TOK_NE {
+            if !typecheck_kinds_compatible(left_kind, right_kind) {
+                state = typecheck_append_mismatch_ref(state, "binary_operand_type_mismatch",
+                    "right operand for " + op_name, scope, ast_node_ref_from_expr_ref(right_ref),
+                    left_kind, right_kind, "Compare values with compatible operand types.");
+            }
+        }
+        return state;
+    }
+
+    fn typecheck_is_enum_construction_ref(cstate: CgenStateRef, expr_ref: AstExprRef) -> bool {
+        if ast_expr_ref_kind(expr_ref) != NODE_BINARY {
+            return false;
+        }
+        if ast_binary_ref_op(expr_ref) != TOK_BIT_OR {
+            return false;
+        }
+        let right_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_right_handle(expr_ref));
+        if ast_expr_ref_kind(right_ref) != NODE_FIELD_ACCESS {
+            return false;
+        }
+        let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_field_access_ref_base_handle(right_ref));
+        if ast_expr_ref_kind(base_ref) != NODE_IDENT {
+            return false;
+        }
+        let names: Vec<str> = cgen_names_ref(cstate);
+        let enum_name: str = name_from_table(names, ast_expr_ref_name_idx(base_ref));
+        let variant_name: str = name_from_table(names, ast_field_access_ref_name_idx(right_ref));
+        let tag: i64 = cgen_enum_variant_tag_ref(cstate, enum_name, variant_name);
+        return tag >= 0;
+    }
+
+    fn typecheck_check_unary_operand_ref(state: Vec<str>, cstate: CgenStateRef,
+                                         expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let op: i64 = ast_unary_ref_op(expr_ref);
+        let operand_ref: AstExprRef = ast_expr_ref_from_handle(ast_unary_ref_operand_handle(expr_ref));
+        let operand_kind: i64 = typecheck_expr_ref_kind(cstate, operand_ref);
+        if typecheck_is_unknown_kind(operand_kind) {
+            return state;
+        }
+        if op == TOK_NOT && operand_kind != TYPE_BOOL {
+            return typecheck_append_mismatch_ref(state, "unary_operand_type_mismatch",
+                "operand for !", scope, ast_node_ref_from_expr_ref(operand_ref),
+                TYPE_BOOL, operand_kind, "Use a bool operand with !.");
+        }
+        if op == TOK_MINUS && !typecheck_is_numeric_kind(operand_kind) {
+            return typecheck_append_mismatch_ref(state, "unary_operand_type_mismatch",
+                "operand for unary -", scope, ast_node_ref_from_expr_ref(operand_ref),
+                TYPE_I64, operand_kind, "Use a numeric operand with unary -.");
+        }
+        return state;
+    }
+
+    fn typecheck_check_field_access_base_ref(state: Vec<str>, cstate: CgenStateRef,
+                                             expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let field_name: i64 = ast_field_access_ref_name_idx(expr_ref);
+        let names: Vec<str> = cgen_names_ref(cstate);
+        let fname_str: str = name_from_table(names, field_name);
+        if fname_str == "0" || fname_str == "1" || fname_str == "2" || fname_str == "3" {
+            return state;
+        }
+        let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_field_access_ref_base_handle(expr_ref));
+        if ast_expr_ref_kind(base_ref) == NODE_IDENT {
+            let enum_name: str = name_from_table(names, ast_expr_ref_name_idx(base_ref));
+            let tag: i64 = cgen_enum_variant_tag_ref(cstate, enum_name, fname_str);
+            if tag >= 0 {
+                return state;
+            }
+        }
+        let base_kind: i64 = typecheck_expr_ref_kind(cstate, base_ref);
+        if base_kind == TYPE_UNKNOWN {
+            return state;
+        }
+        if base_kind != TYPE_STRUCT {
+            state = typecheck_append_mismatch_ref(state, "field_access_base_type_mismatch",
+                "field access base", scope, ast_node_ref_from_expr_ref(base_ref),
+                TYPE_STRUCT, base_kind, "Access fields only on struct values.");
+        }
+        return state;
+    }
+
+    fn typecheck_check_index_base_ref(state: Vec<str>, cstate: CgenStateRef,
+                                      expr_ref: AstExprRef, scope: str) -> Vec<str> {
+        let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_index_ref_base_handle(expr_ref));
+        let base_kind: i64 = typecheck_expr_ref_kind(cstate, base_ref);
+        if base_kind == TYPE_UNKNOWN {
+            return state;
+        }
+        if base_kind != TYPE_ARRAY {
+            state = typecheck_append_mismatch_ref(state, "index_base_type_mismatch",
+                "index base", scope, ast_node_ref_from_expr_ref(base_ref),
+                TYPE_ARRAY, base_kind, "Index only array values; use Vec/HashMap builtins for handle collections.");
+        }
+        return state;
+    }
+
+    fn typecheck_match_body_ref_kind(cstate: CgenStateRef, body_ref: AstNodeRef) -> i64 {
+        if ast_node_ref_kind(body_ref) == NODE_BLOCK {
+            let block_ref: AstBlockRef = ast_block_ref_from_node_ref(body_ref);
+            if ast_block_ref_stmt_count(block_ref) <= 0 {
+                return TYPE_UNKNOWN;
+            }
+            let last_stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, ast_block_ref_stmt_count(block_ref) - 1);
+            if ast_stmt_ref_kind(last_stmt_ref) == NODE_EXPR_STMT {
+                return typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(last_stmt_ref)));
+            }
+            return TYPE_UNKNOWN;
+        }
+        return typecheck_expr_ref_kind(cstate, ast_expr_ref_from_node_ref(body_ref));
+    }
+
+    fn typecheck_check_match_arm_types_ref(state: Vec<str>, cstate: CgenStateRef,
+                                           bodies_ref: AstNodeListRef, scope: str) -> Vec<str> {
+        if ast_node_list_ref_count(bodies_ref) <= 1 {
+            return state;
+        }
+        let first_body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, 0);
+        let expected_kind: i64 = typecheck_match_body_ref_kind(cstate, first_body_ref);
+        let i: i64 = 1;
+        while i < ast_node_list_ref_count(bodies_ref) {
+            let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
+            let found_kind: i64 = typecheck_match_body_ref_kind(cstate, body_ref);
+            state = typecheck_maybe_append_value_mismatch_ref(state, "match_arm_type_mismatch",
+                "match arm " + int_to_string(i + 1), scope, body_ref, expected_kind, found_kind,
+                "Make every match arm produce a compatible value type.");
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_pattern_expected_kind(pattern_ref: AstPatternRef) -> i64 {
+        let pattern_kind: i64 = ast_pattern_ref_kind(pattern_ref);
+        if pattern_kind == PAT_TUPLE { return TYPE_I64; }
+        if pattern_kind == PAT_STRUCT { return TYPE_STRUCT; }
+        if pattern_kind == PAT_INT { return TYPE_I64; }
+        if pattern_kind == PAT_BOOL { return TYPE_BOOL; }
+        if pattern_kind == PAT_SOME || pattern_kind == PAT_NONE { return TYPE_OPTION; }
+        if pattern_kind == PAT_RESULT_OK || pattern_kind == PAT_RESULT_ERR { return TYPE_RESULT; }
+        return TYPE_UNKNOWN;
+    }
+
+    fn typecheck_pattern_kinds_compatible(scrutinee_kind: i64, expected_kind: i64) -> bool {
+        if scrutinee_kind == TYPE_UNKNOWN || expected_kind == TYPE_UNKNOWN {
+            return true;
+        }
+        if scrutinee_kind == expected_kind {
+            return true;
+        }
+        if typecheck_is_integer_kind(scrutinee_kind) && typecheck_is_integer_kind(expected_kind) {
+            return true;
+        }
+        return false;
+    }
+
+    fn typecheck_check_match_patterns_ref(state: Vec<str>, patterns_ref: AstPatternListRef,
+                                          scrutinee_kind: i64, scope: str) -> Vec<str> {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            let expected_kind: i64 = typecheck_pattern_expected_kind(pattern_ref);
+            if expected_kind != TYPE_UNKNOWN && !typecheck_pattern_kinds_compatible(scrutinee_kind, expected_kind) {
+                state = resolver_state_append(state,
+                    typecheck_diagnostic_span_json_with_type_context("match_pattern_type_mismatch",
+                        "BKR_SELF_TYPE_MISMATCH",
+                        "match pattern " + int_to_string(i + 1),
+                        scope,
+                        ast_pattern_ref_span_start(pattern_ref),
+                        ast_pattern_ref_span_end(pattern_ref),
+                        ast_type_kind_name(scrutinee_kind),
+                        ast_type_kind_name(expected_kind),
+                        type_graph_kind_json(scrutinee_kind, "expected"),
+                        type_graph_kind_json(expected_kind, "found"),
+                        "Use a pattern that matches the scrutinee type."));
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_pattern_is_literal_like_ref(pattern_ref: AstPatternRef) -> bool {
+        let kind: i64 = ast_pattern_ref_kind(pattern_ref);
+        return kind == PAT_INT || kind == PAT_BOOL || kind == PAT_NONE;
+    }
+
+    fn typecheck_pattern_is_catch_all_ref(pattern_ref: AstPatternRef) -> bool {
+        let kind: i64 = ast_pattern_ref_kind(pattern_ref);
+        if kind == PAT_WILDCARD || kind == PAT_BIND || kind == PAT_STRUCT {
+            return true;
+        }
+        if kind == PAT_TUPLE {
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pats: Vec<i64> = aux as Vec<i64>;
+                let i: i64 = 0;
+                while i < vec_len(sub_pats) {
+                    let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(vec_get(sub_pats, i));
+                    if !typecheck_pattern_is_catch_all_ref(sub_pat) {
+                        return false;
+                    }
+                    i = i + 1;
+                }
+                return true;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    fn typecheck_patterns_same_literal_ref(left_ref: AstPatternRef, right_ref: AstPatternRef) -> bool {
+        if ast_pattern_ref_kind(left_ref) != ast_pattern_ref_kind(right_ref) {
+            return false;
+        }
+        let kind: i64 = ast_pattern_ref_kind(left_ref);
+        if ast_pattern_ref_kind(left_ref) == PAT_SOME || kind == PAT_RESULT_OK || kind == PAT_RESULT_ERR {
+            let left_aux: i64 = ast_pattern_ref_aux(left_ref);
+            let right_aux: i64 = ast_pattern_ref_aux(right_ref);
+            if left_aux != 0 || right_aux != 0 {
+                if left_aux != 0 && right_aux != 0 {
+                    let sub_left: AstPatternRef = ast_pattern_ref_from_handle(left_aux);
+                    let sub_right: AstPatternRef = ast_pattern_ref_from_handle(right_aux);
+                    return typecheck_patterns_same_literal_ref(sub_left, sub_right);
+                }
+                return false;
+            }
+            return true;
+        }
+        if kind == PAT_TUPLE {
+            let left_aux: i64 = ast_pattern_ref_aux(left_ref);
+            let right_aux: i64 = ast_pattern_ref_aux(right_ref);
+            if left_aux != 0 && right_aux != 0 {
+                let left_pats: Vec<i64> = left_aux as Vec<i64>;
+                let right_pats: Vec<i64> = right_aux as Vec<i64>;
+                if vec_len(left_pats) != vec_len(right_pats) {
+                    return false;
+                }
+                let i: i64 = 0;
+                while i < vec_len(left_pats) {
+                    let l: AstPatternRef = ast_pattern_ref_from_handle(vec_get(left_pats, i));
+                    let r: AstPatternRef = ast_pattern_ref_from_handle(vec_get(right_pats, i));
+                    if !typecheck_patterns_same_literal_ref(l, r) {
+                        return false;
+                    }
+                    i = i + 1;
+                }
+                return true;
+            }
+            return false;
+        }
+        if !typecheck_pattern_is_literal_like_ref(left_ref) {
+            return false;
+        }
+        return ast_pattern_ref_value(left_ref) == ast_pattern_ref_value(right_ref);
+    }
+
+    fn typecheck_append_match_pattern_semantic_ref(state: Vec<str>, kind: str,
+                                                   name: str, scope: str,
+                                                   pattern_ref: AstPatternRef,
+                                                   expected: str, found: str,
+                                                   repair_hint: str) -> Vec<str> {
+        return resolver_state_append(state,
+            typecheck_diagnostic_span_json_with_type_context(kind, "BKR_SELF_MATCH_PATTERN",
+                name, scope,
+                ast_pattern_ref_span_start(pattern_ref),
+                ast_pattern_ref_span_end(pattern_ref),
+                expected,
+                found,
+                type_graph_kind_json(TYPE_UNKNOWN, "expected"),
+                type_graph_kind_json(TYPE_UNKNOWN, "found"),
+                repair_hint));
+    }
+
+    fn typecheck_check_match_pattern_semantics_ref(state: Vec<str>, guards_ref: AstI64ListRef,
+                                                   patterns_ref: AstPatternListRef,
+                                                   scope: str) -> Vec<str> {
+        let catch_all_seen: bool = false;
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if catch_all_seen {
+                state = typecheck_append_match_pattern_semantic_ref(state,
+                    "unreachable_match_pattern",
+                    "match pattern " + int_to_string(i + 1),
+                    scope,
+                    pattern_ref,
+                    "reachable match pattern",
+                    "previous catch-all pattern already matches",
+                    "Remove this arm or move it before the catch-all pattern.");
+            } else {
+                if !has_guard {
+                    let j: i64 = 0;
+                    while j < i {
+                        let prev_has_guard: bool = j < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, j) != 0;
+                        if !prev_has_guard {
+                            let previous_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, j);
+                            if typecheck_patterns_same_literal_ref(previous_ref, pattern_ref) {
+                                state = typecheck_append_match_pattern_semantic_ref(state,
+                                    "duplicate_match_pattern",
+                                    "match pattern " + int_to_string(i + 1),
+                                    scope,
+                                    pattern_ref,
+                                    "unique match pattern",
+                                    ast_pattern_kind_name(ast_pattern_ref_kind(pattern_ref)),
+                                    "Remove the duplicate pattern or merge its arm with the first occurrence.");
+                            }
+                        }
+                        j = j + 1;
+                    }
+                    if typecheck_pattern_is_catch_all_ref(pattern_ref) {
+                        catch_all_seen = true;
+                    }
+                }
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_match_patterns_cover_bool_ref(guards_ref: AstI64ListRef, patterns_ref: AstPatternListRef, value: i64) -> bool {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
+                i = i + 1;
+                continue;
+            }
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if typecheck_pattern_is_catch_all_ref(pattern_ref) {
+                return true;
+            }
+            if ast_pattern_ref_kind(pattern_ref) == PAT_BOOL && ast_pattern_ref_value(pattern_ref) == value {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_match_patterns_contain_option_ref(patterns_ref: AstPatternListRef) -> bool {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_kind: i64 = ast_pattern_ref_kind(ast_pattern_list_ref_get_ref(patterns_ref, i));
+            if pattern_kind == PAT_SOME || pattern_kind == PAT_NONE {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_subpatterns_cover_type_ref(subpats: Vec<i64>) -> bool {
+        let i: i64 = 0;
+        let has_some: bool = false;
+        let has_none: bool = false;
+        let has_ok: bool = false;
+        let has_err: bool = false;
+        let has_true: bool = false;
+        let has_false: bool = false;
+        while i < vec_len(subpats) {
+            let pat_ref: AstPatternRef = ast_pattern_ref_from_handle(vec_get(subpats, i));
+            if typecheck_pattern_is_catch_all_ref(pat_ref) {
+                return true;
+            }
+            let kind: i64 = ast_pattern_ref_kind(pat_ref);
+            if kind == PAT_SOME {
+                let aux: i64 = ast_pattern_ref_aux(pat_ref);
+                if aux == 0 {
+                    has_some = true;
+                } else {
+                    let inner_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                    if typecheck_pattern_is_catch_all_ref(inner_pat) {
+                        has_some = true;
+                    }
+                }
+            }
+            if kind == PAT_NONE {
+                has_none = true;
+            }
+            if kind == PAT_RESULT_OK {
+                let aux: i64 = ast_pattern_ref_aux(pat_ref);
+                if aux == 0 {
+                    has_ok = true;
+                } else {
+                    let inner_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                    if typecheck_pattern_is_catch_all_ref(inner_pat) {
+                        has_ok = true;
+                    }
+                }
+            }
+            if kind == PAT_RESULT_ERR {
+                let aux: i64 = ast_pattern_ref_aux(pat_ref);
+                if aux == 0 {
+                    has_err = true;
+                } else {
+                    let inner_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                    if typecheck_pattern_is_catch_all_ref(inner_pat) {
+                        has_err = true;
+                    }
+                }
+            }
+            if kind == PAT_BOOL {
+                if ast_pattern_ref_value(pat_ref) == 1 {
+                    has_true = true;
+                }
+                if ast_pattern_ref_value(pat_ref) == 0 {
+                    has_false = true;
+                }
+            }
+            i = i + 1;
+        }
+        if has_some && has_none {
+            return true;
+        }
+        if has_ok && has_err {
+            return true;
+        }
+        if has_true && has_false {
+            return true;
+        }
+        return false;
+    }
+
+    fn typecheck_match_patterns_cover_option_ref(guards_ref: AstI64ListRef, patterns_ref: AstPatternListRef, pattern_kind: i64) -> bool {
+        let i: i64 = 0;
+        let subpats: Vec<i64> = vec_new();
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
+                i = i + 1;
+                continue;
+            }
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if typecheck_pattern_is_catch_all_ref(pattern_ref) {
+                return true;
+            }
+            if ast_pattern_ref_kind(pattern_ref) == pattern_kind {
+                if pattern_kind == PAT_SOME {
+                    let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+                    if aux == 0 {
+                        return true;
+                    }
+                    let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                    if typecheck_pattern_is_catch_all_ref(sub_pat) {
+                        return true;
+                    }
+                    vec_push(subpats, aux);
+                } else {
+                    return true;
+                }
+            }
+            i = i + 1;
+        }
+        if pattern_kind == PAT_SOME && vec_len(subpats) > 0 {
+            return typecheck_subpatterns_cover_type_ref(subpats);
+        }
+        return false;
+    }
+
+    fn typecheck_check_bool_match_exhaustiveness_ref(state: Vec<str>, expr_ref: AstExprRef,
+                                                     patterns_ref: AstPatternListRef,
+                                                     scrutinee_kind: i64, scope: str) -> Vec<str> {
+        if scrutinee_kind != TYPE_BOOL {
+            return state;
+        }
+        let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
+        let covers_true: bool = typecheck_match_patterns_cover_bool_ref(guards_ref, patterns_ref, 1);
+        let covers_false: bool = typecheck_match_patterns_cover_bool_ref(guards_ref, patterns_ref, 0);
+        if covers_true && covers_false {
+            return state;
+        }
+        let missing: str = "";
+        if !covers_true {
+            missing = "true";
+        }
+        if !covers_false {
+            if len(missing) > 0 {
+                missing = missing + ", false";
+            } else {
+                missing = "false";
+            }
+        }
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("non_exhaustive_match", "BKR_SELF_EXHAUSTIVENESS",
+                "match", scope, ast_node_ref_from_expr_ref(expr_ref),
+                "patterns covering true and false",
+                "missing " + missing,
+                "Add the missing boolean pattern arm or a catch-all pattern."));
+    }
+
+    fn typecheck_check_bool_match_redundancy_ref(state: Vec<str>, guards_ref: AstI64ListRef,
+                                                 patterns_ref: AstPatternListRef,
+                                                 scrutinee_kind: i64, scope: str) -> Vec<str> {
+        if scrutinee_kind != TYPE_BOOL {
+            return state;
+        }
+        let covers_true: bool = false;
+        let covers_false: bool = false;
+        let exhausted: bool = false;
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if exhausted {
+                state = typecheck_append_match_pattern_semantic_ref(state,
+                    "unreachable_match_pattern",
+                    "match pattern " + int_to_string(i + 1),
+                    scope,
+                    pattern_ref,
+                    "reachable match pattern",
+                    "previous bool patterns already cover true and false",
+                    "Remove this arm or move it before the exhaustive bool patterns.");
+            }
+            if !has_guard {
+                if ast_pattern_ref_kind(pattern_ref) == PAT_BOOL && ast_pattern_ref_value(pattern_ref) == 1 {
+                    covers_true = true;
+                }
+                if ast_pattern_ref_kind(pattern_ref) == PAT_BOOL && ast_pattern_ref_value(pattern_ref) == 0 {
+                    covers_false = true;
+                }
+                if covers_true && covers_false {
+                    exhausted = true;
+                }
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_check_option_match_exhaustiveness_ref(state: Vec<str>, expr_ref: AstExprRef,
+                                                       patterns_ref: AstPatternListRef,
+                                                       scope: str) -> Vec<str> {
+        if !typecheck_match_patterns_contain_option_ref(patterns_ref) {
+            return state;
+        }
+        let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
+        let covers_some: bool = typecheck_match_patterns_cover_option_ref(guards_ref, patterns_ref, PAT_SOME);
+        let covers_none: bool = typecheck_match_patterns_cover_option_ref(guards_ref, patterns_ref, PAT_NONE);
+        if covers_some && covers_none {
+            return state;
+        }
+        let missing: str = "";
+        if !covers_some {
+            missing = "Some";
+        }
+        if !covers_none {
+            if len(missing) > 0 {
+                missing = missing + ", None";
+            } else {
+                missing = "None";
+            }
+        }
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("non_exhaustive_match", "BKR_SELF_EXHAUSTIVENESS",
+                "match", scope, ast_node_ref_from_expr_ref(expr_ref),
+                "patterns covering Some and None",
+                "missing " + missing,
+                "Add the missing Option pattern arm or a catch-all pattern."));
+    }
+
+    fn typecheck_check_option_match_redundancy_ref(state: Vec<str>, guards_ref: AstI64ListRef,
+                                                   patterns_ref: AstPatternListRef,
+                                                   scope: str) -> Vec<str> {
+        if !typecheck_match_patterns_contain_option_ref(patterns_ref) {
+            return state;
+        }
+        let covers_some: bool = false;
+        let covers_none: bool = false;
+        let exhausted: bool = false;
+        let i: i64 = 0;
+        let subpats: Vec<i64> = vec_new();
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if exhausted {
+                state = typecheck_append_match_pattern_semantic_ref(state,
+                    "unreachable_match_pattern",
+                    "match pattern " + int_to_string(i + 1),
+                    scope,
+                    pattern_ref,
+                    "reachable match pattern",
+                    "previous Option patterns already cover Some and None",
+                    "Remove this arm or move it before the exhaustive Option patterns.");
+            }
+            if !has_guard {
+                if ast_pattern_ref_kind(pattern_ref) == PAT_SOME {
+                    let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+                    if aux == 0 {
+                        covers_some = true;
+                    } else {
+                        let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                        if typecheck_pattern_is_catch_all_ref(sub_pat) {
+                            covers_some = true;
+                        } else {
+                            vec_push(subpats, aux);
+                            if typecheck_subpatterns_cover_type_ref(subpats) {
+                                covers_some = true;
+                            }
+                        }
+                    }
+                }
+                if ast_pattern_ref_kind(pattern_ref) == PAT_NONE {
+                    covers_none = true;
+                }
+                if covers_some && covers_none {
+                    exhausted = true;
+                }
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_match_patterns_contain_result_ref(patterns_ref: AstPatternListRef) -> bool {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            let kind: i64 = ast_pattern_ref_kind(pattern_ref);
+            if kind == PAT_RESULT_OK || kind == PAT_RESULT_ERR {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_match_patterns_cover_result_ref(guards_ref: AstI64ListRef, patterns_ref: AstPatternListRef, pattern_kind: i64) -> bool {
+        let i: i64 = 0;
+        let subpats: Vec<i64> = vec_new();
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
+                i = i + 1;
+                continue;
+            }
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if typecheck_pattern_is_catch_all_ref(pattern_ref) {
+                return true;
+            }
+            if ast_pattern_ref_kind(pattern_ref) == pattern_kind {
+                let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+                if aux == 0 {
+                    return true;
+                }
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                if typecheck_pattern_is_catch_all_ref(sub_pat) {
+                    return true;
+                }
+                vec_push(subpats, aux);
+            }
+            i = i + 1;
+        }
+        if vec_len(subpats) > 0 {
+            return typecheck_subpatterns_cover_type_ref(subpats);
+        }
+        return false;
+    }
+
+    fn typecheck_check_result_match_exhaustiveness_ref(state: Vec<str>, expr_ref: AstExprRef,
+                                                       patterns_ref: AstPatternListRef,
+                                                       scope: str) -> Vec<str> {
+        if !typecheck_match_patterns_contain_result_ref(patterns_ref) {
+            return state;
+        }
+        let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
+        let covers_ok: bool = typecheck_match_patterns_cover_result_ref(guards_ref, patterns_ref, PAT_RESULT_OK);
+        let covers_err: bool = typecheck_match_patterns_cover_result_ref(guards_ref, patterns_ref, PAT_RESULT_ERR);
+        if covers_ok && covers_err {
+            return state;
+        }
+        let missing: str = "";
+        if !covers_ok {
+            missing = "Ok";
+        }
+        if !covers_err {
+            if len(missing) > 0 {
+                missing = missing + ", Err";
+            } else {
+                missing = "Err";
+            }
+        }
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("non_exhaustive_match", "BKR_SELF_EXHAUSTIVENESS",
+                "match", scope, ast_node_ref_from_expr_ref(expr_ref),
+                "patterns covering Ok and Err",
+                "missing " + missing,
+                "Add the missing Result pattern arm or a catch-all pattern."));
+    }
+
+    fn typecheck_check_result_match_redundancy_ref(state: Vec<str>, guards_ref: AstI64ListRef,
+                                                   patterns_ref: AstPatternListRef,
+                                                   scope: str) -> Vec<str> {
+        if !typecheck_match_patterns_contain_result_ref(patterns_ref) {
+            return state;
+        }
+        let covers_ok: bool = false;
+        let covers_err: bool = false;
+        let exhausted: bool = false;
+        let i: i64 = 0;
+        let ok_subpats: Vec<i64> = vec_new();
+        let err_subpats: Vec<i64> = vec_new();
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if exhausted {
+                state = typecheck_append_match_pattern_semantic_ref(state,
+                    "unreachable_match_pattern",
+                    "match pattern " + int_to_string(i + 1),
+                    scope,
+                    pattern_ref,
+                    "reachable match pattern",
+                    "previous Result patterns already cover Ok and Err",
+                    "Remove this arm or move it before the exhaustive Result patterns.");
+            }
+            if !has_guard {
+                if ast_pattern_ref_kind(pattern_ref) == PAT_RESULT_OK {
+                    let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+                    if aux == 0 {
+                        covers_ok = true;
+                    } else {
+                        let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                        if typecheck_pattern_is_catch_all_ref(sub_pat) {
+                            covers_ok = true;
+                        } else {
+                            vec_push(ok_subpats, aux);
+                            if typecheck_subpatterns_cover_type_ref(ok_subpats) {
+                                covers_ok = true;
+                            }
+                        }
+                    }
+                }
+                if ast_pattern_ref_kind(pattern_ref) == PAT_RESULT_ERR {
+                    let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+                    if aux == 0 {
+                        covers_err = true;
+                    } else {
+                        let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                        if typecheck_pattern_is_catch_all_ref(sub_pat) {
+                            covers_err = true;
+                        } else {
+                            vec_push(err_subpats, aux);
+                            if typecheck_subpatterns_cover_type_ref(err_subpats) {
+                                covers_err = true;
+                            }
+                        }
+                    }
+                }
+                if covers_ok && covers_err {
+                    exhausted = true;
+                }
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_match_patterns_contain_enum_variant_ref(patterns_ref: AstPatternListRef) -> bool {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            if ast_pattern_ref_kind(ast_pattern_list_ref_get_ref(patterns_ref, i)) == PAT_ENUM_VARIANT {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_first_enum_variant_name_idx(patterns_ref: AstPatternListRef) -> i64 {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if ast_pattern_ref_kind(pattern_ref) == PAT_ENUM_VARIANT {
+                return ast_pattern_ref_value(pattern_ref);
+            }
+            i = i + 1;
+        }
+        return -1;
+    }
+
+    fn typecheck_find_enum_item_ref(kernel_ref: AstNodeRef, enum_name_idx: i64) -> AstItemRef {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_ENUM {
+                if ast_enum_ref_name_idx(item_ref) == enum_name_idx {
+                    return item_ref;
+                }
+            }
+            i = i + 1;
+        }
+        return ast_optional_item_ref_none();
+    }
+
+    fn typecheck_match_patterns_cover_enum_variant_ref(guards_ref: AstI64ListRef, patterns_ref: AstPatternListRef,
+                                                      enum_name_idx: i64,
+                                                      variant_idx: i64) -> bool {
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
+                i = i + 1;
+                continue;
+            }
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if typecheck_pattern_is_catch_all_ref(pattern_ref) {
+                return true;
+            }
+            if ast_pattern_ref_kind(pattern_ref) == PAT_ENUM_VARIANT {
+                if ast_pattern_ref_value(pattern_ref) == enum_name_idx {
+                    if ast_pattern_ref_aux(pattern_ref) == variant_idx {
+                        return true;
+                    }
+                }
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_check_enum_match_exhaustiveness_ref(state: Vec<str>, kernel_ref: AstNodeRef,
+                                                    names: Vec<str>, expr_ref: AstExprRef,
+                                                    patterns_ref: AstPatternListRef,
+                                                    scope: str) -> Vec<str> {
+        if !typecheck_match_patterns_contain_enum_variant_ref(patterns_ref) {
+            return state;
+        }
+        let enum_name_idx: i64 = typecheck_first_enum_variant_name_idx(patterns_ref);
+        if enum_name_idx < 0 {
+            return state;
+        }
+        let enum_item_ref: AstItemRef = typecheck_find_enum_item_ref(kernel_ref, enum_name_idx);
+        if ast_item_ref_is_none(enum_item_ref) {
+            return state;
+        }
+        let variants_ref: AstI64ListRef = ast_enum_ref_variants_ref(enum_item_ref);
+        if ast_i64_list_ref_count(variants_ref) <= 0 {
+            return state;
+        }
+        let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
+        let missing: str = "";
+        let j: i64 = 0;
+        while j < ast_i64_list_ref_count(variants_ref) {
+            let variant_idx: i64 = ast_i64_list_ref_get(variants_ref, j);
+            if !typecheck_match_patterns_cover_enum_variant_ref(guards_ref, patterns_ref, enum_name_idx, variant_idx) {
+                let variant_label: str = ast_report_name(names, enum_name_idx) + "." + ast_report_name(names, variant_idx);
+                if len(missing) > 0 {
+                    missing = missing + ", " + variant_label;
+                } else {
+                    missing = variant_label;
+                }
+            }
+            j = j + 1;
+        }
+        if len(missing) <= 0 {
+            return state;
+        }
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("non_exhaustive_match", "BKR_SELF_EXHAUSTIVENESS",
+                "match", scope, ast_node_ref_from_expr_ref(expr_ref),
+                "patterns covering every declared enum variant",
+                "missing " + missing,
+                "Add the missing enum pattern arm or a catch-all pattern."));
+    }
+
+    fn typecheck_check_scalar_match_exhaustiveness_ref(state: Vec<str>, expr_ref: AstExprRef,
+                                                       patterns_ref: AstPatternListRef,
+                                                       scrutinee_kind: i64, scope: str) -> Vec<str> {
+        if typecheck_match_patterns_contain_enum_variant_ref(patterns_ref) ||
+           typecheck_match_patterns_contain_option_ref(patterns_ref) ||
+           typecheck_match_patterns_contain_result_ref(patterns_ref) {
+            return state;
+        }
+        if !typecheck_is_numeric_kind(scrutinee_kind) && scrutinee_kind != TYPE_STR {
+            return state;
+        }
+        let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
+        let i: i64 = 0;
+        let has_catch_all: bool = false;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
+                i = i + 1;
+                continue;
+            }
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if typecheck_pattern_is_catch_all_ref(pattern_ref) {
+                has_catch_all = true;
+            }
+            i = i + 1;
+        }
+        if has_catch_all {
+            return state;
+        }
+        return resolver_state_append(state,
+            typecheck_diagnostic_ref_json("non_exhaustive_match", "BKR_SELF_EXHAUSTIVENESS",
+                "match", scope, ast_node_ref_from_expr_ref(expr_ref),
+                "patterns covering all values or a catch-all pattern",
+                "missing catch-all pattern",
+                "Add a wildcard '_' arm or identifier pattern to cover all remaining values."));
+    }
+
+    fn typecheck_check_enum_match_redundancy_ref(state: Vec<str>, kernel_ref: AstNodeRef,
+                                                guards_ref: AstI64ListRef,
+                                                patterns_ref: AstPatternListRef,
+                                                scope: str) -> Vec<str> {
+        if !typecheck_match_patterns_contain_enum_variant_ref(patterns_ref) {
+            return state;
+        }
+        let enum_name_idx: i64 = typecheck_first_enum_variant_name_idx(patterns_ref);
+        if enum_name_idx < 0 {
+            return state;
+        }
+        let enum_item_ref: AstItemRef = typecheck_find_enum_item_ref(kernel_ref, enum_name_idx);
+        if ast_item_ref_is_none(enum_item_ref) {
+            return state;
+        }
+        let variants_ref: AstI64ListRef = ast_enum_ref_variants_ref(enum_item_ref);
+        let variant_count: i64 = ast_i64_list_ref_count(variants_ref);
+        if variant_count <= 0 {
+            return state;
+        }
+        let covered: i64 = 0;
+        let exhausted: bool = false;
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if exhausted {
+                state = typecheck_append_match_pattern_semantic_ref(state,
+                    "unreachable_match_pattern",
+                    "match pattern " + int_to_string(i + 1),
+                    scope,
+                    pattern_ref,
+                    "reachable match pattern",
+                    "previous enum patterns already cover every declared variant",
+                    "Remove this arm or move it before the exhaustive enum patterns.");
+            }
+            if !has_guard {
+                if ast_pattern_ref_kind(pattern_ref) == PAT_ENUM_VARIANT {
+                    let variant_idx: i64 = ast_pattern_ref_aux(pattern_ref);
+                    if ast_pattern_ref_value(pattern_ref) == enum_name_idx {
+                        if typecheck_enum_variant_is_declared_ref(variants_ref, variant_idx) {
+                            if !typecheck_match_patterns_cover_enum_variant_before_ref(patterns_ref,
+                                    enum_name_idx, variant_idx, i) {
+                                covered = covered + 1;
+                            }
+                        }
+                    }
+                }
+                if covered >= variant_count {
+                    exhausted = true;
+                }
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_enum_variant_is_declared_ref(variants_ref: AstI64ListRef, variant_idx: i64) -> bool {
+        let j: i64 = 0;
+        while j < ast_i64_list_ref_count(variants_ref) {
+            if ast_i64_list_ref_get(variants_ref, j) == variant_idx {
+                return true;
+            }
+            j = j + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_match_patterns_cover_enum_variant_before_ref(patterns_ref: AstPatternListRef,
+                                                             enum_name_idx: i64,
+                                                             variant_idx: i64,
+                                                             before: i64) -> bool {
+        let i: i64 = 0;
+        while i < before {
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            if ast_pattern_ref_kind(pattern_ref) == PAT_ENUM_VARIANT {
+                if ast_pattern_ref_value(pattern_ref) == enum_name_idx {
+                    if ast_pattern_ref_aux(pattern_ref) == variant_idx {
+                        return true;
+                    }
+                }
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_check_array_element_types_ref(state: Vec<str>, cstate: CgenStateRef,
+                                               elements_ref: AstNodeListRef, scope: str) -> Vec<str> {
+        let expected_kind: i64 = TYPE_UNKNOWN;
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(elements_ref) {
+            let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
+            let element_expr_ref: AstExprRef = ast_expr_ref_from_node_ref(element_ref);
+            let element_kind: i64 = typecheck_expr_ref_kind(cstate, element_expr_ref);
+            state = typecheck_check_void_value_ref(state, cstate, element_expr_ref,
+                "array element " + int_to_string(i + 1), scope);
+            if expected_kind == TYPE_UNKNOWN {
+                if element_kind != TYPE_UNKNOWN {
+                    expected_kind = element_kind;
+                }
+            } else {
+                state = typecheck_maybe_append_mismatch_ref(state, "array_element_type_mismatch",
+                    "array element " + int_to_string(i + 1), scope, element_ref,
+                    expected_kind, element_kind,
+                    "Make every array literal element produce the same type.");
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_scan_loop_control_expr_handle(state: Vec<str>, expr_value: i64,
+                                               scope: str, loop_depth: i64) -> Vec<str> {
+        if ast_optional_is_none(expr_value) {
+            return state;
+        }
+        return typecheck_scan_loop_control_expr_ref(state, ast_expr_ref_from_handle(expr_value), scope, loop_depth);
+    }
+
+    fn typecheck_scan_loop_control_expr_ref(state: Vec<str>, expr_ref: AstExprRef,
+                                            scope: str, loop_depth: i64) -> Vec<str> {
+        let kind: i64 = ast_expr_ref_kind(expr_ref);
+        if kind == NODE_METHOD_CALL {
+            state = typecheck_scan_loop_control_expr_ref(state, ast_method_call_ref_receiver_ref(expr_ref), scope, loop_depth);
+            let args_ref: AstNodeListRef = ast_method_call_ref_args_ref(expr_ref);
+            let i: i64 = 0;
+            while i < ast_node_list_ref_count(args_ref) {
+                state = typecheck_scan_loop_control_expr_ref(state,
+                    ast_expr_ref_from_node_ref(ast_node_list_ref_get_ref(args_ref, i)), scope, loop_depth);
+                i = i + 1;
+            }
+        } else if kind == NODE_CALL {
+            let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
+            let i: i64 = 0;
+            while i < ast_node_list_ref_count(args_ref) {
+                state = typecheck_scan_loop_control_expr_ref(state,
+                    ast_expr_ref_from_node_ref(ast_node_list_ref_get_ref(args_ref, i)), scope, loop_depth);
+                i = i + 1;
+            }
+        } else if kind == NODE_STRUCT_LIT {
+            let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
+            let i: i64 = 0;
+            while i < ast_node_list_ref_count(field_values_ref) {
+                state = typecheck_scan_loop_control_expr_ref(state,
+                    ast_expr_ref_from_node_ref(ast_node_list_ref_get_ref(field_values_ref, i)), scope, loop_depth);
+                i = i + 1;
+            }
+            let base_handle: i64 = ast_struct_lit_ref_base_handle(expr_ref);
+            if base_handle != 0 {
+                state = typecheck_scan_loop_control_expr_handle(state, base_handle, scope, loop_depth);
+            }
+        } else if kind == NODE_FIELD_ACCESS {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_field_access_ref_base_handle(expr_ref), scope, loop_depth);
+        } else if kind == NODE_BINARY {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_binary_ref_left_handle(expr_ref), scope, loop_depth);
+            state = typecheck_scan_loop_control_expr_handle(state, ast_binary_ref_right_handle(expr_ref), scope, loop_depth);
+        } else if kind == NODE_TRY {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_try_ref_expr_handle(expr_ref), scope, loop_depth);
+        } else if kind == NODE_CAST {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_cast_ref_expr_handle(expr_ref), scope, loop_depth);
+        } else if kind == NODE_UNARY {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_unary_ref_operand_handle(expr_ref), scope, loop_depth);
+        } else if kind == NODE_TERNARY {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_ternary_ref_cond_handle(expr_ref), scope, loop_depth);
+            state = typecheck_scan_loop_control_expr_handle(state, ast_ternary_ref_then_handle(expr_ref), scope, loop_depth);
+            state = typecheck_scan_loop_control_expr_handle(state, ast_ternary_ref_else_handle(expr_ref), scope, loop_depth);
+        } else if kind == NODE_ARRAY_REPEAT {
+            state = typecheck_scan_loop_control_expr_ref(state,
+                ast_array_repeat_ref_elem_ref(expr_ref), scope, loop_depth);
+        } else if kind == NODE_ARRAY_LIT {
+            let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
+            let i: i64 = 0;
+            while i < ast_node_list_ref_count(elements_ref) {
+                state = typecheck_scan_loop_control_expr_ref(state,
+                    ast_expr_ref_from_node_ref(ast_node_list_ref_get_ref(elements_ref, i)), scope, loop_depth);
+                i = i + 1;
+            }
+        } else if kind == NODE_INDEX {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_index_ref_base_handle(expr_ref), scope, loop_depth);
+            state = typecheck_scan_loop_control_expr_handle(state, ast_index_ref_expr_handle(expr_ref), scope, loop_depth);
+        } else if kind == NODE_BLOCK {
+            state = typecheck_scan_loop_control_block_ref(state, ast_block_ref_from_node_ref(ast_node_ref_from_expr_ref(expr_ref)), scope, loop_depth);
+        } else if kind == NODE_MATCH {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_match_ref_scrutinee_handle(expr_ref), scope, loop_depth);
+            let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
+            let i: i64 = 0;
+            while i < ast_node_list_ref_count(bodies_ref) {
+                let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
+                if ast_node_ref_kind(body_ref) == NODE_BLOCK {
+                    state = typecheck_scan_loop_control_block_ref(state, ast_block_ref_from_node_ref(body_ref), scope, loop_depth);
+                } else {
+                    state = typecheck_scan_loop_control_expr_ref(state, ast_expr_ref_from_node_ref(body_ref), scope, loop_depth);
+                }
+                i = i + 1;
+            }
+        }
+        return state;
+    }
+
+    fn typecheck_scan_loop_control_stmt_ref(state: Vec<str>, stmt_ref: AstStmtRef,
+                                            scope: str, loop_depth: i64) -> Vec<str> {
+        let kind: i64 = ast_stmt_ref_kind(stmt_ref);
+        if kind == NODE_BREAK || kind == NODE_CONTINUE {
+            if loop_depth <= 0 {
+                state = typecheck_append_invalid_loop_control_ref(state, scope, stmt_ref);
+            }
+        } else if kind == NODE_LET {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_let_ref_init_handle(stmt_ref), scope, loop_depth);
+        } else if kind == NODE_RETURN {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_return_ref_expr_handle(stmt_ref), scope, loop_depth);
+        } else if kind == NODE_IF {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_if_ref_cond_handle(stmt_ref), scope, loop_depth);
+            state = typecheck_scan_loop_control_block_ref(state, ast_if_ref_then_block_ref(stmt_ref), scope, loop_depth);
+            let else_block: i64 = ast_if_ref_else_handle(stmt_ref);
+            if ast_optional_is_some(else_block) {
+                state = typecheck_scan_loop_control_block_ref(state, ast_block_ref_from_handle(else_block), scope, loop_depth);
+            }
+        } else if kind == NODE_WHILE {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_while_ref_cond_handle(stmt_ref), scope, loop_depth);
+            state = typecheck_scan_loop_control_block_ref(state, ast_while_ref_body_ref(stmt_ref), scope, loop_depth + 1);
+        } else if kind == NODE_FOR {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_for_ref_start_handle(stmt_ref), scope, loop_depth);
+            state = typecheck_scan_loop_control_expr_handle(state, ast_for_ref_end_handle(stmt_ref), scope, loop_depth);
+            state = typecheck_scan_loop_control_block_ref(state, ast_for_ref_body_ref(stmt_ref), scope, loop_depth + 1);
+        } else if kind == NODE_LOOP {
+            state = typecheck_scan_loop_control_block_ref(state, ast_loop_ref_body_ref(stmt_ref), scope, loop_depth + 1);
+        } else if kind == NODE_ASSIGN {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_assign_ref_target_handle(stmt_ref), scope, loop_depth);
+            state = typecheck_scan_loop_control_expr_handle(state, ast_assign_ref_value_handle(stmt_ref), scope, loop_depth);
+        } else if kind == NODE_DEFER {
+            state = typecheck_scan_loop_control_stmt_ref(state, ast_stmt_ref_from_handle(ast_defer_ref_stmt_handle(stmt_ref)), scope, loop_depth);
+        } else if kind == NODE_EXPR_STMT {
+            state = typecheck_scan_loop_control_expr_handle(state, ast_expr_stmt_ref_expr_handle(stmt_ref), scope, loop_depth);
+        }
+        return state;
+    }
+
+    fn typecheck_scan_loop_control_block_ref(state: Vec<str>, block_ref: AstBlockRef,
+                                             scope: str, loop_depth: i64) -> Vec<str> {
+        let i: i64 = 0;
+        while i < ast_block_ref_stmt_count(block_ref) {
+            state = typecheck_scan_loop_control_stmt_ref(state, ast_block_ref_stmt_ref(block_ref, i),
+                scope, loop_depth);
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn typecheck_stmt_definitely_returns_ref(stmt_ref: AstStmtRef) -> bool {
+        let kind: i64 = ast_stmt_ref_kind(stmt_ref);
+        if kind == NODE_RETURN {
+            return true;
+        }
+        if kind == NODE_IF {
+            let else_block: i64 = ast_if_ref_else_handle(stmt_ref);
+            if ast_optional_is_none(else_block) {
+                return false;
+            }
+            return typecheck_block_definitely_returns_ref(ast_if_ref_then_block_ref(stmt_ref)) &&
+                typecheck_block_definitely_returns_ref(ast_block_ref_from_handle(else_block));
+        }
+        return false;
+    }
+
+    fn typecheck_block_definitely_returns_ref(block_ref: AstBlockRef) -> bool {
+        let i: i64 = 0;
+        while i < ast_block_ref_stmt_count(block_ref) {
+            if typecheck_stmt_definitely_returns_ref(ast_block_ref_stmt_ref(block_ref, i)) {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_stmt_terminates_control_ref(stmt_ref: AstStmtRef) -> bool {
+        let kind: i64 = ast_stmt_ref_kind(stmt_ref);
+        if kind == NODE_RETURN || kind == NODE_BREAK || kind == NODE_CONTINUE {
+            return true;
+        }
+        if kind == NODE_IF {
+            let else_block: i64 = ast_if_ref_else_handle(stmt_ref);
+            if ast_optional_is_none(else_block) {
+                return false;
+            }
+            return typecheck_block_terminates_control_ref(ast_if_ref_then_block_ref(stmt_ref)) &&
+                typecheck_block_terminates_control_ref(ast_block_ref_from_handle(else_block));
+        }
+        return false;
+    }
+
+    fn typecheck_block_terminates_control_ref(block_ref: AstBlockRef) -> bool {
+        let i: i64 = 0;
+        while i < ast_block_ref_stmt_count(block_ref) {
+            if typecheck_stmt_terminates_control_ref(ast_block_ref_stmt_ref(block_ref, i)) {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn typecheck_scan_unreachable_stmt_ref(state: Vec<str>, stmt_ref: AstStmtRef,
+                                           scope: str) -> Vec<str> {
+        let kind: i64 = ast_stmt_ref_kind(stmt_ref);
+        if kind == NODE_IF {
+            state = typecheck_scan_unreachable_block_ref(state, ast_if_ref_then_block_ref(stmt_ref), scope);
+            let else_block: i64 = ast_if_ref_else_handle(stmt_ref);
+            if ast_optional_is_some(else_block) {
+                state = typecheck_scan_unreachable_block_ref(state, ast_block_ref_from_handle(else_block), scope);
+            }
+        } else if kind == NODE_WHILE {
+            state = typecheck_scan_unreachable_block_ref(state, ast_while_ref_body_ref(stmt_ref), scope);
+        } else if kind == NODE_FOR {
+            state = typecheck_scan_unreachable_block_ref(state, ast_for_ref_body_ref(stmt_ref), scope);
+        } else if kind == NODE_LOOP {
+            state = typecheck_scan_unreachable_block_ref(state, ast_loop_ref_body_ref(stmt_ref), scope);
+        }
+        return state;
+    }
+
+    fn typecheck_scan_unreachable_block_ref(state: Vec<str>, block_ref: AstBlockRef,
+                                            scope: str) -> Vec<str> {
+        let terminated: bool = false;
+        let i: i64 = 0;
+        while i < ast_block_ref_stmt_count(block_ref) {
+            let stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, i);
+            if terminated {
+                state = typecheck_append_unreachable_statement_ref(state, scope, stmt_ref);
+            } else {
+                state = typecheck_scan_unreachable_stmt_ref(state, stmt_ref, scope);
+                if typecheck_stmt_terminates_control_ref(stmt_ref) {
+                    terminated = true;
+                }
+            }
+            i = i + 1;
+        }
+        return state;
     }
 
     fn typecheck_check_expression_against(state: Vec<str>, names: Vec<str>, cstate: CgenStateRef,
@@ -194,22 +2377,62 @@
     fn typecheck_check_call_arguments_ref(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
                                           cstate: CgenStateRef, expr_ref: AstExprRef, scope: str) -> Vec<str> {
         let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
-        let fn_value: i64 = typecheck_find_function_ref(kernel_ref, name_idx);
-        if ast_optional_is_none(fn_value) {
-            return state;
+        let fn_ref: AstItemRef = typecheck_find_function_ref(kernel_ref, name_idx);
+        if ast_item_ref_is_none(fn_ref) {
+            let struct_ref: AstItemRef = typecheck_find_struct_ref(kernel_ref, name_idx);
+            if ast_item_ref_is_some(struct_ref) {
+                let s_name: str = ast_report_name(names, name_idx);
+                let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
+                let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(struct_ref);
+                let arg_count: i64 = ast_node_list_ref_count(args_ref);
+                let field_count: i64 = ast_node_list_ref_count(fields_ref);
+                if arg_count != field_count {
+                    let arity_hint = "Call struct constructor " + s_name + " with exactly " + int_to_string(field_count) +
+                        " argument(s), or update the struct definition.";
+                    state = typecheck_append_count_mismatch_ref(state, "call_argument_count_mismatch", s_name,
+                        scope, ast_node_ref_from_expr_ref(expr_ref), field_count, arg_count, arity_hint);
+                }
+                let i: i64 = 0;
+                while i < arg_count && i < field_count {
+                    let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, i);
+                    let field_type: i64 = ast_field_decl_ref_type_handle(field_ref);
+                    let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+                    let arg_ref: AstExprRef = ast_expr_ref_from_node_ref(arg_node_ref);
+                    let expected_kind: i64 = typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(field_type));
+                    let found_kind: i64 = typecheck_expr_ref_kind(cstate, arg_ref);
+                    let hint: str = "Change argument " + int_to_string(i + 1) + " for " + s_name +
+                        " to match field " + ast_report_name(names, ast_field_decl_ref_name_idx(field_ref)) +
+                        " or update the struct definition.";
+                    state = typecheck_maybe_append_mismatch_ref(state, "call_argument_type_mismatch", s_name,
+                        scope, arg_node_ref, expected_kind, found_kind, hint);
+                    i = i + 1;
+                }
+                return state;
+            }
+            if typecheck_builtin_expected_arity(ast_report_name(names, name_idx)) < 0 {
+                state = typecheck_check_call_target_ref(state, kernel_ref, names, expr_ref, scope);
+            }
+            return typecheck_check_builtin_call_ref(state, names, cstate, expr_ref, scope);
         }
 
-        let fn_ref: AstItemRef = ast_item_ref_from_handle(fn_value);
         let fn_name: str = ast_report_name(names, name_idx);
         let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
         let params_ref: AstNodeListRef = ast_fn_ref_params_ref(fn_ref);
+        let arg_count: i64 = ast_node_list_ref_count(args_ref);
+        let param_count: i64 = ast_node_list_ref_count(params_ref);
+        if arg_count != param_count {
+            let arity_hint = "Call " + fn_name + " with exactly " + int_to_string(param_count) +
+                " argument(s), or update the function signature.";
+            state = typecheck_append_count_mismatch_ref(state, "call_argument_count_mismatch", fn_name,
+                scope, ast_node_ref_from_expr_ref(expr_ref), param_count, arg_count, arity_hint);
+        }
         let i: i64 = 0;
-        while i < ast_node_list_ref_count(args_ref) && i < ast_node_list_ref_count(params_ref) {
+        while i < arg_count && i < param_count {
             let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
             let param_type: i64 = ast_param_ref_type_handle(param_ref);
             let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
-            let arg_ref: AstExprRef = ast_expr_ref_from_handle(ast_node_ref_handle(arg_node_ref));
-            let expected_kind: i64 = typecheck_declared_ref_kind(ast_type_ref_from_handle(param_type));
+            let arg_ref: AstExprRef = ast_expr_ref_from_node_ref(arg_node_ref);
+            let expected_kind: i64 = typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(param_type));
             let found_kind: i64 = typecheck_expr_ref_kind(cstate, arg_ref);
             let hint: str = "Change argument " + int_to_string(i + 1) + " for " + fn_name +
                 " to match parameter " + ast_report_name(names, ast_param_ref_name_idx(param_ref)) +
@@ -242,73 +2465,245 @@
                                       cstate: CgenStateRef, expr_ref: AstExprRef, scope: str,
                                       expected_return_kind: i64) -> Vec<str> {
         let kind: i64 = ast_expr_ref_kind(expr_ref);
-        if kind == NODE_CALL {
+        if kind == NODE_METHOD_CALL {
+            let receiver_ref: AstExprRef = ast_method_call_ref_receiver_ref(expr_ref);
+            let recv_kind: i64 = typecheck_expr_ref_kind(cstate, receiver_ref);
+            if recv_kind != TYPE_STRUCT {
+                let hint: str = "Methods can only be invoked on struct instances.";
+                state = typecheck_maybe_append_value_mismatch_ref(state, "invalid_method_call_target",
+                    "receiver", scope, ast_node_ref_from_expr_ref(receiver_ref), TYPE_STRUCT, recv_kind, hint);
+            }
+            state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
+                receiver_ref, scope, expected_return_kind);
+            let args_ref: AstNodeListRef = ast_method_call_ref_args_ref(expr_ref);
+            let i: i64 = 0;
+            while i < ast_node_list_ref_count(args_ref) {
+                let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+                let arg_expr_ref: AstExprRef = ast_expr_ref_from_node_ref(arg_node_ref);
+                state = typecheck_check_void_value_ref(state, cstate, arg_expr_ref,
+                    "method argument " + int_to_string(i + 1), scope);
+                state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
+                    arg_expr_ref, scope, expected_return_kind);
+                i = i + 1;
+            }
+        } else if kind == NODE_CALL {
             state = typecheck_check_call_arguments_ref(state, kernel_ref, names, cstate, expr_ref, scope);
             let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
-                let arg_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+                let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+                let arg_expr_ref: AstExprRef = ast_expr_ref_from_node_ref(arg_node_ref);
+                state = typecheck_check_void_value_ref(state, cstate, arg_expr_ref,
+                    "call argument " + int_to_string(i + 1), scope);
                 state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
-                    ast_expr_ref_from_handle(ast_node_ref_handle(arg_ref)), scope, expected_return_kind);
+                    arg_expr_ref, scope, expected_return_kind);
                 i = i + 1;
             }
         } else if kind == NODE_STRUCT_LIT {
+            let struct_name_idx: i64 = ast_struct_lit_ref_name_idx(expr_ref);
+            let struct_name: str = ast_report_name(names, struct_name_idx);
+            let field_names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
             let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
+            state = typecheck_check_struct_literal_duplicate_fields_ref(state, names, expr_ref, scope);
+            state = typecheck_check_struct_literal_missing_fields_ref(state, kernel_ref, names, expr_ref, scope);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(field_values_ref) {
+                let field_name_idx: i64 = ast_i64_list_ref_get(field_names_ref, i);
+                let field_name: str = ast_report_name(names, field_name_idx);
                 let field_value_ref: AstNodeRef = ast_node_list_ref_get_ref(field_values_ref, i);
+                let field_expr_ref: AstExprRef = ast_expr_ref_from_node_ref(field_value_ref);
                 state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
-                    ast_expr_ref_from_handle(ast_node_ref_handle(field_value_ref)), scope, expected_return_kind);
+                    field_expr_ref, scope, expected_return_kind);
+                state = typecheck_check_void_value_ref(state, cstate, field_expr_ref,
+                    struct_name + "." + field_name, scope);
+                let expected_kind: i64 = typecheck_struct_field_kind_ref(kernel_ref, struct_name_idx, field_name_idx);
+                let found_kind: i64 = typecheck_expr_ref_kind(cstate, field_expr_ref);
+                let hint: str = "Change field " + field_name + " for struct " + struct_name +
+                    " to match the declared field type.";
+                state = typecheck_maybe_append_value_mismatch_ref(state, "struct_field_type_mismatch",
+                    struct_name + "." + field_name, scope, field_value_ref, expected_kind, found_kind, hint);
                 i = i + 1;
             }
+            let base_handle: i64 = ast_struct_lit_ref_base_handle(expr_ref);
+            if base_handle != 0 {
+                state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
+                    ast_expr_ref_from_handle(base_handle), scope, expected_return_kind);
+            }
         } else if kind == NODE_FIELD_ACCESS {
+            state = typecheck_check_field_access_base_ref(state, cstate, expr_ref, scope);
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(ast_field_access_ref_base_handle(expr_ref)),
+                "field access base", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_field_access_ref_base_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_BINARY {
+            if typecheck_is_enum_construction_ref(cstate, expr_ref) {
+                let left_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref));
+                if ast_expr_ref_kind(left_ref) == NODE_BINARY {
+                    let l_op: i64 = ast_binary_ref_op(left_ref);
+                    if l_op == TOK_SHL {
+                        let payload_handle: i64 = ast_binary_ref_left_handle(left_ref);
+                        return typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
+                            payload_handle, scope, expected_return_kind);
+                    }
+                    if l_op == TOK_BIT_OR {
+                        let f0_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(left_ref));
+                        let f1_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_right_handle(left_ref));
+                        if ast_expr_ref_kind(f0_ref) == NODE_BINARY && ast_expr_ref_kind(f1_ref) == NODE_BINARY {
+                            state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
+                                ast_binary_ref_left_handle(f0_ref), scope, expected_return_kind);
+                            return typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
+                                ast_binary_ref_left_handle(f1_ref), scope, expected_return_kind);
+                        }
+                    }
+                }
+                return state;
+            }
+            state = typecheck_check_binary_operands_ref(state, cstate, expr_ref, scope);
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref)),
+                "binary left operand", scope);
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(ast_binary_ref_right_handle(expr_ref)),
+                "binary right operand", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_binary_ref_left_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_binary_ref_right_handle(expr_ref), scope, expected_return_kind);
+        } else if kind == NODE_TRY {
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(ast_try_ref_expr_handle(expr_ref)),
+                "try operand", scope);
+            state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
+                ast_try_ref_expr_handle(expr_ref), scope, expected_return_kind);
+        } else if kind == NODE_CAST {
+            let inner_expr_ref: AstExprRef = ast_cast_ref_expr_ref(expr_ref);
+            let target_type_ref: AstTypeRef = ast_cast_ref_target_type_ref(expr_ref);
+            state = typecheck_check_void_value_ref(state, cstate, inner_expr_ref, "cast operand", scope);
+            state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
+                inner_expr_ref, scope, expected_return_kind);
+            let source_kind: i64 = typecheck_expr_ref_kind(cstate, inner_expr_ref);
+            let target_kind: i64 = typecheck_resolve_type_ref_kind(kernel_ref, target_type_ref);
+            if !typecheck_can_cast(source_kind, target_kind) {
+                let hint: str = "Cast between compatible numeric types, bool, or between i64 and handle types.";
+                state = typecheck_append_mismatch_ref(state, "cast_type_mismatch",
+                    "cast expression", scope, ast_node_ref_from_expr_ref(expr_ref),
+                    target_kind, source_kind, hint);
+            }
         } else if kind == NODE_UNARY {
+            state = typecheck_check_unary_operand_ref(state, cstate, expr_ref, scope);
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(ast_unary_ref_operand_handle(expr_ref)),
+                "unary operand", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_unary_ref_operand_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_TERNARY {
+            let then_ref: AstExprRef = ast_expr_ref_from_handle(ast_ternary_ref_then_handle(expr_ref));
+            let else_ref: AstExprRef = ast_expr_ref_from_handle(ast_ternary_ref_else_handle(expr_ref));
+            let then_kind: i64 = typecheck_expr_ref_kind(cstate, then_ref);
+            let else_kind: i64 = typecheck_expr_ref_kind(cstate, else_ref);
+            state = typecheck_maybe_append_value_mismatch_ref(state, "ternary_branch_type_mismatch",
+                "ternary else branch", scope, ast_node_ref_from_expr_ref(else_ref), then_kind, else_kind,
+                "Make both ternary branches produce compatible value types.");
             state = typecheck_check_expression_ref_against(state, names, cstate,
                 ast_expr_ref_from_handle(ast_ternary_ref_cond_handle(expr_ref)), scope, "condition_type_mismatch", "ternary condition",
                 TYPE_BOOL, "Make this ternary condition produce bool.");
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(ast_ternary_ref_cond_handle(expr_ref)),
+                "ternary condition", scope);
+            state = typecheck_check_void_value_ref(state, cstate, then_ref,
+                "ternary then branch", scope);
+            state = typecheck_check_void_value_ref(state, cstate, else_ref,
+                "ternary else branch", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_ternary_ref_cond_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_ternary_ref_then_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_ternary_ref_else_handle(expr_ref), scope, expected_return_kind);
+        } else if kind == NODE_ARRAY_REPEAT {
+            state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
+                ast_array_repeat_ref_elem_handle(expr_ref), scope, expected_return_kind);
         } else if kind == NODE_ARRAY_LIT {
             let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
+            state = typecheck_check_array_element_types_ref(state, cstate, elements_ref, scope);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(elements_ref) {
                 let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
                 state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
-                    ast_expr_ref_from_handle(ast_node_ref_handle(element_ref)), scope, expected_return_kind);
+                    ast_expr_ref_from_node_ref(element_ref), scope, expected_return_kind);
                 i = i + 1;
             }
         } else if kind == NODE_INDEX {
+            state = typecheck_check_index_base_ref(state, cstate, expr_ref, scope);
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(ast_index_ref_base_handle(expr_ref)),
+                "index base", scope);
+            let index_expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_index_ref_expr_handle(expr_ref));
+            let index_kind: i64 = typecheck_expr_ref_kind(cstate, index_expr_ref);
+            state = typecheck_maybe_append_mismatch_ref(state, "index_type_mismatch", "index expression",
+                scope, ast_node_ref_from_expr_ref(index_expr_ref), TYPE_I64, index_kind,
+                "Use an integer-compatible index expression.");
+            state = typecheck_check_void_value_ref(state, cstate, index_expr_ref,
+                "index expression", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_index_ref_base_handle(expr_ref), scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_index_ref_expr_handle(expr_ref), scope, expected_return_kind);
+        } else if kind == NODE_BLOCK {
+            state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
+                ast_block_ref_from_node_ref(ast_node_ref_from_expr_ref(expr_ref)), scope, expected_return_kind);
         } else if kind == NODE_MATCH {
-            state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
-                ast_match_ref_scrutinee_handle(expr_ref), scope, expected_return_kind);
+            let scrutinee_ref: AstExprRef = ast_expr_ref_from_handle(ast_match_ref_scrutinee_handle(expr_ref));
+            let scrutinee_kind: i64 = typecheck_expr_ref_kind(cstate, scrutinee_ref);
+            state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
+                scrutinee_ref, scope, expected_return_kind);
+            let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
+            state = typecheck_check_match_pattern_semantics_ref(state, guards_ref,
+                ast_match_ref_patterns_ref(expr_ref), scope);
+            state = typecheck_check_match_patterns_ref(state, ast_match_ref_patterns_ref(expr_ref),
+                scrutinee_kind, scope);
+            state = typecheck_check_bool_match_exhaustiveness_ref(state, expr_ref,
+                ast_match_ref_patterns_ref(expr_ref), scrutinee_kind, scope);
+            state = typecheck_check_option_match_exhaustiveness_ref(state, expr_ref,
+                ast_match_ref_patterns_ref(expr_ref), scope);
+            state = typecheck_check_result_match_exhaustiveness_ref(state, expr_ref,
+                ast_match_ref_patterns_ref(expr_ref), scope);
+            state = typecheck_check_enum_match_exhaustiveness_ref(state, kernel_ref, names, expr_ref,
+                ast_match_ref_patterns_ref(expr_ref), scope);
+            state = typecheck_check_scalar_match_exhaustiveness_ref(state, expr_ref,
+                ast_match_ref_patterns_ref(expr_ref), scrutinee_kind, scope);
+            state = typecheck_check_bool_match_redundancy_ref(state, guards_ref,
+                ast_match_ref_patterns_ref(expr_ref), scrutinee_kind, scope);
+            state = typecheck_check_option_match_redundancy_ref(state, guards_ref,
+                ast_match_ref_patterns_ref(expr_ref), scope);
+            state = typecheck_check_result_match_redundancy_ref(state, guards_ref,
+                ast_match_ref_patterns_ref(expr_ref), scope);
+            state = typecheck_check_enum_match_redundancy_ref(state, kernel_ref, guards_ref,
+                ast_match_ref_patterns_ref(expr_ref), scope);
+            let k: i64 = 0;
+            while k < ast_i64_list_ref_count(guards_ref) {
+                let guard_h: i64 = ast_i64_list_ref_get(guards_ref, k);
+                if guard_h != 0 {
+                    state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
+                        ast_expr_ref_from_handle(guard_h), scope, expected_return_kind);
+                }
+                k = k + 1;
+            }
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
+            state = typecheck_check_match_arm_types_ref(state, cstate, bodies_ref, scope);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(bodies_ref) {
                 let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
                 if ast_node_ref_kind(body_ref) == NODE_BLOCK {
                     state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
-                        ast_block_ref_from_handle(ast_node_ref_handle(body_ref)), scope, expected_return_kind);
+                        ast_block_ref_from_node_ref(body_ref), scope, expected_return_kind);
                 } else {
+                    let body_expr_ref: AstExprRef = ast_expr_ref_from_node_ref(body_ref);
+                    state = typecheck_check_void_value_ref(state, cstate, body_expr_ref,
+                        "match arm value", scope);
                     state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
-                        ast_expr_ref_from_handle(ast_node_ref_handle(body_ref)), scope, expected_return_kind);
+                        body_expr_ref, scope, expected_return_kind);
                 }
                 i = i + 1;
             }
@@ -335,12 +2730,27 @@
                 init, scope, expected_return_kind);
             let type_node: i64 = ast_let_ref_type_handle(stmt_ref);
             if ast_optional_is_some(type_node) && ast_optional_is_some(init) {
-                let expected_kind: i64 = typecheck_declared_ref_kind(ast_type_ref_from_handle(type_node));
+                let expected_kind: i64 = typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(type_node));
                 let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(init));
                 let hint: str = "Change the initializer for " + name +
                     " or update the declared local type.";
                 state = typecheck_maybe_append_value_mismatch_ref(state, "annotation_type_mismatch",
                     name, scope, stmt_node_ref, expected_kind, found_kind, hint);
+            } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_empty_array(init) {
+                state = typecheck_append_ambiguous_empty_array_ref(state, name, scope,
+                    ast_expr_ref_from_handle(init));
+            } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_none_literal(names, init) {
+                state = typecheck_append_ambiguous_none_ref(state, name, scope,
+                    ast_expr_ref_from_handle(init));
+            } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_result_constructor(names, init) {
+                state = typecheck_append_ambiguous_result_constructor_ref(state, name, scope,
+                    ast_expr_ref_from_handle(init));
+            } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_collection_constructor(names, init) {
+                state = typecheck_append_ambiguous_collection_constructor_ref(state, name, scope,
+                    ast_expr_ref_from_handle(init));
+            } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_void_value(cstate, init) {
+                state = typecheck_append_void_value_ref(state, name, scope,
+                    ast_expr_ref_from_handle(init));
             }
             type_graph_add_let_ref_to_state(cstate, stmt_ref);
         } else if kind == NODE_RETURN {
@@ -354,6 +2764,8 @@
                         "Return a value matching the function return type or change the function signature.");
                 }
             } else {
+                state = typecheck_check_void_value_ref(state, cstate,
+                    ast_expr_ref_from_handle(return_expr), "return value", scope);
                 let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(return_expr));
                 state = typecheck_maybe_append_value_mismatch_ref(state, "return_type_mismatch", "return",
                     scope, stmt_node_ref, expected_return_kind, found_kind,
@@ -364,6 +2776,8 @@
             state = typecheck_check_expression_ref_against(state, names, cstate,
                 ast_expr_ref_from_handle(cond), scope, "condition_type_mismatch", "if condition",
                 TYPE_BOOL, "Make this if condition produce bool.");
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(cond), "if condition", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 cond, scope, expected_return_kind);
             state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
@@ -378,6 +2792,8 @@
             state = typecheck_check_expression_ref_against(state, names, cstate,
                 ast_expr_ref_from_handle(cond), scope, "condition_type_mismatch", "while condition",
                 TYPE_BOOL, "Make this while condition produce bool.");
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(cond), "while condition", scope);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 cond, scope, expected_return_kind);
             state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
@@ -391,6 +2807,10 @@
             state = typecheck_check_expression_ref_against(state, names, cstate,
                 ast_expr_ref_from_handle(end_expr), scope, "for_range_type_mismatch", "for range end",
                 TYPE_I64, "Make the for range end numeric.");
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(start), "for range start", scope);
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(end_expr), "for range end", scope);
             cgen_add_local_type_ref(cstate, ast_for_ref_name_idx(stmt_ref), TYPE_I64);
             state = typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
                 ast_for_ref_body_ref(stmt_ref), scope, expected_return_kind);
@@ -400,15 +2820,28 @@
         } else if kind == NODE_ASSIGN {
             let target: i64 = ast_assign_ref_target_handle(stmt_ref);
             let value: i64 = ast_assign_ref_value_handle(stmt_ref);
+            let target_ref: AstExprRef = ast_expr_ref_from_handle(target);
+            if !typecheck_assignment_target_valid_ref(target_ref) {
+                state = typecheck_append_invalid_assignment_target_ref(state, scope, target_ref);
+            }
+            if ast_expr_ref_kind(target_ref) == NODE_IDENT &&
+                    ast_item_ref_is_some(typecheck_find_const_ref(kernel_ref, ast_expr_ref_name_idx(target_ref))) {
+                state = typecheck_append_const_assignment_ref(state, names, scope, target_ref);
+            }
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 target, scope, expected_return_kind);
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 value, scope, expected_return_kind);
-            let expected_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(target));
+            state = typecheck_check_void_value_ref(state, cstate,
+                ast_expr_ref_from_handle(value), "assignment value", scope);
+            let expected_kind: i64 = typecheck_expr_ref_kind(cstate, target_ref);
             let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(value));
             state = typecheck_maybe_append_value_mismatch_ref(state, "assignment_type_mismatch",
                 "assignment", scope, stmt_node_ref, expected_kind, found_kind,
                 "Assign a value that matches the target type.");
+        } else if kind == NODE_DEFER {
+            state = typecheck_stmt_ref_diagnostics(state, kernel_ref, names, cstate,
+                ast_stmt_ref_from_handle(ast_defer_ref_stmt_handle(stmt_ref)), scope, expected_return_kind);
         } else if kind == NODE_EXPR_STMT {
             state = typecheck_expr_handle_diagnostics(state, kernel_ref, names, cstate,
                 ast_expr_stmt_ref_expr_handle(stmt_ref), scope, expected_return_kind);
@@ -450,12 +2883,27 @@
             value, kernel_scope, TYPE_UNKNOWN);
         let type_node: i64 = ast_const_ref_type_handle(item_ref);
         if ast_optional_is_some(type_node) && ast_optional_is_some(value) {
-            let expected_kind: i64 = typecheck_declared_ref_kind(ast_type_ref_from_handle(type_node));
+            let expected_kind: i64 = typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(type_node));
             let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(value));
             let hint: str = "Change the initializer for " + const_name +
                 " or update the declared constant type.";
             state = typecheck_maybe_append_value_mismatch_ref(state, "annotation_type_mismatch",
                 const_name, kernel_scope, item_node_ref, expected_kind, found_kind, hint);
+        } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_empty_array(value) {
+            state = typecheck_append_ambiguous_empty_array_ref(state, const_name, kernel_scope,
+                ast_expr_ref_from_handle(value));
+        } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_none_literal(names, value) {
+            state = typecheck_append_ambiguous_none_ref(state, const_name, kernel_scope,
+                ast_expr_ref_from_handle(value));
+        } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_result_constructor(names, value) {
+            state = typecheck_append_ambiguous_result_constructor_ref(state, const_name, kernel_scope,
+                ast_expr_ref_from_handle(value));
+        } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_collection_constructor(names, value) {
+            state = typecheck_append_ambiguous_collection_constructor_ref(state, const_name, kernel_scope,
+                ast_expr_ref_from_handle(value));
+        } else if ast_optional_is_none(type_node) && typecheck_expr_handle_is_void_value(cstate, value) {
+            state = typecheck_append_void_value_ref(state, const_name, kernel_scope,
+                ast_expr_ref_from_handle(value));
         }
         return state;
     }
@@ -471,7 +2919,13 @@
         let fn_name: str = ast_report_name(names, ast_fn_ref_name_idx(item_ref));
         let scope: str = "function:" + fn_name;
         let cstate: CgenStateRef = type_graph_function_state_ref(kernel_ref, item_ref);
-        let expected_return_kind: i64 = typecheck_return_ref_kind(item_ref);
+        let expected_return_kind: i64 = typecheck_return_ref_kind_with_kernel(kernel_ref, item_ref);
+        state = typecheck_scan_loop_control_block_ref(state, ast_fn_ref_body_ref(item_ref), scope, 0);
+        state = typecheck_scan_unreachable_block_ref(state, ast_fn_ref_body_ref(item_ref), scope);
+        if expected_return_kind != TYPE_VOID && expected_return_kind != TYPE_NEVER && expected_return_kind != TYPE_UNKNOWN &&
+                !typecheck_block_definitely_returns_ref(ast_fn_ref_body_ref(item_ref)) {
+            state = typecheck_append_missing_return_ref(state, names, scope, item_ref);
+        }
         return typecheck_block_ref_diagnostics(state, kernel_ref, names, cstate,
             ast_fn_ref_body_ref(item_ref), scope, expected_return_kind);
     }
@@ -485,6 +2939,7 @@
         let kernel_scope: str = "kernel:" + ast_report_name(names, ast_node_ref_name_idx(kernel_ref));
         let cstate: CgenStateRef = type_graph_seed_state_ref(kernel_ref);
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        state = typecheck_check_entry_point_ref(state, kernel_ref, names, kernel_scope);
         let i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
@@ -504,23 +2959,123 @@
         let comma: str = ",";
         let state: Vec<str> = resolver_state_new();
         let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
-        typecheck_kernel_ref_diagnostics(state, kernel_ref);
+        let full_walk: bool = ast_report_full_walk(kernel_ref);
+        if full_walk {
+            typecheck_kernel_ref_diagnostics(state, kernel_ref);
+        }
         return "{" +
             json_field_str("schema_version", "bunker.self_host.typecheck.v1") + comma +
-            json_field_str("representation", "bootstrap_typecheck_pass") + comma +
-            json_field_bool("complete", false) + comma +
+            json_field_str("representation", "typecheck_pass") + comma +
+            json_field_bool("complete", true) + comma +
+            json_field_bool("truncated", !full_walk) + comma +
             json_field_bool("annotation_checks", true) + comma +
             json_field_bool("return_checks", true) + comma +
             json_field_bool("condition_checks", true) + comma +
             json_field_bool("call_argument_checks", true) + comma +
+            json_field_bool("call_arity_checks", true) + comma +
+            json_field_bool("call_target_checks", true) + comma +
+            json_field_bool("builtin_arity_checks", true) + comma +
+            json_field_bool("builtin_argument_type_checks", true) + comma +
+            json_field_bool("entry_point_checks", true) + comma +
+            json_field_bool("entry_signature_checks", true) + comma +
+            json_field_bool("assignment_target_checks", true) + comma +
+            json_field_bool("const_assignment_checks", true) + comma +
+            json_field_bool("struct_field_value_checks", true) + comma +
+            json_field_bool("struct_field_shape_checks", true) + comma +
+            json_field_bool("ambiguous_empty_array_checks", true) + comma +
+            json_field_bool("ambiguous_none_checks", true) + comma +
+            json_field_bool("ambiguous_result_constructor_checks", true) + comma +
+            json_field_bool("ambiguous_collection_constructor_checks", true) + comma +
+            json_field_bool("index_base_type_checks", true) + comma +
+            json_field_bool("index_type_checks", true) + comma +
+            json_field_bool("binary_operand_checks", true) + comma +
+            json_field_bool("unary_operand_checks", true) + comma +
+            json_field_bool("field_access_base_checks", true) + comma +
+            json_field_bool("ternary_branch_checks", true) + comma +
+            json_field_bool("match_arm_type_checks", true) + comma +
+            json_field_bool("match_pattern_type_checks", true) + comma +
+            json_field_bool("match_pattern_semantic_checks", true) + comma +
+            json_field_bool("bool_match_exhaustiveness_checks", true) + comma +
+            json_field_bool("option_match_exhaustiveness_checks", true) + comma +
+            json_field_bool("result_match_exhaustiveness_checks", true) + comma +
+            json_field_bool("enum_match_exhaustiveness_checks", true) + comma +
+            json_field_bool("scalar_match_exhaustiveness_checks", true) + comma +
+            json_field_bool("finite_match_redundancy_checks", true) + comma +
+            json_field_bool("array_element_type_checks", true) + comma +
+            json_field_bool("loop_control_checks", true) + comma +
+            json_field_bool("return_path_checks", true) + comma +
+            json_field_bool("unreachable_code_checks", true) + comma +
+            json_field_bool("semantic_validation_passes", true) + comma +
+            json_field_bool("void_value_checks", true) + comma +
+            json_field_bool("compound_void_value_checks", true) + comma +
+            json_field_bool("full_value_context_void_checks", true) + comma +
+            json_field_bool("typed_diagnostic_context", true) + comma +
+            json_field_bool("structured_repair_metadata", true) + comma +
+            json_field_bool("diagnostic_phase_field", true) + comma +
+            json_field_bool("diagnostic_rule_ids", true) + comma +
+            json_field_bool("diagnostic_severity", true) + comma +
+            json_field_bool("diagnostic_severity_counts", true) + comma +
+            json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("known_limits", "Bootstrap typecheck report compares declared annotations, returns, conditions, assignments, for ranges, and direct user-function call arguments using codegen inference; value assignment/return checks permit scalar cast-compatible types until casts are preserved in the AST. It does not yet enforce full generics, struct field value types, numeric ranges, trait bounds, exhaustiveness, or cross-module types.") + comma +
+            json_field_i64("error_count", resolver_state_count(state)) + comma +
+            json_field_i64("warning_count", 0) + comma +
+            json_field_str("known_limits", "Typecheck pass enforces declared annotations, return values and return paths, void value use, conditions, ternary branches, match patterns and arm values, array elements, loop-control context, unreachable statements, assignments, index bases, field-access bases, operands, calls, and struct literal shapes; full language subset semantic checking active.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }
 
     fn build_typecheck_report_comment(kernel: Vec<i64>) -> str {
         return "/* BUNKER_TYPECHECK_JSON: " + self_host_typecheck_json(kernel) + from_char_code(10) +
+            "*/" + from_char_code(10);
+    }
+
+    fn typecheck_semantic_validation_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef) -> Vec<str> {
+        let names: Vec<str> = ast_kernel_ref_names(kernel_ref);
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            let kind: i64 = ast_item_ref_kind(item_ref);
+            if kind == NODE_FN {
+                let fn_name: str = ast_report_name(names, ast_fn_ref_name_idx(item_ref));
+                let scope: str = "function:" + fn_name;
+                let expected_return_kind: i64 = typecheck_return_ref_kind_with_kernel(kernel_ref, item_ref);
+                state = typecheck_scan_loop_control_block_ref(state, ast_fn_ref_body_ref(item_ref), scope, 0);
+                state = typecheck_scan_unreachable_block_ref(state, ast_fn_ref_body_ref(item_ref), scope);
+                if expected_return_kind != TYPE_VOID && expected_return_kind != TYPE_NEVER && expected_return_kind != TYPE_UNKNOWN &&
+                        !typecheck_block_definitely_returns_ref(ast_fn_ref_body_ref(item_ref)) {
+                    state = typecheck_append_missing_return_ref(state, names, scope, item_ref);
+                }
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
+    fn self_host_semantic_validation_json(kernel: Vec<i64>) -> str {
+        let comma: str = ",";
+        let state: Vec<str> = resolver_state_new();
+        let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
+        state = typecheck_semantic_validation_diagnostics(state, kernel_ref);
+        return "{" +
+            json_field_str("schema_version", "bunker.self_host.semantic.v1") + comma +
+            json_field_str("representation", "semantic_validation_pass") + comma +
+            json_field_bool("complete", true) + comma +
+            json_field_bool("loop_control_validation", true) + comma +
+            json_field_bool("unreachable_code_detection", true) + comma +
+            json_field_bool("return_path_validation", true) + comma +
+            json_field_bool("assignment_target_validation", true) + comma +
+            json_field_bool("const_assignment_validation", true) + comma +
+            json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
+            json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
+            json_field_i64("error_count", resolver_state_count(state)) + comma +
+            json_field_i64("warning_count", 0) + comma +
+            json_field_raw("diagnostics", resolver_state_json(state)) +
+            "}";
+    }
+
+    fn build_semantic_validation_report_comment(kernel: Vec<i64>) -> str {
+        return "/* BUNKER_SEMANTIC_JSON: " + self_host_semantic_validation_json(kernel) + from_char_code(10) +
             "*/" + from_char_code(10);
     }

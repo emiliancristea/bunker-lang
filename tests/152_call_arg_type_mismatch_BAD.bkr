@@ -1,0 +1,13 @@
+// Test 152: Call Argument Type Mismatch Diagnostic
+// Purpose: Ensure user function calls with incompatible argument types are rejected.
+// Expected: `bunker check` fails.
+
+kernel CallArgTypeBad {
+    fn scale(val: i64, factor: i64) -> i64 {
+        return val * factor;
+    }
+
+    fn main() -> i64 {
+        return scale(10, "two");
+    }
+}

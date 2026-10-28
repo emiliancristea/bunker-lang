@@ -4,7 +4,7 @@
 
 kernel LoopBreak {
     comptime fn count_to_ten() -> i32 {
-        let i: i32 = 0;
+        let mut i: i32 = 0;
         loop {
             i = i + 1;
             if i > 10 {

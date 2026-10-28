@@ -1,0 +1,37 @@
+// Test 131: Struct Destructuring Patterns
+// Milestone Q-234 / T-012
+
+kernel StructDestructuring {
+    struct Point {
+        x: i64,
+        y: i64,
+    }
+
+    struct Triple {
+        a: i64,
+        b: i64,
+        c: i64,
+    }
+
+    fn eval_point(pt: Point) -> i64 {
+        return match pt {
+            Point { x, y } => x + y;
+        };
+    }
+
+    fn eval_triple(tr: Triple) -> i64 {
+        return match tr {
+            Triple { a: first, b: second, c: third } => first + second + third;
+        };
+    }
+
+    fn main() -> i64 {
+        let pt = Point { x: 15, y: 25 };
+        let s1: i64 = eval_point(pt); // 40
+
+        let tr = Triple { a: 1, b: 2, c: -1 };
+        let s2: i64 = eval_triple(tr); // 2
+
+        return s1 + s2; // 40 + 2 = 42
+    }
+}

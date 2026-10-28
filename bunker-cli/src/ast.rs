@@ -1,8 +1,19 @@
 #[derive(Debug, Clone, PartialEq)]
 pub struct File {
+    pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
+    pub imports: Vec<ImportDecl>,
     pub kernels: Vec<Kernel>,
     pub shells: Vec<Shell>,
     pub views: Vec<View>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ImportDecl {
+    pub target: String,
+    pub is_path: bool,
+    pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
 }
 
 // ====================
@@ -12,6 +23,8 @@ pub struct File {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Kernel {
     pub name: String,
+    pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
     pub items: Vec<KernelItem>,
 }
 
@@ -19,14 +32,29 @@ pub struct Kernel {
 pub enum KernelItem {
     Function(Function),
     Struct(StructDef),
+    Enum(EnumDef),
     Const(ConstDef),
     ComptimeFn(Function),
+    TypeAlias(TypeAliasDef),
+    Import(ImportDecl),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TypeAliasDef {
+    pub name: String,
+    pub is_pub: bool,
+    pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
+    pub target: Type,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
     pub name: String,
+    pub is_pub: bool,
+    pub type_params: Vec<String>,
     pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
     pub params: Vec<Param>,
     pub return_type: Option<Type>,
     pub body: Block,
@@ -35,7 +63,12 @@ pub struct Function {
 #[derive(Debug, Clone, PartialEq)]
 pub struct StructDef {
     pub name: String,
+    pub is_pub: bool,
+    pub type_params: Vec<String>,
+    pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
     pub fields: Vec<StructField>,
+    pub is_tuple: bool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -45,8 +78,36 @@ pub struct StructField {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct EnumVariantDecl {
+    pub name: String,
+    pub payloads: Vec<Type>,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnumDef {
+    pub name: String,
+    pub is_pub: bool,
+    pub type_params: Vec<String>,
+    pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
+    pub variants: Vec<EnumVariantDecl>,
+}
+
+impl EnumDef {
+    pub fn variant_names(&self) -> Vec<String> {
+        self.variants
+            .iter()
+            .map(|variant| variant.name.clone())
+            .collect()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct ConstDef {
     pub name: String,
+    pub is_pub: bool,
+    pub attributes: Vec<Attribute>,
+    pub doc: Option<String>,
     pub ty: Type,
     pub value: Expr,
 }
@@ -63,6 +124,36 @@ pub enum Attribute {
     UnsafeTrust,
     Requires(Expr),
     Ensures(Expr),
+    Inline(Option<String>),
+    Deprecated(Option<String>),
+    MustUse(Option<String>),
+    Test,
+    Version(String),
+    Doc(String),
+    Other {
+        name: String,
+        args: Vec<Expr>,
+        value: Option<String>,
+    },
+}
+
+impl Attribute {
+    #[allow(dead_code)]
+    pub fn name(&self) -> &str {
+        match self {
+            Attribute::Verified => "verified",
+            Attribute::UnsafeTrust => "unsafe_trust",
+            Attribute::Requires(_) => "requires",
+            Attribute::Ensures(_) => "ensures",
+            Attribute::Inline(_) => "inline",
+            Attribute::Deprecated(_) => "deprecated",
+            Attribute::MustUse(_) => "must_use",
+            Attribute::Test => "test",
+            Attribute::Version(_) => "version",
+            Attribute::Doc(_) => "doc",
+            Attribute::Other { name, .. } => name.as_str(),
+        }
+    }
 }
 
 // ====================
@@ -139,6 +230,7 @@ pub struct Block {
 pub enum Stmt {
     Let {
         name: String,
+        mutable: bool,
         ty: Option<Type>,
         value: Expr,
     },
@@ -153,17 +245,22 @@ pub enum Stmt {
         else_block: Option<Block>,
     },
     For {
+        label: Option<String>,
         var: String,
         iter: Expr,
         body: Block,
     },
     While {
+        label: Option<String>,
         condition: Expr,
         body: Block,
     },
-    Loop(Block),
-    Break,
-    Continue,
+    Loop {
+        label: Option<String>,
+        body: Block,
+    },
+    Break(Option<String>),
+    Continue(Option<String>),
     Match {
         expr: Expr,
         arms: Vec<MatchArm>,
@@ -180,6 +277,7 @@ pub enum Stmt {
 #[derive(Debug, Clone, PartialEq)]
 pub struct MatchArm {
     pub pattern: Pattern,
+    pub guard: Option<Expr>,
     pub body: MatchBody,
 }
 
@@ -192,11 +290,29 @@ pub enum MatchBody {
 #[derive(Debug, Clone, PartialEq)]
 #[allow(dead_code)]
 pub enum Pattern {
-    Some(String),
+    Unit,
+    Tuple(Vec<Pattern>),
+    Struct {
+        name: String,
+        fields: Vec<(String, Pattern)>,
+    },
+    Some(Box<Pattern>),
     None,
     Bool(bool),
     Literal(Literal),
     Ident(String),
+    EnumVariant {
+        enum_name: String,
+        variant: String,
+        bindings: Vec<String>,
+    },
+    EnumPayload {
+        tag: i64,
+        bindings: Vec<String>,
+        types: Vec<Type>,
+    },
+    ResultOk(Box<Pattern>),
+    ResultErr(Box<Pattern>),
 }
 
 // ====================
@@ -205,6 +321,8 @@ pub enum Pattern {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expr {
+    Unit,
+    Tuple(Vec<Expr>),
     Literal(Literal),
     Ident(String),
     Binary {
@@ -219,6 +337,7 @@ pub enum Expr {
     Call {
         func: Box<Expr>,
         args: Vec<Expr>,
+        type_args: Vec<Type>,
     },
     Index {
         expr: Box<Expr>,
@@ -256,7 +375,9 @@ pub enum Expr {
     Array(Vec<Expr>),
     Struct {
         name: String,
+        type_args: Vec<Type>,
         fields: Vec<(String, Expr)>,
+        base: Option<Box<Expr>>,
     },
     Copy(Box<Expr>),
     /// Range expression: `start..end` (exclusive) or `start..=end` (inclusive)
@@ -270,6 +391,8 @@ pub enum Expr {
         expr: Box<Expr>,
         target_type: Type,
     },
+    /// Postfix try operator: expr?
+    Try(Box<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -317,6 +440,9 @@ pub enum UnaryOp {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
+    Never,
+    Unit,
+    Tuple(Vec<Type>),
     I32,
     I64,
     F32,
@@ -330,6 +456,52 @@ pub enum Type {
     Vec(Box<Type>),                // Vec<T> - dynamic array
     HashMap(Box<Type>, Box<Type>), // HashMap<K, V>
     Array(Box<Type>, usize),
+    Slice(Box<Type>),           // Slice<T> or [T] - borrowed slice view
+    Generic(String, Vec<Type>), // Generic<T1, T2> - parameterized type
     Ref { mutable: bool, ty: Box<Type> },
+    Fn(Vec<Type>, Box<Type>),
     Named(String),
+}
+
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Type::Never => write!(f, "!"),
+            Type::Unit => write!(f, "()"),
+            Type::Tuple(ts) => {
+                let s: Vec<_> = ts.iter().map(|t| t.to_string()).collect();
+                write!(f, "({})", s.join(", "))
+            }
+            Type::I32 => write!(f, "i32"),
+            Type::I64 => write!(f, "i64"),
+            Type::F32 => write!(f, "f32"),
+            Type::F64 => write!(f, "f64"),
+            Type::Bool => write!(f, "bool"),
+            Type::Str => write!(f, "str"),
+            Type::Vec2 => write!(f, "vec2"),
+            Type::Vec3 => write!(f, "vec3"),
+            Type::Option(t) => write!(f, "Option<{}>", t),
+            Type::Result(ok, err) => write!(f, "Result<{}, {}>", ok, err),
+            Type::Vec(t) => write!(f, "Vec<{}>", t),
+            Type::HashMap(k, v) => write!(f, "HashMap<{}, {}>", k, v),
+            Type::Array(t, len) => write!(f, "[{}; {}]", t, len),
+            Type::Slice(t) => write!(f, "[{}]", t),
+            Type::Generic(name, args) => {
+                let s: Vec<_> = args.iter().map(|a| a.to_string()).collect();
+                write!(f, "{}<{}>", name, s.join(", "))
+            }
+            Type::Ref { mutable, ty } => {
+                if *mutable {
+                    write!(f, "&mut {}", ty)
+                } else {
+                    write!(f, "&{}", ty)
+                }
+            }
+            Type::Fn(params, ret) => {
+                let s: Vec<_> = params.iter().map(|p| p.to_string()).collect();
+                write!(f, "fn({}) -> {}", s.join(", "), ret)
+            }
+            Type::Named(name) => write!(f, "{}", name),
+        }
+    }
 }

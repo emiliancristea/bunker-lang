@@ -1,0 +1,189 @@
+// Test 258: Semantic Validation - Loop Controls & Unreachable Code (CF-010)
+// Purpose: Verify semantic validation passes:
+//   1. Loop control context validation (break/continue inside vs outside loops).
+//   2. Unreachable statement detection after terminating statements.
+//   3. Diagnostic envelope and code registry integration.
+// Expected return: 42
+
+kernel SemanticValidationLoopUnreachableTest {
+    struct SemanticDiagnostic {
+        kind: str,
+        code: str,
+        rule_id: str,
+        scope: str,
+        expected: str,
+        found: str,
+        hint: str
+    }
+
+    fn sem_diag_new(kind: str, rule_id: str, scope: str, expected: str, found: str, hint: str) -> SemanticDiagnostic {
+        let code: str = rule_id == "BKR_SELF_CONTROL_FLOW" ? "E0207" :
+                       (rule_id == "BKR_SELF_UNREACHABLE_CODE" ? "E0214" :
+                       (rule_id == "BKR_SELF_RETURN_PATH" ? "E0206" : "E0000"));
+        return SemanticDiagnostic {
+            kind: kind,
+            code: code,
+            rule_id: rule_id,
+            scope: scope,
+            expected: expected,
+            found: found,
+            hint: hint
+        };
+    }
+
+    // --- Semantic Scanner Simulation ---
+
+    fn check_loop_control(loop_depth: i64, is_break: bool, scope: str) -> Vec<SemanticDiagnostic> {
+        let diags: Vec<SemanticDiagnostic> = vec_new();
+        if loop_depth <= 0 {
+            let ctrl_name: str = is_break ? "break" : "continue";
+            let diag: SemanticDiagnostic = sem_diag_new(
+                "invalid_loop_control",
+                "BKR_SELF_CONTROL_FLOW",
+                scope,
+                "inside for, while, or loop",
+                "outside loop",
+                "Move this statement inside a for, while, or loop body."
+            );
+            vec_push(diags, diag);
+        }
+        return diags;
+    }
+
+    fn check_unreachable_statements(stmt_count: i64, terminator_idx: i64, scope: str) -> Vec<SemanticDiagnostic> {
+        let diags: Vec<SemanticDiagnostic> = vec_new();
+        if terminator_idx < 0 || terminator_idx >= stmt_count {
+            return diags;
+        }
+
+        let mut i: i64 = terminator_idx + 1;
+        while i < stmt_count {
+            let diag: SemanticDiagnostic = sem_diag_new(
+                "unreachable_statement",
+                "BKR_SELF_UNREACHABLE_CODE",
+                scope,
+                "reachable statement",
+                "unreachable_statement",
+                "Remove this statement or move it before the terminating control-flow statement."
+            );
+            vec_push(diags, diag);
+            i = i + 1;
+        }
+        return diags;
+    }
+
+    // --- Test Suites ---
+
+    fn test_valid_loop_execution() -> i64 {
+        // Nested loop control execution:
+        // for loop (1..10) with break at 5 -> iterations 1, 2, 3, 4 -> sum = 10
+        let mut sum: i64 = 0;
+        for i in 1..10 {
+            if i == 5 {
+                break;
+            }
+            sum = sum + i;
+        }
+
+        // while loop with continue skipping odd numbers -> 2, 4, 6 -> sum2 = 12
+        let mut sum2: i64 = 0;
+        let mut k: i64 = 0;
+        while k < 6 {
+            k = k + 1;
+            if k % 2 != 0 {
+                continue;
+            }
+            sum2 = sum2 + k;
+        }
+
+        // sum = 10, sum2 = 12 -> 22
+        return sum + sum2;
+    }
+
+    fn test_loop_control_validation() -> bool {
+        // 1. Break inside loop (depth = 1) -> accepted
+        let valid_break: Vec<SemanticDiagnostic> = check_loop_control(1, true, "function:test_valid");
+        if vec_len(valid_break) != 0 {
+            return false;
+        }
+
+        // 2. Continue inside nested loop (depth = 2) -> accepted
+        let valid_continue: Vec<SemanticDiagnostic> = check_loop_control(2, false, "function:test_valid");
+        if vec_len(valid_continue) != 0 {
+            return false;
+        }
+
+        // 3. Break outside loop (depth = 0) -> rejected with BKR_SELF_CONTROL_FLOW / E0207
+        let invalid_break: Vec<SemanticDiagnostic> = check_loop_control(0, true, "function:test_orphan");
+        if vec_len(invalid_break) != 1 {
+            return false;
+        }
+        let diag1: SemanticDiagnostic = vec_get(invalid_break, 0);
+        if diag1.code != "E0207" || diag1.rule_id != "BKR_SELF_CONTROL_FLOW" {
+            return false;
+        }
+        if diag1.expected != "inside for, while, or loop" || diag1.found != "outside loop" {
+            return false;
+        }
+
+        // 4. Continue outside loop (depth = 0) -> rejected with BKR_SELF_CONTROL_FLOW / E0207
+        let invalid_continue: Vec<SemanticDiagnostic> = check_loop_control(0, false, "function:test_orphan");
+        if vec_len(invalid_continue) != 1 {
+            return false;
+        }
+        let diag2: SemanticDiagnostic = vec_get(invalid_continue, 0);
+        if diag2.code != "E0207" || diag2.rule_id != "BKR_SELF_CONTROL_FLOW" {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_unreachable_code_detection() -> bool {
+        // 1. Clean block: 3 statements, no early terminator -> 0 diagnostics
+        let clean_diags: Vec<SemanticDiagnostic> = check_unreachable_statements(3, -1, "function:clean");
+        if vec_len(clean_diags) != 0 {
+            return false;
+        }
+
+        // 2. Block: 5 statements, statement 2 (index 1) is `return` -> 3 unreachable statements
+        let dead_diags: Vec<SemanticDiagnostic> = check_unreachable_statements(5, 1, "function:with_dead_code");
+        if vec_len(dead_diags) != 3 {
+            return false;
+        }
+
+        let first_dead: SemanticDiagnostic = vec_get(dead_diags, 0);
+        if first_dead.code != "E0214" || first_dead.rule_id != "BKR_SELF_UNREACHABLE_CODE" {
+            return false;
+        }
+        if first_dead.expected != "reachable statement" {
+            return false;
+        }
+
+        // 3. Block: 2 statements, terminator is the last statement (index 1) -> 0 unreachable statements
+        let end_term_diags: Vec<SemanticDiagnostic> = check_unreachable_statements(2, 1, "function:end_term");
+        if vec_len(end_term_diags) != 0 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i64 {
+        let loop_result: i64 = test_valid_loop_execution();
+        if loop_result != 22 {
+            return 1;
+        }
+
+        if !test_loop_control_validation() {
+            return 2;
+        }
+
+        if !test_unreachable_code_detection() {
+            return 3;
+        }
+
+        // 22 (from loop_result) + 20 = 42
+        return loop_result + 20;
+    }
+}

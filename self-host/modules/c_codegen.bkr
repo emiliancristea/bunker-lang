@@ -2,12 +2,150 @@
     // C CODE GENERATOR
     // ========================================
 
-    fn type_to_c(kind: i64) -> str {
+    fn cgen_is_enum_name_ref(state: CgenStateRef, name_idx: i64) -> bool {
+        let names: Vec<str> = cgen_names_ref(state);
+        return cgen_enum_name_exists_ref(state, name_from_table(names, name_idx));
+    }
+
+    fn cgen_enum_name_exists_ref(state: CgenStateRef, enum_name: str) -> bool {
+        let kernel_handle: i64 = cgen_kernel_handle(state);
+        if kernel_handle == 0 {
+            return false;
+        }
+        let kernel_ref: AstNodeRef = ast_node_ref_from_handle(kernel_handle);
+        let names: Vec<str> = cgen_names_ref(state);
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_ENUM {
+                if name_from_table(names, ast_enum_ref_name_idx(item_ref)) == enum_name {
+                    return true;
+                }
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn cgen_enum_variant_tag_ref(state: CgenStateRef, enum_name: str, variant_name: str) -> i64 {
+        let kernel_handle: i64 = cgen_kernel_handle(state);
+        if kernel_handle == 0 {
+            return -1;
+        }
+        let kernel_ref: AstNodeRef = ast_node_ref_from_handle(kernel_handle);
+        let names: Vec<str> = cgen_names_ref(state);
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_ENUM {
+                if name_from_table(names, ast_enum_ref_name_idx(item_ref)) == enum_name {
+                    let variants_ref: AstI64ListRef = ast_enum_ref_variants_ref(item_ref);
+                    let j: i64 = 0;
+                    while j < ast_i64_list_ref_count(variants_ref) {
+                        if name_from_table(names, ast_i64_list_ref_get(variants_ref, j)) == variant_name {
+                            return j;
+                        }
+                        j = j + 1;
+                    }
+                    return -1;
+                }
+            }
+            i = i + 1;
+        }
+        return -1;
+    }
+    fn cgen_enum_variant_payload_kind_ref(state: CgenStateRef, enum_name: str, variant_name: str, field_idx: i64) -> i64 {
+        let kernel_handle: i64 = cgen_kernel_handle(state);
+        if kernel_handle == 0 {
+            return TYPE_UNKNOWN;
+        }
+        let kernel_ref: AstNodeRef = ast_node_ref_from_handle(kernel_handle);
+        let names: Vec<str> = cgen_names_ref(state);
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_ENUM {
+                if name_from_table(names, ast_enum_ref_name_idx(item_ref)) == enum_name {
+                    let variants_ref: AstI64ListRef = ast_enum_ref_variants_ref(item_ref);
+                    let payloads_ref: AstI64ListRef = ast_enum_ref_payloads_ref(item_ref);
+                    let j: i64 = 0;
+                    while j < ast_i64_list_ref_count(variants_ref) {
+                        if name_from_table(names, ast_i64_list_ref_get(variants_ref, j)) == variant_name {
+                            if j < ast_i64_list_ref_count(payloads_ref) {
+                                let payload: i64 = ast_i64_list_ref_get(payloads_ref, j);
+                                if ast_optional_is_some(payload) {
+                                    let fields_ref: AstI64ListRef = ast_i64_list_ref_from_handle(payload);
+                                    if field_idx >= 0 && field_idx < ast_i64_list_ref_count(fields_ref) {
+                                        let field_type_handle: i64 = ast_i64_list_ref_get(fields_ref, field_idx);
+                                        if ast_optional_is_some(field_type_handle) {
+                                            return ast_type_ref_kind_value(ast_type_ref_from_handle(field_type_handle));
+                                        }
+                                    }
+                                }
+                            }
+                            return TYPE_UNKNOWN;
+                        }
+                        j = j + 1;
+                    }
+                    return TYPE_UNKNOWN;
+                }
+            }
+            i = i + 1;
+        }
+        return TYPE_UNKNOWN;
+    }
+
+    fn cgen_enum_has_string_payload_ref(state: CgenStateRef, enum_name: str) -> bool {
+        let kernel_handle: i64 = cgen_kernel_handle(state);
+        if kernel_handle == 0 {
+            return false;
+        }
+        let kernel_ref: AstNodeRef = ast_node_ref_from_handle(kernel_handle);
+        let names: Vec<str> = cgen_names_ref(state);
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_ENUM {
+                if name_from_table(names, ast_enum_ref_name_idx(item_ref)) == enum_name {
+                    let payloads_ref: AstI64ListRef = ast_enum_ref_payloads_ref(item_ref);
+                    let j: i64 = 0;
+                    while j < ast_i64_list_ref_count(payloads_ref) {
+                        let payload: i64 = ast_i64_list_ref_get(payloads_ref, j);
+                        if ast_optional_is_some(payload) {
+                            let fields_ref: AstI64ListRef = ast_i64_list_ref_from_handle(payload);
+                            let k: i64 = 0;
+                            while k < ast_i64_list_ref_count(fields_ref) {
+                                let field_type_handle: i64 = ast_i64_list_ref_get(fields_ref, k);
+                                if ast_optional_is_some(field_type_handle) {
+                                    if ast_type_ref_kind_value(ast_type_ref_from_handle(field_type_handle)) == TYPE_STR {
+                                        return true;
+                                    }
+                                }
+                                k = k + 1;
+                            }
+                        }
+                        j = j + 1;
+                    }
+                    return false;
+                }
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn type_to_c(kind: TypeKind) -> str {
         if kind == TYPE_I32 { return "bkr_i32"; }
         if kind == TYPE_I64 { return "bkr_i64"; }
         if kind == TYPE_F64 { return "bkr_f64"; }
         if kind == TYPE_BOOL { return "bkr_bool"; }
         if kind == TYPE_STR { return "bkr_str"; }
+        if kind == TYPE_VOID || kind == TYPE_NEVER { return "void"; }
+        if kind == TYPE_VEC || kind == TYPE_MAP || kind == TYPE_OPTION || kind == TYPE_RESULT || kind == TYPE_FN { return "bkr_i64"; }
         return "bkr_i64";
     }
 
@@ -19,11 +157,17 @@
     }
 
     fn type_node_to_c_ref(state: CgenStateRef, type_ref: AstTypeRef) -> str {
-        let type_node: i64 = ast_type_ref_handle(type_ref);
         let kind: i64 = ast_type_ref_kind_value(type_ref);
+        if kind == TYPE_ARRAY {
+            let elem_kind: i64 = ast_type_ref_array_elem_kind_value(type_ref);
+            return type_to_c(elem_kind) + "*";
+        }
         if kind == TYPE_STRUCT {
-            let struct_name_idx: i64 = ast_type_struct_name_idx_value(type_node);
+            let struct_name_idx: i64 = ast_type_ref_struct_name_idx_value(type_ref);
             if struct_name_idx >= 0 {
+                if cgen_is_enum_name_ref(state, struct_name_idx) {
+                    return "bkr_i64";
+                }
                 return name_to_c_ref(state, struct_name_idx);
             }
         }
@@ -64,6 +208,7 @@
         if raw == "strlen" { return "bkr_len"; }
         if raw == "print" { return "bkr_print"; }
         if raw == "println" { return "bkr_println"; }
+        if raw == "log" { return "bkr_log"; }
         if raw == "read_file" { return "read_file"; }
         if raw == "write_file" { return "write_file"; }
         if raw == "file_exists" { return "file_exists"; }
@@ -73,12 +218,25 @@
         if raw == "vec_set" { return "vec_set"; }
         if raw == "vec_len" { return "vec_len"; }
         if raw == "vec_pop" { return "vec_pop"; }
+        if raw == "vec_clear" { return "vec_clear"; }
+        if raw == "vec_contains" { return "vec_contains"; }
+        if raw == "vec_is_empty" { return "vec_is_empty"; }
+        if raw == "vec_clone" { return "vec_clone"; }
+        if raw == "vec_reverse" { return "vec_reverse"; }
+        if raw == "hashmap_is_empty" { return "hashmap_is_empty"; }
+        if raw == "hashmap_values" { return "hashmap_values"; }
+        if raw == "vec_map" { return "vec_map"; }
+        if raw == "vec_filter" { return "vec_filter"; }
+        if raw == "vec_fold" { return "vec_fold"; }
+        if raw == "vec_find" { return "vec_find"; }
         if raw == "hashmap_new" { return "hashmap_new"; }
         if raw == "hashmap_insert" { return "hashmap_insert"; }
         if raw == "hashmap_get" { return "hashmap_get"; }
         if raw == "hashmap_contains" { return "hashmap_contains"; }
         if raw == "hashmap_remove" { return "hashmap_remove"; }
         if raw == "hashmap_keys" { return "hashmap_keys"; }
+        if raw == "hashmap_len" { return "hashmap_len"; }
+        if raw == "hashmap_clear" { return "hashmap_clear"; }
         if raw == "char_at" { return "char_at"; }
         if raw == "char_code" { return "char_code"; }
         if raw == "char_code_at" { return "char_code_at"; }
@@ -91,6 +249,63 @@
         if raw == "int_to_string" { return "int_to_string"; }
         if raw == "from_char_code" { return "from_char_code"; }
         if raw == "join_lines" { return "join_lines"; }
+        if raw == "args_count" { return "bkr_args_count"; }
+        if raw == "arg_at" { return "bkr_arg_at"; }
+        if raw == "str_index_of" { return "str_index_of"; }
+        if raw == "str_replace" { return "str_replace"; }
+        if raw == "str_split" { return "str_split"; }
+        if raw == "str_to_upper" { return "str_to_upper"; }
+        if raw == "str_to_lower" { return "str_to_lower"; }
+        if raw == "str_repeat" { return "str_repeat"; }
+        if raw == "path_join" { return "path_join"; }
+        if raw == "path_dir" { return "path_dir"; }
+        if raw == "path_base" { return "path_base"; }
+        if raw == "path_ext" { return "path_ext"; }
+        if raw == "path_is_abs" { return "path_is_abs"; }
+        if raw == "env_var" { return "env_var"; }
+        if raw == "env_get" { return "env_get"; }
+        if raw == "env_set" { return "env_set"; }
+        if raw == "env_has" { return "env_has"; }
+        if raw == "time_now_ms" { return "time_now_ms"; }
+        if raw == "time_now_unix" { return "time_now_unix"; }
+        if raw == "runtime_version_major" { return "runtime_version_major"; }
+        if raw == "runtime_version_minor" { return "runtime_version_minor"; }
+        if raw == "runtime_version_patch" { return "runtime_version_patch"; }
+        if raw == "runtime_version_str" { return "runtime_version_str"; }
+        if raw == "bytes_new" { return "bytes_new"; }
+        if raw == "bytes_len" { return "bytes_len"; }
+        if raw == "bytes_capacity" { return "bytes_capacity"; }
+        if raw == "bytes_get" { return "bytes_get"; }
+        if raw == "bytes_set" { return "bytes_set"; }
+        if raw == "bytes_push" { return "bytes_push"; }
+        if raw == "bytes_from_str" { return "bytes_from_str"; }
+        if raw == "bytes_to_str" { return "bytes_to_str"; }
+        if raw == "slice_new" { return "slice_new"; }
+        if raw == "slice_len" { return "slice_len"; }
+        if raw == "slice_get" { return "slice_get"; }
+        if raw == "slice_sub" { return "slice_sub"; }
+        if raw == "slice_to_vec" { return "slice_to_vec"; }
+        if raw == "slice_contains" { return "slice_contains"; }
+        if raw == "vec_as_slice" { return "vec_as_slice"; }
+        if raw == "vec_slice" { return "vec_slice"; }
+        if raw == "bytes_as_slice" { return "bytes_as_slice"; }
+        if raw == "bytes_slice" { return "bytes_slice"; }
+        if raw == "path_exists" { return "path_exists"; }
+        if raw == "path_is_file" { return "path_is_file"; }
+        if raw == "path_is_dir" { return "path_is_dir"; }
+        if raw == "file_read" { return "file_read"; }
+        if raw == "file_write" { return "file_write"; }
+        if raw == "file_size" { return "file_size"; }
+        if raw == "file_remove" { return "file_remove"; }
+        if raw == "file_read_bytes" { return "file_read_bytes"; }
+        if raw == "file_write_bytes" { return "file_write_bytes"; }
+        if raw == "dir_create" { return "dir_create"; }
+        if raw == "dir_remove" { return "dir_remove"; }
+        if raw == "process_run" { return "process_run"; }
+        if raw == "process_run_status" { return "process_run_status"; }
+        if raw == "process_exit" { return "process_exit"; }
+        if raw == "process_pid" { return "process_pid"; }
+        if raw == "process_is_sandboxed" { return "process_is_sandboxed"; }
         return "";
     }
 
@@ -99,6 +314,9 @@
         let builtin = builtin_to_c(raw);
         if builtin != "" {
             return builtin;
+        }
+        if starts_with(raw, "bkr_") {
+            return raw;
         }
         return "_v" + int_to_string(idx);
     }
@@ -124,7 +342,7 @@
     }
 
     fn type_node_array_elem_kind_ref(type_ref: AstTypeRef) -> i64 {
-        return ast_type_array_elem_kind_value(ast_type_ref_handle(type_ref));
+        return ast_type_ref_array_elem_kind_value(type_ref);
     }
 
     fn type_node_array_len(type_node: i64) -> i64 {
@@ -132,7 +350,7 @@
     }
 
     fn type_node_array_len_ref(type_ref: AstTypeRef) -> i64 {
-        return ast_type_array_len_value(ast_type_ref_handle(type_ref));
+        return ast_type_ref_array_len_value(type_ref);
     }
 
     fn builtin_return_type(raw: str) -> i64 {
@@ -144,12 +362,15 @@
         if raw == "vec_set" { return TYPE_BOOL; }
         if raw == "vec_len" { return TYPE_I64; }
         if raw == "vec_pop" { return TYPE_I64; }
+        if raw == "vec_clear" { return TYPE_VOID; }
         if raw == "hashmap_new" { return TYPE_I64; }
         if raw == "hashmap_insert" { return TYPE_BOOL; }
         if raw == "hashmap_get" { return TYPE_I64; }
         if raw == "hashmap_contains" { return TYPE_BOOL; }
         if raw == "hashmap_remove" { return TYPE_BOOL; }
         if raw == "hashmap_keys" { return TYPE_I64; }
+        if raw == "hashmap_len" { return TYPE_I64; }
+        if raw == "hashmap_clear" { return TYPE_I32; }
         if raw == "char_code" { return TYPE_I64; }
         if raw == "char_code_at" { return TYPE_I64; }
         if raw == "parse_int" { return TYPE_I64; }
@@ -165,14 +386,90 @@
         if raw == "read_file" { return TYPE_STR; }
         if raw == "write_file" { return TYPE_BOOL; }
         if raw == "file_exists" { return TYPE_BOOL; }
-        if raw == "result_ok" { return TYPE_I64; }
-        if raw == "result_err" { return TYPE_I64; }
+        if raw == "result_ok" { return TYPE_RESULT; }
+        if raw == "result_err" { return TYPE_RESULT; }
         if raw == "result_is_ok" { return TYPE_BOOL; }
         if raw == "result_is_err" { return TYPE_BOOL; }
         if raw == "result_unwrap" { return TYPE_I64; }
         if raw == "result_unwrap_err" { return TYPE_I64; }
         if raw == "result_tag" { return TYPE_I64; }
         if raw == "result_value" { return TYPE_I64; }
+        if raw == "hashmap_get_opt" { return TYPE_OPTION; }
+        if raw == "vec_get_opt" { return TYPE_OPTION; }
+        if raw == "vec_pop_opt" { return TYPE_OPTION; }
+        if raw == "vec_contains" { return TYPE_BOOL; }
+        if raw == "vec_is_empty" { return TYPE_BOOL; }
+        if raw == "vec_clone" { return TYPE_I64; }
+        if raw == "vec_reverse" { return TYPE_BOOL; }
+        if raw == "hashmap_is_empty" { return TYPE_BOOL; }
+        if raw == "hashmap_values" { return TYPE_I64; }
+        if raw == "vec_map" { return TYPE_I64; }
+        if raw == "vec_filter" { return TYPE_I64; }
+        if raw == "vec_fold" { return TYPE_I64; }
+        if raw == "vec_find" { return TYPE_OPTION; }
+        if raw == "read_file_result" { return TYPE_RESULT; }
+        if raw == "write_file_result" { return TYPE_RESULT; }
+        if raw == "parse_int_result" { return TYPE_RESULT; }
+        if raw == "bkr_tuple2" { return TYPE_I64; }
+        if raw == "bkr_tuple3" { return TYPE_I64; }
+        if raw == "bkr_tuple_get" { return TYPE_I64; }
+        if raw == "args_count" { return TYPE_I64; }
+        if raw == "arg_at" { return TYPE_STR; }
+        if raw == "str_index_of" { return TYPE_I64; }
+        if raw == "str_replace" { return TYPE_STR; }
+        if raw == "str_split" { return TYPE_ARRAY; }
+        if raw == "str_to_upper" { return TYPE_STR; }
+        if raw == "str_to_lower" { return TYPE_STR; }
+        if raw == "str_repeat" { return TYPE_STR; }
+        if raw == "path_join" { return TYPE_STR; }
+        if raw == "path_dir" { return TYPE_STR; }
+        if raw == "path_base" { return TYPE_STR; }
+        if raw == "path_ext" { return TYPE_STR; }
+        if raw == "path_is_abs" { return TYPE_BOOL; }
+        if raw == "env_var" { return TYPE_RESULT; }
+        if raw == "env_get" { return TYPE_OPTION; }
+        if raw == "env_set" { return TYPE_BOOL; }
+        if raw == "env_has" { return TYPE_BOOL; }
+        if raw == "time_now_ms" { return TYPE_I64; }
+        if raw == "time_now_unix" { return TYPE_I64; }
+        if raw == "runtime_version_major" { return TYPE_I64; }
+        if raw == "runtime_version_minor" { return TYPE_I64; }
+        if raw == "runtime_version_patch" { return TYPE_I64; }
+        if raw == "runtime_version_str" { return TYPE_STR; }
+        if raw == "bytes_new" { return TYPE_I64; }
+        if raw == "bytes_len" { return TYPE_I64; }
+        if raw == "bytes_capacity" { return TYPE_I64; }
+        if raw == "bytes_get" { return TYPE_I32; }
+        if raw == "bytes_set" { return TYPE_BOOL; }
+        if raw == "bytes_push" { return TYPE_BOOL; }
+        if raw == "bytes_from_str" { return TYPE_I64; }
+        if raw == "bytes_to_str" { return TYPE_STR; }
+        if raw == "slice_new" { return TYPE_I64; }
+        if raw == "slice_len" { return TYPE_I64; }
+        if raw == "slice_get" { return TYPE_I64; }
+        if raw == "slice_sub" { return TYPE_I64; }
+        if raw == "slice_to_vec" { return TYPE_I64; }
+        if raw == "slice_contains" { return TYPE_BOOL; }
+        if raw == "vec_as_slice" { return TYPE_I64; }
+        if raw == "vec_slice" { return TYPE_I64; }
+        if raw == "bytes_as_slice" { return TYPE_I64; }
+        if raw == "bytes_slice" { return TYPE_I64; }
+        if raw == "path_exists" { return TYPE_BOOL; }
+        if raw == "path_is_file" { return TYPE_BOOL; }
+        if raw == "path_is_dir" { return TYPE_BOOL; }
+        if raw == "file_read" { return TYPE_RESULT; }
+        if raw == "file_write" { return TYPE_RESULT; }
+        if raw == "file_size" { return TYPE_RESULT; }
+        if raw == "file_remove" { return TYPE_RESULT; }
+        if raw == "file_read_bytes" { return TYPE_RESULT; }
+        if raw == "file_write_bytes" { return TYPE_RESULT; }
+        if raw == "dir_create" { return TYPE_RESULT; }
+        if raw == "dir_remove" { return TYPE_RESULT; }
+        if raw == "process_run" { return TYPE_RESULT; }
+        if raw == "process_run_status" { return TYPE_RESULT; }
+        if raw == "process_exit" { return TYPE_UNKNOWN; }
+        if raw == "process_pid" { return TYPE_I32; }
+        if raw == "process_is_sandboxed" { return TYPE_BOOL; }
         return TYPE_UNKNOWN;
     }
 
@@ -189,6 +486,110 @@
             return TYPE_UNKNOWN;
         }
         return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(expr_value));
+    }
+
+    fn cgen_lookup_struct_field_type_info_ref(state: CgenStateRef, struct_name_idx: i64, field_name_idx: i64) -> AstTypeRef {
+        let kernel_handle: i64 = cgen_kernel_handle(state);
+        if ast_optional_is_none(kernel_handle) {
+            return ast_type_ref_from_handle(0);
+        }
+        let kernel_ref: AstNodeRef = ast_node_ref_from_handle(kernel_handle);
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_ref_name_idx(item_ref) == struct_name_idx {
+                let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(item_ref);
+                let j: i64 = 0;
+                while j < ast_node_list_ref_count(fields_ref) {
+                    let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, j);
+                    if ast_field_decl_ref_name_idx(field_ref) == field_name_idx {
+                        return ast_type_ref_from_handle(ast_field_decl_ref_type_handle(field_ref));
+                    }
+                    j = j + 1;
+                }
+            }
+            i = i + 1;
+        }
+        return ast_type_ref_from_handle(0);
+    }
+
+    fn cgen_lookup_struct_field_by_index_ref(state: CgenStateRef, struct_name_idx: i64, field_idx: i64) -> i64 {
+        let kernel_handle: i64 = cgen_kernel_handle(state);
+        if ast_optional_is_none(kernel_handle) {
+            return -1;
+        }
+        let kernel_ref: AstNodeRef = ast_node_ref_from_handle(kernel_handle);
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_ref_name_idx(item_ref) == struct_name_idx {
+                let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(item_ref);
+                if field_idx >= 0 && field_idx < ast_node_list_ref_count(fields_ref) {
+                    let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, field_idx);
+                    return ast_field_decl_ref_name_idx(field_ref);
+                }
+                return -1;
+            }
+            i = i + 1;
+        }
+        return -1;
+    }
+
+    fn cgen_is_struct_name_ref(state: CgenStateRef, struct_name_idx: i64) -> bool {
+        let kernel_handle: i64 = cgen_kernel_handle(state);
+        if ast_optional_is_none(kernel_handle) {
+            return false;
+        }
+        let kernel_ref: AstNodeRef = ast_node_ref_from_handle(kernel_handle);
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_ref_name_idx(item_ref) == struct_name_idx {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn cgen_struct_is_tuple_ref(state: CgenStateRef, struct_name_idx: i64) -> bool {
+        let zero_idx: i64 = cgen_intern_name_ref(state, "0");
+        let ty: AstTypeRef = cgen_lookup_struct_field_type_info_ref(state, struct_name_idx, zero_idx);
+        return ast_type_ref_is_some(ty);
+    }
+
+    fn cgen_lookup_struct_field_c_type_ref(state: CgenStateRef, struct_name_idx: i64, field_idx_str: str) -> str {
+        let f_name_idx: i64 = cgen_intern_name_ref(state, field_idx_str);
+        let f_ty: AstTypeRef = cgen_lookup_struct_field_type_info_ref(state, struct_name_idx, f_name_idx);
+        if ast_type_ref_is_some(f_ty) {
+            return type_node_to_c_ref(state, f_ty);
+        }
+        return "bkr_i64";
+    }
+
+    fn cgen_lookup_fn_ret_type_info_ref(state: CgenStateRef, fn_name_idx: i64) -> AstTypeRef {
+        let kernel_handle: i64 = cgen_kernel_handle(state);
+        if ast_optional_is_none(kernel_handle) {
+            return ast_type_ref_from_handle(0);
+        }
+        let kernel_ref: AstNodeRef = ast_node_ref_from_handle(kernel_handle);
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_FN && ast_fn_ref_name_idx(item_ref) == fn_name_idx {
+                let ret_node: i64 = ast_fn_ref_return_type_handle(item_ref);
+                if ast_optional_is_some(ret_node) {
+                    return ast_type_ref_from_handle(ret_node);
+                }
+                return ast_type_ref_from_handle(0);
+            }
+            i = i + 1;
+        }
+        return ast_type_ref_from_handle(0);
     }
 
     fn infer_c_expr_ref_type(state: CgenStateRef, expr_ref: AstExprRef) -> i64 {
@@ -210,12 +611,20 @@
             return TYPE_STR;
         }
 
-        if node_type == NODE_ARRAY_LIT {
-            let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
-            if ast_node_list_ref_count(elements_ref) > 0 {
-                return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(elements_ref, 0)));
+        if node_type == NODE_BLOCK {
+            let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_expr_ref_handle(expr_ref));
+            let count: i64 = ast_block_ref_stmt_count(block_ref);
+            if count > 0 {
+                let last_stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, count - 1);
+                if ast_stmt_ref_kind(last_stmt_ref) == NODE_EXPR_STMT {
+                    return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(last_stmt_ref)));
+                }
             }
-            return TYPE_UNKNOWN;
+            return TYPE_VOID;
+        }
+
+        if node_type == NODE_ARRAY_LIT {
+            return TYPE_ARRAY;
         }
 
         if node_type == NODE_STRUCT_LIT {
@@ -227,9 +636,13 @@
             let name_idx: i64 = ast_expr_ref_name_idx(expr_ref);
             let raw: str = name_from_table(names, name_idx);
             if raw == "None" {
-                return TYPE_I64;
+                return TYPE_OPTION;
             }
             return cgen_lookup_name_type_ref(state, name_idx);
+        }
+
+        if node_type == NODE_ARRAY_REPEAT {
+            return TYPE_ARRAY;
         }
 
         if node_type == NODE_INDEX {
@@ -237,10 +650,35 @@
             if ast_expr_ref_kind(base_ref) == NODE_IDENT {
                 return cgen_lookup_array_elem_type_ref(state, ast_expr_ref_name_idx(base_ref));
             }
+            if ast_expr_ref_kind(base_ref) == NODE_FIELD_ACCESS {
+                let s_base_ref: AstExprRef = ast_expr_ref_from_handle(ast_field_access_ref_base_handle(base_ref));
+                if ast_expr_ref_kind(s_base_ref) == NODE_IDENT {
+                    let struct_name_idx: i64 = cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(s_base_ref));
+                    if struct_name_idx >= 0 {
+                        let field_type_ref: AstTypeRef = cgen_lookup_struct_field_type_info_ref(state, struct_name_idx, ast_field_access_ref_name_idx(base_ref));
+                        if ast_type_ref_is_some(field_type_ref) && ast_type_ref_kind_value(field_type_ref) == TYPE_ARRAY {
+                            return ast_type_ref_array_elem_kind_value(field_type_ref);
+                        }
+                    }
+                }
+            }
             return TYPE_UNKNOWN;
         }
 
         if node_type == NODE_FIELD_ACCESS {
+            let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_field_access_ref_base_handle(expr_ref));
+            if ast_expr_ref_kind(base_ref) == NODE_IDENT {
+                if cgen_is_enum_name_ref(state, ast_expr_ref_name_idx(base_ref)) {
+                    return TYPE_I64;
+                }
+                let struct_name_idx: i64 = cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(base_ref));
+                if struct_name_idx >= 0 {
+                    let field_type_ref: AstTypeRef = cgen_lookup_struct_field_type_info_ref(state, struct_name_idx, ast_field_access_ref_name_idx(expr_ref));
+                    if ast_type_ref_is_some(field_type_ref) {
+                        return ast_type_ref_kind_value(field_type_ref);
+                    }
+                }
+            }
             return TYPE_UNKNOWN;
         }
 
@@ -248,6 +686,19 @@
             let op: i64 = ast_binary_ref_op(expr_ref);
             let left_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref));
             let right_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_right_handle(expr_ref));
+
+            if op == TOK_BIT_OR && ast_expr_ref_kind(right_ref) == NODE_FIELD_ACCESS {
+                let base_ident_ref: AstExprRef = ast_expr_ref_from_handle(ast_field_access_ref_base_handle(right_ref));
+                if ast_expr_ref_kind(base_ident_ref) == NODE_IDENT {
+                    let names: Vec<str> = cgen_names_ref(state);
+                    let enum_name: str = name_from_table(names, ast_expr_ref_name_idx(base_ident_ref));
+                    let variant_name: str = name_from_table(names, ast_field_access_ref_name_idx(right_ref));
+                    let tag: i64 = cgen_enum_variant_tag_ref(state, enum_name, variant_name);
+                    if tag >= 0 {
+                        return TYPE_I64;
+                    }
+                }
+            }
             let left_kind: i64 = infer_c_expr_ref_type(state, left_ref);
             let right_kind: i64 = infer_c_expr_ref_type(state, right_ref);
             if op == TOK_PLUS && (left_kind == TYPE_STR || right_kind == TYPE_STR) {
@@ -261,7 +712,34 @@
         }
 
         if node_type == NODE_TERNARY {
-            return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_ternary_ref_then_handle(expr_ref)));
+            let then_kind: i64 = infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_ternary_ref_then_handle(expr_ref)));
+            if then_kind != TYPE_NEVER {
+                return then_kind;
+            }
+            return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_ternary_ref_else_handle(expr_ref)));
+        }
+
+        if node_type == NODE_TRY {
+            let inner_expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_try_ref_expr_handle(expr_ref));
+            let inner_kind: i64 = infer_c_expr_ref_type(state, inner_expr_ref);
+            if inner_kind == TYPE_RESULT || inner_kind == TYPE_OPTION {
+                if ast_expr_ref_kind(inner_expr_ref) == NODE_CALL {
+                    let fn_ret_type_ref: AstTypeRef = cgen_lookup_fn_ret_type_info_ref(state, ast_call_ref_name_idx(inner_expr_ref));
+                    if ast_type_ref_is_some(fn_ret_type_ref) {
+                        let payload_kind: i64 = ast_type_ref_generic_payload(fn_ret_type_ref);
+                        if payload_kind > 0 && payload_kind != TYPE_UNKNOWN {
+                            return payload_kind;
+                        }
+                    }
+                }
+                return TYPE_I64;
+            }
+            return inner_kind;
+        }
+
+        if node_type == NODE_CAST {
+            let target_type_ref: AstTypeRef = ast_type_ref_from_handle(ast_cast_ref_target_type_handle(expr_ref));
+            return ast_type_ref_kind_value(target_type_ref);
         }
 
         if node_type == NODE_UNARY {
@@ -277,7 +755,7 @@
             if ast_node_list_ref_count(bodies_ref) > 0 {
                 let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, 0);
                 if ast_node_ref_kind(body_ref) == NODE_BLOCK {
-                    let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_node_ref_handle(body_ref));
+                    let block_ref: AstBlockRef = ast_block_ref_from_node_ref(body_ref);
                     if ast_block_ref_stmt_count(block_ref) <= 0 {
                         return TYPE_UNKNOWN;
                     }
@@ -287,23 +765,80 @@
                     }
                     return TYPE_UNKNOWN;
                 }
-                return infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_node_ref_handle(body_ref)));
+                return infer_c_expr_ref_type(state, ast_expr_ref_from_node_ref(body_ref));
+            }
+            return TYPE_UNKNOWN;
+        }
+
+        if node_type == NODE_METHOD_CALL {
+            let receiver_ref: AstExprRef = ast_method_call_ref_receiver_ref(expr_ref);
+            let struct_name_idx: i64 = -1;
+            if ast_expr_ref_kind(receiver_ref) == NODE_IDENT {
+                struct_name_idx = cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(receiver_ref));
+            }
+            if struct_name_idx >= 0 {
+                let names: Vec<str> = cgen_names_ref(state);
+                let struct_name: str = name_from_table(names, struct_name_idx);
+                let method_name: str = name_from_table(names, ast_method_call_ref_method_name_idx(expr_ref));
+                let full_name: str = struct_name + "::" + method_name;
+                let full_name_idx: i64 = cgen_intern_name_ref(state, full_name);
+                let fn_type: i64 = cgen_lookup_fn_type_ref(state, full_name_idx);
+                if fn_type != TYPE_UNKNOWN {
+                    return fn_type;
+                }
+                let fn_ret_type_ref: AstTypeRef = cgen_lookup_fn_ret_type_info_ref(state, full_name_idx);
+                if ast_type_ref_is_some(fn_ret_type_ref) {
+                    return ast_type_ref_kind_value(fn_ret_type_ref);
+                }
             }
             return TYPE_UNKNOWN;
         }
 
         if node_type == NODE_CALL {
             let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
+            if cgen_is_struct_name_ref(state, name_idx) {
+                return TYPE_STRUCT;
+            }
+            let name_kind: i64 = cgen_lookup_name_type_ref(state, name_idx);
+            if name_kind == TYPE_FN {
+                return TYPE_I64;
+            }
             let names: Vec<str> = cgen_names_ref(state);
             let raw: str = name_from_table(names, name_idx);
+            if raw == "panic" {
+                return TYPE_NEVER;
+            }
             if raw == "Some" {
-                return TYPE_I64;
+                return TYPE_OPTION;
+            }
+            if raw == "Ok" || raw == "Err" {
+                return TYPE_RESULT;
+            }
+            if raw == "vec_get" || raw == "vec_pop" {
+                let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
+                if ast_node_list_ref_count(args_ref) > 0 {
+                    let v_arg: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0));
+                    if ast_expr_ref_kind(v_arg) == NODE_IDENT {
+                        let elem_k: i64 = cgen_lookup_array_elem_type_ref(state, ast_ident_ref_name_idx(v_arg));
+                        if elem_k != TYPE_UNKNOWN && elem_k != 0 {
+                            return elem_k;
+                        }
+                    }
+                }
             }
             let builtin_kind: i64 = builtin_return_type(raw);
             if builtin_kind != TYPE_UNKNOWN {
                 return builtin_kind;
             }
-            return cgen_lookup_fn_type_ref(state, name_idx);
+            let fn_type: i64 = cgen_lookup_fn_type_ref(state, name_idx);
+            if fn_type != TYPE_UNKNOWN {
+                return fn_type;
+            }
+            let fn_ret_type_ref: AstTypeRef = cgen_lookup_fn_ret_type_info_ref(state, name_idx);
+            if ast_type_ref_is_some(fn_ret_type_ref) {
+                return ast_type_ref_kind_value(fn_ret_type_ref);
+            }
+            return TYPE_UNKNOWN;
         }
 
         return TYPE_UNKNOWN;
@@ -318,19 +853,103 @@
         let type_node: i64 = ast_let_ref_type_handle(stmt_ref);
         let init: i64 = ast_let_ref_init_handle(stmt_ref);
 
+        if ast_optional_is_some(type_node) && type_node_kind_ref(ast_type_ref_from_handle(type_node)) == TYPE_ARRAY {
+            let elem_kind: i64 = type_node_array_elem_kind_ref(ast_type_ref_from_handle(type_node));
+            let array_len: i64 = type_node_array_len_ref(ast_type_ref_from_handle(type_node));
+            let line = type_to_c(elem_kind) + " " + name + "[" + int_to_string(array_len) + "]";
+            if ast_optional_is_some(init) {
+                line = line + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(init));
+            }
+            return line + "; ";
+        }
+        if ast_optional_is_none(type_node) && ast_optional_is_some(init) {
+            let init_ref: AstExprRef = ast_expr_ref_from_handle(init);
+            let init_kind_val: i64 = ast_expr_ref_kind(init_ref);
+            if init_kind_val == NODE_ARRAY_LIT {
+                let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(init_ref);
+                let array_len: i64 = ast_node_list_ref_count(elements_ref);
+                if array_len > 0 {
+                    let elem_kind: i64 = infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(elements_ref, 0)));
+                    let line = type_to_c(elem_kind) + " " + name + "[" + int_to_string(array_len) + "] = " + gen_c_expr_ref(state, init_ref);
+                    return line + "; ";
+                }
+            } else if init_kind_val == NODE_ARRAY_REPEAT {
+                let array_len: i64 = ast_array_repeat_ref_count(init_ref);
+                let elem_kind: i64 = infer_c_expr_ref_type(state, ast_array_repeat_ref_elem_ref(init_ref));
+                let line = type_to_c(elem_kind) + " " + name + "[" + int_to_string(array_len) + "] = " + gen_c_expr_ref(state, init_ref);
+                return line + "; ";
+            }
+        }
+
         let kind = TYPE_I64;
+        let struct_name_idx: i64 = -1;
         if ast_optional_is_some(type_node) {
             kind = type_node_kind_ref(ast_type_ref_from_handle(type_node));
+            if kind == TYPE_STRUCT {
+                struct_name_idx = ast_type_ref_struct_name_idx_value(ast_type_ref_from_handle(type_node));
+            }
         } else if ast_optional_is_some(init) {
             let init_kind: i64 = infer_c_expr_handle_ref_type(state, init);
             if init_kind != TYPE_UNKNOWN && init_kind != TYPE_VOID {
                 kind = init_kind;
+            }
+            let init_ref: AstExprRef = ast_expr_ref_from_handle(init);
+            if ast_expr_ref_kind(init_ref) == NODE_STRUCT_LIT {
+                kind = TYPE_STRUCT;
+                struct_name_idx = ast_struct_lit_ref_name_idx(init_ref);
+            } else if ast_expr_ref_kind(init_ref) == NODE_CALL {
+                let call_name_idx: i64 = ast_call_ref_name_idx(init_ref);
+                if cgen_is_struct_name_ref(state, call_name_idx) {
+                    kind = TYPE_STRUCT;
+                    struct_name_idx = call_name_idx;
+                } else {
+                    let fn_ret_type_ref: AstTypeRef = cgen_lookup_fn_ret_type_info_ref(state, call_name_idx);
+                    if ast_type_ref_is_some(fn_ret_type_ref) && ast_type_ref_kind_value(fn_ret_type_ref) == TYPE_STRUCT {
+                        kind = TYPE_STRUCT;
+                        struct_name_idx = ast_type_ref_struct_name_idx_value(fn_ret_type_ref);
+                    }
+                }
+            } else if ast_expr_ref_kind(init_ref) == NODE_IDENT {
+                let s_idx: i64 = cgen_lookup_local_struct_name_idx_ref(state, ast_ident_ref_name_idx(init_ref));
+                if s_idx >= 0 {
+                    kind = TYPE_STRUCT;
+                    struct_name_idx = s_idx;
+                }
+            } else if ast_expr_ref_kind(init_ref) == NODE_BLOCK {
+                let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_expr_ref_handle(init_ref));
+                let count: i64 = ast_block_ref_stmt_count(block_ref);
+                if count > 0 {
+                    let last_stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, count - 1);
+                    if ast_stmt_ref_kind(last_stmt_ref) == NODE_EXPR_STMT {
+                        let last_expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(last_stmt_ref));
+                        let le_kind: i64 = ast_expr_ref_kind(last_expr_ref);
+                        if le_kind == NODE_STRUCT_LIT {
+                            kind = TYPE_STRUCT;
+                            struct_name_idx = ast_struct_lit_ref_name_idx(last_expr_ref);
+                        } else if le_kind == NODE_IDENT {
+                            let s_idx: i64 = cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(last_expr_ref));
+                            if s_idx >= 0 {
+                                kind = TYPE_STRUCT;
+                                struct_name_idx = s_idx;
+                            }
+                        } else if le_kind == NODE_CALL && cgen_is_struct_name_ref(state, ast_call_ref_name_idx(last_expr_ref)) {
+                            kind = TYPE_STRUCT;
+                            struct_name_idx = ast_call_ref_name_idx(last_expr_ref);
+                        }
+                    }
+                }
             }
         }
 
         let c_type = type_to_c(kind);
         if ast_optional_is_some(type_node) {
             c_type = type_node_to_c_ref(state, ast_type_ref_from_handle(type_node));
+        } else if kind == TYPE_STRUCT && struct_name_idx >= 0 {
+            if cgen_is_enum_name_ref(state, struct_name_idx) {
+                c_type = "bkr_i64";
+            } else {
+                c_type = name_to_c_ref(state, struct_name_idx);
+            }
         }
 
         let line = c_type + " " + name;
@@ -346,10 +965,10 @@
 
     fn gen_c_inline_node_result(state: CgenStateRef, result_name: str, body_ref: AstNodeRef) -> str {
         if ast_node_ref_kind(body_ref) != NODE_BLOCK {
-            return result_name + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_ref_handle(body_ref))) + "; ";
+            return result_name + " = " + gen_c_expr_ref(state, ast_expr_ref_from_node_ref(body_ref)) + "; ";
         }
 
-        let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_node_ref_handle(body_ref));
+        let block_ref: AstBlockRef = ast_block_ref_from_node_ref(body_ref);
         let result = "{ ";
         let i: i64 = 0;
         let count = ast_block_ref_stmt_count(block_ref);
@@ -359,7 +978,11 @@
             let is_last = i == count - 1;
 
             if is_last && stmt_type == NODE_EXPR_STMT {
-                result = result + result_name + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(stmt_ref))) + "; ";
+                if result_name != "" {
+                    result = result + result_name + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(stmt_ref))) + "; ";
+                } else {
+                    result = result + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(stmt_ref))) + "; ";
+                }
             } else if stmt_type == NODE_LET {
                 result = result + gen_c_inline_let_ref(state, stmt_ref);
             } else if stmt_type == NODE_ASSIGN {
@@ -401,10 +1024,80 @@
             return "BKR_TRUE";
         }
         if kind == PAT_SOME {
-            return "((" + value_name + " & 1) != 0)";
+            let base_cond: str = "((" + value_name + " & 1) != 0)";
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                let sub_cond: str = gen_c_match_condition_ref(state, "(" + value_name + " >> 1)", sub_pat);
+                return "(" + base_cond + " && " + sub_cond + ")";
+            }
+            return base_cond;
         }
         if kind == PAT_NONE {
             return "(" + value_name + " == 0)";
+        }
+        if kind == PAT_RESULT_OK {
+            let base_cond: str = "(bkr_result_is_ok(" + value_name + ") == BKR_TRUE)";
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                let sub_cond: str = gen_c_match_condition_ref(state, "bkr_result_unwrap(" + value_name + ")", sub_pat);
+                return "(" + base_cond + " && " + sub_cond + ")";
+            }
+            return base_cond;
+        }
+        if kind == PAT_RESULT_ERR {
+            let base_cond: str = "(bkr_result_is_err(" + value_name + ") == BKR_TRUE)";
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                let sub_cond: str = gen_c_match_condition_ref(state, "bkr_result_unwrap_err(" + value_name + ")", sub_pat);
+                return "(" + base_cond + " && " + sub_cond + ")";
+            }
+            return base_cond;
+        }
+        if kind == PAT_TUPLE {
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pats: Vec<i64> = aux as Vec<i64>;
+                let cond: str = "";
+                let i: i64 = 0;
+                while i < vec_len(sub_pats) {
+                    let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(vec_get(sub_pats, i));
+                    let elem_expr: str = "bkr_tuple_get(" + value_name + ", " + int_to_string(i) + ")";
+                    let sub_cond: str = gen_c_match_condition_ref(state, elem_expr, sub_pat);
+                    if sub_cond != "BKR_TRUE" {
+                        if cond == "" {
+                            cond = "(" + sub_cond + ")";
+                        } else {
+                            cond = "(" + cond + " && " + sub_cond + ")";
+                        }
+                    }
+                    i = i + 1;
+                }
+                if cond != "" {
+                    return cond;
+                }
+            }
+            return "BKR_TRUE";
+        }
+        if kind == PAT_STRUCT {
+            return "BKR_TRUE";
+        }
+        if kind == PAT_ENUM_VARIANT {
+            let names: Vec<str> = cgen_names_ref(state);
+            let enum_name: str = name_from_table(names, value);
+            let variant_name: str = name_from_table(names, ast_pattern_ref_aux(pattern_ref));
+            let tag: i64 = cgen_enum_variant_tag_ref(state, enum_name, variant_name);
+            if tag >= 0 {
+                if cgen_enum_has_string_payload_ref(state, enum_name) {
+                    return "(bkr_enum_tag(" + value_name + ") == " + int_to_string(tag) + ")";
+                }
+                if ast_pattern_ref_bind(pattern_ref) >= 0 {
+                    return "((" + value_name + " & 255) == " + int_to_string(tag) + ")";
+                }
+                return "(" + value_name + " == " + int_to_string(tag) + ")";
+            }
         }
         return "BKR_FALSE";
     }
@@ -421,7 +1114,176 @@
             return type_to_c(scrutinee_kind) + " " + name_to_c_ref(state, value) + " = " + value_name + "; ";
         }
         if kind == PAT_SOME {
-            return "bkr_i64 " + name_to_c_ref(state, value) + " = (" + value_name + " >> 1); ";
+            let res: str = "";
+            if value >= 0 {
+                res = res + "bkr_i64 " + name_to_c_ref(state, value) + " = (" + value_name + " >> 1); ";
+            }
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                let inner_expr: str = "(" + value_name + " >> 1)";
+                res = res + gen_c_match_bindings_ref(state, inner_expr, sub_pat, TYPE_I64);
+            }
+            return res;
+        }
+        if kind == PAT_RESULT_OK {
+            let res: str = "";
+            if value >= 0 {
+                res = res + "bkr_i64 " + name_to_c_ref(state, value) + " = bkr_result_unwrap(" + value_name + "); ";
+            }
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                let inner_expr: str = "bkr_result_unwrap(" + value_name + ")";
+                res = res + gen_c_match_bindings_ref(state, inner_expr, sub_pat, TYPE_I64);
+            }
+            return res;
+        }
+        if kind == PAT_RESULT_ERR {
+            let res: str = "";
+            if value >= 0 {
+                res = res + "bkr_i64 " + name_to_c_ref(state, value) + " = bkr_result_unwrap_err(" + value_name + "); ";
+            }
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                let inner_expr: str = "bkr_result_unwrap_err(" + value_name + ")";
+                res = res + gen_c_match_bindings_ref(state, inner_expr, sub_pat, TYPE_I64);
+            }
+            return res;
+        }
+        if kind == PAT_TUPLE {
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pats: Vec<i64> = aux as Vec<i64>;
+                let res: str = "";
+                let i: i64 = 0;
+                while i < vec_len(sub_pats) {
+                    let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(vec_get(sub_pats, i));
+                    let elem_expr: str = "bkr_tuple_get(" + value_name + ", " + int_to_string(i) + ")";
+                    res = res + gen_c_match_bindings_ref(state, elem_expr, sub_pat, TYPE_I64);
+                    i = i + 1;
+                }
+                return res;
+            }
+            let bind1: i64 = ast_pattern_ref_bind(pattern_ref);
+            let bind2: i64 = ast_pattern_ref_bind2(pattern_ref);
+            let bind3: i64 = ast_pattern_ref_value(pattern_ref);
+            let res: str = "";
+            if bind1 >= 0 {
+                res = res + "bkr_i64 " + name_to_c_ref(state, bind1) + " = bkr_tuple_get(" + value_name + ", 0); ";
+            }
+            if bind2 >= 0 {
+                res = res + "bkr_i64 " + name_to_c_ref(state, bind2) + " = bkr_tuple_get(" + value_name + ", 1); ";
+            }
+            if bind3 >= 0 {
+                res = res + "bkr_i64 " + name_to_c_ref(state, bind3) + " = bkr_tuple_get(" + value_name + ", 2); ";
+            }
+            return res;
+        }
+        if kind == PAT_STRUCT {
+            let struct_name_idx: i64 = ast_pattern_ref_value(pattern_ref);
+            let is_tuple_struct: bool = cgen_struct_is_tuple_ref(state, struct_name_idx);
+            let f1_idx: i64 = ast_pattern_ref_bind(pattern_ref);
+            let f2_idx: i64 = ast_pattern_ref_bind2(pattern_ref);
+            let f3_idx: i64 = ast_pattern_ref_aux(pattern_ref);
+            let res: str = "";
+            if is_tuple_struct {
+                if f1_idx >= 0 {
+                    let v_name = name_to_c_ref(state, f1_idx);
+                    let f0_cname = name_to_c_ref(state, cgen_intern_name_ref(state, "0"));
+                    let c_type = cgen_lookup_struct_field_c_type_ref(state, struct_name_idx, "0");
+                    res = res + c_type + " " + v_name + " = " + value_name + "." + f0_cname + "; ";
+                }
+                if f2_idx >= 0 {
+                    let v_name = name_to_c_ref(state, f2_idx);
+                    let f1_cname = name_to_c_ref(state, cgen_intern_name_ref(state, "1"));
+                    let c_type = cgen_lookup_struct_field_c_type_ref(state, struct_name_idx, "1");
+                    res = res + c_type + " " + v_name + " = " + value_name + "." + f1_cname + "; ";
+                }
+                if f3_idx >= 0 {
+                    let v_name = name_to_c_ref(state, f3_idx);
+                    let f2_cname = name_to_c_ref(state, cgen_intern_name_ref(state, "2"));
+                    let c_type = cgen_lookup_struct_field_c_type_ref(state, struct_name_idx, "2");
+                    res = res + c_type + " " + v_name + " = " + value_name + "." + f2_cname + "; ";
+                }
+                return res;
+            }
+            if f1_idx >= 0 {
+                let actual_f1_idx = cgen_lookup_struct_field_by_index_ref(state, struct_name_idx, 0);
+                let f1_field_cname = name_to_c_ref(state, f1_idx);
+                if actual_f1_idx >= 0 {
+                    f1_field_cname = name_to_c_ref(state, actual_f1_idx);
+                }
+                let v1_name = name_to_c_ref(state, f1_idx);
+                let f_ty: AstTypeRef = cgen_lookup_struct_field_type_info_ref(state, struct_name_idx, actual_f1_idx);
+                let c_type = "bkr_i64";
+                if ast_type_ref_is_some(f_ty) {
+                    c_type = type_node_to_c_ref(state, f_ty);
+                }
+                res = res + c_type + " " + v1_name + " = " + value_name + "." + f1_field_cname + "; ";
+            }
+            if f2_idx >= 0 {
+                let actual_f2_idx = cgen_lookup_struct_field_by_index_ref(state, struct_name_idx, 1);
+                let f2_field_cname = name_to_c_ref(state, f2_idx);
+                if actual_f2_idx >= 0 {
+                    f2_field_cname = name_to_c_ref(state, actual_f2_idx);
+                }
+                let v2_name = name_to_c_ref(state, f2_idx);
+                let f_ty: AstTypeRef = cgen_lookup_struct_field_type_info_ref(state, struct_name_idx, actual_f2_idx);
+                let c_type = "bkr_i64";
+                if ast_type_ref_is_some(f_ty) {
+                    c_type = type_node_to_c_ref(state, f_ty);
+                }
+                res = res + c_type + " " + v2_name + " = " + value_name + "." + f2_field_cname + "; ";
+            }
+            if f3_idx >= 0 {
+                let actual_f3_idx = cgen_lookup_struct_field_by_index_ref(state, struct_name_idx, 2);
+                let f3_field_cname = name_to_c_ref(state, f3_idx);
+                if actual_f3_idx >= 0 {
+                    f3_field_cname = name_to_c_ref(state, actual_f3_idx);
+                }
+                let v3_name = name_to_c_ref(state, f3_idx);
+                let f_ty: AstTypeRef = cgen_lookup_struct_field_type_info_ref(state, struct_name_idx, actual_f3_idx);
+                let c_type = "bkr_i64";
+                if ast_type_ref_is_some(f_ty) {
+                    c_type = type_node_to_c_ref(state, f_ty);
+                }
+                res = res + c_type + " " + v3_name + " = " + value_name + "." + f3_field_cname + "; ";
+            }
+            return res;
+        }
+        if kind == PAT_ENUM_VARIANT {
+            let bind_idx: i64 = ast_pattern_ref_bind(pattern_ref);
+            if bind_idx >= 0 {
+                let names: Vec<str> = cgen_names_ref(state);
+                let enum_name: str = name_from_table(names, value);
+                let variant_name: str = name_from_table(names, ast_pattern_ref_aux(pattern_ref));
+                let p0_kind: i64 = cgen_enum_variant_payload_kind_ref(state, enum_name, variant_name, 0);
+                if cgen_enum_has_string_payload_ref(state, enum_name) {
+                    let bind2_idx: i64 = ast_pattern_ref_bind2(pattern_ref);
+                    let res: str = "";
+                    if p0_kind == TYPE_STR {
+                        res = "bkr_str " + name_to_c_ref(state, bind_idx) + " = (bkr_str)(intptr_t)bkr_enum_field(" + value_name + ", 0); ";
+                    } else {
+                        res = "bkr_i64 " + name_to_c_ref(state, bind_idx) + " = bkr_enum_field(" + value_name + ", 0); ";
+                    }
+                    if bind2_idx >= 0 {
+                        let p1_kind: i64 = cgen_enum_variant_payload_kind_ref(state, enum_name, variant_name, 1);
+                        if p1_kind == TYPE_STR {
+                            res = res + "bkr_str " + name_to_c_ref(state, bind2_idx) + " = (bkr_str)(intptr_t)bkr_enum_field(" + value_name + ", 1); ";
+                        } else {
+                            res = res + "bkr_i64 " + name_to_c_ref(state, bind2_idx) + " = bkr_enum_field(" + value_name + ", 1); ";
+                        }
+                    }
+                    return res;
+                }
+                let bind2_idx: i64 = ast_pattern_ref_bind2(pattern_ref);
+                if bind2_idx >= 0 {
+                    return "bkr_i64 " + name_to_c_ref(state, bind_idx) + " = (" + value_name + " >> 20); " + "bkr_i64 " + name_to_c_ref(state, bind2_idx) + " = ((" + value_name + " >> 8) & 4095); ";
+                }
+                return "bkr_i64 " + name_to_c_ref(state, bind_idx) + " = (" + value_name + " >> 8); ";
+            }
         }
         return "";
     }
@@ -438,23 +1300,49 @@
             result_kind = TYPE_I64;
         }
 
-        let value_name = "_match_value";
-        let result_name = "_match_result";
-        let result = "({ " + type_to_c(scrutinee_kind) + " " + value_name + " = " + gen_c_expr_ref(state, scrutinee_ref) + "; " +
-            type_to_c(result_kind) + " " + result_name + " = 0; ";
+        let scrutinee_c_type = type_to_c(scrutinee_kind);
+        if scrutinee_kind == TYPE_STRUCT && ast_expr_ref_kind(scrutinee_ref) == NODE_IDENT {
+            let s_name_idx: i64 = cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(scrutinee_ref));
+            if s_name_idx >= 0 {
+                if cgen_is_enum_name_ref(state, s_name_idx) {
+                    scrutinee_c_type = "bkr_i64";
+                } else {
+                    scrutinee_c_type = name_to_c_ref(state, s_name_idx);
+                }
+            }
+        }
+
+        let value_name = cgen_next_hygienic_temp_ref(state, "_match_val");
+        let result_name = cgen_next_hygienic_temp_ref(state, "_match_res");
+        let matched_name = cgen_next_hygienic_temp_ref(state, "_matched");
+        let result = "({ " + scrutinee_c_type + " " + value_name + " = " + gen_c_expr_ref(state, scrutinee_ref) + "; " +
+            type_to_c(result_kind) + " " + result_name + " = 0; int " + matched_name + " = 0; ";
 
         let patterns_ref: AstPatternListRef = ast_match_ref_patterns_ref(expr_ref);
         let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
+        let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
         let i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
-            if i > 0 {
-                result = result + "else ";
-            }
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
-            result = result + "if (" + gen_c_match_condition_ref(state, value_name, pattern_ref) + ") { " +
-                gen_c_match_bindings_ref(state, value_name, pattern_ref, scrutinee_kind) +
-                gen_c_inline_node_result(state, result_name, body_ref) + "} ";
+            let guard_handle: i64 = 0;
+            if i < ast_i64_list_ref_count(guards_ref) {
+                guard_handle = ast_i64_list_ref_get(guards_ref, i);
+            }
+
+            let cond_str = "!" + matched_name + " && (" + gen_c_match_condition_ref(state, value_name, pattern_ref) + ")";
+            result = result + "if (" + cond_str + ") { " +
+                gen_c_match_bindings_ref(state, value_name, pattern_ref, scrutinee_kind);
+
+            if guard_handle != 0 {
+                let guard_expr: AstExprRef = ast_expr_ref_from_handle(guard_handle);
+                result = result + "if (" + gen_c_expr_ref(state, guard_expr) + ") { " +
+                    gen_c_inline_node_result(state, result_name, body_ref) +
+                    matched_name + " = 1; } } ";
+            } else {
+                result = result + gen_c_inline_node_result(state, result_name, body_ref) +
+                    matched_name + " = 1; } ";
+            }
             i = i + 1;
         }
 
@@ -494,6 +1382,17 @@
     }
 
     fn gen_c_init_expr_for_type_ref(state: CgenStateRef, type_node: i64, init_ref: AstExprRef) -> str {
+        if ast_optional_is_some(type_node) && type_node_kind_ref(ast_type_ref_from_handle(type_node)) == TYPE_MAP {
+            let key_kind: i64 = ast_type_ref_generic_payload(ast_type_ref_from_handle(type_node));
+            if key_kind == TYPE_STR && ast_expr_ref_kind(init_ref) == NODE_CALL {
+                let name_idx: i64 = ast_call_ref_name_idx(init_ref);
+                let names: Vec<str> = cgen_names_ref(state);
+                let call_name: str = name_from_table(names, name_idx);
+                if call_name == "hashmap_new" {
+                    return "hashmap_new_str()";
+                }
+            }
+        }
         let result = gen_c_expr_ref(state, init_ref);
         if ast_optional_is_some(type_node) && type_node_kind_ref(ast_type_ref_from_handle(type_node)) == TYPE_STR && is_raw_payload_call_ref(state, init_ref) {
             return "(bkr_str)(intptr_t)(" + result + ")";
@@ -526,6 +1425,51 @@
             return c_escape_string(raw);
         }
 
+        if node_type == NODE_BLOCK {
+            let res_var = cgen_next_hygienic_temp_ref(state, "_blk_res");
+            let blk_kind: i64 = infer_c_expr_ref_type(state, expr_ref);
+            let c_ty = type_to_c(blk_kind);
+            if blk_kind == TYPE_STRUCT {
+                let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_expr_ref_handle(expr_ref));
+                let count: i64 = ast_block_ref_stmt_count(block_ref);
+                if count > 0 {
+                    let last_stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, count - 1);
+                    if ast_stmt_ref_kind(last_stmt_ref) == NODE_EXPR_STMT {
+                        let last_expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(last_stmt_ref));
+                        let le_kind: i64 = ast_expr_ref_kind(last_expr_ref);
+                        let s_idx: i64 = -1;
+                        if le_kind == NODE_STRUCT_LIT {
+                            s_idx = ast_struct_lit_ref_name_idx(last_expr_ref);
+                        } else if le_kind == NODE_IDENT {
+                            s_idx = cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(last_expr_ref));
+                        } else if le_kind == NODE_CALL && cgen_is_struct_name_ref(state, ast_call_ref_name_idx(last_expr_ref)) {
+                            s_idx = ast_call_ref_name_idx(last_expr_ref);
+                        }
+                        if s_idx >= 0 {
+                            c_ty = name_to_c_ref(state, s_idx);
+                        }
+                    }
+                }
+            }
+            if blk_kind == TYPE_VOID {
+                return "({ " + gen_c_inline_node_result(state, "", ast_node_ref_from_handle(ast_expr_ref_handle(expr_ref))) + "; })";
+            }
+            if blk_kind == TYPE_STRUCT {
+                return "({ " + c_ty + " " + res_var + "; " + gen_c_inline_node_result(state, res_var, ast_node_ref_from_handle(ast_expr_ref_handle(expr_ref))) + res_var + "; })";
+            }
+            return "({ " + c_ty + " " + res_var + " = 0; " + gen_c_inline_node_result(state, res_var, ast_node_ref_from_handle(ast_expr_ref_handle(expr_ref))) + res_var + "; })";
+        }
+
+        if node_type == NODE_ARRAY_REPEAT {
+            let elem_ref: AstExprRef = ast_array_repeat_ref_elem_ref(expr_ref);
+            let count: i64 = ast_array_repeat_ref_count(expr_ref);
+            let elem_c: str = gen_c_expr_ref(state, elem_ref);
+            if elem_c == "0" || count <= 0 {
+                return "{ 0 }";
+            }
+            return "{ [0 ... " + int_to_string(count - 1) + "] = " + elem_c + " }";
+        }
+
         if node_type == NODE_ARRAY_LIT {
             let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
             let result = "{";
@@ -542,12 +1486,49 @@
             let type_name = name_to_c_ref(state, ast_struct_lit_ref_name_idx(expr_ref));
             let field_names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
             let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
+            let base_handle: i64 = ast_struct_lit_ref_base_handle(expr_ref);
             let result = "(" + type_name + "){";
             let i: i64 = 0;
             while i < ast_i64_list_ref_count(field_names_ref) {
                 if i > 0 { result = result + ", "; }
                 result = result + "." + name_to_c_ref(state, ast_i64_list_ref_get(field_names_ref, i)) + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(field_values_ref, i)));
                 i = i + 1;
+            }
+            if base_handle != 0 {
+                let base_str: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(base_handle));
+                let s_name_idx: i64 = ast_struct_lit_ref_name_idx(expr_ref);
+                let kernel_h: i64 = cgen_kernel_handle(state);
+                if ast_optional_is_some(kernel_h) {
+                    let k_ref: AstNodeRef = ast_node_ref_from_handle(kernel_h);
+                    let items_r: AstNodeListRef = ast_kernel_ref_items_ref(k_ref);
+                    let ki: i64 = 0;
+                    while ki < ast_node_list_ref_count(items_r) {
+                        let item_r: AstItemRef = ast_node_list_ref_get_item_ref(items_r, ki);
+                        if ast_item_ref_kind(item_r) == NODE_STRUCT && ast_struct_ref_name_idx(item_r) == s_name_idx {
+                            let s_fields: AstNodeListRef = ast_struct_ref_fields_ref(item_r);
+                            let fi: i64 = 0;
+                            while fi < ast_node_list_ref_count(s_fields) {
+                                let f_ref: AstNodeRef = ast_node_list_ref_get_ref(s_fields, fi);
+                                let f_name_idx: i64 = ast_field_decl_ref_name_idx(f_ref);
+                                let already_set: bool = false;
+                                let check_i: i64 = 0;
+                                while check_i < ast_i64_list_ref_count(field_names_ref) {
+                                    if ast_i64_list_ref_get(field_names_ref, check_i) == f_name_idx {
+                                        already_set = true;
+                                    }
+                                    check_i = check_i + 1;
+                                }
+                                if !already_set {
+                                    if i > 0 { result = result + ", "; }
+                                    result = result + "." + name_to_c_ref(state, f_name_idx) + " = (" + base_str + ")." + name_to_c_ref(state, f_name_idx);
+                                    i = i + 1;
+                                }
+                                fi = fi + 1;
+                            }
+                        }
+                        ki = ki + 1;
+                    }
+                }
             }
             return result + "}";
         }
@@ -571,6 +1552,27 @@
         if node_type == NODE_FIELD_ACCESS {
             let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_field_access_ref_base_handle(expr_ref));
             let field_name: i64 = ast_field_access_ref_name_idx(expr_ref);
+            let names: Vec<str> = cgen_names_ref(state);
+            let fname_str: str = name_from_table(names, field_name);
+            if fname_str == "0" || fname_str == "1" || fname_str == "2" || fname_str == "3" {
+                let is_struct: bool = infer_c_expr_ref_type(state, base_ref) == TYPE_STRUCT;
+                if !is_struct && ast_expr_ref_kind(base_ref) == NODE_IDENT {
+                    if cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(base_ref)) >= 0 {
+                        is_struct = true;
+                    }
+                }
+                if is_struct {
+                    return gen_c_expr_ref(state, base_ref) + "." + name_to_c_ref(state, field_name);
+                }
+                return "bkr_tuple_get(" + gen_c_expr_ref(state, base_ref) + ", " + fname_str + ")";
+            }
+            if ast_expr_ref_kind(base_ref) == NODE_IDENT {
+                let enum_name: str = name_from_table(names, ast_expr_ref_name_idx(base_ref));
+                let tag: i64 = cgen_enum_variant_tag_ref(state, enum_name, fname_str);
+                if tag >= 0 {
+                    return int_to_string(tag);
+                }
+            }
             return gen_c_expr_ref(state, base_ref) + "." + name_to_c_ref(state, field_name);
         }
 
@@ -578,6 +1580,40 @@
             let op: i64 = ast_binary_ref_op(expr_ref);
             let left_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref));
             let right_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_right_handle(expr_ref));
+
+            if op == TOK_BIT_OR {
+                if ast_expr_ref_kind(right_ref) == NODE_FIELD_ACCESS {
+                    let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_field_access_ref_base_handle(right_ref));
+                    let field_name: i64 = ast_field_access_ref_name_idx(right_ref);
+                    let names: Vec<str> = cgen_names_ref(state);
+                    if ast_expr_ref_kind(base_ref) == NODE_IDENT {
+                        let enum_name: str = name_from_table(names, ast_expr_ref_name_idx(base_ref));
+                        let variant_name: str = name_from_table(names, field_name);
+                        let tag: i64 = cgen_enum_variant_tag_ref(state, enum_name, variant_name);
+                        if tag >= 0 && cgen_enum_has_string_payload_ref(state, enum_name) {
+                            if ast_expr_ref_kind(left_ref) == NODE_BINARY {
+                                let l_op: i64 = ast_binary_ref_op(left_ref);
+                                if l_op == TOK_SHL {
+                                    let payload_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(left_ref));
+                                    let p_arg: str = gen_c_expr_ref(state, payload_ref);
+                                    return "bkr_enum_payload1(" + int_to_string(tag) + ", (bkr_i64)(intptr_t)(" + p_arg + "))";
+                                }
+                                if l_op == TOK_BIT_OR {
+                                    let f0_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(left_ref));
+                                    let f1_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_right_handle(left_ref));
+                                    if ast_expr_ref_kind(f0_ref) == NODE_BINARY && ast_expr_ref_kind(f1_ref) == NODE_BINARY {
+                                        let p0_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(f0_ref));
+                                        let p1_ref: AstExprRef = ast_expr_ref_from_handle(ast_binary_ref_left_handle(f1_ref));
+                                        let p0_arg: str = gen_c_expr_ref(state, p0_ref);
+                                        let p1_arg: str = gen_c_expr_ref(state, p1_ref);
+                                        return "bkr_enum_payload2(" + int_to_string(tag) + ", (bkr_i64)(intptr_t)(" + p0_arg + "), (bkr_i64)(intptr_t)(" + p1_arg + "))";
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             if op == TOK_EQ || op == TOK_NE {
                 let left_kind: i64 = infer_c_expr_ref_type(state, left_ref);
@@ -609,6 +1645,38 @@
             return "(" + gen_c_expr_ref(state, cond_ref) + " ? " + gen_c_expr_ref(state, then_ref) + " : " + gen_c_expr_ref(state, else_ref) + ")";
         }
 
+        if node_type == NODE_TRY {
+            let inner_ref: AstExprRef = ast_expr_ref_from_handle(ast_try_ref_expr_handle(expr_ref));
+            let try_var: str = cgen_next_hygienic_temp_ref(state, "_bkr_try");
+            let inner_c: str = gen_c_expr_ref(state, inner_ref);
+            let defers: Vec<i64> = cgen_defers_ref(state);
+            let defer_count: i64 = vec_len(defers);
+            let defer_str: str = "";
+            if defer_count > 0 {
+                let sub_state: CgenStateRef = cgen_new_ref("", cgen_names_ref(state));
+                let d: i64 = defer_count - 1;
+                while d >= 0 {
+                    gen_c_stmt_ref(sub_state, ast_stmt_ref_from_handle(vec_get(defers, d)));
+                    d = d - 1;
+                }
+                let lines: Vec<str> = cgen_lines_ref(sub_state);
+                let li: i64 = 0;
+                while li < vec_len(lines) {
+                    defer_str = defer_str + " " + vec_get(lines, li);
+                    li = li + 1;
+                }
+            }
+            return "({ bkr_i64 " + try_var + " = " + inner_c + "; if (bkr_try_is_err(" + try_var + ")) {" + defer_str + " return " + try_var + "; } bkr_try_unwrap(" + try_var + "); })";
+        }
+
+        if node_type == NODE_CAST {
+            let inner_expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_cast_ref_expr_handle(expr_ref));
+            let target_type_ref: AstTypeRef = ast_type_ref_from_handle(ast_cast_ref_target_type_handle(expr_ref));
+            let target_kind: i64 = ast_type_ref_kind_value(target_type_ref);
+            let c_type: str = type_to_c(target_kind);
+            return "((" + c_type + ")(" + gen_c_expr_ref(state, inner_expr_ref) + "))";
+        }
+
         if node_type == NODE_UNARY {
             let op: i64 = ast_unary_ref_op(expr_ref);
             let operand_ref: AstExprRef = ast_expr_ref_from_handle(ast_unary_ref_operand_handle(expr_ref));
@@ -621,22 +1689,218 @@
             return gen_c_match_expr_ref(state, expr_ref);
         }
 
+        if node_type == NODE_METHOD_CALL {
+            let receiver_ref: AstExprRef = ast_method_call_ref_receiver_ref(expr_ref);
+            let struct_name_idx: i64 = -1;
+            if ast_expr_ref_kind(receiver_ref) == NODE_IDENT {
+                struct_name_idx = cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(receiver_ref));
+            }
+            let names: Vec<str> = cgen_names_ref(state);
+            let struct_name: str = "";
+            if struct_name_idx >= 0 {
+                struct_name = name_from_table(names, struct_name_idx);
+            }
+            let method_name: str = name_from_table(names, ast_method_call_ref_method_name_idx(expr_ref));
+            let full_name: str = struct_name + "::" + method_name;
+            let full_name_idx: i64 = cgen_intern_name_ref(state, full_name);
+            let fn_c_name: str = name_to_c_ref(state, full_name_idx);
+            let receiver_c: str = gen_c_expr_ref(state, receiver_ref);
+            let args_ref: AstNodeListRef = ast_method_call_ref_args_ref(expr_ref);
+            let arg_count: i64 = ast_node_list_ref_count(args_ref);
+            let arg_str: str = receiver_c;
+            let j: i64 = 0;
+            while j < arg_count {
+                arg_str = arg_str + ", " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, j)));
+                j = j + 1;
+            }
+            return fn_c_name + "(" + arg_str + ")";
+        }
+
         if node_type == NODE_CALL {
             let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
-            let names: Vec<str> = cgen_names_ref(state);
-            let raw: str = name_from_table(names, name_idx);
             let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
             let arg_count: i64 = ast_node_list_ref_count(args_ref);
+            if cgen_is_struct_name_ref(state, name_idx) {
+                let s_cname: str = name_to_c_ref(state, name_idx);
+                let result = "(" + s_cname + "){";
+                let i: i64 = 0;
+                while i < arg_count {
+                    if i > 0 { result = result + ", "; }
+                    result = result + "." + name_to_c_ref(state, cgen_intern_name_ref(state, int_to_string(i))) + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, i)));
+                    i = i + 1;
+                }
+                return result + "}";
+            }
+            let names: Vec<str> = cgen_names_ref(state);
+            let raw: str = name_from_table(names, name_idx);
+            if raw == "panic" && arg_count == 1 {
+                let msg_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_panic((bkr_str)(intptr_t)(" + msg_arg + "))";
+            }
+            if raw == "assert" && arg_count == 1 {
+                let cond_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let quote: str = from_char_code(34);
+                return "bkr_assert(" + cond_arg + ", " + quote + "assertion failed" + quote + ")";
+            }
+            if raw == "assert" && arg_count == 2 {
+                let cond_arg2: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let msg_arg2: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_assert(" + cond_arg2 + ", (bkr_str)(intptr_t)(" + msg_arg2 + "))";
+            }
             if raw == "Some" && arg_count == 1 {
                 return "(((" + gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0))) + ") << 1) | 1)";
             }
-            if raw == "result_ok" && arg_count == 1 {
+            if raw == "len" && arg_count == 1 {
+                let len_arg_ref: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0));
+                let len_kind: i64 = ast_expr_ref_kind(len_arg_ref);
+                if len_kind == NODE_IDENT {
+                    let array_len: i64 = cgen_lookup_array_length_ref(state, ast_expr_ref_name_idx(len_arg_ref));
+                    if array_len >= 0 {
+                        return int_to_string(array_len);
+                    }
+                }
+                if len_kind == NODE_ARRAY_LIT {
+                    let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(len_arg_ref);
+                    return int_to_string(ast_node_list_ref_count(elements_ref));
+                }
+                if len_kind == NODE_ARRAY_REPEAT {
+                    return int_to_string(ast_array_repeat_ref_count(len_arg_ref));
+                }
+                return "bkr_len((bkr_str)(intptr_t)(" + gen_c_expr_ref(state, len_arg_ref) + "))";
+            }
+            if raw == "strlen" && arg_count == 1 {
+                let arg_expr: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0));
+                return "bkr_len((bkr_str)(intptr_t)(" + gen_c_expr_ref(state, arg_expr) + "))";
+            }
+            if (raw == "result_ok" || raw == "Ok") && arg_count == 1 {
                 let arg: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
                 return "bkr_result_ok(" + arg + ")";
             }
-            if raw == "result_err" && arg_count == 1 {
+            if (raw == "result_err" || raw == "Err") && arg_count == 1 {
                 let arg2: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
                 return "bkr_result_err(" + arg2 + ")";
+            }
+            if raw == "hashmap_get_opt" && arg_count == 2 {
+                let map_arg: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let key_arg: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_hashmap_get_opt(" + map_arg + ", " + key_arg + ")";
+            }
+            if raw == "vec_get_opt" && arg_count == 2 {
+                let v_arg: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let idx_arg: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_vec_get_opt(" + v_arg + ", " + idx_arg + ")";
+            }
+            if raw == "vec_pop_opt" && arg_count == 1 {
+                let v_arg2: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_vec_pop_opt(" + v_arg2 + ")";
+            }
+            if raw == "vec_contains" && arg_count == 2 {
+                let vec_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let item_expr: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1));
+                let item_kind: i64 = infer_c_expr_ref_type(state, item_expr);
+                let item_arg: str = gen_c_i64_arg_ref(state, item_expr);
+                if item_kind == TYPE_STR {
+                    return "vec_contains_str(" + vec_handle + ", " + item_arg + ")";
+                }
+                return "vec_contains(" + vec_handle + ", " + item_arg + ")";
+            }
+            if raw == "read_file_result" && arg_count == 1 {
+                let p_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_read_file_result((bkr_str)(intptr_t)(" + p_arg + "))";
+            }
+            if raw == "write_file_result" && arg_count == 2 {
+                let p_arg2: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let c_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_write_file_result((bkr_str)(intptr_t)(" + p_arg2 + "), (bkr_str)(intptr_t)(" + c_arg + "))";
+            }
+            if raw == "parse_int_result" && arg_count == 1 {
+                let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_parse_int_result((bkr_str)(intptr_t)(" + s_arg + "))";
+            }
+            if raw == "str_index_of" && arg_count == 2 {
+                let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let n_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_str_index_of((bkr_str)(intptr_t)(" + s_arg + "), (bkr_str)(intptr_t)(" + n_arg + "))";
+            }
+            if raw == "str_replace" && arg_count == 3 {
+                let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let f_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                let t_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 2)));
+                return "bkr_str_replace((bkr_str)(intptr_t)(" + s_arg + "), (bkr_str)(intptr_t)(" + f_arg + "), (bkr_str)(intptr_t)(" + t_arg + "))";
+            }
+            if raw == "str_split" && arg_count == 2 {
+                let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let d_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_str_split((bkr_str)(intptr_t)(" + s_arg + "), (bkr_str)(intptr_t)(" + d_arg + "))";
+            }
+            if raw == "str_to_upper" && arg_count == 1 {
+                let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_str_to_upper((bkr_str)(intptr_t)(" + s_arg + "))";
+            }
+            if raw == "str_to_lower" && arg_count == 1 {
+                let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_str_to_lower((bkr_str)(intptr_t)(" + s_arg + "))";
+            }
+            if raw == "str_repeat" && arg_count == 2 {
+                let s_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let c_arg: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_str_repeat((bkr_str)(intptr_t)(" + s_arg + "), " + c_arg + ")";
+            }
+            if raw == "path_join" && arg_count == 2 {
+                let a_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let b_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_path_join((bkr_str)(intptr_t)(" + a_arg + "), (bkr_str)(intptr_t)(" + b_arg + "))";
+            }
+            if raw == "path_dir" && arg_count == 1 {
+                let p_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_path_dir((bkr_str)(intptr_t)(" + p_arg + "))";
+            }
+            if raw == "path_base" && arg_count == 1 {
+                let p_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_path_base((bkr_str)(intptr_t)(" + p_arg + "))";
+            }
+            if raw == "path_ext" && arg_count == 1 {
+                let p_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_path_ext((bkr_str)(intptr_t)(" + p_arg + "))";
+            }
+            if raw == "path_is_abs" && arg_count == 1 {
+                let p_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_path_is_abs((bkr_str)(intptr_t)(" + p_arg + "))";
+            }
+            if raw == "env_var" && arg_count == 1 {
+                let k_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_env_var((bkr_str)(intptr_t)(" + k_arg + "))";
+            }
+            if raw == "env_get" && arg_count == 1 {
+                let k_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_env_get((bkr_str)(intptr_t)(" + k_arg + "))";
+            }
+            if raw == "env_set" && arg_count == 2 {
+                let k_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let v_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                return "bkr_env_set((bkr_str)(intptr_t)(" + k_arg + "), (bkr_str)(intptr_t)(" + v_arg + "))";
+            }
+            if raw == "env_has" && arg_count == 1 {
+                let k_arg: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                return "bkr_env_has((bkr_str)(intptr_t)(" + k_arg + "))";
+            }
+            if raw == "time_now_ms" && arg_count == 0 {
+                return "bkr_time_now_ms()";
+            }
+            if raw == "time_now_unix" && arg_count == 0 {
+                return "bkr_time_now_unix()";
+            }
+            if raw == "runtime_version_major" && arg_count == 0 {
+                return "bkr_runtime_version_major()";
+            }
+            if raw == "runtime_version_minor" && arg_count == 0 {
+                return "bkr_runtime_version_minor()";
+            }
+            if raw == "runtime_version_patch" && arg_count == 0 {
+                return "bkr_runtime_version_patch()";
+            }
+            if raw == "runtime_version_str" && arg_count == 0 {
+                return "bkr_runtime_version_str()";
             }
             if raw == "vec_push" && arg_count == 2 {
                 let vec_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
@@ -651,9 +1915,32 @@
             }
             if raw == "hashmap_insert" && arg_count == 3 {
                 let map_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
-                let key: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1)));
+                let key_expr: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1));
+                let key_kind: i64 = infer_c_expr_ref_type(state, key_expr);
+                let key: str = gen_c_i64_arg_ref(state, key_expr);
                 let value3: str = gen_c_i64_arg_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 2)));
+                if key_kind == TYPE_STR {
+                    return "hashmap_insert_str(" + map_handle + ", " + key + ", " + value3 + ")";
+                }
                 return "hashmap_insert(" + map_handle + ", " + key + ", " + value3 + ")";
+            }
+            if raw == "hashmap_get" && arg_count == 2 {
+                let map_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let key_expr: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1));
+                let key: str = gen_c_i64_arg_ref(state, key_expr);
+                return "hashmap_get(" + map_handle + ", " + key + ")";
+            }
+            if raw == "hashmap_contains" && arg_count == 2 {
+                let map_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let key_expr: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1));
+                let key: str = gen_c_i64_arg_ref(state, key_expr);
+                return "hashmap_contains(" + map_handle + ", " + key + ")";
+            }
+            if raw == "hashmap_remove" && arg_count == 2 {
+                let map_handle: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+                let key_expr: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 1));
+                let key: str = gen_c_i64_arg_ref(state, key_expr);
+                return "hashmap_remove(" + map_handle + ", " + key + ")";
             }
             if raw == "result_is_ok" && arg_count == 1 {
                 let arg3: str = gen_c_expr_ref(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
@@ -677,17 +1964,13 @@
                 }
                 return "bkr_result_value(" + arg6 + ")";
             }
-            if raw == "len" && arg_count == 1 {
-                let len_arg_ref: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0));
-                if ast_expr_ref_kind(len_arg_ref) == NODE_IDENT {
-                    let array_len: i64 = cgen_lookup_array_length_ref(state, ast_expr_ref_name_idx(len_arg_ref));
-                    if array_len >= 0 {
-                        return int_to_string(array_len);
-                    }
-                }
-            }
             let name: str = name_to_c_ref(state, name_idx);
-            let result = name + "(";
+            let result = "";
+            if cgen_lookup_name_type_ref(state, name_idx) == TYPE_FN {
+                result = "((bkr_i64 (*)())" + name + ")(";
+            } else {
+                result = name + "(";
+            }
             let i: i64 = 0;
             while i < arg_count {
                 if i > 0 { result = result + ", "; }
@@ -726,36 +2009,182 @@
                 cgen_add_array_type_ref(state, name_idx, elem_kind, array_len);
                 return state;
             }
+            if ast_optional_is_none(type_node) && ast_optional_is_some(init) {
+                let init_ref: AstExprRef = ast_expr_ref_from_handle(init);
+                let init_kind_val: i64 = ast_expr_ref_kind(init_ref);
+                if init_kind_val == NODE_ARRAY_LIT {
+                    let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(init_ref);
+                    let array_len: i64 = ast_node_list_ref_count(elements_ref);
+                    if array_len > 0 {
+                        let elem_kind: i64 = infer_c_expr_ref_type(state, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(elements_ref, 0)));
+                        let line = type_to_c(elem_kind) + " " + name + "[" + int_to_string(array_len) + "] = " + gen_c_expr_ref(state, init_ref);
+                        cgen_emit_ref(state, line + ";");
+                        cgen_add_local_type_ref(state, name_idx, elem_kind);
+                        cgen_add_array_type_ref(state, name_idx, elem_kind, array_len);
+                        return state;
+                    }
+                } else if init_kind_val == NODE_ARRAY_REPEAT {
+                    let array_len: i64 = ast_array_repeat_ref_count(init_ref);
+                    let elem_kind: i64 = infer_c_expr_ref_type(state, ast_array_repeat_ref_elem_ref(init_ref));
+                    let line = type_to_c(elem_kind) + " " + name + "[" + int_to_string(array_len) + "] = " + gen_c_expr_ref(state, init_ref);
+                    cgen_emit_ref(state, line + ";");
+                    cgen_add_local_type_ref(state, name_idx, elem_kind);
+                    cgen_add_array_type_ref(state, name_idx, elem_kind, array_len);
+                    return state;
+                }
+            }
 
             let kind = TYPE_I64;
+            let struct_name_idx: i64 = -1;
             if ast_optional_is_some(type_node) {
                 kind = type_node_kind_ref(ast_type_ref_from_handle(type_node));
+                if kind == TYPE_STRUCT {
+                    struct_name_idx = ast_type_ref_struct_name_idx_value(ast_type_ref_from_handle(type_node));
+                }
+                if kind == TYPE_VEC {
+                    let elem_k: i64 = ast_type_ref_array_elem_kind_value(ast_type_ref_from_handle(type_node));
+                    if elem_k != TYPE_UNKNOWN && elem_k != 0 {
+                        cgen_add_array_type_ref(state, name_idx, elem_k, 0);
+                    }
+                }
             } else if ast_optional_is_some(init) {
                 let init_kind: i64 = infer_c_expr_handle_ref_type(state, init);
                 if init_kind != TYPE_UNKNOWN && init_kind != TYPE_VOID {
                     kind = init_kind;
+                }
+                let init_ref: AstExprRef = ast_expr_ref_from_handle(init);
+                if ast_expr_ref_kind(init_ref) == NODE_STRUCT_LIT {
+                    kind = TYPE_STRUCT;
+                    struct_name_idx = ast_struct_lit_ref_name_idx(init_ref);
+                } else if ast_expr_ref_kind(init_ref) == NODE_CALL {
+                    let call_name_idx: i64 = ast_call_ref_name_idx(init_ref);
+                    if cgen_is_struct_name_ref(state, call_name_idx) {
+                        kind = TYPE_STRUCT;
+                        struct_name_idx = call_name_idx;
+                    } else {
+                        let fn_ret_type_ref: AstTypeRef = cgen_lookup_fn_ret_type_info_ref(state, call_name_idx);
+                        if ast_type_ref_is_some(fn_ret_type_ref) && ast_type_ref_kind_value(fn_ret_type_ref) == TYPE_STRUCT {
+                            kind = TYPE_STRUCT;
+                            struct_name_idx = ast_type_ref_struct_name_idx_value(fn_ret_type_ref);
+                        }
+                    }
+                } else if ast_expr_ref_kind(init_ref) == NODE_IDENT {
+                    let s_idx: i64 = cgen_lookup_local_struct_name_idx_ref(state, ast_ident_ref_name_idx(init_ref));
+                    if s_idx >= 0 {
+                        kind = TYPE_STRUCT;
+                        struct_name_idx = s_idx;
+                    }
+                } else if ast_expr_ref_kind(init_ref) == NODE_BLOCK {
+                    let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_expr_ref_handle(init_ref));
+                    let count: i64 = ast_block_ref_stmt_count(block_ref);
+                    if count > 0 {
+                        let last_stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, count - 1);
+                        if ast_stmt_ref_kind(last_stmt_ref) == NODE_EXPR_STMT {
+                            let last_expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(last_stmt_ref));
+                            let le_kind: i64 = ast_expr_ref_kind(last_expr_ref);
+                            if le_kind == NODE_STRUCT_LIT {
+                                kind = TYPE_STRUCT;
+                                struct_name_idx = ast_struct_lit_ref_name_idx(last_expr_ref);
+                            } else if le_kind == NODE_IDENT {
+                                let s_idx: i64 = cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(last_expr_ref));
+                                if s_idx >= 0 {
+                                    kind = TYPE_STRUCT;
+                                    struct_name_idx = s_idx;
+                                }
+                            } else if le_kind == NODE_CALL && cgen_is_struct_name_ref(state, ast_call_ref_name_idx(last_expr_ref)) {
+                                kind = TYPE_STRUCT;
+                                struct_name_idx = ast_call_ref_name_idx(last_expr_ref);
+                            }
+                        }
+                    }
                 }
             }
 
             let c_type = type_to_c(kind);
             if ast_optional_is_some(type_node) {
                 c_type = type_node_to_c_ref(state, ast_type_ref_from_handle(type_node));
+            } else if kind == TYPE_STRUCT && struct_name_idx >= 0 {
+                if cgen_is_enum_name_ref(state, struct_name_idx) {
+                    c_type = "bkr_i64";
+                } else {
+                    c_type = name_to_c_ref(state, struct_name_idx);
+                }
+            }
+            if c_type == "void" {
+                c_type = "bkr_unit";
             }
             let line = c_type + " " + name;
             if ast_optional_is_some(init) {
                 line = line + " = " + gen_c_init_expr_for_type_ref(state, type_node, ast_expr_ref_from_handle(init));
             }
             cgen_emit_ref(state, line + ";");
-            cgen_add_local_type_ref(state, name_idx, kind);
+            if struct_name_idx >= 0 {
+                if cgen_is_enum_name_ref(state, struct_name_idx) {
+                    cgen_add_local_type_ref(state, name_idx, TYPE_I64);
+                } else {
+                    cgen_add_local_struct_ref(state, name_idx, kind, struct_name_idx);
+                }
+            } else {
+                cgen_add_local_type_ref(state, name_idx, kind);
+            }
+            return state;
+        }
+
+        if node_type == NODE_DEFER {
+            let deferred_stmt: i64 = ast_defer_ref_stmt_handle(stmt_ref);
+            cgen_add_defer_ref(state, deferred_stmt);
             return state;
         }
 
         if node_type == NODE_RETURN {
             let expr: i64 = ast_return_ref_expr_handle(stmt_ref);
-            if ast_optional_is_some(expr) {
-                cgen_emit_ref(state, "return " + gen_c_expr_ref(state, ast_expr_ref_from_handle(expr)) + ";");
-            } else {
+            let defers: Vec<i64> = cgen_defers_ref(state);
+            let defer_count: i64 = vec_len(defers);
+            let current_ret: str = cgen_current_ret_type_ref(state);
+            if current_ret == "void" {
+                if ast_optional_is_some(expr) {
+                    let expr_ref: AstExprRef = ast_expr_ref_from_handle(expr);
+                    let e_kind: i64 = ast_expr_ref_kind(expr_ref);
+                    if e_kind != NODE_INT_LIT {
+                        cgen_emit_ref(state, gen_c_expr_ref(state, expr_ref) + ";");
+                    }
+                }
+                let d: i64 = defer_count - 1;
+                while d >= 0 {
+                    gen_c_stmt_ref(state, ast_stmt_ref_from_handle(vec_get(defers, d)));
+                    d = d - 1;
+                }
                 cgen_emit_ref(state, "return;");
+                return state;
+            }
+            if defer_count > 0 {
+                if ast_optional_is_some(expr) {
+                    let ret_var: str = cgen_next_hygienic_temp_ref(state, "_bkr_ret");
+                    let ret_type: str = cgen_current_ret_type_ref(state);
+                    if ret_type == "" || ret_type == "void" {
+                        ret_type = "bkr_i64";
+                    }
+                    cgen_emit_ref(state, ret_type + " " + ret_var + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(expr)) + ";");
+                    let d: i64 = defer_count - 1;
+                    while d >= 0 {
+                        gen_c_stmt_ref(state, ast_stmt_ref_from_handle(vec_get(defers, d)));
+                        d = d - 1;
+                    }
+                    cgen_emit_ref(state, "return " + ret_var + ";");
+                } else {
+                    let d: i64 = defer_count - 1;
+                    while d >= 0 {
+                        gen_c_stmt_ref(state, ast_stmt_ref_from_handle(vec_get(defers, d)));
+                        d = d - 1;
+                    }
+                    cgen_emit_ref(state, "return;");
+                }
+            } else {
+                if ast_optional_is_some(expr) {
+                    cgen_emit_ref(state, "return " + gen_c_expr_ref(state, ast_expr_ref_from_handle(expr)) + ";");
+                } else {
+                    cgen_emit_ref(state, "return;");
+                }
             }
             return state;
         }
@@ -843,6 +2272,11 @@
 
         if node_type == NODE_CONTINUE {
             cgen_emit_ref(state, "continue;");
+            return state;
+        }
+
+        if node_type == NODE_BLOCK {
+            gen_c_block_ref(state, ast_block_ref_from_handle(ast_stmt_ref_handle(stmt_ref)));
             return state;
         }
 
@@ -940,11 +2374,35 @@
 
     fn gen_c_fn_ref(state: CgenStateRef, fn_ref: AstItemRef) -> CgenStateRef {
         cgen_clear_locals_ref(state);
+        let ret_type_node: i64 = ast_fn_ref_return_type_handle(fn_ref);
+        let ret_type_str: str = "void";
+        if ast_optional_is_some(ret_type_node) {
+            ret_type_str = type_node_to_c_ref(state, ast_type_ref_from_handle(ret_type_node));
+        }
+        cgen_set_current_ret_type_ref(state, ret_type_str);
+
         let params_ref: AstNodeListRef = ast_fn_ref_params_ref(fn_ref);
         let i: i64 = 0;
         while i < ast_node_list_ref_count(params_ref) {
             let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
-            cgen_add_local_type_ref(state, ast_param_ref_name_idx(param_ref), type_node_kind_ref(ast_param_ref_type_ref(param_ref)));
+            let p_type_ref: AstTypeRef = ast_param_ref_type_ref(param_ref);
+            let p_kind: i64 = type_node_kind_ref(p_type_ref);
+            if p_kind == TYPE_STRUCT {
+                let s_idx: i64 = ast_type_ref_struct_name_idx_value(p_type_ref);
+                if cgen_is_enum_name_ref(state, s_idx) {
+                    cgen_add_local_type_ref(state, ast_param_ref_name_idx(param_ref), TYPE_I64);
+                } else {
+                    cgen_add_local_struct_ref(state, ast_param_ref_name_idx(param_ref), p_kind, s_idx);
+                }
+            } else {
+                cgen_add_local_type_ref(state, ast_param_ref_name_idx(param_ref), p_kind);
+            }
+            if p_kind == TYPE_VEC {
+                let elem_k: i64 = ast_type_ref_array_elem_kind_value(p_type_ref);
+                if elem_k != TYPE_UNKNOWN && elem_k != 0 {
+                    cgen_add_array_type_ref(state, ast_param_ref_name_idx(param_ref), elem_k, 0);
+                }
+            }
             i = i + 1;
         }
 
@@ -953,6 +2411,23 @@
         cgen_emit_ref(state, gen_c_signature_ref(state, fn_ref) + " {");
         cgen_indent_ref(state);
         gen_c_block_ref(state, body_ref);
+        let count: i64 = ast_block_ref_stmt_count(body_ref);
+        let ends_with_return: bool = false;
+        if count > 0 {
+            let last_stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(body_ref, count - 1);
+            if ast_stmt_ref_kind(last_stmt_ref) == NODE_RETURN {
+                ends_with_return = true;
+            }
+        }
+        let defers: Vec<i64> = cgen_defers_ref(state);
+        let defer_count: i64 = vec_len(defers);
+        if !ends_with_return && defer_count > 0 {
+            let d: i64 = defer_count - 1;
+            while d >= 0 {
+                gen_c_stmt_ref(state, ast_stmt_ref_from_handle(vec_get(defers, d)));
+                d = d - 1;
+            }
+        }
         cgen_dedent_ref(state);
         cgen_emit_ref(state, "}");
         cgen_emit_ref(state, "");
@@ -1005,7 +2480,14 @@
         while i < ast_node_list_ref_count(fields_ref) {
             let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, i);
             let field_name: str = name_to_c_ref(state, ast_field_decl_ref_name_idx(field_ref));
-            cgen_emit_ref(state, type_node_to_c_ref(state, ast_field_decl_ref_type_ref(field_ref)) + " " + field_name + ";");
+            let f_type: AstTypeRef = ast_field_decl_ref_type_ref(field_ref);
+            if ast_type_ref_kind_value(f_type) == TYPE_ARRAY {
+                let elem_kind: i64 = ast_type_ref_array_elem_kind_value(f_type);
+                let array_len: i64 = ast_type_ref_array_len_value(f_type);
+                cgen_emit_ref(state, type_to_c(elem_kind) + " " + field_name + "[" + int_to_string(array_len) + "];");
+            } else {
+                cgen_emit_ref(state, type_node_to_c_ref(state, f_type) + " " + field_name + ";");
+            }
             i = i + 1;
         }
         cgen_dedent_ref(state);
@@ -1073,6 +2555,24 @@
         return state;
     }
 
+    fn gen_c_kernel_type_aliases_ref(state: CgenStateRef, kernel_ref: AstNodeRef) -> CgenStateRef {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_TYPE_ALIAS {
+                let name_idx: i64 = ast_type_alias_ref_name_idx(item_ref);
+                let target_handle: i64 = ast_type_alias_ref_target_handle(item_ref);
+                let target_ref: AstTypeRef = ast_type_ref_from_handle(target_handle);
+                let target_c: str = type_node_to_c_ref(state, target_ref);
+                let alias_name: str = name_to_c_ref(state, name_idx);
+                cgen_emit_ref(state, "typedef " + target_c + " " + alias_name + ";");
+            }
+            i = i + 1;
+        }
+        return state;
+    }
+
     fn gen_c_kernel_prototypes(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
         gen_c_kernel_prototypes_ref(cgen_state_ref_from_state(state), ast_node_ref_from_node(kernel));
         return state;
@@ -1117,12 +2617,15 @@
         let names: Vec<str> = ast_kernel_ref_names(kernel_ref);
         let kernel_name: str = name_to_c_from_names(names, ast_node_ref_name_idx(kernel_ref));
         let state: CgenStateRef = cgen_new_ref(kernel_name, names);
+        cgen_attach_kernel_handle(state, ast_node_ref_handle(kernel_ref));
 
         cgen_emit_ref(state, "/* Generated by Bunker Compiler */");
+        cgen_emit_ref(state, "#define BKR_REQUIRED_RUNTIME_ABI_MAJOR 1");
         let quote = from_char_code(34);
         cgen_emit_ref(state, "#include " + quote + "runtime.h" + quote);
         cgen_emit_ref(state, "");
 
+        gen_c_kernel_type_aliases_ref(state, kernel_ref);
         gen_c_kernel_structs_ref(state, kernel_ref);
         gen_c_kernel_function_types_ref(state, kernel_ref);
         gen_c_kernel_consts_ref(state, kernel_ref);
@@ -1135,7 +2638,8 @@
         let entry_name: str = name_to_c_ref(state, entry_idx);
 
         // Main wrapper that calls the parsed Bunker main()
-        cgen_emit_ref(state, "int main(void) {");
+        cgen_emit_ref(state, "int main(int argc, char** argv) {");
+        cgen_emit_ref(state, "    bkr_init_args(argc, argv);");
         cgen_emit_ref(state, "    return (int)" + entry_name + "();");
         cgen_emit_ref(state, "}");
 

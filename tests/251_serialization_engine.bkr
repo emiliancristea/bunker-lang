@@ -1,0 +1,352 @@
+// Test 251: Serialization Engine (Q-292, R-014)
+// Verifies pure Bunker schema-tagged serialization and deserialization
+// for compiler AST summaries, symbol tables, type graphs, and diagnostic reports.
+// Expected return: 42
+
+kernel SerializationEngineTest {
+    // --- JSON Primitives ---
+
+    struct JsonObject {
+        keys: Vec<str>,
+        values: Vec<str>
+    }
+
+    struct JsonArray {
+        items: Vec<str>
+    }
+
+    fn json_escape_str(raw: str) -> str {
+        let quote = from_char_code(34);
+        let backslash = from_char_code(92);
+        let mut out: str = "";
+        let mut i: i64 = 0;
+        let n: i64 = len(raw);
+        while i < n {
+            let ch = char_at(raw, i);
+            let ch_code = char_code(ch);
+
+            if ch_code == 10 {
+                out = out + backslash + "n";
+            } else if ch_code == 13 {
+                out = out + backslash + "r";
+            } else if ch_code == 9 {
+                out = out + backslash + "t";
+            } else if ch_code == 34 {
+                out = out + backslash + quote;
+            } else if ch_code == 92 {
+                out = out + backslash + backslash;
+            } else {
+                out = out + ch;
+            }
+
+            i = i + 1;
+        }
+
+        return out;
+    }
+
+    fn json_val_str(val: str) -> str {
+        let quote = from_char_code(34);
+        return quote + json_escape_str(val) + quote;
+    }
+
+    fn json_val_i64(val: i64) -> str {
+        return int_to_string(val);
+    }
+
+    fn json_val_bool(val: bool) -> str {
+        if val {
+            return "true";
+        }
+        return "false";
+    }
+
+    fn json_object_new() -> JsonObject {
+        let k: Vec<str> = vec_new();
+        let v: Vec<str> = vec_new();
+        return JsonObject { keys: k, values: v };
+    }
+
+    fn json_object_set_str(obj: JsonObject, key: str, val: str) {
+        vec_push(obj.keys, key);
+        vec_push(obj.values, json_val_str(val));
+    }
+
+    fn json_object_set_i64(obj: JsonObject, key: str, val: i64) {
+        vec_push(obj.keys, key);
+        vec_push(obj.values, json_val_i64(val));
+    }
+
+    fn json_object_set_bool(obj: JsonObject, key: str, val: bool) {
+        vec_push(obj.keys, key);
+        vec_push(obj.values, json_val_bool(val));
+    }
+
+    fn json_object_to_json(obj: JsonObject) -> str {
+        let quote = from_char_code(34);
+        let mut out: str = "{";
+        let count: i64 = vec_len(obj.keys);
+        let mut i: i64 = 0;
+        while i < count {
+            if i > 0 {
+                out = out + ",";
+            }
+            let k: str = vec_get(obj.keys, i);
+            let v: str = vec_get(obj.values, i);
+            out = out + quote + k + quote + ":" + v;
+            i = i + 1;
+        }
+        return out + "}";
+    }
+
+    fn json_skip_whitespace(src: str, start_idx: i64) -> i64 {
+        let mut i: i64 = start_idx;
+        let n: i64 = len(src);
+        while i < n {
+            let c: i64 = char_code_at(src, i);
+            if c != 32 && c != 9 && c != 10 && c != 13 {
+                return i;
+            }
+            i = i + 1;
+        }
+        return i;
+    }
+
+    fn json_extract_field(src: str, key: str) -> str {
+        let quote = from_char_code(34);
+        let target = quote + key + quote;
+        let key_idx = str_index_of(src, target);
+        if key_idx < 0 {
+            return "";
+        }
+        let after_key = key_idx + len(target);
+        let colon_idx = str_index_of(substring(src, after_key, len(src)), ":");
+        if colon_idx < 0 {
+            return "";
+        }
+        let val_start = json_skip_whitespace(src, after_key + colon_idx + 1);
+        if val_start >= len(src) {
+            return "";
+        }
+
+        let first_ch = char_code_at(src, val_start);
+        if first_ch == 34 {
+            let mut j: i64 = val_start + 1;
+            while j < len(src) {
+                let ch: i64 = char_code_at(src, j);
+                if ch == 34 && char_code_at(src, j - 1) != 92 {
+                    return substring(src, val_start + 1, j);
+                }
+                j = j + 1;
+            }
+            return "";
+        }
+
+        if first_ch == 123 {
+            let mut depth: i64 = 1;
+            let mut j: i64 = val_start + 1;
+            while j < len(src) && depth > 0 {
+                let ch: i64 = char_code_at(src, j);
+                if ch == 123 { depth = depth + 1; }
+                else if ch == 125 { depth = depth - 1; }
+                j = j + 1;
+            }
+            return substring(src, val_start, j);
+        }
+
+        let mut k: i64 = val_start;
+        while k < len(src) {
+            let ch: i64 = char_code_at(src, k);
+            if ch == 44 || ch == 125 || ch == 93 || ch == 32 || ch == 10 || ch == 13 || ch == 9 {
+                return substring(src, val_start, k);
+            }
+            k = k + 1;
+        }
+        return substring(src, val_start, len(src));
+    }
+
+    fn json_query_str(src: str, key: str) -> str {
+        return json_extract_field(src, key);
+    }
+
+    fn json_query_i64(src: str, key: str) -> i64 {
+        let raw = json_extract_field(src, key);
+        if len(raw) == 0 {
+            return 0;
+        }
+        return parse_int(raw);
+    }
+
+    fn json_query_bool(src: str, key: str) -> bool {
+        let raw = json_extract_field(src, key);
+        return raw == "true";
+    }
+
+    fn json_query_has(src: str, key: str) -> bool {
+        let quote = from_char_code(34);
+        let target = quote + key + quote;
+        return str_index_of(src, target) >= 0;
+    }
+
+    // --- Serializer Engine Functions ---
+
+    fn serialize_ast_summary(item_count: i64, root_name: str, has_entry: bool) -> str {
+        let mut obj = json_object_new();
+        json_object_set_str(obj, "schema_version", "bunker.ast.v1");
+        json_object_set_str(obj, "representation", "ast_summary");
+        json_object_set_str(obj, "root_name", root_name);
+        json_object_set_i64(obj, "item_count", item_count);
+        json_object_set_bool(obj, "has_entry", has_entry);
+        return json_object_to_json(obj);
+    }
+
+    fn serialize_symbol_entry(name: str, kind: str, scope: str, line: i64, col: i64) -> str {
+        let mut obj = json_object_new();
+        json_object_set_str(obj, "name", name);
+        json_object_set_str(obj, "kind", kind);
+        json_object_set_str(obj, "scope", scope);
+        json_object_set_i64(obj, "line", line);
+        json_object_set_i64(obj, "column", col);
+        return json_object_to_json(obj);
+    }
+
+    fn serialize_type_info(type_name: str, size_bytes: i64, c_abi: str) -> str {
+        let mut obj = json_object_new();
+        json_object_set_str(obj, "schema_version", "bunker.type_graph.v1");
+        json_object_set_str(obj, "type_name", type_name);
+        json_object_set_i64(obj, "size_bytes", size_bytes);
+        json_object_set_str(obj, "c_abi", c_abi);
+        return json_object_to_json(obj);
+    }
+
+    fn serialize_diagnostic_summary(errors: i64, warnings: i64) -> str {
+        let mut obj = json_object_new();
+        json_object_set_str(obj, "schema_version", "bunker.diagnostics.v1");
+        json_object_set_i64(obj, "error_count", errors);
+        json_object_set_i64(obj, "warning_count", warnings);
+        json_object_set_bool(obj, "success", errors == 0);
+        return json_object_to_json(obj);
+    }
+
+    fn serializer_extract_str(payload: str, field: str) -> str {
+        return json_query_str(payload, field);
+    }
+
+    fn serializer_extract_i64(payload: str, field: str) -> i64 {
+        return json_query_i64(payload, field);
+    }
+
+    fn serializer_extract_bool(payload: str, field: str) -> bool {
+        return json_query_bool(payload, field);
+    }
+
+    fn serializer_extract_raw(payload: str, field: str) -> str {
+        return json_extract_field(payload, field);
+    }
+
+    fn serializer_has_field(payload: str, field: str) -> bool {
+        return json_query_has(payload, field);
+    }
+
+    // --- Tests ---
+
+    fn test_serialize_ast_summary() -> bool {
+        let payload = serialize_ast_summary(128, "BunkerCompiler", true);
+
+        if !serializer_has_field(payload, "schema_version") {
+            return false;
+        }
+        if serializer_extract_str(payload, "schema_version") != "bunker.ast.v1" {
+            return false;
+        }
+        if serializer_extract_str(payload, "representation") != "ast_summary" {
+            return false;
+        }
+        if serializer_extract_str(payload, "root_name") != "BunkerCompiler" {
+            return false;
+        }
+        if serializer_extract_i64(payload, "item_count") != 128 {
+            return false;
+        }
+        if !serializer_extract_bool(payload, "has_entry") {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_serialize_symbol_and_type() -> bool {
+        let sym_json = serialize_symbol_entry("compute", "fn", "BunkerCompiler", 42, 5);
+        if serializer_extract_str(sym_json, "name") != "compute" {
+            return false;
+        }
+        if serializer_extract_str(sym_json, "kind") != "fn" {
+            return false;
+        }
+        if serializer_extract_str(sym_json, "scope") != "BunkerCompiler" {
+            return false;
+        }
+        if serializer_extract_i64(sym_json, "line") != 42 {
+            return false;
+        }
+        if serializer_extract_i64(sym_json, "column") != 5 {
+            return false;
+        }
+
+        let ty_json = serialize_type_info("Point", 16, "struct BkrPoint");
+        if serializer_extract_str(ty_json, "schema_version") != "bunker.type_graph.v1" {
+            return false;
+        }
+        if serializer_extract_str(ty_json, "type_name") != "Point" {
+            return false;
+        }
+        if serializer_extract_i64(ty_json, "size_bytes") != 16 {
+            return false;
+        }
+        if serializer_extract_str(ty_json, "c_abi") != "struct BkrPoint" {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_serialize_diagnostic_summary() -> bool {
+        let clean_json = serialize_diagnostic_summary(0, 3);
+        if !serializer_extract_bool(clean_json, "success") {
+            return false;
+        }
+        if serializer_extract_i64(clean_json, "error_count") != 0 {
+            return false;
+        }
+        if serializer_extract_i64(clean_json, "warning_count") != 3 {
+            return false;
+        }
+
+        let err_json = serialize_diagnostic_summary(2, 1);
+        if serializer_extract_bool(err_json, "success") {
+            return false;
+        }
+        if serializer_extract_i64(err_json, "error_count") != 2 {
+            return false;
+        }
+        if serializer_extract_i64(err_json, "warning_count") != 1 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_serialize_ast_summary() {
+            return 1;
+        }
+        if !test_serialize_symbol_and_type() {
+            return 2;
+        }
+        if !test_serialize_diagnostic_summary() {
+            return 3;
+        }
+
+        return 42;
+    }
+}

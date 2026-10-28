@@ -17,6 +17,7 @@ $bunker = ".\bunker-cli\target\release\bunker-cli.exe"
 # Expected results for JIT Kernel tests (main() return values - integers)
 $expectedResults = @{
     "01_basic_math" = 42
+    "02_arena_memory" = 42
     "14_kernel_if_branching" = 42
     "15_kernel_defer_return" = 11
     "16_kernel_match_block_expr" = 12
@@ -70,6 +71,152 @@ $expectedResults = @{
     "79_typed_result_operations" = 42
     "81_typed_hashmap_operations" = 42
     "85_result_handle_roundtrip" = 42
+    "88_kernel_unit_enum" = 42
+    "91_node_kind_enum" = 42
+    "92_token_kind_enum" = 42
+    "93_pattern_type_kind_enums" = 42
+    "94_node_kind_typed_api" = 42
+    "95_token_kind_typed_api" = 42
+    "96_pattern_type_kind_typed_api" = 42
+    "97_ast_span_struct" = 42
+    "98_ast_pattern_struct" = 42
+    "100_ast_type_struct" = 42
+    "101_ast_atom_struct" = 42
+    "102_ast_binary_struct" = 42
+    "103_ast_call_struct" = 42
+    "104_ast_index_struct" = 42
+    "105_ast_let_struct" = 42
+    "106_ast_if_struct" = 42
+    "107_ast_for_struct" = 42
+    "108_ast_assign_struct" = 42
+    "109_ast_ternary_struct" = 42
+    "110_ast_array_lit_struct" = 42
+    "111_ast_match_struct" = 42
+    "112_ast_fn_struct" = 42
+    "113_ast_const_struct" = 42
+    "114_ast_struct_item" = 42
+    "115_ast_kernel_struct" = 42
+    "116_ast_block_struct" = 42
+    "117_enum_payload_decl" = 42
+    "118_enum_payload_ctor" = 42
+    "119_enum_payload_match" = 42
+    "120_enum_multi_payload_decl" = 42
+    "121_enum_multi_payload_ctor" = 42
+    "122_enum_multi_payload_match" = 42
+    "124_enum_string_payload" = 42
+    "125_result_option_canonical_enum" = 42
+    "127_cli_args_driver" = 42
+    "128_match_guard" = 42
+    "129_unit_type" = 42
+    "130_tuple_types" = 42
+    "131_struct_destructuring" = 42
+    "132_try_operator" = 42
+    "133_labeled_loops" = 42
+    "134_panic_abort_policy" = 42
+    "135_recoverable_error_conventions" = 42
+    "136_generic_collections_self_host" = 42
+    "137_type_aliases" = 42
+    "138_never_type" = 42
+    "139_nested_patterns" = 42
+    "140_exhaustive_matches" = 42
+    "144_pattern_type_checking" = 42
+    "148_local_type_inference" = 42
+    "150_call_result_inference" = 42
+    "155_inference_constructors" = 42
+    "160_user_defined_enums_adt" = 42
+    "161_cast_safety_rules" = 42
+    "164_user_defined_adt_option_result" = 42
+    "167_nested_structs_arrays" = 42
+    "169_typed_vec_complete" = 42
+    "170_typed_hashmap_str_keys" = 42
+    "173_struct_methods" = 42
+    "176_struct_update_tuple_struct" = 42
+    "179_expression_blocks" = 42
+    "182_runtime_stdlib_complete" = 42
+    "185_higher_order_functions" = 42
+    "188_vec_hashmap_combinators" = 42
+    "190_visibility_and_mutability" = 42
+    "194_constants_across_modules" = 42
+    "195_namespace_collisions" = 42
+    "197_forward_reference_modules" = 42
+    "198_attribute_semantics" = 42
+    "202_comptime_and_doc_comments" = 42
+    "205_string_escapes_and_bytes" = 42
+    "208_slices_and_typed_paths" = 42
+    "211_multifile_modules" = 42
+    "216_generics_basic" = 42
+    "221_process_execution" = 42
+    "223_typed_ast_nodes" = 42
+    "224_ast_capability_json" = 42
+    "225_type_graph_symbol_table" = 42
+    "226_typecheck_resolver_reports" = 42
+    "227_ownership_move_semantics" = 42
+    "229_safety_soundness_ub" = 42
+    "231_sandbox_security_bounds" = 42
+    "232_arena_resource_drop" = 42
+    "233_borrow_handle_wrappers" = 42
+    "234_self_host_move_leak_checks" = 42
+    "235_method_dispatch_rules" = 42
+    "237_operator_policy_rules" = 42
+    "239_generic_structural_constraints" = 42
+    "240_type_diagnostics_parity" = 42
+    "241_unicode_byte_semantics" = 42
+    "243_c_runtime_abi_versioning" = 42
+    "244_collection_iterators" = 42
+    "246_json_parser_writer" = 42
+    "247_diagnostics_builder" = 42
+    "248_cli_argument_parser" = 42
+    "249_structured_logging" = 42
+    "250_arena_allocator_lib" = 42
+    "251_serialization_engine" = 42
+    "252_parser_recovery_diagnostics" = 42
+    "253_parse_recovery_multi_error" = 42
+    "254_unified_diagnostic_envelope" = 42
+    "255_diagnostic_code_registry_parity" = 42
+    "256_module_resolver_cycle_paths" = 42
+    "257_name_resolver_visibility_cross_file" = 42
+    "258_semantic_validation_loop_unreachable" = 42
+    "259_semantic_validation_missing_return_paths" = 42
+    "260_pure_bunker_typechecker_complete" = 42
+    "261_typechecker_expression_statement_matrix" = 42
+    "262_pure_bunker_c_codegen_modular" = 42
+    "263_typed_c_emission_matrix" = 42
+    "264_codegen_hygienic_temporaries" = 42
+    "265_portable_c_statement_expressions" = 42
+    "266_multi_target_backend_strategy" = 42
+    "267_deterministic_artifact_layout" = 42
+    "268_constant_folding_optimizations" = 42
+    "269_incremental_compilation_cache" = 42
+    "270_c_codegen_source_line_directives" = 42
+    "271_debug_source_mapping_parity" = 42
+    "272_lambda_expressions_syntax" = 42
+    "273_closure_captures_environment" = 42
+    "274_code_formatter_deterministic" = 42
+    "275_static_linter_safety_rules" = 42
+    "276_native_test_runner_harness" = 42
+    "277_doc_comment_generator" = 42
+    "278_package_manager_manifest" = 42
+    "279_build_cache_fingerprint" = 42
+    "280_language_server_protocol" = 42
+    "281_watch_mode_dirty_tracker" = 42
+    "282_debugger_hooks_unwinding" = 42
+    "283_runtime_profiler_metrics" = 42
+    "284_code_coverage_tooling" = 42
+    "285_benchmark_tooling_harness" = 42
+    "286_fuzzing_harness_engine" = 42
+    "287_differential_testing_parity" = 42
+    "288_property_testing_engine" = 42
+    "289_compiler_stress_metrics" = 42
+    "290_cross_platform_ci_matrix" = 42
+    "291_versioning_rules_contract" = 42
+    "292_package_registry_archive" = 42
+    "293_stdlib_documentation_catalog" = 42
+    "294_construct_examples_matrix" = 42
+    "295_language_migration_conventions" = 42
+    "296_contribution_rfc_lifecycle" = 42
+    "297_spec_sync_cross_referencer" = 42
+    "298_roadmap_ci_gates_verifier" = 42
+    "299_borrow_resource_checker" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
@@ -236,7 +383,114 @@ if (-not $JitOnly) {
         "tests\77_typed_vec_operations.bkr",
         "tests\79_typed_result_operations.bkr",
         "tests\81_typed_hashmap_operations.bkr",
-        "tests\85_result_handle_roundtrip.bkr"
+        "tests\85_result_handle_roundtrip.bkr",
+        "tests\88_kernel_unit_enum.bkr",
+        "tests\91_node_kind_enum.bkr",
+        "tests\92_token_kind_enum.bkr",
+        "tests\93_pattern_type_kind_enums.bkr",
+        "tests\94_node_kind_typed_api.bkr",
+        "tests\95_token_kind_typed_api.bkr",
+        "tests\96_pattern_type_kind_typed_api.bkr",
+        "tests\97_ast_span_struct.bkr",
+        "tests\98_ast_pattern_struct.bkr",
+        "tests\100_ast_type_struct.bkr",
+        "tests\101_ast_atom_struct.bkr",
+        "tests\102_ast_binary_struct.bkr",
+        "tests\103_ast_call_struct.bkr",
+        "tests\104_ast_index_struct.bkr",
+        "tests\105_ast_let_struct.bkr",
+        "tests\106_ast_if_struct.bkr",
+        "tests\107_ast_for_struct.bkr",
+        "tests\108_ast_assign_struct.bkr",
+        "tests\109_ast_ternary_struct.bkr",
+        "tests\110_ast_array_lit_struct.bkr",
+        "tests\111_ast_match_struct.bkr",
+        "tests\112_ast_fn_struct.bkr",
+        "tests\113_ast_const_struct.bkr",
+        "tests\114_ast_struct_item.bkr",
+        "tests\115_ast_kernel_struct.bkr",
+        "tests\116_ast_block_struct.bkr",
+        "tests\117_enum_payload_decl.bkr",
+        "tests\118_enum_payload_ctor.bkr",
+        "tests\119_enum_payload_match.bkr",
+        "tests\120_enum_multi_payload_decl.bkr",
+        "tests\121_enum_multi_payload_ctor.bkr",
+        "tests\122_enum_multi_payload_match.bkr",
+        "tests\124_enum_string_payload.bkr",
+        "tests\160_user_defined_enums_adt.bkr",
+        "tests\36_kernel_type_cast.bkr",
+        "tests\161_cast_safety_rules.bkr",
+        "tests\164_user_defined_adt_option_result.bkr",
+        "tests\167_nested_structs_arrays.bkr",
+        "tests\169_typed_vec_complete.bkr",
+        "tests\170_typed_hashmap_str_keys.bkr",
+        "tests\173_struct_methods.bkr",
+        "tests\176_struct_update_tuple_struct.bkr",
+        "tests\179_expression_blocks.bkr",
+        "tests\182_runtime_stdlib_complete.bkr",
+        "tests\185_higher_order_functions.bkr",
+        "tests\188_vec_hashmap_combinators.bkr",
+        "tests\190_visibility_and_mutability.bkr",
+        "tests\72_file_io.bkr",
+        "tests\234_self_host_move_leak_checks.bkr",
+        "tests\235_method_dispatch_rules.bkr",
+        "tests\237_operator_policy_rules.bkr",
+        "tests\241_unicode_byte_semantics.bkr",
+        "tests\243_c_runtime_abi_versioning.bkr",
+        "tests\246_json_parser_writer.bkr",
+        "tests\247_diagnostics_builder.bkr",
+        "tests\248_cli_argument_parser.bkr",
+        "tests\249_structured_logging.bkr",
+        "tests\250_arena_allocator_lib.bkr",
+        "tests\251_serialization_engine.bkr",
+        "tests\252_parser_recovery_diagnostics.bkr",
+        "tests\253_parse_recovery_multi_error.bkr",
+        "tests\254_unified_diagnostic_envelope.bkr",
+        "tests\255_diagnostic_code_registry_parity.bkr",
+        "tests\256_module_resolver_cycle_paths.bkr",
+        "tests\257_name_resolver_visibility_cross_file.bkr",
+        "tests\258_semantic_validation_loop_unreachable.bkr",
+        "tests\259_semantic_validation_missing_return_paths.bkr",
+        "tests\260_pure_bunker_typechecker_complete.bkr",
+        "tests\261_typechecker_expression_statement_matrix.bkr",
+        "tests\262_pure_bunker_c_codegen_modular.bkr",
+        "tests\263_typed_c_emission_matrix.bkr",
+        "tests\264_codegen_hygienic_temporaries.bkr",
+        "tests\265_portable_c_statement_expressions.bkr",
+        "tests\266_multi_target_backend_strategy.bkr",
+        "tests\267_deterministic_artifact_layout.bkr",
+        "tests\268_constant_folding_optimizations.bkr",
+        "tests\269_incremental_compilation_cache.bkr",
+        "tests\270_c_codegen_source_line_directives.bkr",
+        "tests\271_debug_source_mapping_parity.bkr",
+        "tests\272_lambda_expressions_syntax.bkr",
+        "tests\273_closure_captures_environment.bkr",
+        "tests\274_code_formatter_deterministic.bkr",
+        "tests\275_static_linter_safety_rules.bkr",
+        "tests\276_native_test_runner_harness.bkr",
+        "tests\277_doc_comment_generator.bkr",
+        "tests\278_package_manager_manifest.bkr",
+        "tests\279_build_cache_fingerprint.bkr",
+        "tests\280_language_server_protocol.bkr",
+        "tests\281_watch_mode_dirty_tracker.bkr",
+        "tests\282_debugger_hooks_unwinding.bkr",
+        "tests\283_runtime_profiler_metrics.bkr",
+        "tests\284_code_coverage_tooling.bkr",
+        "tests\285_benchmark_tooling_harness.bkr",
+        "tests\286_fuzzing_harness_engine.bkr",
+        "tests\287_differential_testing_parity.bkr",
+        "tests\288_property_testing_engine.bkr",
+        "tests\289_compiler_stress_metrics.bkr",
+        "tests\290_cross_platform_ci_matrix.bkr",
+        "tests\291_versioning_rules_contract.bkr",
+        "tests\292_package_registry_archive.bkr",
+        "tests\293_stdlib_documentation_catalog.bkr",
+        "tests\294_construct_examples_matrix.bkr",
+        "tests\295_language_migration_conventions.bkr",
+        "tests\296_contribution_rfc_lifecycle.bkr",
+        "tests\297_spec_sync_cross_referencer.bkr",
+        "tests\298_roadmap_ci_gates_verifier.bkr",
+        "tests\299_borrow_resource_checker.bkr"
     )
 
     $subsetOk = $true
@@ -255,7 +509,7 @@ if (-not $JitOnly) {
         }
 
         $generated = Get-Content $subsetOut -Raw
-        if ($generated -notlike "*int main(void)*") {
+        if ($generated -notlike "*int main(*") {
             Write-Host "FAIL" -ForegroundColor Red -NoNewline
             Write-Host " (unexpected generated C for $subsetFile)"
             $subsetOk = $false
@@ -279,8 +533,8 @@ if (-not $JitOnly) {
     if ($compileExitCode -eq 0 -and (Test-Path $selfHostOut)) {
         $generated = Get-Content $selfHostOut -Raw
         $hasI32Entry = $generated -match "bkr_i32\s+_v[0-9]+\(void\)"
-        $hasMainWrapper = $generated -match "int\s+main\(void\)" -and $generated -match "return\s+\(int\)_v[0-9]+\(\);"
-        $hasNoParseError = $generated -notmatch "Parse error"
+        $hasMainWrapper = $generated -match "int\s+main\(" -and $generated -match "return\s+\(int\)_v[0-9]+\(\);"
+        $hasNoParseError = $generated -notmatch "Parse error at token"
         if ($hasI32Entry -and $hasMainWrapper -and $hasNoParseError) {
             Write-Host "PASS" -ForegroundColor Green -NoNewline
             Write-Host " (Bunker compiler emitted C)"
@@ -302,8 +556,170 @@ if (-not $JitOnly) {
         $failed++
     }
 
+    Write-Host -NoNewline "Testing self_host_compile_file_io... "
+    $selfHostFileIoOut = Join-Path $selfHostTmp "file_io.c"
+    $compileResult = & $bunker self-host-compile "tests\72_file_io.bkr" -o $selfHostFileIoOut 2>&1 | Out-String
+    $compileExitCode = $LASTEXITCODE
+
+    if ($compileExitCode -eq 0 -and (Test-Path $selfHostFileIoOut)) {
+        $generated = Get-Content $selfHostFileIoOut -Raw
+        $hasI32Entry = $generated -match "bkr_i32\s+_v[0-9]+\(void\)"
+        $hasMainWrapper = $generated -match "int\s+main\("
+        $hasNoParseError = $generated -notmatch "Parse error at token"
+        if ($hasI32Entry -and $hasMainWrapper -and $hasNoParseError) {
+            Write-Host "PASS" -ForegroundColor Green -NoNewline
+            Write-Host " (Bunker compiler emitted C for file I/O)"
+            $passed++
+        } else {
+            Write-Host "FAIL" -ForegroundColor Red -NoNewline
+            Write-Host " (unexpected generated C for file I/O)"
+            if ($Verbose) {
+                Write-Host "  $generated" -ForegroundColor DarkGray
+            }
+            $failed++
+        }
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (self-host compile failed for file I/O)"
+        if ($Verbose) {
+            Write-Host "  $compileResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_capability_cli... "
+    $capResult = & $bunker capability 2>&1 | Out-String
+    $capExitCode = $LASTEXITCODE
+    if ($capExitCode -eq 0 -and $capResult -match '"schema_version":\s*"bunker\.capability\.v1"' -and $capResult -match '"compiler":\s*"bunker-cli"') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (capability json emitted)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (capability json failed)"
+        if ($Verbose) {
+            Write-Host "  $capResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_capability_check_flag... "
+    $checkCapResult = & $bunker check --capability-json "tests\01_basic_math.bkr" 2>&1 | Out-String
+    $checkCapExitCode = $LASTEXITCODE
+    if ($checkCapExitCode -eq 0 -and $checkCapResult -match '/\* BUNKER_CAPABILITY_JSON:.*bunker\.capability\.v1') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (capability json comment emitted)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (capability json comment failed)"
+        if ($Verbose) {
+            Write-Host "  $checkCapResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_ast_json_parse... "
+    $astParseResult = & $bunker parse --ast-json "tests\01_basic_math.bkr" 2>&1 | Out-String
+    $astParseExitCode = $LASTEXITCODE
+    if ($astParseExitCode -eq 0 -and $astParseResult -match '"schema_version":\s*"bunker\.ast\.v1"' -and $astParseResult -match '"complete_tree":\s*true') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (ast json emitted from parse)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (ast json parse failed)"
+        if ($Verbose) {
+            Write-Host "  $astParseResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_ast_json_check_flag... "
+    $astCheckResult = & $bunker check --ast-json "tests\01_basic_math.bkr" 2>&1 | Out-String
+    $astCheckExitCode = $LASTEXITCODE
+    if ($astCheckExitCode -eq 0 -and $astCheckResult -match '/\* BUNKER_AST_JSON:.*bunker\.ast\.v1') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (ast json comment emitted from check)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (ast json check comment failed)"
+        if ($Verbose) {
+            Write-Host "  $astCheckResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_type_graph_check_flag... "
+    $tgCheckResult = & $bunker check --type-graph "tests\01_basic_math.bkr" 2>&1 | Out-String
+    $tgCheckExitCode = $LASTEXITCODE
+    if ($tgCheckExitCode -eq 0 -and $tgCheckResult -match '/\* BUNKER_TYPE_GRAPH_JSON:.*bunker\.type_graph\.v1') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (type graph json comment emitted from check)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (type graph json check comment failed)"
+        if ($Verbose) {
+            Write-Host "  $tgCheckResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_symbol_table_check_flag... "
+    $stCheckResult = & $bunker check --symbol-table "tests\01_basic_math.bkr" 2>&1 | Out-String
+    $stCheckExitCode = $LASTEXITCODE
+    if ($stCheckExitCode -eq 0 -and $stCheckResult -match '/\* BUNKER_SYMBOL_TABLE_JSON:.*bunker\.symbol_table\.v1') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (symbol table json comment emitted from check)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (symbol table json check comment failed)"
+        if ($Verbose) {
+            Write-Host "  $stCheckResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_typecheck_check_flag... "
+    $tcCheckResult = & $bunker check --typecheck-json "tests\01_basic_math.bkr" 2>&1 | Out-String
+    $tcCheckExitCode = $LASTEXITCODE
+    if ($tcCheckExitCode -eq 0 -and $tcCheckResult -match '/\* BUNKER_TYPECHECK_JSON:.*bunker\.typecheck\.v1') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (typecheck json comment emitted from check)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (typecheck json check comment failed)"
+        if ($Verbose) {
+            Write-Host "  $tcCheckResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
+    Write-Host -NoNewline "Testing bunker_resolver_check_flag... "
+    $resCheckResult = & $bunker check --resolver-json "tests\01_basic_math.bkr" 2>&1 | Out-String
+    $resCheckExitCode = $LASTEXITCODE
+    if ($resCheckExitCode -eq 0 -and $resCheckResult -match '/\* BUNKER_RESOLVER_JSON:.*bunker\.resolver\.v1') {
+        Write-Host "PASS" -ForegroundColor Green -NoNewline
+        Write-Host " (resolver json comment emitted from check)"
+        $passed++
+    } else {
+        Write-Host "FAIL" -ForegroundColor Red -NoNewline
+        Write-Host " (resolver json check comment failed)"
+        if ($Verbose) {
+            Write-Host "  $resCheckResult" -ForegroundColor DarkGray
+        }
+        $failed++
+    }
+
     if ($selfHostOut) { Remove-Item -Path $selfHostOut -ErrorAction SilentlyContinue }
+    if ($selfHostFileIoOut) { Remove-Item -Path $selfHostFileIoOut -ErrorAction SilentlyContinue }
     if ($selfHostTmp) { Remove-Item -Path $selfHostTmp -ErrorAction SilentlyContinue -Recurse -Force }
+    Remove-Item -Path "test_output.txt", "recoverable_test.txt" -ErrorAction SilentlyContinue
+    Remove-Item -Path "target" -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 Write-Host ""

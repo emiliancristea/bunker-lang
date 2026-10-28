@@ -1,0 +1,119 @@
+// Test 208: Slices and Typed Paths (D-008 and D-013)
+// Verifies borrowed slice views, sub-slicing, bounds safety, range indexing,
+// and file/path APIs returning Result types.
+
+kernel SlicesAndPaths {
+    fn main() -> i32 {
+        // 1. Array slicing & Range indexing
+        let arr: [i32; 5] = [10, 20, 30, 40, 50];
+        let s: [i32] = arr[1..4];
+        assert(slice_len(s) == 3, "s len != 3");
+        assert(slice_get(s, 0) == 20, "s[0] get != 20");
+        assert(slice_get(s, 1) == 30, "s[1] get != 30");
+        assert(slice_get(s, 2) == 40, "s[2] get != 40");
+        assert(s[0] == 20, "s[0] != 20");
+        assert(s[1] == 30, "s[1] != 30");
+        assert(s[2] == 40, "s[2] != 40");
+        assert(slice_contains(s, 30), "s contains 30");
+        assert(!slice_contains(s, 99), "!s contains 99");
+
+        // 2. Sub-slice
+        let sub: [i32] = slice_sub(s, 1, 2);
+        assert(slice_len(sub) == 2, "sub len != 2");
+        assert(sub[0] == 30, "sub[0] != 30");
+        assert(sub[1] == 40, "sub[1] != 40");
+
+        // 3. For-loop over slice
+        let mut sum: i32 = 0;
+        for x in s {
+            sum = sum + x;
+        }
+        assert(sum == 90, "sum != 90");
+
+        // 4. Slice to Vec
+        let v: Vec<i32> = slice_to_vec(s);
+        assert(vec_len(v) == 3, "vec len != 3");
+        assert(vec_get(v, 0) == 20, "vec[0] != 20");
+        assert(vec_get(v, 1) == 30, "vec[1] != 30");
+        assert(vec_get(v, 2) == 40, "vec[2] != 40");
+
+        // 5. Vec as slice & Vec range slicing
+        let v2: Vec<i64> = vec_new();
+        vec_push(v2, 100);
+        vec_push(v2, 200);
+        vec_push(v2, 300);
+        let vs: [i64] = vec_as_slice(v2);
+        assert(slice_len(vs) == 3, "vs len != 3");
+        assert(vs[0] == 100, "vs[0] != 100");
+        assert(vs[1] == 200, "vs[1] != 200");
+        assert(vs[2] == 300, "vs[2] != 300");
+
+        let vs_range: [i64] = v2[0..2];
+        assert(slice_len(vs_range) == 2, "vs_range len != 2");
+        assert(vs_range[0] == 100, "vs_range[0] != 100");
+        assert(vs_range[1] == 200, "vs_range[1] != 200");
+
+        let vs_sub: [i64] = vec_slice(v2, 1, 2);
+        assert(slice_len(vs_sub) == 2, "vs_sub len != 2");
+        assert(vs_sub[0] == 200, "vs_sub[0] != 200");
+        assert(vs_sub[1] == 300, "vs_sub[1] != 300");
+
+        // 6. Byte buffer slicing
+        let b: i64 = bytes_from_str("HELLO_WORLD");
+        let bs: [i32] = bytes_as_slice(b);
+        assert(slice_len(bs) == 11, "bs len != 11");
+        let b_sub: [i32] = bytes_slice(b, 6, 5);
+        assert(slice_len(b_sub) == 5, "b_sub len != 5");
+
+        // 7. Bounds safety: safe clamp on out-of-range
+        assert(slice_get(s, 99) == 0, "slice_get 99 != 0");
+        let out_slice: [i32] = slice_sub(s, 50, 10);
+        assert(slice_len(out_slice) == 0, "out_slice len != 0");
+
+        // 8. Path and File APIs (D-013)
+        let test_file: str = "d013_slice_test.txt";
+        let w_res = file_write(test_file, "Bunker Slice Engine v1.0");
+        assert(result_is_ok(w_res), "file_write not ok");
+        assert(path_exists(test_file), "test_file does not exist");
+        assert(path_is_file(test_file), "test_file is not file");
+        assert(!path_is_dir(test_file), "test_file is dir");
+
+        let sz_res = file_size(test_file);
+        assert(result_is_ok(sz_res), "file_size not ok");
+        assert(result_unwrap(sz_res) == 24, "file_size != 24");
+
+        let r_res = file_read(test_file);
+        assert(result_is_ok(r_res), "file_read not ok");
+        let read_text = result_unwrap(r_res);
+        assert(read_text == "Bunker Slice Engine v1.0", "read_text mismatch");
+
+        let rb_res = file_read_bytes(test_file);
+        assert(result_is_ok(rb_res), "file_read_bytes not ok");
+        let read_b = result_unwrap(rb_res);
+        assert(bytes_len(read_b) == 24, "read_b len != 24");
+
+        let wb_file: str = "d013_slice_bytes_test.txt";
+        let wb_res = file_write_bytes(wb_file, read_b);
+        assert(result_is_ok(wb_res), "file_write_bytes not ok");
+        assert(path_exists(wb_file), "wb_file does not exist");
+        file_remove(wb_file);
+
+        let rm_res = file_remove(test_file);
+        assert(result_is_ok(rm_res), "file_remove not ok");
+        assert(!path_exists(test_file), "test_file still exists after remove");
+
+        // 9. Directory APIs
+        let test_dir: str = "d013_slice_test_dir";
+        let d_res = dir_create(test_dir);
+        assert(result_is_ok(d_res), "dir_create not ok");
+        assert(path_exists(test_dir), "test_dir does not exist");
+        assert(path_is_dir(test_dir), "test_dir is not dir");
+        assert(!path_is_file(test_dir), "test_dir is file");
+
+        let drm_res = dir_remove(test_dir);
+        assert(result_is_ok(drm_res), "dir_remove not ok");
+        assert(!path_exists(test_dir), "test_dir still exists after remove");
+
+        return 42;
+    }
+}

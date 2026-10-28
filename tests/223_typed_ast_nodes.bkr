@@ -1,0 +1,141 @@
+// Test 223: Typed Compiler Data Structures and AST Records (Gate 3, CF-003, CF-004)
+// Purpose: Exercise first-class AST structs, span records, and discriminated kinds across runtime.
+// Expected: JIT executes typed AST manipulations and returns 42
+
+kernel TypedAstNodes {
+    struct AstSpan {
+        start: i64,
+        end: i64,
+    }
+
+    enum AstExprKind {
+        Atom,
+        Binary,
+        Unary,
+        Call,
+        MethodCall,
+        Index,
+        FieldAccess,
+        Cast,
+        Ternary,
+        ArrayLit,
+        ArrayRepeat,
+        StructLit,
+        Match,
+        Block,
+        Unknown,
+    }
+
+    struct AstAtom {
+        start: i64,
+        end: i64,
+        payload: i64,
+    }
+
+    struct AstBinary {
+        start: i64,
+        end: i64,
+        op: i32,
+        left: i64,
+        right: i64,
+    }
+
+    struct AstCall {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        args: i64,
+    }
+
+    fn make_span(start: i64, end: i64) -> AstSpan {
+        return AstSpan {
+            start: start,
+            end: end,
+        };
+    }
+
+    fn span_len(span: AstSpan) -> i64 {
+        return span.end - span.start;
+    }
+
+    fn classify_node(is_call: bool, is_bin: bool) -> AstExprKind {
+        if is_call {
+            return AstExprKind.Call;
+        }
+        if is_bin {
+            return AstExprKind.Binary;
+        }
+        return AstExprKind.Atom;
+    }
+
+    fn eval_kind(k: AstExprKind) -> i32 {
+        return match k {
+            AstExprKind.Call => 10;
+            AstExprKind.Binary => 20;
+            AstExprKind.Atom => 30;
+            AstExprKind.Unknown => 0;
+            _ => 5;
+        };
+    }
+
+    fn main() -> i32 {
+        // 1. Span struct construction and length
+        let span = make_span(10, 24);
+        if span.start != 10 {
+            return 1;
+        }
+        if span.end != 24 {
+            return 2;
+        }
+        if span_len(span) != 14 {
+            return 3;
+        }
+
+        // 2. AstAtom struct creation and verification
+        let atom = AstAtom {
+            start: 0,
+            end: 5,
+            payload: 42,
+        };
+        if atom.payload != 42 {
+            return 4;
+        }
+
+        // 3. AstBinary struct creation
+        let bin = AstBinary {
+            start: 0,
+            end: 15,
+            op: 1,
+            left: 100,
+            right: 200,
+        };
+        if bin.left + bin.right != 300 {
+            return 5;
+        }
+
+        // 4. AstCall struct creation
+        let call = AstCall {
+            start: 5,
+            end: 25,
+            name_idx: 7,
+            args: 2,
+        };
+        if call.name_idx != 7 || call.args != 2 {
+            return 6;
+        }
+
+        // 5. Enum classification and pattern matching
+        let k1 = classify_node(true, false);
+        let k2 = classify_node(false, true);
+        let k3 = classify_node(false, false);
+
+        let total = eval_kind(k1) + eval_kind(k2) + eval_kind(k3);
+        // 10 + 20 + 30 = 60
+        if total != 60 {
+            return 7;
+        }
+
+        // (60 - 18) = 42
+        return total - 18;
+    }
+}

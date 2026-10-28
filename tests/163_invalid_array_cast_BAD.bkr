@@ -1,0 +1,11 @@
+// Test 163: Invalid array cast (BAD)
+// Purpose: Verify type checker rejects casting fixed array to f64.
+// Expected: Type checking failure with cast_type_mismatch / Cannot cast array to f64
+
+kernel InvalidArrayCast {
+    fn main() -> i32 {
+        let arr: [i32; 2] = [1, 2];
+        let bad: f64 = arr as f64;
+        return 0;
+    }
+}

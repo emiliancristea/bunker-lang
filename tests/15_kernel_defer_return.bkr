@@ -4,7 +4,7 @@
 
 kernel DeferReturn {
     fn main() -> i32 {
-        let x: i32 = 10;
+        let mut x: i32 = 10;
         defer {
             x = x + 1;
         }

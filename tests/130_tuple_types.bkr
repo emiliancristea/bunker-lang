@@ -1,0 +1,33 @@
+// Test 130: Tuple Types, Literals, Indexing, and Pattern Matching
+// Milestone Q-233 / T-015
+
+kernel TupleTypes {
+    fn make_pair(a: i64, b: i64) -> (i64, i64) {
+        return (a, b);
+    }
+
+    fn sum_pair(p: (i64, i64)) -> i64 {
+        return p.0 + p.1;
+    }
+
+    fn eval_pair(p: (i64, i64)) -> i64 {
+        return match p {
+            (x, y) => x + y;
+        };
+    }
+
+    fn main() -> i64 {
+        let p: (i64, i64) = make_pair(10, 20);
+        let s: i64 = sum_pair(p); // 30
+
+        let t: (i64, i64, i64) = (5, 6, 1);
+        let s2: i64 = t.0 + t.1 + t.2; // 12
+
+        let match_sum: i64 = eval_pair((21, 21)); // 42
+        if match_sum != 42 {
+            return 1;
+        }
+
+        return s + s2; // 30 + 12 = 42
+    }
+}

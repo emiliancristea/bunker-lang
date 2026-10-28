@@ -1,0 +1,12 @@
+// Test 181: Block Expression Ending in Statement (Q-260, L-006, L-007)
+// Purpose: Ensure typechecker rejects assigning a block expression that does not yield a value (ends in let).
+// Expected: Typecheck error (Annotation type mismatch / Expected i32, found Unit / Void)
+
+kernel BlockExprVoidBad {
+    fn main() -> i32 {
+        let x: i32 = {
+            let y: i32 = 10;
+        };
+        return 0;
+    }
+}

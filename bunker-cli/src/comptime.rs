@@ -27,6 +27,7 @@ pub enum ComptimeValue {
     Float(f64),
     Bool(bool),
     Char(char),
+    String(String),
     None,
     Some(Box<ComptimeValue>),
 }
@@ -39,6 +40,7 @@ impl ComptimeValue {
             ComptimeValue::Float(f) => Expr::Literal(Literal::Float(*f)),
             ComptimeValue::Bool(b) => Expr::Literal(Literal::Bool(*b)),
             ComptimeValue::Char(c) => Expr::Literal(Literal::Char(*c)),
+            ComptimeValue::String(s) => Expr::Literal(Literal::String(s.clone())),
             ComptimeValue::None => Expr::None,
             ComptimeValue::Some(inner) => Expr::Some(Box::new(inner.to_expr())),
         }
@@ -51,6 +53,10 @@ pub struct ComptimeEvaluator {
     functions: HashMap<String, Function>,
     /// Maximum recursion depth to prevent infinite loops.
     max_depth: usize,
+    /// Maximum evaluation step limit.
+    max_steps: usize,
+    /// Current step counter.
+    steps: std::cell::Cell<usize>,
 }
 
 impl ComptimeEvaluator {
@@ -58,7 +64,21 @@ impl ComptimeEvaluator {
         Self {
             functions: HashMap::new(),
             max_depth: 100,
+            max_steps: 10_000,
+            steps: std::cell::Cell::new(0),
         }
+    }
+
+    pub fn tick_step(&self) -> Result<()> {
+        let cur = self.steps.get() + 1;
+        if cur > self.max_steps {
+            return Err(anyhow!(
+                "comptime evaluation exceeded maximum step limit of {}",
+                self.max_steps
+            ));
+        }
+        self.steps.set(cur);
+        Ok(())
     }
 
     /// Register comptime functions from a kernel.
@@ -66,6 +86,8 @@ impl ComptimeEvaluator {
         for item in &kernel.items {
             if let ast::KernelItem::ComptimeFn(func) = item {
                 self.functions.insert(func.name.clone(), func.clone());
+                self.functions
+                    .insert(format!("{}::{}", kernel.name, func.name), func.clone());
             }
         }
     }
@@ -75,22 +97,37 @@ impl ComptimeEvaluator {
         self.functions.contains_key(name)
     }
 
-    /// Try to evaluate a comptime function call with the given arguments.
-    /// Returns None if arguments aren't all constants or evaluation fails.
-    pub fn try_eval(&self, name: &str, args: &[Expr]) -> Option<ComptimeValue> {
-        let func = self.functions.get(name)?;
+    /// Detailed evaluation of a comptime function call.
+    pub fn try_eval_detailed(
+        &self,
+        name: &str,
+        args: &[Expr],
+    ) -> Result<Option<ComptimeValue>, String> {
+        let func = match self.functions.get(name) {
+            Some(f) => f,
+            None => return Ok(None),
+        };
 
         // Check that all arguments are compile-time constants
         let mut arg_values = Vec::new();
         for arg in args {
-            let val = expr_to_comptime_value(arg)?;
-            arg_values.push(val);
+            match expr_to_comptime_value(arg) {
+                Some(val) => arg_values.push(val),
+                None => return Ok(None),
+            }
         }
 
         // Check argument count
         if arg_values.len() != func.params.len() {
-            return None;
+            return Err(format!(
+                "Comptime function '{}' expects {} arguments, got {}",
+                name,
+                func.params.len(),
+                arg_values.len()
+            ));
         }
+
+        self.steps.set(0);
 
         // Build initial environment with parameter bindings
         let mut env: HashMap<String, ComptimeValue> = HashMap::new();
@@ -99,7 +136,17 @@ impl ComptimeEvaluator {
         }
 
         // Evaluate the function body
-        self.eval_block(&func.body, &mut env, 0).ok()
+        match self.eval_block(&func.body, &mut env, 0) {
+            Ok(val) => Ok(Some(val)),
+            Err(err) => Err(format!("Comptime evaluation of '{}' failed: {}", name, err)),
+        }
+    }
+
+    /// Try to evaluate a comptime function call with the given arguments.
+    /// Returns None if arguments aren't all constants or evaluation fails.
+    #[allow(dead_code)]
+    pub fn try_eval(&self, name: &str, args: &[Expr]) -> Option<ComptimeValue> {
+        self.try_eval_detailed(name, args).ok().flatten()
     }
 
     fn eval_block(
@@ -122,6 +169,7 @@ impl ComptimeEvaluator {
         env: &mut HashMap<String, ComptimeValue>,
         depth: usize,
     ) -> Result<ControlFlow> {
+        self.tick_step()?;
         if depth > self.max_depth {
             return Err(anyhow!("comptime evaluation exceeded max depth"));
         }
@@ -182,6 +230,12 @@ impl ComptimeEvaluator {
                             for (name, val) in bindings {
                                 arm_env.insert(name, val);
                             }
+                            if let Some(guard) = &arm.guard {
+                                let guard_val = self.eval_expr(guard, &arm_env, depth)?;
+                                if !matches!(guard_val, ComptimeValue::Bool(true)) {
+                                    continue;
+                                }
+                            }
                             match &arm.body {
                                 ast::MatchBody::Expr(e) => {
                                     result = self.eval_expr(e, &arm_env, depth)?;
@@ -206,7 +260,9 @@ impl ComptimeEvaluator {
                 Stmt::Expr(expr) => {
                     result = self.eval_expr(expr, env, depth)?;
                 }
-                Stmt::For { var, iter, body } => {
+                Stmt::For {
+                    var, iter, body, ..
+                } => {
                     // Extract range bounds (iterator must be a range expression)
                     let (start, end, inclusive) = match iter {
                         Expr::Range {
@@ -246,7 +302,7 @@ impl ComptimeEvaluator {
                         }
                     }
                 }
-                Stmt::Loop(body) => {
+                Stmt::Loop { body, .. } => {
                     const MAX_ITERATIONS: usize = 100_000;
                     let mut iterations = 0;
 
@@ -267,7 +323,9 @@ impl ComptimeEvaluator {
                         }
                     }
                 }
-                Stmt::While { condition, body } => {
+                Stmt::While {
+                    condition, body, ..
+                } => {
                     const MAX_ITERATIONS: usize = 100_000;
                     let mut iterations = 0;
 
@@ -304,10 +362,10 @@ impl ComptimeEvaluator {
                         }
                     }
                 }
-                Stmt::Break => {
+                Stmt::Break(_) => {
                     return Ok(ControlFlow::Break);
                 }
-                Stmt::Continue => {
+                Stmt::Continue(_) => {
                     return Ok(ControlFlow::LoopContinue);
                 }
                 Stmt::Defer(_) | Stmt::Send { .. } => {
@@ -326,12 +384,15 @@ impl ComptimeEvaluator {
         env: &HashMap<String, ComptimeValue>,
         depth: usize,
     ) -> Result<ComptimeValue> {
+        self.tick_step()?;
         match expr {
+            Expr::Unit => Ok(ComptimeValue::Int(0)),
             Expr::Literal(lit) => Ok(match lit {
                 Literal::Int(n) => ComptimeValue::Int(*n),
                 Literal::Float(f) => ComptimeValue::Float(*f),
                 Literal::Bool(b) => ComptimeValue::Bool(*b),
                 Literal::Char(c) => ComptimeValue::Char(*c),
+                Literal::String(s) => ComptimeValue::String(s.clone()),
                 _ => return Err(anyhow!("comptime: unsupported literal type")),
             }),
             Expr::Ident(name) => env
@@ -366,8 +427,30 @@ impl ComptimeEvaluator {
                 let mut local_env = env.clone();
                 self.eval_block(block, &mut local_env, depth + 1)
             }
-            Expr::Call { func, args } => {
+            Expr::Call { func, args, .. } => {
                 if let Expr::Ident(name) = func.as_ref() {
+                    if name == "panic" {
+                        let msg = if let Some(arg) = args.first() {
+                            format!("{:?}", self.eval_expr(arg, env, depth)?)
+                        } else {
+                            "panic".to_string()
+                        };
+                        return Err(anyhow!("comptime panic: {}", msg));
+                    }
+                    if name == "assert" {
+                        if let Some(cond_arg) = args.first() {
+                            let cond_val = self.eval_expr(cond_arg, env, depth)?;
+                            if cond_val == ComptimeValue::Bool(false) {
+                                let msg = if args.len() > 1 {
+                                    format!("{:?}", self.eval_expr(&args[1], env, depth)?)
+                                } else {
+                                    "assertion failed".to_string()
+                                };
+                                return Err(anyhow!("comptime assertion failed: {}", msg));
+                            }
+                        }
+                        return Ok(ComptimeValue::Int(0));
+                    }
                     if self.is_comptime_fn(name) {
                         let mut arg_values = Vec::new();
                         for arg in args {
@@ -382,6 +465,14 @@ impl ComptimeEvaluator {
                 let val = self.eval_expr(inner, env, depth)?;
                 Ok(ComptimeValue::Some(Box::new(val)))
             }
+            Expr::Try(inner) => {
+                let val = self.eval_expr(inner, env, depth)?;
+                match val {
+                    ComptimeValue::Some(inner_val) => Ok(*inner_val),
+                    ComptimeValue::None => Err(anyhow!("? operator on None in comptime")),
+                    _ => Ok(val),
+                }
+            }
             Expr::None => Ok(ComptimeValue::None),
             Expr::Match { expr, arms } => {
                 let value = self.eval_expr(expr, env, depth)?;
@@ -390,6 +481,12 @@ impl ComptimeEvaluator {
                         let mut arm_env = env.clone();
                         for (name, val) in bindings {
                             arm_env.insert(name, val);
+                        }
+                        if let Some(guard) = &arm.guard {
+                            let guard_val = self.eval_expr(guard, &arm_env, depth)?;
+                            if !matches!(guard_val, ComptimeValue::Bool(true)) {
+                                continue;
+                            }
                         }
                         return match &arm.body {
                             ast::MatchBody::Expr(e) => self.eval_expr(e, &arm_env, depth),
@@ -493,6 +590,11 @@ impl ComptimeEvaluator {
             (And, Bool(a), Bool(b)) => Ok(Bool(a && b)),
             (Or, Bool(a), Bool(b)) => Ok(Bool(a || b)),
 
+            // String operations
+            (Add, String(a), String(b)) => Ok(String(format!("{}{}", a, b))),
+            (Eq, String(a), String(b)) => Ok(Bool(a == b)),
+            (Ne, String(a), String(b)) => Ok(Bool(a != b)),
+
             _ => Err(anyhow!("comptime: unsupported binary operation")),
         }
     }
@@ -513,6 +615,9 @@ impl ComptimeEvaluator {
         value: &ComptimeValue,
     ) -> Option<HashMap<String, ComptimeValue>> {
         let mut bindings = HashMap::new();
+        if matches!(pattern, ast::Pattern::Unit) {
+            return Some(bindings);
+        }
         match (pattern, value) {
             (ast::Pattern::Literal(lit), val) => {
                 let pat_val = match lit {
@@ -520,6 +625,7 @@ impl ComptimeEvaluator {
                     Literal::Float(f) => ComptimeValue::Float(*f),
                     Literal::Bool(b) => ComptimeValue::Bool(*b),
                     Literal::Char(c) => ComptimeValue::Char(*c),
+                    Literal::String(s) => ComptimeValue::String(s.clone()),
                     _ => return None,
                 };
                 if &pat_val == val {
@@ -535,13 +641,14 @@ impl ComptimeEvaluator {
                 }
                 Some(bindings)
             }
-            (ast::Pattern::Some(name), ComptimeValue::Some(inner)) => {
-                if name != "_" {
-                    bindings.insert(name.clone(), inner.as_ref().clone());
-                }
-                Some(bindings)
+            (ast::Pattern::Some(sub_pat), ComptimeValue::Some(inner)) => {
+                self.match_pattern(sub_pat, inner)
             }
             (ast::Pattern::None, ComptimeValue::None) => Some(bindings),
+            (ast::Pattern::EnumVariant { .. }, _) => None,
+            (ast::Pattern::EnumPayload { .. }, _) => None,
+            (ast::Pattern::ResultOk(_), _) => None,
+            (ast::Pattern::ResultErr(_), _) => None,
             _ => None,
         }
     }
@@ -555,6 +662,7 @@ fn expr_to_comptime_value(expr: &Expr) -> Option<ComptimeValue> {
             Literal::Float(f) => Some(ComptimeValue::Float(*f)),
             Literal::Bool(b) => Some(ComptimeValue::Bool(*b)),
             Literal::Char(c) => Some(ComptimeValue::Char(*c)),
+            Literal::String(s) => Some(ComptimeValue::String(s.clone())),
             _ => None,
         },
         Expr::Some(inner) => {
@@ -586,6 +694,7 @@ fn expr_to_comptime_value(expr: &Expr) -> Option<ComptimeValue> {
 pub struct ComptimeFoldStats {
     pub calls_folded: usize,
     pub calls_skipped: usize,
+    pub errors: Vec<String>,
 }
 
 /// Run the comptime constant folding pass on an entire file.
@@ -621,7 +730,10 @@ fn fold_kernel(kernel: &mut ast::Kernel, eval: &ComptimeEvaluator, stats: &mut C
             ast::KernelItem::Const(c) => {
                 fold_expr(&mut c.value, eval, stats);
             }
-            ast::KernelItem::Struct(_) => {}
+            ast::KernelItem::Struct(_)
+            | ast::KernelItem::Enum(_)
+            | ast::KernelItem::TypeAlias(_)
+            | ast::KernelItem::Import(_) => {}
         }
     }
 }
@@ -662,6 +774,9 @@ fn fold_stmt(stmt: &mut Stmt, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
         Stmt::Match { expr, arms } => {
             fold_expr(expr, eval, stats);
             for arm in arms {
+                if let Some(guard) = &mut arm.guard {
+                    fold_expr(guard, eval, stats);
+                }
                 match &mut arm.body {
                     ast::MatchBody::Expr(e) => fold_expr(e, eval, stats),
                     ast::MatchBody::Block(b) => fold_block(b, eval, stats),
@@ -681,14 +796,16 @@ fn fold_stmt(stmt: &mut Stmt, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
             fold_expr(iter, eval, stats);
             fold_block(body, eval, stats);
         }
-        Stmt::Loop(block) => {
+        Stmt::Loop { body: block, .. } => {
             fold_block(block, eval, stats);
         }
-        Stmt::While { condition, body } => {
+        Stmt::While {
+            condition, body, ..
+        } => {
             fold_expr(condition, eval, stats);
             fold_block(body, eval, stats);
         }
-        Stmt::Break | Stmt::Continue => {
+        Stmt::Break(_) | Stmt::Continue(_) => {
             // These don't contain expressions to fold
         }
     }
@@ -704,7 +821,7 @@ fn fold_expr(expr: &mut Expr, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
         Expr::Unary { expr: inner, .. } => {
             fold_expr(inner, eval, stats);
         }
-        Expr::Call { func, args } => {
+        Expr::Call { func, args, .. } => {
             fold_expr(func, eval, stats);
             for arg in args {
                 fold_expr(arg, eval, stats);
@@ -729,6 +846,9 @@ fn fold_expr(expr: &mut Expr, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
         Expr::Match { expr: inner, arms } => {
             fold_expr(inner, eval, stats);
             for arm in arms {
+                if let Some(guard) = &mut arm.guard {
+                    fold_expr(guard, eval, stats);
+                }
                 match &mut arm.body {
                     ast::MatchBody::Expr(e) => fold_expr(e, eval, stats),
                     ast::MatchBody::Block(b) => fold_block(b, eval, stats),
@@ -737,6 +857,11 @@ fn fold_expr(expr: &mut Expr, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
         }
         Expr::Block(block) => {
             fold_block(block, eval, stats);
+        }
+        Expr::Tuple(items) => {
+            for item in items {
+                fold_expr(item, eval, stats);
+            }
         }
         Expr::Array(items) => {
             for item in items {
@@ -772,24 +897,33 @@ fn fold_expr(expr: &mut Expr, eval: &ComptimeEvaluator, stats: &mut ComptimeFold
             fold_expr(start, eval, stats);
             fold_expr(end, eval, stats);
         }
+        Expr::Try(inner) => {
+            fold_expr(inner, eval, stats);
+        }
+
         Expr::Cast { expr: inner, .. } => {
             fold_expr(inner, eval, stats);
         }
         // Terminals - no children to fold
-        Expr::Literal(_) | Expr::Ident(_) | Expr::None => {}
+        Expr::Unit | Expr::Literal(_) | Expr::Ident(_) | Expr::None => {}
     }
 
     // Now try to fold this expression if it's a comptime fn call
-    if let Expr::Call { func, args } = expr {
+    if let Expr::Call { func, args, .. } = expr {
         if let Expr::Ident(name) = func.as_ref() {
             if eval.is_comptime_fn(name) {
                 // Try to evaluate
-                if let Some(result) = eval.try_eval(name, args) {
-                    // Replace the entire Call expression with the result
-                    *expr = result.to_expr();
-                    stats.calls_folded += 1;
-                } else {
-                    stats.calls_skipped += 1;
+                match eval.try_eval_detailed(name, args) {
+                    Ok(Some(result)) => {
+                        *expr = result.to_expr();
+                        stats.calls_folded += 1;
+                    }
+                    Ok(None) => {
+                        stats.calls_skipped += 1;
+                    }
+                    Err(err_msg) => {
+                        stats.errors.push(err_msg);
+                    }
                 }
             }
         }
@@ -808,6 +942,10 @@ mod tests {
         // Create a simple comptime fn: comptime fn add(x: i32, y: i32) -> i32 { return x + y; }
         let func = Function {
             name: "add".to_string(),
+            is_pub: false,
+            type_params: vec![],
+            attributes: vec![],
+            doc: None,
             params: vec![
                 ast::Param {
                     name: "x".to_string(),
@@ -826,7 +964,6 @@ mod tests {
                     right: Box::new(Expr::Ident("y".to_string())),
                 }))],
             },
-            attributes: vec![],
         };
 
         eval.functions.insert("add".to_string(), func);
@@ -852,6 +989,10 @@ mod tests {
         // }
         let func = Function {
             name: "factorial".to_string(),
+            is_pub: false,
+            type_params: vec![],
+            attributes: vec![],
+            doc: None,
             params: vec![ast::Param {
                 name: "n".to_string(),
                 ty: Type::I32,
@@ -880,11 +1021,11 @@ mod tests {
                                 left: Box::new(Expr::Ident("n".to_string())),
                                 right: Box::new(Expr::Literal(Literal::Int(1))),
                             }],
+                            type_args: vec![],
                         }),
                     })),
                 ],
             },
-            attributes: vec![],
         };
 
         eval.functions.insert("factorial".to_string(), func);

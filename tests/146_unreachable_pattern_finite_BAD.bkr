@@ -1,0 +1,15 @@
+// Test 146 (BAD): Unreachable Pattern After Exhaustive Finite Match
+// Purpose: Verify rejection when a match arm appears after exhaustive boolean patterns.
+// Expected: Rejected by typechecker for unreachable match arm.
+
+kernel UnreachablePatternFiniteBad {
+    fn main() -> i64 {
+        let b: bool = true;
+        let res: i64 = match b {
+            true => 1;
+            false => 2;
+            _ => 3;
+        };
+        return res;
+    }
+}

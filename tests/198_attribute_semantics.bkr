@@ -1,0 +1,34 @@
+// Test 198: Attribute Semantics & Stable Grammar Versioning
+// Purpose: Verify supported attributes (version, inline, test, must_use) parse, validate, and execute cleanly.
+// Expected: Exits with return code 42.
+
+#![version = "1.0"]
+
+#[version("1.0")]
+kernel MathEngine {
+    #[inline(always)]
+    pub fn double(x: i32) -> i32 {
+        return x * 2;
+    }
+
+    #[must_use("status code must be checked")]
+    pub fn compute_status() -> i32 {
+        return 42;
+    }
+
+    #[test]
+    pub fn unit_test() -> i32 {
+        return 1;
+    }
+}
+
+kernel Main {
+    fn main() -> i32 {
+        let doubled: i32 = MathEngine::double(10);
+        let status: i32 = MathEngine::compute_status();
+        if doubled != 20 {
+            return 1;
+        }
+        return status;
+    }
+}

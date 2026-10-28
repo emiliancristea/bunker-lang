@@ -1,0 +1,11 @@
+// Test 210: Slice Index Type BAD
+// Slices must be indexed with integer expressions.
+
+kernel BadSliceIndex {
+    fn main() -> i32 {
+        let arr: [i32; 3] = [1, 2, 3];
+        let s: [i32] = arr[0..2];
+        let x = s["invalid_index"];
+        return 0;
+    }
+}

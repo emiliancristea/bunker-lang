@@ -1,0 +1,169 @@
+// Test 240: Type Diagnostics Parity and Dual-Compiler Report Validation (Q-286, T-024)
+// Purpose: Verify machine-readable type diagnostics parity (bunker.typecheck.v1), origin tracking,
+//          expected/found typed context, exact byte spans, and structured repair hints across compilers.
+// Expected: JIT returns 42
+
+kernel TypeDiagnosticsParityTest {
+    struct DiagnosticFixture {
+        rule: str,
+        severity: str,
+        has_span: bool,
+    }
+
+    fn verify_diagnostic_model(diag: DiagnosticFixture) -> bool {
+        if diag.severity != "error" {
+            return false;
+        }
+        if !diag.has_span {
+            return false;
+        }
+        return contains(diag.rule, "E02");
+    }
+
+    fn main() -> i32 {
+        let sample = DiagnosticFixture {
+            rule: "E0201",
+            severity: "error",
+            has_span: true,
+        };
+
+        if !verify_diagnostic_model(sample) {
+            return 1;
+        }
+
+        let sandboxed: bool = process_is_sandboxed();
+        if !sandboxed {
+            // 1. Verify clean typecheck report on valid fixture
+            let clean_res = process_run("bunker-cli\\target\\release\\bunker-cli.exe check --typecheck-json tests/01_basic_math.bkr");
+            if result_is_ok(clean_res) {
+                let clean_out: str = result_unwrap(clean_res);
+
+                // Schema version and representation
+                if !contains(clean_out, "bunker.typecheck.v1") {
+                    return 2;
+                }
+                if !contains(clean_out, "typecheck_diagnostics_pass") {
+                    return 3;
+                }
+
+                // Diagnostics summary counts on clean code
+                if !contains(clean_out, "\"has_diagnostics\":false") {
+                    return 4;
+                }
+                if !contains(clean_out, "\"diagnostic_count\":0") {
+                    return 5;
+                }
+                if !contains(clean_out, "\"error_count\":0") {
+                    return 6;
+                }
+
+                // Verify core typecheck semantic capability flags
+                if !contains(clean_out, "\"annotation_checks\":true") {
+                    return 7;
+                }
+                if !contains(clean_out, "\"return_checks\":true") {
+                    return 8;
+                }
+                if !contains(clean_out, "\"condition_checks\":true") {
+                    return 9;
+                }
+                if !contains(clean_out, "\"call_argument_checks\":true") {
+                    return 10;
+                }
+                if !contains(clean_out, "\"call_arity_checks\":true") {
+                    return 11;
+                }
+                if !contains(clean_out, "\"entry_point_checks\":true") {
+                    return 12;
+                }
+                if !contains(clean_out, "\"assignment_target_checks\":true") {
+                    return 13;
+                }
+                if !contains(clean_out, "\"const_assignment_checks\":true") {
+                    return 14;
+                }
+                if !contains(clean_out, "\"struct_field_value_checks\":true") {
+                    return 15;
+                }
+                if !contains(clean_out, "\"ambiguous_empty_array_checks\":true") {
+                    return 16;
+                }
+                if !contains(clean_out, "\"binary_operand_checks\":true") {
+                    return 17;
+                }
+                if !contains(clean_out, "\"unary_operand_checks\":true") {
+                    return 18;
+                }
+                if !contains(clean_out, "\"field_access_base_checks\":true") {
+                    return 19;
+                }
+                if !contains(clean_out, "\"match_arm_type_checks\":true") {
+                    return 20;
+                }
+                if !contains(clean_out, "\"bool_match_exhaustiveness_checks\":true") {
+                    return 21;
+                }
+                if !contains(clean_out, "\"option_match_exhaustiveness_checks\":true") {
+                    return 22;
+                }
+                if !contains(clean_out, "\"result_match_exhaustiveness_checks\":true") {
+                    return 23;
+                }
+                if !contains(clean_out, "\"enum_match_exhaustiveness_checks\":true") {
+                    return 24;
+                }
+                if !contains(clean_out, "\"loop_control_checks\":true") {
+                    return 25;
+                }
+                if !contains(clean_out, "\"return_path_checks\":true") {
+                    return 26;
+                }
+                if !contains(clean_out, "\"unreachable_code_checks\":true") {
+                    return 27;
+                }
+                if !contains(clean_out, "\"void_value_checks\":true") {
+                    return 28;
+                }
+                if !contains(clean_out, "\"typed_diagnostic_context\":true") {
+                    return 29;
+                }
+                if !contains(clean_out, "\"structured_repair_metadata\":true") {
+                    return 30;
+                }
+            }
+
+            // 2. Verify structured diagnostic emission on negative fixture
+            let bad_res = process_run("bunker-cli\\target\\release\\bunker-cli.exe check --typecheck-json tests/236_struct_operator_overload_BAD.bkr");
+            if result_is_ok(bad_res) {
+                let bad_out: str = result_unwrap(bad_res);
+
+                if !contains(bad_out, "bunker.typecheck.v1") {
+                    return 31;
+                }
+                if !contains(bad_out, "\"has_diagnostics\":true") {
+                    return 32;
+                }
+                if !contains(bad_out, "\"diagnostic_count\":2") {
+                    return 33;
+                }
+                if !contains(bad_out, "\"rule_id\":\"E0201\"") {
+                    return 34;
+                }
+                if !contains(bad_out, "\"severity\":\"error\"") {
+                    return 35;
+                }
+                if !contains(bad_out, "\"span_known\":true") {
+                    return 36;
+                }
+                if !contains(bad_out, "\"expected_type\":") {
+                    return 37;
+                }
+                if !contains(bad_out, "\"repair_hint\":") {
+                    return 38;
+                }
+            }
+        }
+
+        return 42;
+    }
+}

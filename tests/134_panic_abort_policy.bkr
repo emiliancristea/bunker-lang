@@ -1,0 +1,46 @@
+// Test 134: Panic and Assert Runtime Policy
+// Purpose: Verify assert(cond), assert(cond, msg), and non-failing assertion invariants return 42.
+// Expected: Returns 42
+
+kernel PanicPolicy {
+    fn check_bounds(x: i32, max: i32) -> bool {
+        assert(x >= 0, "x must be non-negative");
+        assert(x <= max, "x must not exceed max");
+        return true;
+    }
+
+    fn check_simple_assert(flag: bool) -> bool {
+        assert(flag);
+        return true;
+    }
+
+    fn calculate_safe(a: i32, b: i32) -> i32 {
+        assert(b != 0, "division by zero");
+        return a + b;
+    }
+
+    fn main() -> i32 {
+        // 1. Verify 1-argument assert with true condition passes
+        check_simple_assert(true);
+
+        // 2. Verify 2-argument assert with passing bounds
+        let valid = check_bounds(10, 100);
+        assert(valid, "bounds check failed");
+
+        // 3. Verify assertions inside loop
+        let mut sum = 0;
+        for i in 1..6 {
+            assert(i > 0, "loop index must be positive");
+            sum = sum + i;
+        }
+        // sum = 1+2+3+4+5 = 15
+        assert(sum == 15, "sum mismatch");
+
+        // 4. Safe calculation
+        let res = calculate_safe(20, 7);
+        assert(res == 27, "calculation mismatch");
+
+        // 15 + 27 = 42
+        return sum + res;
+    }
+}

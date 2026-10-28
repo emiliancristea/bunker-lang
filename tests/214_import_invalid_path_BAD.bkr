@@ -1,0 +1,7 @@
+import "invalid\\path\\backslashes.bkr";
+
+kernel Main {
+    fn main() -> i32 {
+        return 42;
+    }
+}

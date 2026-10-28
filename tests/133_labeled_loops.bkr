@@ -1,0 +1,57 @@
+// Test 133: Labeled loops (break and continue with loop labels)
+// Purpose: Verify 'label: while, 'label: loop, 'label: for, break 'label, continue 'label.
+// Expected: Returns 42
+
+kernel LabeledLoops {
+    fn main() -> i32 {
+        // 1. Nested while loops with labeled break exiting outer loop
+        let mut count = 0;
+        'outer_while: while count < 100 {
+            let mut inner = 0;
+            while inner < 10 {
+                inner = inner + 1;
+                count = count + 1;
+                if count == 10 {
+                    break 'outer_while;
+                }
+            }
+        }
+        // count should be exactly 10
+
+        // 2. Nested loop and for with continue 'cycle and break 'cycle
+        let mut sum = 0;
+        let mut step = 0;
+        'cycle: loop {
+            step = step + 1;
+            if step > 3 {
+                break 'cycle;
+            }
+            for x in 1..5 {
+                if x == 3 && step == 1 {
+                    continue 'cycle;
+                }
+                sum = sum + x;
+            }
+        }
+        // step 1: x=1 (sum=1), x=2 (sum=3), x=3 -> continue 'cycle
+        // step 2: x=1..4 (sum = 3 + 1+2+3+4 = 13)
+        // step 3: x=1..4 (sum = 13 + 10 = 23)
+        // step 4: step > 3 -> break 'cycle
+        // sum should be 23
+
+        // 3. Nested for loops with labeled break
+        let mut nested_sum = 0;
+        'outer_for: for a in 0..5 {
+            for b in 0..5 {
+                nested_sum = nested_sum + 1;
+                if a == 1 && b == 1 {
+                    break 'outer_for;
+                }
+            }
+        }
+        // a=0: 5 iterations, a=1: 2 iterations -> nested_sum = 7
+
+        // 10 + 23 + 7 + 2 = 42
+        return count + sum + nested_sum + 2;
+    }
+}

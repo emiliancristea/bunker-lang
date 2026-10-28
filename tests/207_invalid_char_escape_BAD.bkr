@@ -1,0 +1,7 @@
+// Rejection test: invalid escape sequence in char literal
+kernel InvalidCharEscapeBad {
+    fn main() -> i32 {
+        let c: i32 = '\z';
+        return 0;
+    }
+}

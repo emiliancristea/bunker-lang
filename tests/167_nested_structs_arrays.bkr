@@ -1,0 +1,46 @@
+// Test 167: Nested structs and arrays (D-007)
+// Purpose: Verify deeply nested structs, struct fields containing structs, and arrays inside structs.
+// Expected: Result: 42
+
+kernel NestedStructsArrays {
+    struct Vector {
+        x: i32,
+        y: i32
+    }
+
+    struct Transform {
+        pos: Vector,
+        scale: i32,
+        matrix: [i32; 3]
+    }
+
+    struct Entity {
+        id: i32,
+        transform: Transform
+    }
+
+    fn update_entity(e: Entity) -> i32 {
+        let x: i32 = e.transform.pos.x;
+        let y: i32 = e.transform.pos.y;
+        let s: i32 = e.transform.scale;
+        let m0: i32 = e.transform.matrix[0];
+        let m1: i32 = e.transform.matrix[1];
+        let m2: i32 = e.transform.matrix[2];
+        return x + y + s + m0 + m1 + m2;
+    }
+
+    fn main() -> i32 {
+        let v: Vector = Vector { x: 10, y: 5 };
+        let t: Transform = Transform {
+            pos: v,
+            scale: 2,
+            matrix: [5, 10, 10]
+        };
+        let ent: Entity = Entity {
+            id: 1,
+            transform: t
+        };
+
+        return update_entity(ent);
+    }
+}

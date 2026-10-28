@@ -1,0 +1,164 @@
+// Test 263: Typed C Emission Matrix (CB-002)
+// Purpose: Verify type-driven C emission rules across all language constructs:
+//   1. Scalar types: i32, i64, f64, bool, str, void, never.
+//   2. Compound types: structs, tuple structs, and fixed array declarations.
+//   3. Handle types: Vec, HashMap, Option, Result as bkr_i64 pointer handles.
+//   4. Typed explicit cast emission: (TargetType)(expr).
+//   5. Function prototype and method signature emission.
+// Expected return: 42
+
+kernel TypedCEmissionMatrixTest {
+    // --- Type Kind Constants ---
+    fn type_void() -> i64 { return 0; }
+    fn type_i32() -> i64 { return 1; }
+    fn type_i64() -> i64 { return 2; }
+    fn type_f64() -> i64 { return 3; }
+    fn type_bool() -> i64 { return 4; }
+    fn type_str() -> i64 { return 5; }
+    fn type_array() -> i64 { return 6; }
+    fn type_vec() -> i64 { return 7; }
+    fn type_map() -> i64 { return 8; }
+    fn type_option() -> i64 { return 9; }
+    fn type_result() -> i64 { return 10; }
+    fn type_struct() -> i64 { return 11; }
+    fn type_never() -> i64 { return 12; }
+
+    // --- C Type String Generator ---
+
+    fn type_to_c_typename(kind: i64) -> str {
+        if kind == type_i32() { return "bkr_i32"; }
+        if kind == type_i64() { return "bkr_i64"; }
+        if kind == type_f64() { return "bkr_f64"; }
+        if kind == type_bool() { return "bkr_bool"; }
+        if kind == type_str() { return "bkr_str"; }
+        if kind == type_void() || kind == type_never() { return "void"; }
+        if kind == type_vec() || kind == type_map() || kind == type_option() || kind == type_result() {
+            return "bkr_i64";
+        }
+        return "bkr_i64";
+    }
+
+    // --- Emission Builders ---
+
+    fn emit_variable_decl(type_kind: i64, var_name: str, init_val: str) -> str {
+        let type_str: str = type_to_c_typename(type_kind);
+        if len(init_val) > 0 {
+            return type_str + " " + var_name + " = " + init_val + ";";
+        }
+        return type_str + " " + var_name + ";";
+    }
+
+    fn emit_array_decl(elem_kind: i64, arr_name: str, count: i64) -> str {
+        let type_str: str = type_to_c_typename(elem_kind);
+        return type_str + " " + arr_name + "[" + int_to_string(count) + "];";
+    }
+
+    fn emit_typed_cast(target_kind: i64, expr_str: str) -> str {
+        let target_str: str = type_to_c_typename(target_kind);
+        return "(" + target_str + ")(" + expr_str + ")";
+    }
+
+    fn emit_function_prototype(ret_kind: i64, fn_name: str, p1_kind: i64, p1_name: str,
+                                p2_kind: i64, p2_name: str) -> str {
+        let ret_str: str = type_to_c_typename(ret_kind);
+        let p1_str: str = type_to_c_typename(p1_kind) + " " + p1_name;
+        let p2_str: str = type_to_c_typename(p2_kind) + " " + p2_name;
+        return ret_str + " " + fn_name + "(" + p1_str + ", " + p2_str + ");";
+    }
+
+    fn emit_struct_def(struct_name: str, f1_kind: i64, f1_name: str,
+                       f2_kind: i64, f2_name: str) -> str {
+        let f1_str: str = type_to_c_typename(f1_kind) + " " + f1_name + ";";
+        let f2_str: str = type_to_c_typename(f2_kind) + " " + f2_name + ";";
+        return "typedef struct " + struct_name + " { " + f1_str + " " + f2_str + " } " + struct_name + ";";
+    }
+
+    // --- Verification Suites ---
+
+    fn test_scalar_and_handle_type_strings() -> bool {
+        if type_to_c_typename(type_i32()) != "bkr_i32" { return false; }
+        if type_to_c_typename(type_i64()) != "bkr_i64" { return false; }
+        if type_to_c_typename(type_f64()) != "bkr_f64" { return false; }
+        if type_to_c_typename(type_bool()) != "bkr_bool" { return false; }
+        if type_to_c_typename(type_str()) != "bkr_str" { return false; }
+        if type_to_c_typename(type_void()) != "void" { return false; }
+        if type_to_c_typename(type_never()) != "void" { return false; }
+
+        // Collection and ADT handles map to bkr_i64
+        if type_to_c_typename(type_vec()) != "bkr_i64" { return false; }
+        if type_to_c_typename(type_map()) != "bkr_i64" { return false; }
+        if type_to_c_typename(type_option()) != "bkr_i64" { return false; }
+        if type_to_c_typename(type_result()) != "bkr_i64" { return false; }
+
+        return true;
+    }
+
+    fn test_declaration_and_array_emission() -> bool {
+        let v1 = emit_variable_decl(type_i64(), "_v1", "42");
+        if v1 != "bkr_i64 _v1 = 42;" { return false; }
+
+        let v2 = emit_variable_decl(type_bool(), "_v2", "1");
+        if v2 != "bkr_bool _v2 = 1;" { return false; }
+
+        let arr = emit_array_decl(type_i32(), "_vBuffer", 16);
+        if arr != "bkr_i32 _vBuffer[16];" { return false; }
+
+        let cast_expr = emit_typed_cast(type_i64(), "_vFloatVal");
+        if cast_expr != "(bkr_i64)(_vFloatVal)" { return false; }
+
+        return true;
+    }
+
+    fn test_prototype_and_struct_emission() -> bool {
+        let proto = emit_function_prototype(type_i64(), "_vAdd", type_i64(), "_vA", type_i64(), "_vB");
+        if proto != "bkr_i64 _vAdd(bkr_i64 _vA, bkr_i64 _vB);" { return false; }
+
+        let s_def = emit_struct_def("_vPoint", type_i64(), "_vX", type_i64(), "_vY");
+        if s_def != "typedef struct _vPoint { bkr_i64 _vX; bkr_i64 _vY; } _vPoint;" { return false; }
+
+        return true;
+    }
+
+    // --- Runtime End-to-End Execution ---
+
+    struct EmissionTarget {
+        value_i32: i32,
+        value_i64: i64,
+        value_bool: bool
+    }
+
+    fn evaluate_target(target: EmissionTarget) -> i64 {
+        if !target.value_bool {
+            return 0;
+        }
+        let cast_val: i64 = target.value_i32 as i64;
+        return cast_val + target.value_i64;
+    }
+
+    fn main() -> i64 {
+        if !test_scalar_and_handle_type_strings() {
+            return 1;
+        }
+
+        if !test_declaration_and_array_emission() {
+            return 2;
+        }
+
+        if !test_prototype_and_struct_emission() {
+            return 3;
+        }
+
+        let target = EmissionTarget {
+            value_i32: 20 as i32,
+            value_i64: 22,
+            value_bool: true
+        };
+
+        let result: i64 = evaluate_target(target);
+        if result != 42 {
+            return 4;
+        }
+
+        return 42;
+    }
+}

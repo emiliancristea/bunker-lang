@@ -1,0 +1,128 @@
+// Test 169: Typed Vec Complete Operations (Q-257, D-009)
+// Purpose: Ensure Vec<T> preserves element type across primitives, strings, and Option/Result recovery.
+// Expected: JIT returns 42
+
+kernel TypedVecComplete {
+    fn test_i32_vec() -> i32 {
+        let v: Vec<i32> = vec_new();
+        vec_push(v, 10);
+        vec_push(v, 20);
+        vec_push(v, 30);
+
+        if vec_len(v) != 3 {
+            return 1;
+        }
+
+        if vec_get(v, 0) != 10 {
+            return 2;
+        }
+        if vec_get(v, 1) != 20 {
+            return 3;
+        }
+        if vec_get(v, 2) != 30 {
+            return 4;
+        }
+
+        if !vec_set(v, 1, 25) {
+            return 5;
+        }
+        if vec_get(v, 1) != 25 {
+            return 6;
+        }
+
+        let opt_val: Option<i32> = vec_get_opt(v, 1);
+        let opt_check: i32 = match opt_val {
+            Some(x) => x;
+            None => 0;
+        };
+        if opt_check != 25 {
+            return 7;
+        }
+
+        let opt_out: Option<i32> = vec_get_opt(v, 99);
+        let out_check: i32 = match opt_out {
+            Some(x) => x;
+            None => -1;
+        };
+        if out_check != -1 {
+            return 8;
+        }
+
+        let popped: i32 = vec_pop(v);
+        if popped != 30 {
+            return 9;
+        }
+        if vec_len(v) != 2 {
+            return 10;
+        }
+
+        let pop_opt: Option<i32> = vec_pop_opt(v);
+        let pop_val: i32 = match pop_opt {
+            Some(x) => x;
+            None => 0;
+        };
+        if pop_val != 25 {
+            return 11;
+        }
+
+        vec_clear(v);
+        if vec_len(v) != 0 {
+            return 12;
+        }
+
+        return 0;
+    }
+
+    fn test_str_vec() -> i32 {
+        let sv: Vec<str> = vec_new();
+        vec_push(sv, "alpha");
+        vec_push(sv, "beta");
+        vec_push(sv, "gamma");
+
+        if vec_len(sv) != 3 {
+            return 20;
+        }
+
+        let s0: str = vec_get(sv, 0);
+        if len(s0) != 5 {
+            return 21;
+        }
+        if s0 != "alpha" {
+            return 22;
+        }
+
+        let s1: str = vec_get(sv, 1);
+        if s1 != "beta" {
+            return 23;
+        }
+
+        if !vec_set(sv, 1, "bravo") {
+            return 24;
+        }
+        let s1_new: str = vec_get(sv, 1);
+        if s1_new != "bravo" {
+            return 25;
+        }
+
+        let popped_s: str = vec_pop(sv);
+        if popped_s != "gamma" {
+            return 26;
+        }
+
+        return 0;
+    }
+
+    fn main() -> i32 {
+        let err1: i32 = test_i32_vec();
+        if err1 != 0 {
+            return err1;
+        }
+
+        let err2: i32 = test_str_vec();
+        if err2 != 0 {
+            return err2;
+        }
+
+        return 42;
+    }
+}

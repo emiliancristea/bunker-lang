@@ -1,0 +1,24 @@
+// Test 197: Forward Reference Across Modules
+// Purpose: Verify forward reference to a module defined later in the file.
+// Expected: Exits with return code 42.
+
+kernel Consumer {
+    pub fn invoke_producer() -> i32 {
+        // Forward reference to Producer::produce and Producer::VAL
+        return Producer::produce() + Producer::VAL;
+    }
+}
+
+kernel Producer {
+    pub const VAL: i32 = 2;
+
+    pub fn produce() -> i32 {
+        return 40;
+    }
+}
+
+kernel Main {
+    fn main() -> i32 {
+        return Consumer::invoke_producer();
+    }
+}

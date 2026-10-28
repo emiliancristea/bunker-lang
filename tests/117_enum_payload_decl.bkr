@@ -1,0 +1,14 @@
+// Test 117: Enum variant payload declarations
+// Purpose: Parse single-type enum variant payloads without constructing them.
+// Expected: Result: 42
+
+kernel EnumPayloadDecl {
+    enum Opt {
+        Some(i32),
+        None,
+    }
+
+    fn main() -> i32 {
+        return 42;
+    }
+}

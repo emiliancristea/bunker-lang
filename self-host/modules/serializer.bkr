@@ -1,0 +1,68 @@
+    // ========================================
+    // SERIALIZATION ENGINE (R-014)
+    // ========================================
+    //
+    // Provides pure Bunker schema-tagged serialization and deserialization
+    // for compiler AST summaries, diagnostics, symbol tables, and type graphs.
+
+    fn serialize_ast_summary(item_count: i64, root_name: str, has_entry: bool) -> str {
+        let mut obj = json_object_new();
+        json_object_set_str(obj, "schema_version", "bunker.ast.v1");
+        json_object_set_str(obj, "representation", "ast_summary");
+        json_object_set_str(obj, "root_name", root_name);
+        json_object_set_i64(obj, "item_count", item_count);
+        json_object_set_bool(obj, "has_entry", has_entry);
+        return json_object_to_json(obj);
+    }
+
+    fn serialize_symbol_entry(name: str, kind: str, scope: str, line: i64, col: i64) -> str {
+        let mut obj = json_object_new();
+        json_object_set_str(obj, "name", name);
+        json_object_set_str(obj, "kind", kind);
+        json_object_set_str(obj, "scope", scope);
+        json_object_set_i64(obj, "line", line);
+        json_object_set_i64(obj, "column", col);
+        return json_object_to_json(obj);
+    }
+
+    fn serialize_type_info(type_name: str, size_bytes: i64, c_abi: str) -> str {
+        let mut obj = json_object_new();
+        json_object_set_str(obj, "schema_version", "bunker.type_graph.v1");
+        json_object_set_str(obj, "type_name", type_name);
+        json_object_set_i64(obj, "size_bytes", size_bytes);
+        json_object_set_str(obj, "c_abi", c_abi);
+        return json_object_to_json(obj);
+    }
+
+    fn serialize_diagnostic_summary(errors: i64, warnings: i64) -> str {
+        let mut obj = json_object_new();
+        json_object_set_str(obj, "schema_version", "bunker.diagnostics.v1");
+        json_object_set_i64(obj, "error_count", errors);
+        json_object_set_i64(obj, "warning_count", warnings);
+        json_object_set_bool(obj, "success", errors == 0);
+        return json_object_to_json(obj);
+    }
+
+    fn serializer_extract_str(payload: str, field: str) -> str {
+        return json_query_str(payload, field);
+    }
+
+    fn serializer_extract_i64(payload: str, field: str) -> i64 {
+        return json_query_i64(payload, field);
+    }
+
+    fn serializer_extract_bool(payload: str, field: str) -> bool {
+        return json_query_bool(payload, field);
+    }
+
+    fn serializer_extract_raw(payload: str, field: str) -> str {
+        return json_extract_field(payload, field);
+    }
+
+    fn serializer_has_field(payload: str, field: str) -> bool {
+        return json_query_has(payload, field);
+    }
+
+    fn serializer_array_items(raw_array: str) -> Vec<str> {
+        return json_array_elements(raw_array);
+    }

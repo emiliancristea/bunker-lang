@@ -1,0 +1,8 @@
+import "modules/math_lib.bkr";
+
+kernel Main {
+    fn main() -> i32 {
+        let secret = MathLib::secret_internal();
+        return secret;
+    }
+}

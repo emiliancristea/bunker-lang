@@ -216,12 +216,20 @@ $ arm-none-eabi-objdump -d blink.elf
 **Goal:** Rewrite the Bunker compiler in Bunker.
 
 **Deliverables:**
-- [ ] Port the parser from Rust to Bunker.
-- [ ] Port the AST and type checker to Bunker.
-- [ ] Port code generation to Bunker.
-- [ ] Compile the Bunker compiler with itself.
+- [x] Port the parser from Rust to Bunker for the bootstrap subset (`self-host/modules/parser.bkr`).
+- [x] Port AST helpers and a bootstrap typechecker to Bunker (`modules/ast.bkr`, `modules/typecheck.bkr`).
+- [x] Port C code generation to Bunker (`modules/c_codegen.bkr`).
+- [x] Stage1/stage2 self-compilation of `bkrc` for the supported bootstrap subset (CI smoke).
+- [ ] Replace raw `Vec<i64>` compiler layouts with real Bunker structs, enums, and generics.
+- [ ] Make the Bunker compiler the normal production path without Rust.
 
-**Success Criteria:**
+**Success Criteria (bootstrap subset, current):**
+```bash
+# CI-only: self-host-compile emits C; stage1 bkrc compiles stage2 bkrc
+$ bunker self-host-compile tests/01_basic_math.bkr -o self_host_output.c
+```
+
+**Remaining success criteria (primary self-host):**
 ```bash
 $ bunker build compiler/bunker.bkr -o bunker2.exe
 $ ./bunker2.exe build tests/01_basic_math.bkr -o math.exe
@@ -264,9 +272,9 @@ Result: 42
 | 6 | ✅ Complete | View layer with Row/Column/Grid layout |
 | 7 | 🔶 Partial | Z3 integration complete, requires Z3 installation |
 | 8 | ⬜ Not Started | Embedded/Metal profile |
-| 9 | 🔶 Partial | `self-host-check` is green and `self-host-compile` emits C for a bootstrap subset; not self-compiling yet |
+| 9 | 🔶 Partial | Stage1/stage2 self-compilation works for the bootstrap subset in CI; Rust remains the production compiler and bootstrap driver |
 
-**Test Suite:** 92 tests passing (57 JIT-validated, 16 negative tests, 14 shell-bearing files, 7 view-bearing files)
+**Test Suite:** 126 tests passing (89 JIT-validated, 18 negative tests, 14 shell-bearing files, 7 view-bearing files)
 
 ---
 
@@ -281,7 +289,9 @@ Result: 42
 7. ~~**Self-host Readiness Check** - Report blockers for Bunker-written compiler sources.~~ ✅ **DONE** (`self-host-check`)
 8. ~~**Typed Self-Host Migration** - Repair `self-host/*.bkr` to satisfy current typed collection rules.~~ ✅ **DONE** (8/8 self-host sources pass)
 9. ~~**Self-Host Execution Wrapper** - Run `self-host/bkrc.bkr` on real `.bkr` input and emit C.~~ ✅ **DONE** (`self-host-compile`)
-10. **Self-Host Execution Parity** - Expand the Bunker-written compiler subset and compare generated output against the Rust compiler.
-11. **Embedded/Metal Profile** - Phase 8: bare-metal compilation target.
+10. **Push and CI-certify local HEAD** - `1697301` is 70 commits ahead of `origin/main`; Q-123..Q-189 have no Actions proof yet.
+11. **Typed compiler structures** - Replace remaining raw `Vec<i64>` AST/token/type layouts with Bunker structs/enums.
+12. **Real generics and ADTs** - Required before the self-host compiler can drop compatibility adapters.
+13. **Embedded/Metal Profile** - Phase 8: bare-metal compilation target. Defer until the primary self-host path is unblocked.
 
 > **Tip:** Run `/check-update-status` to get a full implementation status report with specification compliance analysis.

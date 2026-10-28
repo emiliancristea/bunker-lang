@@ -351,7 +351,7 @@ fn format_expr_brief(expr: &ast::Expr) -> String {
             ast::Literal::Bool(b) => b.to_string(),
             _ => "...".to_string(),
         },
-        ast::Expr::Call { func, args } => {
+        ast::Expr::Call { func, args, .. } => {
             let func_name = format_expr_brief(func);
             let args_str: Vec<_> = args.iter().map(format_expr_brief).collect();
             format!("{}({})", func_name, args_str.join(", "))
@@ -394,6 +394,9 @@ fn collect_places_in_stmt(stmt: &ast::Stmt, out: &mut HashSet<String>) {
         ast::Stmt::Match { expr, arms } => {
             collect_places_in_expr(expr, out);
             for arm in arms {
+                if let Some(guard) = &arm.guard {
+                    collect_places_in_expr(guard, out);
+                }
                 match &arm.body {
                     ast::MatchBody::Expr(expr) => collect_places_in_expr(expr, out),
                     ast::MatchBody::Block(block) => collect_places_in_block(block, out),
@@ -421,7 +424,7 @@ fn collect_places_in_expr(expr: &ast::Expr, out: &mut HashSet<String>) {
             collect_places_in_expr(right, out);
         }
         ast::Expr::Unary { expr, .. } => collect_places_in_expr(expr, out),
-        ast::Expr::Call { func, args } => {
+        ast::Expr::Call { func, args, .. } => {
             collect_places_in_expr(func, out);
             for arg in args {
                 collect_places_in_expr(arg, out);
@@ -443,6 +446,9 @@ fn collect_places_in_expr(expr: &ast::Expr, out: &mut HashSet<String>) {
         ast::Expr::Match { expr, arms } => {
             collect_places_in_expr(expr, out);
             for arm in arms {
+                if let Some(guard) = &arm.guard {
+                    collect_places_in_expr(guard, out);
+                }
                 match &arm.body {
                     ast::MatchBody::Expr(expr) => collect_places_in_expr(expr, out),
                     ast::MatchBody::Block(block) => collect_places_in_block(block, out),
@@ -451,7 +457,12 @@ fn collect_places_in_expr(expr: &ast::Expr, out: &mut HashSet<String>) {
         }
         ast::Expr::Block(block) => collect_places_in_block(block, out),
         ast::Expr::Some(expr) => collect_places_in_expr(expr, out),
-        ast::Expr::None => {}
+        ast::Expr::Unit | ast::Expr::None => {}
+        ast::Expr::Tuple(items) => {
+            for item in items {
+                collect_places_in_expr(item, out);
+            }
+        }
         ast::Expr::Array(items) => {
             for item in items {
                 collect_places_in_expr(item, out);
@@ -467,6 +478,7 @@ fn collect_places_in_expr(expr: &ast::Expr, out: &mut HashSet<String>) {
                 collect_places_in_expr(value, out);
             }
         }
+        ast::Expr::Try(expr) => collect_places_in_expr(expr, out),
         ast::Expr::Copy(expr) => collect_places_in_expr(expr, out),
         ast::Expr::Range { start, end, .. } => {
             collect_places_in_expr(start, out);
@@ -567,7 +579,7 @@ fn eval_lin(
                 _ => Err(anyhow!("unsupported numeric operator: {op:?}")),
             }
         }
-        ast::Expr::Call { func, args } => {
+        ast::Expr::Call { func, args, .. } => {
             if let ast::Expr::Ident(name) = func.as_ref() {
                 if name == "old" {
                     if args.len() != 1 {

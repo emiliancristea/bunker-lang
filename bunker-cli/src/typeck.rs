@@ -23,14 +23,128 @@ pub struct TypeChecker {
     functions: HashMap<String, (Vec<Type>, Option<Type>)>,
     // Struct definitions: name -> fields
     structs: HashMap<String, Vec<(String, Type)>>,
+    // Unit enum definitions: name -> variant names in declaration order
+    enums: HashMap<String, Vec<String>>,
+    // Parallel payload types for each enum variant; None means a unit variant.
+    enum_payloads: HashMap<String, Vec<Vec<Type>>>,
+    // Type aliases: name -> target type
+    type_aliases: HashMap<String, Type>,
     // Errors collected during type checking
     errors: Vec<TypeError>,
     // Current function return type (for checking return statements)
     current_return_type: Option<Type>,
+    // Loop label stack for break/continue validation
+    loop_labels: Vec<Option<String>>,
     // Move tracking: variables that have been moved
     moved_vars: HashSet<String>,
     // Where each variable was moved (for error messages)
     moved_locations: HashMap<String, String>,
+    // Constants declared (for assignment rejection)
+    constants: HashSet<String>,
+    // Local variable mutability: variable_name -> is_mutable
+    var_mutability: HashMap<String, bool>,
+    // Current kernel name
+    current_kernel: String,
+    // Symbol visibility: symbol_name -> (declaring_kernel, is_pub)
+    symbol_visibility: HashMap<String, (String, bool)>,
+    // Declaring kernels for each symbol: symbol_name -> Vec<declaring_kernel>
+    declaring_kernels: HashMap<String, Vec<String>>,
+    // Registered kernels to avoid double-registration
+    registered_kernels: HashSet<String>,
+    // Functions marked with #[must_use] (optional message)
+    must_use_functions: HashMap<String, Option<String>>,
+    // Symbols marked with #[deprecated] (optional message)
+    deprecated_symbols: HashMap<String, Option<String>>,
+    // Detected or validated language version
+    pub language_version: Option<String>,
+    // Strict mutability mode
+    pub strict_mutability: bool,
+}
+
+fn pattern_is_irrefutable(pat: &ast::Pattern) -> bool {
+    match pat {
+        ast::Pattern::Ident(_) | ast::Pattern::Unit => true,
+        ast::Pattern::Tuple(sub_pats) => sub_pats.iter().all(pattern_is_irrefutable),
+        ast::Pattern::Struct { fields, .. } => {
+            fields.iter().all(|(_, p)| pattern_is_irrefutable(p))
+        }
+        _ => false,
+    }
+}
+
+fn patterns_exhaust_type(
+    patterns: &[&ast::Pattern],
+    ty: &Type,
+    enums: &HashMap<String, Vec<String>>,
+) -> bool {
+    if patterns.iter().any(|p| pattern_is_irrefutable(p)) {
+        return true;
+    }
+    match ty {
+        Type::Bool => {
+            let mut seen_true = false;
+            let mut seen_false = false;
+            for p in patterns {
+                match p {
+                    ast::Pattern::Bool(b) | ast::Pattern::Literal(Literal::Bool(b)) => {
+                        if *b {
+                            seen_true = true;
+                        } else {
+                            seen_false = true;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            seen_true && seen_false
+        }
+        Type::Option(inner) => {
+            let mut some_subpats = Vec::new();
+            let mut seen_none = false;
+            for p in patterns {
+                match p {
+                    ast::Pattern::Some(sub) => some_subpats.push(sub.as_ref()),
+                    ast::Pattern::None => seen_none = true,
+                    _ => {}
+                }
+            }
+            seen_none && patterns_exhaust_type(&some_subpats, inner, enums)
+        }
+        Type::Result(ok_ty, err_ty) => {
+            let mut ok_subpats = Vec::new();
+            let mut err_subpats = Vec::new();
+            for p in patterns {
+                match p {
+                    ast::Pattern::ResultOk(sub) => ok_subpats.push(sub.as_ref()),
+                    ast::Pattern::ResultErr(sub) => err_subpats.push(sub.as_ref()),
+                    _ => {}
+                }
+            }
+            patterns_exhaust_type(&ok_subpats, ok_ty, enums)
+                && patterns_exhaust_type(&err_subpats, err_ty, enums)
+        }
+        Type::Named(enum_name) => {
+            if let Some(variants) = enums.get(enum_name) {
+                let mut seen_variants = HashSet::new();
+                for p in patterns {
+                    if let ast::Pattern::EnumVariant {
+                        enum_name: name,
+                        variant,
+                        ..
+                    } = p
+                    {
+                        if name == enum_name {
+                            seen_variants.insert(variant.as_str());
+                        }
+                    }
+                }
+                variants.iter().all(|v| seen_variants.contains(v.as_str()))
+            } else {
+                false
+            }
+        }
+        _ => false,
+    }
 }
 
 impl TypeChecker {
@@ -39,10 +153,24 @@ impl TypeChecker {
             variables: HashMap::new(),
             functions: HashMap::new(),
             structs: HashMap::new(),
+            enums: HashMap::new(),
+            enum_payloads: HashMap::new(),
+            type_aliases: HashMap::new(),
             errors: Vec::new(),
             current_return_type: None,
+            loop_labels: Vec::new(),
             moved_vars: HashSet::new(),
             moved_locations: HashMap::new(),
+            constants: HashSet::new(),
+            var_mutability: HashMap::new(),
+            current_kernel: String::new(),
+            symbol_visibility: HashMap::new(),
+            declaring_kernels: HashMap::new(),
+            registered_kernels: HashSet::new(),
+            must_use_functions: HashMap::new(),
+            deprecated_symbols: HashMap::new(),
+            language_version: None,
+            strict_mutability: true,
         };
         // Register built-in functions
         tc.functions
@@ -58,33 +186,396 @@ impl TypeChecker {
         tc
     }
 
-    pub fn check_kernel(&mut self, kernel: &ast::Kernel) -> Result<Vec<TypeError>> {
-        // First pass: collect all struct and function signatures
-        for item in &kernel.items {
-            match item {
-                ast::KernelItem::Struct(s) => {
-                    let fields: Vec<(String, Type)> = s
-                        .fields
-                        .iter()
-                        .map(|f| (f.name.clone(), f.ty.clone()))
-                        .collect();
-                    self.structs.insert(s.name.clone(), fields);
+    pub fn check_attributes(&mut self, attributes: &[ast::Attribute], context: &str) {
+        for attr in attributes {
+            match attr {
+                ast::Attribute::Verified
+                | ast::Attribute::UnsafeTrust
+                | ast::Attribute::Requires(_)
+                | ast::Attribute::Ensures(_)
+                | ast::Attribute::Inline(_)
+                | ast::Attribute::Deprecated(_)
+                | ast::Attribute::MustUse(_)
+                | ast::Attribute::Test
+                | ast::Attribute::Doc(_) => {}
+                ast::Attribute::Version(ref ver) => {
+                    if ver != "0.1" && ver != "1.0" && ver != "2026" {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Unsupported language version '{}', expected '0.1' or '1.0'",
+                                ver
+                            ),
+                            location: context.to_string(),
+                        });
+                    } else if self.language_version.is_none() {
+                        self.language_version = Some(ver.clone());
+                    }
                 }
-                ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f) => {
-                    let param_types: Vec<Type> = f.params.iter().map(|p| p.ty.clone()).collect();
-                    self.functions
-                        .insert(f.name.clone(), (param_types, f.return_type.clone()));
-                }
-                ast::KernelItem::Const(c) => {
-                    self.variables.insert(c.name.clone(), c.ty.clone());
+                ast::Attribute::Other { name, .. } => {
+                    self.errors.push(TypeError {
+                        message: format!("Unsupported attribute '{}'", name),
+                        location: context.to_string(),
+                    });
                 }
             }
         }
+    }
 
-        // Second pass: type check function bodies
+    pub fn check_visibility(&mut self, symbol_name: &str, context: &str) {
+        if !self.current_kernel.is_empty() && !symbol_name.contains("::") {
+            let local_symbol = format!("{}::{}", self.current_kernel, symbol_name);
+            if self.symbol_visibility.contains_key(&local_symbol) {
+                // Symbol belongs to the current kernel; private access within the same kernel is allowed
+                return;
+            }
+        }
+        if let Some((declaring_kernel, is_pub)) = self.symbol_visibility.get(symbol_name) {
+            if !is_pub
+                && declaring_kernel != &self.current_kernel
+                && !self.current_kernel.is_empty()
+            {
+                self.errors.push(TypeError {
+                    message: format!(
+                        "Symbol '{}' is private and cannot be accessed from outside its module",
+                        symbol_name
+                    ),
+                    location: context.to_string(),
+                });
+            }
+        }
+    }
+
+    pub fn resolve_alias(&self, ty: &Type) -> Type {
+        let mut current = ty.clone();
+        let mut depth = 0;
+        loop {
+            match &current {
+                Type::Named(name) => {
+                    if let Some(target) = self.type_aliases.get(name) {
+                        current = target.clone();
+                        depth += 1;
+                        if depth > 32 {
+                            return current;
+                        }
+                    } else {
+                        return current;
+                    }
+                }
+                Type::Option(inner) => {
+                    return Type::Option(Box::new(self.resolve_alias(inner)));
+                }
+                Type::Result(ok, err) => {
+                    return Type::Result(
+                        Box::new(self.resolve_alias(ok)),
+                        Box::new(self.resolve_alias(err)),
+                    );
+                }
+                Type::Vec(elem) => {
+                    return Type::Vec(Box::new(self.resolve_alias(elem)));
+                }
+                Type::HashMap(k, v) => {
+                    return Type::HashMap(
+                        Box::new(self.resolve_alias(k)),
+                        Box::new(self.resolve_alias(v)),
+                    );
+                }
+                Type::Array(elem, len) => {
+                    return Type::Array(Box::new(self.resolve_alias(elem)), *len);
+                }
+                Type::Slice(elem) => {
+                    return Type::Slice(Box::new(self.resolve_alias(elem)));
+                }
+                Type::Tuple(elems) => {
+                    return Type::Tuple(elems.iter().map(|e| self.resolve_alias(e)).collect());
+                }
+                Type::Ref { mutable, ty } => {
+                    return Type::Ref {
+                        mutable: *mutable,
+                        ty: Box::new(self.resolve_alias(ty)),
+                    };
+                }
+                Type::Fn(params, ret) => {
+                    return Type::Fn(
+                        params.iter().map(|p| self.resolve_alias(p)).collect(),
+                        Box::new(self.resolve_alias(ret)),
+                    );
+                }
+                Type::Generic(name, args) => {
+                    let resolved_args: Vec<_> =
+                        args.iter().map(|a| self.resolve_alias(a)).collect();
+                    let mangled = crate::monomorphize::mangle_name(name, &resolved_args);
+                    if self.structs.contains_key(&mangled) || self.enums.contains_key(&mangled) {
+                        return Type::Named(mangled);
+                    }
+                    return Type::Generic(name.clone(), resolved_args);
+                }
+                _ => return current,
+            }
+        }
+    }
+
+    pub fn register_kernel_declarations(&mut self, kernel: &ast::Kernel) {
+        self.check_attributes(&kernel.attributes, &kernel.name);
+        // Collect all type aliases
         for item in &kernel.items {
-            if let ast::KernelItem::Function(f) = item {
-                self.check_function(f)?;
+            if let ast::KernelItem::TypeAlias(a) = item {
+                self.check_attributes(&a.attributes, &a.name);
+                if self.type_aliases.contains_key(&a.name) {
+                    self.errors.push(TypeError {
+                        message: format!("Duplicate type alias '{}'", a.name),
+                        location: a.name.clone(),
+                    });
+                }
+                self.type_aliases.insert(a.name.clone(), a.target.clone());
+                self.type_aliases
+                    .insert(format!("{}::{}", kernel.name, a.name), a.target.clone());
+                self.symbol_visibility
+                    .insert(a.name.clone(), (kernel.name.clone(), a.is_pub));
+                self.symbol_visibility.insert(
+                    format!("{}::{}", kernel.name, a.name),
+                    (kernel.name.clone(), a.is_pub),
+                );
+                self.declaring_kernels
+                    .entry(a.name.clone())
+                    .or_default()
+                    .push(kernel.name.clone());
+            }
+        }
+
+        // Collect struct, enum, function signatures, and constants
+        for item in &kernel.items {
+            match item {
+                ast::KernelItem::TypeAlias(_) | ast::KernelItem::Import(_) => {}
+                ast::KernelItem::Struct(s) => {
+                    self.check_attributes(&s.attributes, &s.name);
+                    for attr in &s.attributes {
+                        if let ast::Attribute::Deprecated(msg) = attr {
+                            self.deprecated_symbols.insert(s.name.clone(), msg.clone());
+                            self.deprecated_symbols
+                                .insert(format!("{}::{}", kernel.name, s.name), msg.clone());
+                        }
+                    }
+                    let fields: Vec<(String, Type)> = s
+                        .fields
+                        .iter()
+                        .map(|f| (f.name.clone(), self.resolve_alias(&f.ty)))
+                        .collect();
+                    if self.enums.contains_key(&s.name) {
+                        self.errors.push(TypeError {
+                            message: format!("Name '{}' is already declared as an enum", s.name),
+                            location: s.name.clone(),
+                        });
+                    }
+                    if self.type_aliases.contains_key(&s.name) {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Name '{}' is already declared as a type alias",
+                                s.name
+                            ),
+                            location: s.name.clone(),
+                        });
+                    }
+                    self.symbol_visibility
+                        .insert(s.name.clone(), (kernel.name.clone(), s.is_pub));
+                    self.symbol_visibility.insert(
+                        format!("{}::{}", kernel.name, s.name),
+                        (kernel.name.clone(), s.is_pub),
+                    );
+                    self.structs.insert(s.name.clone(), fields.clone());
+                    self.structs
+                        .insert(format!("{}::{}", kernel.name, s.name), fields);
+                    self.declaring_kernels
+                        .entry(s.name.clone())
+                        .or_default()
+                        .push(kernel.name.clone());
+                }
+                ast::KernelItem::Enum(e) => {
+                    self.check_attributes(&e.attributes, &e.name);
+                    for attr in &e.attributes {
+                        if let ast::Attribute::Deprecated(msg) = attr {
+                            self.deprecated_symbols.insert(e.name.clone(), msg.clone());
+                            self.deprecated_symbols
+                                .insert(format!("{}::{}", kernel.name, e.name), msg.clone());
+                        }
+                    }
+                    if self.structs.contains_key(&e.name) {
+                        self.errors.push(TypeError {
+                            message: format!("Name '{}' is already declared as a struct", e.name),
+                            location: e.name.clone(),
+                        });
+                    }
+                    if self.type_aliases.contains_key(&e.name) {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Name '{}' is already declared as a type alias",
+                                e.name
+                            ),
+                            location: e.name.clone(),
+                        });
+                    }
+                    if e.variants.is_empty() {
+                        self.errors.push(TypeError {
+                            message: format!("Enum '{}' must declare at least one variant", e.name),
+                            location: e.name.clone(),
+                        });
+                    }
+                    let mut seen = HashSet::new();
+                    for variant in &e.variants {
+                        if !seen.insert(variant.name.clone()) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Duplicate variant '{}' in enum '{}'",
+                                    variant.name, e.name
+                                ),
+                                location: e.name.clone(),
+                            });
+                        }
+                    }
+                    self.symbol_visibility
+                        .insert(e.name.clone(), (kernel.name.clone(), e.is_pub));
+                    self.symbol_visibility.insert(
+                        format!("{}::{}", kernel.name, e.name),
+                        (kernel.name.clone(), e.is_pub),
+                    );
+                    self.enums.insert(e.name.clone(), e.variant_names());
+                    self.enums
+                        .insert(format!("{}::{}", kernel.name, e.name), e.variant_names());
+                    let payloads: Vec<Vec<Type>> = e
+                        .variants
+                        .iter()
+                        .map(|variant| {
+                            variant
+                                .payloads
+                                .iter()
+                                .map(|p| self.resolve_alias(p))
+                                .collect()
+                        })
+                        .collect();
+                    self.enum_payloads.insert(e.name.clone(), payloads.clone());
+                    self.enum_payloads
+                        .insert(format!("{}::{}", kernel.name, e.name), payloads);
+                    self.declaring_kernels
+                        .entry(e.name.clone())
+                        .or_default()
+                        .push(kernel.name.clone());
+                }
+                ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f) => {
+                    self.check_attributes(&f.attributes, &f.name);
+                    for attr in &f.attributes {
+                        if let ast::Attribute::MustUse(msg) = attr {
+                            self.must_use_functions.insert(f.name.clone(), msg.clone());
+                            self.must_use_functions
+                                .insert(format!("{}::{}", kernel.name, f.name), msg.clone());
+                        }
+                        if let ast::Attribute::Deprecated(msg) = attr {
+                            self.deprecated_symbols.insert(f.name.clone(), msg.clone());
+                            self.deprecated_symbols
+                                .insert(format!("{}::{}", kernel.name, f.name), msg.clone());
+                        }
+                    }
+                    self.symbol_visibility
+                        .insert(f.name.clone(), (kernel.name.clone(), f.is_pub));
+                    self.symbol_visibility.insert(
+                        format!("{}::{}", kernel.name, f.name),
+                        (kernel.name.clone(), f.is_pub),
+                    );
+                    let param_types: Vec<Type> =
+                        f.params.iter().map(|p| self.resolve_alias(&p.ty)).collect();
+                    self.functions.insert(
+                        f.name.clone(),
+                        (
+                            param_types.clone(),
+                            f.return_type.as_ref().map(|t| self.resolve_alias(t)),
+                        ),
+                    );
+                    self.functions.insert(
+                        format!("{}::{}", kernel.name, f.name),
+                        (
+                            param_types,
+                            f.return_type.as_ref().map(|t| self.resolve_alias(t)),
+                        ),
+                    );
+                    self.declaring_kernels
+                        .entry(f.name.clone())
+                        .or_default()
+                        .push(kernel.name.clone());
+                }
+                ast::KernelItem::Const(c) => {
+                    self.check_attributes(&c.attributes, &c.name);
+                    for attr in &c.attributes {
+                        if let ast::Attribute::Deprecated(msg) = attr {
+                            self.deprecated_symbols.insert(c.name.clone(), msg.clone());
+                            self.deprecated_symbols
+                                .insert(format!("{}::{}", kernel.name, c.name), msg.clone());
+                        }
+                    }
+                    self.symbol_visibility
+                        .insert(c.name.clone(), (kernel.name.clone(), c.is_pub));
+                    self.symbol_visibility.insert(
+                        format!("{}::{}", kernel.name, c.name),
+                        (kernel.name.clone(), c.is_pub),
+                    );
+                    self.constants.insert(c.name.clone());
+                    self.constants
+                        .insert(format!("{}::{}", kernel.name, c.name));
+                    self.variables
+                        .insert(c.name.clone(), self.resolve_alias(&c.ty));
+                    self.variables.insert(
+                        format!("{}::{}", kernel.name, c.name),
+                        self.resolve_alias(&c.ty),
+                    );
+                    self.declaring_kernels
+                        .entry(c.name.clone())
+                        .or_default()
+                        .push(kernel.name.clone());
+                }
+            }
+        }
+    }
+
+    pub fn check_kernel(&mut self, kernel: &ast::Kernel) -> Result<Vec<TypeError>> {
+        if self.registered_kernels.insert(kernel.name.clone()) {
+            self.register_kernel_declarations(kernel);
+        }
+
+        // Check for cyclic aliases
+        for name in self.type_aliases.keys() {
+            let mut visited = HashSet::new();
+            let mut curr = name.clone();
+            visited.insert(curr.clone());
+            while let Some(Type::Named(next)) = self.type_aliases.get(&curr) {
+                if visited.contains(next) {
+                    self.errors.push(TypeError {
+                        message: format!("Cyclic type alias detected involving '{}'", name),
+                        location: name.clone(),
+                    });
+                    break;
+                }
+                visited.insert(next.clone());
+                curr = next.clone();
+            }
+        }
+        self.current_kernel = kernel.name.clone();
+
+        // Second pass: type check constants and function bodies
+        for item in &kernel.items {
+            match item {
+                ast::KernelItem::Const(c) => {
+                    let actual = self.infer_expr(&c.value, &c.name)?;
+                    if !self.types_compatible(&c.ty, &actual) {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Constant '{}' type mismatch: expected {:?}, got {:?}",
+                                c.name, c.ty, actual
+                            ),
+                            location: c.name.clone(),
+                        });
+                    }
+                }
+                ast::KernelItem::Function(f) => {
+                    self.check_function(f)?;
+                }
+                _ => {}
             }
         }
 
@@ -94,16 +585,18 @@ impl TypeChecker {
     fn check_function(&mut self, func: &ast::Function) -> Result<()> {
         // Save and set return type context
         let prev_return = self.current_return_type.take();
-        self.current_return_type = func.return_type.clone();
+        self.current_return_type = func.return_type.as_ref().map(|t| self.resolve_alias(t));
 
         // Save current variable scope and move tracking
         let saved_vars = self.variables.clone();
         let saved_moved = self.moved_vars.clone();
         let saved_moved_locations = self.moved_locations.clone();
+        let saved_mutability = self.var_mutability.clone();
 
         // Add parameters to scope
         for param in &func.params {
-            self.variables.insert(param.name.clone(), param.ty.clone());
+            self.variables
+                .insert(param.name.clone(), self.resolve_alias(&param.ty));
         }
 
         // Check function body
@@ -113,6 +606,7 @@ impl TypeChecker {
         self.variables = saved_vars;
         self.moved_vars = saved_moved;
         self.moved_locations = saved_moved_locations;
+        self.var_mutability = saved_mutability;
         self.current_return_type = prev_return;
 
         Ok(())
@@ -128,7 +622,13 @@ impl TypeChecker {
 
     fn check_stmt(&mut self, stmt: &Stmt, context: &str) -> Result<Option<Type>> {
         match stmt {
-            Stmt::Let { name, ty, value } => {
+            Stmt::Let {
+                name,
+                mutable,
+                ty,
+                value,
+            } => {
+                self.var_mutability.insert(name.clone(), *mutable);
                 // Check for None without type annotation
                 if ty.is_none() && matches!(value, Expr::None) {
                     self.errors.push(TypeError {
@@ -143,7 +643,98 @@ impl TypeChecker {
                     return Ok(None);
                 }
 
-                let inferred = self.infer_expr_with_hint(value, context, ty.as_ref())?;
+                // Check for empty array without type annotation
+                if ty.is_none() && matches!(value, Expr::Array(elements) if elements.is_empty()) {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Cannot infer type of '{}': empty array requires explicit [T; N] type annotation",
+                            name
+                        ),
+                        location: context.to_string(),
+                    });
+                    self.variables
+                        .insert(name.clone(), Type::Array(Box::new(Type::I32), 0));
+                    return Ok(None);
+                }
+
+                // Check for Result constructor without type annotation
+                if ty.is_none() {
+                    let is_unannotated_result = match value {
+                        Expr::Call { func, .. } => {
+                            if let Expr::Ident(fname) = func.as_ref() {
+                                fname == "result_ok"
+                                    || fname == "result_err"
+                                    || fname == "Ok"
+                                    || fname == "Err"
+                            } else {
+                                false
+                            }
+                        }
+                        _ => false,
+                    };
+                    if is_unannotated_result {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Cannot infer type of '{}': Result constructor requires explicit Result<T, E> type annotation or contextual type",
+                                name
+                            ),
+                            location: context.to_string(),
+                        });
+                        self.variables.insert(
+                            name.clone(),
+                            Type::Result(Box::new(Type::I64), Box::new(Type::Str)),
+                        );
+                        return Ok(None);
+                    }
+                }
+
+                // Check for collection constructor (vec_new, hashmap_new) without type annotation
+                if ty.is_none() {
+                    let is_vec = match value {
+                        Expr::Call { func, .. } => {
+                            if let Expr::Ident(fname) = func.as_ref() {
+                                fname == "vec_new"
+                            } else {
+                                false
+                            }
+                        }
+                        _ => false,
+                    };
+                    let is_map = match value {
+                        Expr::Call { func, .. } => {
+                            if let Expr::Ident(fname) = func.as_ref() {
+                                fname == "hashmap_new"
+                            } else {
+                                false
+                            }
+                        }
+                        _ => false,
+                    };
+                    if is_vec || is_map {
+                        let cname = if is_vec { "Vec" } else { "HashMap" };
+                        let annot = if is_vec { "Vec<T>" } else { "HashMap<K, V>" };
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Cannot infer type of '{}': {} constructor requires explicit {} type annotation or contextual type",
+                                name, cname, annot
+                            ),
+                            location: context.to_string(),
+                        });
+                        if is_vec {
+                            self.variables
+                                .insert(name.clone(), Type::Vec(Box::new(Type::I64)));
+                        } else {
+                            self.variables.insert(
+                                name.clone(),
+                                Type::HashMap(Box::new(Type::Str), Box::new(Type::I64)),
+                            );
+                        }
+                        return Ok(None);
+                    }
+                }
+
+                let resolved_hint = ty.as_ref().map(|t| self.resolve_alias(t));
+                let inferred = self.infer_expr_with_hint(value, context, resolved_hint.as_ref())?;
 
                 // Move semantics: if value is a non-copy identifier (not wrapped in `copy`),
                 // mark the source variable as moved
@@ -158,7 +749,8 @@ impl TypeChecker {
                 }
 
                 if let Some(declared) = ty {
-                    if !self.types_compatible(declared, &inferred) {
+                    let resolved = self.resolve_alias(declared);
+                    if !self.types_compatible(&resolved, &inferred) {
                         self.errors.push(TypeError {
                             message: format!(
                                 "Type mismatch in let binding '{}': declared {:?}, got {:?}",
@@ -167,15 +759,54 @@ impl TypeChecker {
                             location: context.to_string(),
                         });
                     }
-                    self.variables.insert(name.clone(), declared.clone());
+                    self.variables.insert(name.clone(), resolved);
                 } else {
                     self.variables.insert(name.clone(), inferred);
                 }
                 Ok(None)
             }
             Stmt::Assign { target, value } => {
-                let target_ty = self.infer_expr(target, context)?;
+                if let Expr::Ident(name) = target {
+                    if self.constants.contains(name) {
+                        self.errors.push(TypeError {
+                            message: format!("Cannot assign to constant '{}'", name),
+                            location: context.to_string(),
+                        });
+                    } else if self.strict_mutability {
+                        if let Some(&is_mut) = self.var_mutability.get(name) {
+                            if !is_mut {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Cannot mutate immutable variable '{}', consider declaring it mutable: 'let mut {}'",
+                                        name, name
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                        }
+                    }
+                }
+                let target_ty = if let Expr::Ident(target_name) = target {
+                    self.moved_vars.remove(target_name);
+                    self.moved_locations.remove(target_name);
+                    if let Some(ty) = self.variables.get(target_name) {
+                        ty.clone()
+                    } else {
+                        self.infer_expr(target, context)?
+                    }
+                } else {
+                    self.infer_expr(target, context)?
+                };
                 let value_ty = self.infer_expr(value, context)?;
+
+                // Move semantics: if value is a non-copy identifier, mark source as moved
+                if let Expr::Ident(source_name) = value {
+                    if !self.is_copy_type(&value_ty) {
+                        self.moved_vars.insert(source_name.clone());
+                        self.moved_locations
+                            .insert(source_name.clone(), format!("assignment in {}", context));
+                    }
+                }
 
                 if !self.types_compatible(&target_ty, &value_ty) {
                     self.errors.push(TypeError {
@@ -208,18 +839,25 @@ impl TypeChecker {
                             });
                         }
                         None => {
-                            self.errors.push(TypeError {
-                                message: format!("Missing return value: expected {:?}", expected),
-                                location: context.to_string(),
-                            });
+                            if *expected != Type::Unit {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Missing return value: expected {:?}",
+                                        expected
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
                         }
                         _ => {}
                     }
-                } else if ret_ty.is_some() {
-                    self.errors.push(TypeError {
-                        message: "Returning value from void function".to_string(),
-                        location: context.to_string(),
-                    });
+                } else if let Some(actual) = &ret_ty {
+                    if *actual != Type::Unit {
+                        self.errors.push(TypeError {
+                            message: "Returning value from void function".to_string(),
+                            location: context.to_string(),
+                        });
+                    }
                 }
                 Ok(ret_ty)
             }
@@ -241,7 +879,12 @@ impl TypeChecker {
                 }
                 Ok(None)
             }
-            Stmt::For { var, iter, body } => {
+            Stmt::For {
+                label,
+                var,
+                iter,
+                body,
+            } => {
                 // Determine element type based on iterator expression
                 let elem_ty = match iter {
                     // Range expressions: the element type is the range bound type
@@ -250,7 +893,9 @@ impl TypeChecker {
                     other => {
                         let iter_ty = self.infer_expr(other, context)?;
                         match &iter_ty {
-                            Type::Array(elem, _) => (**elem).clone(),
+                            Type::Array(elem, _) | Type::Slice(elem) | Type::Vec(elem) => {
+                                (**elem).clone()
+                            }
                             _ => {
                                 self.errors.push(TypeError {
                                     message: format!(
@@ -268,13 +913,54 @@ impl TypeChecker {
                 let saved = self.variables.clone();
                 let saved_moved = self.moved_vars.clone();
                 self.variables.insert(var.clone(), elem_ty);
+                self.loop_labels.push(label.clone());
                 self.check_block(body, context)?;
+                self.loop_labels.pop();
                 self.variables = saved;
                 self.moved_vars = saved_moved;
                 Ok(None)
             }
-            Stmt::Loop(body) => {
+            Stmt::While {
+                label,
+                condition,
+                body,
+            } => {
+                let cond_ty = self.infer_expr(condition, context)?;
+                if cond_ty != Type::Bool {
+                    self.errors.push(TypeError {
+                        message: format!("While condition must be bool, got {:?}", cond_ty),
+                        location: context.to_string(),
+                    });
+                }
+                self.loop_labels.push(label.clone());
                 self.check_block(body, context)?;
+                self.loop_labels.pop();
+                Ok(None)
+            }
+            Stmt::Loop { label, body } => {
+                self.loop_labels.push(label.clone());
+                self.check_block(body, context)?;
+                self.loop_labels.pop();
+                Ok(None)
+            }
+            Stmt::Break(label) | Stmt::Continue(label) => {
+                if self.loop_labels.is_empty() {
+                    self.errors.push(TypeError {
+                        message: "break or continue outside of loop".to_string(),
+                        location: context.to_string(),
+                    });
+                } else if let Some(target) = label {
+                    if !self
+                        .loop_labels
+                        .iter()
+                        .any(|l| l.as_deref() == Some(target.as_str()))
+                    {
+                        self.errors.push(TypeError {
+                            message: format!("Undefined loop label: '{}'", target),
+                            location: context.to_string(),
+                        });
+                    }
+                }
                 Ok(None)
             }
             Stmt::Defer(body) => {
@@ -283,7 +969,75 @@ impl TypeChecker {
             }
             Stmt::Expr(expr) => {
                 let ty = self.infer_expr(expr, context)?;
+                if let Expr::Call { func, .. } = expr {
+                    let called_name = match func.as_ref() {
+                        Expr::Ident(name) => Some(name.clone()),
+                        Expr::Field { field, .. } => Some(field.clone()),
+                        _ => None,
+                    };
+                    if let Some(name) = called_name {
+                        let short_name = name.split("::").last().unwrap_or(&name);
+                        if let Some(reason) = self
+                            .must_use_functions
+                            .get(&name)
+                            .or_else(|| self.must_use_functions.get(short_name))
+                        {
+                            let msg = match reason {
+                                Some(r) => format!(
+                                    "Unused return value from function '{}' marked with #[must_use]: {}",
+                                    name, r
+                                ),
+                                None => format!(
+                                    "Unused return value from function '{}' marked with #[must_use]",
+                                    name
+                                ),
+                            };
+                            self.errors.push(TypeError {
+                                message: msg,
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
                 Ok(Some(ty))
+            }
+            Stmt::Match { expr, arms } => {
+                let expr_ty = self.infer_expr(expr, context)?;
+                for arm in arms {
+                    self.check_pattern_type(&arm.pattern, &expr_ty, context);
+                    let saved = self.variables.clone();
+                    let saved_moved = self.moved_vars.clone();
+                    self.bind_pattern(&arm.pattern, &expr_ty);
+                    if let Some(guard) = &arm.guard {
+                        let guard_ty = self.infer_expr(guard, context)?;
+                        if guard_ty != Type::Bool {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Match guard must evaluate to bool, found {:?}",
+                                    guard_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                    match &arm.body {
+                        ast::MatchBody::Expr(body_expr) => {
+                            self.infer_expr(body_expr, context)?;
+                        }
+                        ast::MatchBody::Block(block) => {
+                            self.check_block(block, context)?;
+                        }
+                    }
+                    self.variables = saved;
+                    self.moved_vars = saved_moved;
+                }
+                self.check_match_semantics(arms, context);
+                self.check_enum_match(&expr_ty, arms, context);
+                self.check_option_match(&expr_ty, arms, context);
+                self.check_result_match(&expr_ty, arms, context);
+                self.check_bool_match(&expr_ty, arms, context);
+                self.check_scalar_match(&expr_ty, arms, context);
+                Ok(None)
             }
             _ => Ok(None),
         }
@@ -300,8 +1054,53 @@ impl TypeChecker {
         expected: Option<&Type>,
     ) -> Result<Type> {
         match expr {
+            Expr::Unit => Ok(Type::Unit),
+            Expr::Tuple(elements) => {
+                let mut elem_types = Vec::new();
+                for (i, elem) in elements.iter().enumerate() {
+                    let hint = if let Some(Type::Tuple(expected_elems)) = expected {
+                        expected_elems.get(i)
+                    } else {
+                        None
+                    };
+                    elem_types.push(self.infer_expr_with_hint(elem, context, hint)?);
+                }
+                Ok(Type::Tuple(elem_types))
+            }
             Expr::Literal(lit) => Ok(self.literal_type(lit)),
             Expr::Ident(name) => {
+                self.check_visibility(name, context);
+                let short_name = name.split("::").last().unwrap_or(name);
+                if let Some(reason) = self
+                    .deprecated_symbols
+                    .get(name)
+                    .or_else(|| self.deprecated_symbols.get(short_name))
+                {
+                    let msg = match reason {
+                        Some(r) => format!("Use of deprecated symbol '{}': {}", name, r),
+                        None => format!("Use of deprecated symbol '{}'", name),
+                    };
+                    self.errors.push(TypeError {
+                        message: msg,
+                        location: context.to_string(),
+                    });
+                }
+                if !name.contains("::") && name != "main" {
+                    if let Some(kernels) = self.declaring_kernels.get(name) {
+                        if kernels.len() > 1
+                            && !kernels.contains(&self.current_kernel)
+                            && !self.current_kernel.is_empty()
+                        {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Ambiguous reference to symbol '{}' declared in multiple modules: {}. Please qualify with module name (e.g. '{}::{}')",
+                                    name, kernels.join(", "), kernels[0], name
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
                 // Check for use-after-move
                 if self.moved_vars.contains(name) {
                     let moved_at = self
@@ -320,8 +1119,31 @@ impl TypeChecker {
                     return Ok(Type::I32); // fallback
                 }
 
-                if let Some(ty) = self.variables.get(name) {
-                    Ok(ty.clone())
+                let qualified_name = format!("{}::{}", self.current_kernel, name);
+                if let Some(ty) = self
+                    .variables
+                    .get(&qualified_name)
+                    .cloned()
+                    .or_else(|| self.variables.get(name).cloned())
+                {
+                    Ok(ty)
+                } else if let Some((param_types, ret_ty)) = self
+                    .functions
+                    .get(&qualified_name)
+                    .cloned()
+                    .or_else(|| self.functions.get(name).cloned())
+                {
+                    Ok(Type::Fn(param_types, Box::new(ret_ty.unwrap_or(Type::I32))))
+                } else if self.enums.contains_key(&qualified_name) || self.enums.contains_key(name)
+                {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Cannot use enum type '{}' as a value; construct a variant like '{}.Variant'",
+                            name, name
+                        ),
+                        location: context.to_string(),
+                    });
+                    Ok(Type::Named(name.clone()))
                 } else {
                     self.errors.push(TypeError {
                         message: format!("Undefined variable: {}", name),
@@ -339,13 +1161,201 @@ impl TypeChecker {
                 let ty = self.infer_expr(expr, context)?;
                 self.unary_result_type(*op, &ty, context)
             }
-            Expr::Call { func, args } => {
+            Expr::Call { func, args, .. } => {
+                if let Expr::Field { expr, field } = func.as_ref() {
+                    if let Expr::Ident(type_name) = expr.as_ref() {
+                        if self.enums.contains_key(type_name) {
+                            return self
+                                .check_enum_payload_constructor(type_name, field, args, context);
+                        }
+                    }
+                    let base_ty = self.infer_expr(expr, context)?;
+                    let struct_name = match &base_ty {
+                        Type::Named(name) => Some(name.clone()),
+                        Type::Generic(name, args) => {
+                            Some(crate::monomorphize::mangle_name(name, args))
+                        }
+                        _ => None,
+                    };
+                    if let Some(sname) = struct_name {
+                        let method_name = format!("{}::{}", sname, field);
+                        if let Some((param_types, ret_ty)) =
+                            self.functions.get(&method_name).cloned()
+                        {
+                            let mut full_args = vec![expr.as_ref().clone()];
+                            full_args.extend(args.iter().cloned());
+                            if full_args.len() != param_types.len() {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Method {} on struct {} expects {} arguments (including self), got {}",
+                                        field,
+                                        sname,
+                                        param_types.len() - 1,
+                                        args.len()
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                            for (i, (arg, expected)) in
+                                full_args.iter().zip(param_types.iter()).enumerate()
+                            {
+                                let actual =
+                                    self.infer_expr_with_hint(arg, context, Some(expected))?;
+                                if !self.types_compatible(expected, &actual) {
+                                    self.errors.push(TypeError {
+                                        message: format!(
+                                            "Argument {} type mismatch: expected {:?}, got {:?}",
+                                            if i == 0 {
+                                                "receiver self".to_string()
+                                            } else {
+                                                (i - 1).to_string()
+                                            },
+                                            expected,
+                                            actual
+                                        ),
+                                        location: context.to_string(),
+                                    });
+                                }
+                            }
+                            return Ok(ret_ty.unwrap_or(Type::Unit));
+                        } else {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "No method '{}' found on struct '{}'",
+                                    field, sname
+                                ),
+                                location: context.to_string(),
+                            });
+                            return Ok(Type::I32);
+                        }
+                    } else {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Cannot call method '{}' on non-struct type {:?}",
+                                field, base_ty
+                            ),
+                            location: context.to_string(),
+                        });
+                        return Ok(Type::I32);
+                    }
+                }
                 if let Expr::Ident(name) = func.as_ref() {
+                    self.check_visibility(name, context);
+                    let short_name = name.split("::").last().unwrap_or(name);
+                    if let Some(reason) = self
+                        .deprecated_symbols
+                        .get(name)
+                        .or_else(|| self.deprecated_symbols.get(short_name))
+                    {
+                        let msg = match reason {
+                            Some(r) => format!("Use of deprecated function '{}': {}", name, r),
+                            None => format!("Use of deprecated function '{}'", name),
+                        };
+                        self.errors.push(TypeError {
+                            message: msg,
+                            location: context.to_string(),
+                        });
+                    }
+                    if !name.contains("::") && name != "main" {
+                        if let Some(kernels) = self.declaring_kernels.get(name) {
+                            if kernels.len() > 1
+                                && !kernels.contains(&self.current_kernel)
+                                && !self.current_kernel.is_empty()
+                            {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Ambiguous reference to symbol '{}' declared in multiple modules: {}. Please qualify with module name (e.g. '{}::{}')",
+                                        name, kernels.join(", "), kernels[0], name
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                        }
+                    }
                     if let Some(ty) = self.check_builtin_call(name, args, context, expected)? {
                         return Ok(ty);
                     }
 
-                    if let Some((param_types, ret_ty)) = self.functions.get(name).cloned() {
+                    let qualified_name = format!("{}::{}", self.current_kernel, name);
+                    if let Some(struct_fields) = self
+                        .structs
+                        .get(&qualified_name)
+                        .cloned()
+                        .or_else(|| self.structs.get(name).cloned())
+                    {
+                        if args.len() != struct_fields.len() {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Struct constructor {} expects {} arguments, got {}",
+                                    name,
+                                    struct_fields.len(),
+                                    args.len()
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                        for (i, (arg, (_fname, expected_ty))) in
+                            args.iter().zip(struct_fields.iter()).enumerate()
+                        {
+                            let actual =
+                                self.infer_expr_with_hint(arg, context, Some(expected_ty))?;
+                            if !self.types_compatible(expected_ty, &actual) {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Argument {} type mismatch: expected {:?}, got {:?}",
+                                        i, expected_ty, actual
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                        }
+                        return Ok(Type::Named(name.clone()));
+                    }
+
+                    if let Some(var_ty) = self
+                        .variables
+                        .get(&qualified_name)
+                        .cloned()
+                        .or_else(|| self.variables.get(name).cloned())
+                    {
+                        let var_ty = self.resolve_alias(&var_ty);
+                        if let Type::Fn(param_types, ret_ty) = var_ty {
+                            if args.len() != param_types.len() {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Function {} expects {} arguments, got {}",
+                                        name,
+                                        param_types.len(),
+                                        args.len()
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                            for (i, (arg, expected_ty)) in
+                                args.iter().zip(param_types.iter()).enumerate()
+                            {
+                                let actual =
+                                    self.infer_expr_with_hint(arg, context, Some(expected_ty))?;
+                                if !self.types_compatible(expected_ty, &actual) {
+                                    self.errors.push(TypeError {
+                                        message: format!(
+                                            "Argument {} type mismatch: expected {:?}, got {:?}",
+                                            i, expected_ty, actual
+                                        ),
+                                        location: context.to_string(),
+                                    });
+                                }
+                            }
+                            return Ok(*ret_ty);
+                        }
+                    }
+
+                    if let Some((param_types, ret_ty)) = self
+                        .functions
+                        .get(&qualified_name)
+                        .cloned()
+                        .or_else(|| self.functions.get(name).cloned())
+                    {
                         // Check argument count
                         if args.len() != param_types.len() {
                             self.errors.push(TypeError {
@@ -361,7 +1371,7 @@ impl TypeChecker {
                         // Check argument types
                         for (i, (arg, expected)) in args.iter().zip(param_types.iter()).enumerate()
                         {
-                            let actual = self.infer_expr(arg, context)?;
+                            let actual = self.infer_expr_with_hint(arg, context, Some(expected))?;
                             if !self.types_compatible(expected, &actual) {
                                 self.errors.push(TypeError {
                                     message: format!(
@@ -381,15 +1391,63 @@ impl TypeChecker {
                         Ok(Type::I32)
                     }
                 } else {
-                    self.errors.push(TypeError {
-                        message: "Invalid function call target".to_string(),
-                        location: context.to_string(),
-                    });
-                    Ok(Type::I32)
+                    let callee_ty = self.infer_expr(func, context)?;
+                    let callee_ty = self.resolve_alias(&callee_ty);
+                    if let Type::Fn(param_types, ret_ty) = callee_ty {
+                        if args.len() != param_types.len() {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Function expects {} arguments, got {}",
+                                    param_types.len(),
+                                    args.len()
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                        for (i, (arg, expected_ty)) in
+                            args.iter().zip(param_types.iter()).enumerate()
+                        {
+                            let actual =
+                                self.infer_expr_with_hint(arg, context, Some(expected_ty))?;
+                            if !self.types_compatible(expected_ty, &actual) {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Argument {} type mismatch: expected {:?}, got {:?}",
+                                        i, expected_ty, actual
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                        }
+                        Ok(*ret_ty)
+                    } else {
+                        self.errors.push(TypeError {
+                            message: "Invalid function call target".to_string(),
+                            location: context.to_string(),
+                        });
+                        Ok(Type::I32)
+                    }
                 }
             }
             Expr::Index { expr, index } => {
                 let expr_ty = self.infer_expr(expr, context)?;
+
+                // If index is a range (e.g. arr[start..end]), this is a slice operation
+                if matches!(index.as_ref(), Expr::Range { .. }) {
+                    match expr_ty {
+                        Type::Array(elem, _) | Type::Vec(elem) | Type::Slice(elem) => {
+                            return Ok(Type::Slice(elem));
+                        }
+                        _ => {
+                            self.errors.push(TypeError {
+                                message: format!("Cannot slice {:?}", expr_ty),
+                                location: context.to_string(),
+                            });
+                            return Ok(Type::I32);
+                        }
+                    }
+                }
+
                 let index_ty = self.infer_expr(index, context)?;
 
                 if !matches!(index_ty, Type::I32 | Type::I64) {
@@ -401,6 +1459,8 @@ impl TypeChecker {
 
                 match expr_ty {
                     Type::Array(elem, _) => Ok(*elem),
+                    Type::Slice(elem) => Ok(*elem),
+                    Type::Vec(elem) => Ok(*elem),
                     _ => {
                         self.errors.push(TypeError {
                             message: format!("Cannot index {:?}", expr_ty),
@@ -411,6 +1471,28 @@ impl TypeChecker {
                 }
             }
             Expr::Field { expr, field } => {
+                if let Expr::Ident(type_name) = expr.as_ref() {
+                    if let Some(variants) = self.enums.get(type_name) {
+                        if variants.iter().any(|variant| variant == field) {
+                            if self.enum_variant_has_payload(type_name, field) {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Variant {}.{} expects a payload",
+                                        type_name, field
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                            return Ok(Type::Named(type_name.clone()));
+                        }
+                        self.errors.push(TypeError {
+                            message: format!("Unknown variant '{}' on enum {}", field, type_name),
+                            location: context.to_string(),
+                        });
+                        return Ok(Type::Named(type_name.clone()));
+                    }
+                }
+
                 let expr_ty = self.infer_expr(expr, context)?;
                 // Auto-dereference references
                 let base_ty = match &expr_ty {
@@ -418,6 +1500,39 @@ impl TypeChecker {
                     other => other.clone(),
                 };
                 match &base_ty {
+                    Type::Tuple(elem_types) => {
+                        if let Ok(idx) = field.parse::<usize>() {
+                            if idx < elem_types.len() {
+                                Ok(elem_types[idx].clone())
+                            } else {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Tuple index out of bounds: {} for tuple of length {}",
+                                        idx,
+                                        elem_types.len()
+                                    ),
+                                    location: context.to_string(),
+                                });
+                                Ok(Type::I32)
+                            }
+                        } else {
+                            self.errors.push(TypeError {
+                                message: format!("Cannot access named field '{}' on tuple", field),
+                                location: context.to_string(),
+                            });
+                            Ok(Type::I32)
+                        }
+                    }
+                    Type::Named(struct_name) if self.enums.contains_key(struct_name) => {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Cannot access field '{}' on enum value {}",
+                                field, struct_name
+                            ),
+                            location: context.to_string(),
+                        });
+                        Ok(Type::I32)
+                    }
                     Type::Named(struct_name) => {
                         if let Some(fields) = self.structs.get(struct_name) {
                             if let Some((_, field_ty)) = fields.iter().find(|(n, _)| n == field) {
@@ -435,6 +1550,26 @@ impl TypeChecker {
                         } else {
                             self.errors.push(TypeError {
                                 message: format!("Unknown struct: {}", struct_name),
+                                location: context.to_string(),
+                            });
+                            Ok(Type::I32)
+                        }
+                    }
+                    Type::Generic(struct_name, args) => {
+                        let mangled = crate::monomorphize::mangle_name(struct_name, args);
+                        if let Some(fields) = self.structs.get(&mangled) {
+                            if let Some((_, field_ty)) = fields.iter().find(|(n, _)| n == field) {
+                                Ok(field_ty.clone())
+                            } else {
+                                self.errors.push(TypeError {
+                                    message: format!("No field '{}' on struct {}", field, mangled),
+                                    location: context.to_string(),
+                                });
+                                Ok(Type::I32)
+                            }
+                        } else {
+                            self.errors.push(TypeError {
+                                message: format!("Unknown struct: {}", mangled),
                                 location: context.to_string(),
                             });
                             Ok(Type::I32)
@@ -461,9 +1596,89 @@ impl TypeChecker {
                         location: context.to_string(),
                     });
                 }
-                let then_ty = self.infer_expr(then_expr, context)?;
-                let else_ty = self.infer_expr(else_expr, context)?;
-                if !self.types_compatible(&then_ty, &else_ty) {
+                let then_ty = self.infer_expr_with_hint(then_expr, context, expected)?;
+                let else_hint = expected.or(Some(&then_ty));
+                let else_ty = self.infer_expr_with_hint(else_expr, context, else_hint)?;
+                let (then_ty, else_ty) = if matches!(then_expr.as_ref(), Expr::None)
+                    && matches!(else_ty, Type::Option(_))
+                {
+                    let re_then = self.infer_expr_with_hint(then_expr, context, Some(&else_ty))?;
+                    (re_then, else_ty)
+                } else if matches!(else_expr.as_ref(), Expr::None)
+                    && matches!(then_ty, Type::Option(_))
+                {
+                    let re_else = self.infer_expr_with_hint(else_expr, context, Some(&then_ty))?;
+                    (then_ty, re_else)
+                } else if matches!(then_expr.as_ref(), Expr::Array(elements) if elements.is_empty())
+                    && matches!(else_ty, Type::Array(_, _))
+                {
+                    let re_then = self.infer_expr_with_hint(then_expr, context, Some(&else_ty))?;
+                    (re_then, else_ty)
+                } else if matches!(else_expr.as_ref(), Expr::Array(elements) if elements.is_empty())
+                    && matches!(then_ty, Type::Array(_, _))
+                {
+                    let re_else = self.infer_expr_with_hint(else_expr, context, Some(&then_ty))?;
+                    (then_ty, re_else)
+                } else if !self.types_compatible(&then_ty, &else_ty) {
+                    if self.types_compatible(&else_ty, &then_ty) {
+                        let re_then =
+                            self.infer_expr_with_hint(then_expr, context, Some(&else_ty))?;
+                        (re_then, else_ty)
+                    } else if let (Type::Result(ok_t, err_t), Type::Result(ok_e, err_e)) =
+                        (&then_ty, &else_ty)
+                    {
+                        let unified_ok =
+                            if ok_t.as_ref() != &Type::I32 || ok_e.as_ref() == &Type::I32 {
+                                ok_t.clone()
+                            } else {
+                                ok_e.clone()
+                            };
+                        let unified_err =
+                            if err_t.as_ref() != &Type::I32 || err_e.as_ref() == &Type::I32 {
+                                err_t.clone()
+                            } else {
+                                err_e.clone()
+                            };
+                        let unified = Type::Result(unified_ok, unified_err);
+                        let re_then =
+                            self.infer_expr_with_hint(then_expr, context, Some(&unified))?;
+                        let re_else =
+                            self.infer_expr_with_hint(else_expr, context, Some(&unified))?;
+                        (re_then, re_else)
+                    } else {
+                        (then_ty, else_ty)
+                    }
+                } else if let (Type::Result(ok_t, err_t), Type::Result(ok_e, err_e)) =
+                    (&then_ty, &else_ty)
+                {
+                    if err_t != err_e || ok_t != ok_e {
+                        let unified_ok =
+                            if ok_t.as_ref() != &Type::I32 || ok_e.as_ref() == &Type::I32 {
+                                ok_t.clone()
+                            } else {
+                                ok_e.clone()
+                            };
+                        let unified_err =
+                            if err_t.as_ref() != &Type::I32 || err_e.as_ref() == &Type::I32 {
+                                err_t.clone()
+                            } else {
+                                err_e.clone()
+                            };
+                        let unified = Type::Result(unified_ok, unified_err);
+                        let re_then =
+                            self.infer_expr_with_hint(then_expr, context, Some(&unified))?;
+                        let re_else =
+                            self.infer_expr_with_hint(else_expr, context, Some(&unified))?;
+                        (re_then, re_else)
+                    } else {
+                        (then_ty, else_ty)
+                    }
+                } else {
+                    (then_ty, else_ty)
+                };
+                if !self.types_compatible(&then_ty, &else_ty)
+                    && !self.types_compatible(&else_ty, &then_ty)
+                {
                     self.errors.push(TypeError {
                         message: format!(
                             "If branches have different types: {:?} vs {:?}",
@@ -472,11 +1687,23 @@ impl TypeChecker {
                         location: context.to_string(),
                     });
                 }
-                Ok(then_ty)
+                if then_ty == Type::Never {
+                    Ok(else_ty)
+                } else {
+                    Ok(then_ty)
+                }
             }
             Expr::Array(elements) => {
                 if elements.is_empty() {
-                    Ok(Type::Array(Box::new(Type::I32), 0))
+                    if let Some(Type::Array(elem_ty, _)) = expected {
+                        Ok(Type::Array(elem_ty.clone(), 0))
+                    } else {
+                        self.errors.push(TypeError {
+                            message: "Empty array requires explicit type annotation".to_string(),
+                            location: context.to_string(),
+                        });
+                        Ok(Type::Array(Box::new(Type::I32), 0))
+                    }
                 } else {
                     let elem_ty = self.infer_expr(&elements[0], context)?;
                     for (i, elem) in elements.iter().skip(1).enumerate() {
@@ -496,7 +1723,10 @@ impl TypeChecker {
                     Ok(Type::Array(Box::new(elem_ty), elements.len()))
                 }
             }
-            Expr::Struct { name, fields } => {
+            Expr::Struct {
+                name, fields, base, ..
+            } => {
+                self.check_visibility(name, context);
                 if let Some(struct_fields) = self.structs.get(name).cloned() {
                     for (field_name, field_expr) in fields {
                         let actual_ty = self.infer_expr(field_expr, context)?;
@@ -522,6 +1752,18 @@ impl TypeChecker {
                             });
                         }
                     }
+                    if let Some(base_expr) = base {
+                        let base_ty = self.infer_expr(base_expr, context)?;
+                        if base_ty != Type::Named(name.clone()) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Base expression in struct update must have type '{}', found {:?}",
+                                    name, base_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
                     Ok(Type::Named(name.clone()))
                 } else {
                     self.errors.push(TypeError {
@@ -531,14 +1773,33 @@ impl TypeChecker {
                     Ok(Type::Named(name.clone()))
                 }
             }
+            Expr::Try(inner) => {
+                let inner_ty = self.infer_expr(inner, context)?;
+                match inner_ty {
+                    Type::Result(ok_ty, _err_ty) => Ok(*ok_ty),
+                    Type::Option(val_ty) => Ok(*val_ty),
+                    other => Err(anyhow::anyhow!(
+                        "? operator can only be applied to Result or Option, found {:?}",
+                        other
+                    )),
+                }
+            }
             Expr::Copy(inner) => self.infer_expr(inner, context),
             Expr::Some(inner) => {
-                let inner_ty = self.infer_expr(inner, context)?;
+                let inner_hint = match expected {
+                    Some(Type::Option(inner_ty)) => Some(inner_ty.as_ref()),
+                    _ => None,
+                };
+                let inner_ty = self.infer_expr_with_hint(inner, context, inner_hint)?;
                 Ok(Type::Option(Box::new(inner_ty)))
             }
             Expr::None => {
-                // None without context - will be inferred from declared type
-                Ok(Type::Option(Box::new(Type::I32)))
+                // None with expected context
+                if let Some(Type::Option(inner)) = expected {
+                    Ok(Type::Option(inner.clone()))
+                } else {
+                    Ok(Type::Option(Box::new(Type::I32)))
+                }
             }
             Expr::Match { expr, arms } => {
                 let expr_ty = self.infer_expr(expr, context)?;
@@ -546,33 +1807,82 @@ impl TypeChecker {
                 // Check pattern types against expression type
                 for arm in arms {
                     self.check_pattern_type(&arm.pattern, &expr_ty, context);
+                    if let Some(guard) = &arm.guard {
+                        let saved = self.variables.clone();
+                        let saved_moved = self.moved_vars.clone();
+                        self.bind_pattern(&arm.pattern, &expr_ty);
+                        let guard_ty = self.infer_expr(guard, context)?;
+                        if guard_ty != Type::Bool {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Match guard must evaluate to bool, found {:?}",
+                                    guard_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                        self.variables = saved;
+                        self.moved_vars = saved_moved;
+                    }
                 }
+                self.check_match_semantics(arms, context);
+                self.check_enum_match(&expr_ty, arms, context);
+                self.check_option_match(&expr_ty, arms, context);
+                self.check_result_match(&expr_ty, arms, context);
+                self.check_bool_match(&expr_ty, arms, context);
+                self.check_scalar_match(&expr_ty, arms, context);
 
-                // Infer result type from first arm
-                if let Some(first_arm) = arms.first() {
-                    match &first_arm.body {
+                // Infer result type across arms (propagating non-Never types)
+                let mut match_result: Option<Type> = None;
+                for arm in arms {
+                    match &arm.body {
                         ast::MatchBody::Expr(e) => {
                             let saved = self.variables.clone();
                             let saved_moved = self.moved_vars.clone();
-                            // Bind pattern variable
-                            match &first_arm.pattern {
-                                ast::Pattern::Ident(name) if name != "_" => {
-                                    self.variables.insert(name.clone(), expr_ty.clone());
-                                }
-                                ast::Pattern::Some(name) if name != "_" => {
-                                    if let Type::Option(inner) = &expr_ty {
-                                        self.variables.insert(name.clone(), inner.as_ref().clone());
-                                    }
-                                }
-                                _ => {}
-                            }
-                            let result = self.infer_expr(e, context)?;
+                            self.bind_pattern(&arm.pattern, &expr_ty);
+                            let arm_hint = expected.or(match_result.as_ref());
+                            let arm_ty = self.infer_expr_with_hint(e, context, arm_hint)?;
                             self.variables = saved;
                             self.moved_vars = saved_moved;
-                            Ok(result)
+                            if arm_ty != Type::Never {
+                                if let Some(existing) = &match_result {
+                                    if !self.types_compatible(existing, &arm_ty)
+                                        && !self.types_compatible(&arm_ty, existing)
+                                    {
+                                        if let (
+                                            Type::Result(ok_t, err_t),
+                                            Type::Result(ok_e, err_e),
+                                        ) = (existing, &arm_ty)
+                                        {
+                                            let unified_ok = if ok_t.as_ref() != &Type::I32
+                                                || ok_e.as_ref() == &Type::I32
+                                            {
+                                                ok_t.clone()
+                                            } else {
+                                                ok_e.clone()
+                                            };
+                                            let unified_err = if err_t.as_ref() != &Type::I32
+                                                || err_e.as_ref() == &Type::I32
+                                            {
+                                                err_t.clone()
+                                            } else {
+                                                err_e.clone()
+                                            };
+                                            match_result =
+                                                Some(Type::Result(unified_ok, unified_err));
+                                        } else {
+                                            self.errors.push(TypeError {
+                                                message: format!("Match arms have incompatible types: {:?} vs {:?}", existing, arm_ty),
+                                                location: context.to_string(),
+                                            });
+                                        }
+                                    }
+                                } else {
+                                    match_result = Some(arm_ty);
+                                }
+                            }
                         }
                         ast::MatchBody::Block(block) => {
-                            // Block must end with an expression to produce a value
                             let has_value = block
                                 .statements
                                 .last()
@@ -584,36 +1894,28 @@ impl TypeChecker {
                                 });
                             }
                             self.check_block(block, context)?;
-                            Ok(Type::I32)
+                            if match_result.is_none() {
+                                match_result = Some(Type::I32);
+                            }
                         }
                     }
-                } else {
-                    Ok(Type::I32)
                 }
+                Ok(match_result.unwrap_or(Type::Never))
             }
             Expr::Block(block) => {
                 // Block expression - check all statements and return type of last expression
                 let saved = self.variables.clone();
                 let saved_moved = self.moved_vars.clone();
-                let mut result_ty = Type::I32;
-                for stmt in &block.statements {
-                    match stmt {
-                        Stmt::Let { name, ty, value } => {
-                            let inferred =
-                                self.infer_expr_with_hint(value, context, ty.as_ref())?;
-                            if let Some(declared) = ty {
-                                self.variables.insert(name.clone(), declared.clone());
-                            } else {
-                                self.variables.insert(name.clone(), inferred);
-                            }
-                        }
-                        Stmt::Expr(e) => {
-                            result_ty = self.infer_expr(e, context)?;
-                        }
-                        _ => {
-                            self.check_stmt(stmt, context)?;
+                let mut result_ty = Type::Unit;
+                for (i, stmt) in block.statements.iter().enumerate() {
+                    let is_last = i == block.statements.len() - 1;
+                    if is_last {
+                        if let Stmt::Expr(e) = stmt {
+                            result_ty = self.infer_expr_with_hint(e, context, expected)?;
+                            continue;
                         }
                     }
+                    self.check_stmt(stmt, context)?;
                 }
                 self.variables = saved;
                 self.moved_vars = saved_moved;
@@ -831,6 +2133,48 @@ impl TypeChecker {
         expected: Option<&Type>,
     ) -> Result<Option<Type>> {
         match name {
+            "panic" => {
+                self.check_builtin_arity("panic expects 1 argument (message)", args, 1, context);
+                if let Some(arg) = args.first() {
+                    let ty = self.infer_expr(arg, context)?;
+                    if ty != Type::Str {
+                        self.errors.push(TypeError {
+                            message: format!("panic expects a string message, got {:?}", ty),
+                            location: context.to_string(),
+                        });
+                    }
+                }
+                return Ok(Some(Type::Never));
+            }
+            "assert" => {
+                if args.is_empty() || args.len() > 2 {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "assert expects 1 or 2 arguments (condition, optional message), got {}",
+                            args.len()
+                        ),
+                        location: context.to_string(),
+                    });
+                } else {
+                    let cond_ty = self.infer_expr(&args[0], context)?;
+                    if cond_ty != Type::Bool {
+                        self.errors.push(TypeError {
+                            message: format!("assert condition must be bool, got {:?}", cond_ty),
+                            location: context.to_string(),
+                        });
+                    }
+                    if args.len() == 2 {
+                        let msg_ty = self.infer_expr(&args[1], context)?;
+                        if msg_ty != Type::Str {
+                            self.errors.push(TypeError {
+                                message: format!("assert message must be str, got {:?}", msg_ty),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                return Ok(Some(Type::Unit));
+            }
             "vec_new" => {
                 self.check_builtin_arity("vec_new expects 0 arguments", args, 0, context);
                 match expected {
@@ -946,6 +2290,267 @@ impl TypeChecker {
                     self.check_vec_handle_type("vec_clear", vec_ty, context);
                 }
                 Ok(Some(Type::I32))
+            }
+            "vec_contains" => {
+                self.check_builtin_arity(
+                    "vec_contains expects 2 arguments (vec, item)",
+                    args,
+                    2,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_contains", vec_ty, context);
+                    if let (Type::Vec(elem), Some(item_ty)) = (vec_ty, arg_types.get(1)) {
+                        if !self.types_compatible(elem, item_ty) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "vec_contains item type mismatch: expected {:?}, got {:?}",
+                                    elem, item_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(Some(Type::Bool))
+            }
+            "vec_is_empty" => {
+                self.check_builtin_arity("vec_is_empty expects 1 argument (vec)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_is_empty", vec_ty, context);
+                }
+                Ok(Some(Type::Bool))
+            }
+            "vec_clone" => {
+                self.check_builtin_arity("vec_clone expects 1 argument (vec)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_clone", vec_ty, context);
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "vec_reverse" => {
+                self.check_builtin_arity("vec_reverse expects 1 argument (vec)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_reverse", vec_ty, context);
+                }
+                Ok(Some(Type::Bool))
+            }
+            "vec_map" => {
+                self.check_builtin_arity(
+                    "vec_map expects 2 arguments (vec, func)",
+                    args,
+                    2,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_map", vec_ty, context);
+                }
+                if let (Some(Type::Vec(elem)), Some(fn_ty)) = (arg_types.first(), arg_types.get(1))
+                {
+                    match fn_ty {
+                        Type::Fn(params, ret) => {
+                            if params.len() != 1 {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "vec_map mapper function expects 1 argument, got {}",
+                                        params.len()
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            } else if !self.types_compatible(&params[0], elem) {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_map mapper argument type mismatch: expected {:?}, got {:?}", elem, params[0]),
+                                    location: context.to_string(),
+                                });
+                            }
+                            return Ok(Some(Type::Vec(ret.clone())));
+                        }
+                        _ => {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "vec_map expects function as second argument, got {:?}",
+                                    fn_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "vec_filter" => {
+                self.check_builtin_arity(
+                    "vec_filter expects 2 arguments (vec, predicate)",
+                    args,
+                    2,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_filter", vec_ty, context);
+                }
+                if let (Some(Type::Vec(elem)), Some(fn_ty)) = (arg_types.first(), arg_types.get(1))
+                {
+                    match fn_ty {
+                        Type::Fn(params, ret) => {
+                            if params.len() != 1 {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "vec_filter predicate function expects 1 argument, got {}",
+                                        params.len()
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            } else if !self.types_compatible(&params[0], elem) {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_filter predicate argument type mismatch: expected {:?}, got {:?}", elem, params[0]),
+                                    location: context.to_string(),
+                                });
+                            }
+                            if !self.types_compatible(ret, &Type::Bool) {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_filter predicate return type mismatch: expected bool, got {:?}", ret),
+                                    location: context.to_string(),
+                                });
+                            }
+                            return Ok(Some(Type::Vec(elem.clone())));
+                        }
+                        _ => {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "vec_filter expects function as second argument, got {:?}",
+                                    fn_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "vec_fold" => {
+                self.check_builtin_arity(
+                    "vec_fold expects 3 arguments (vec, init, func)",
+                    args,
+                    3,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_fold", vec_ty, context);
+                }
+                if let (Some(Type::Vec(elem)), Some(init_ty), Some(fn_ty)) =
+                    (arg_types.first(), arg_types.get(1), arg_types.get(2))
+                {
+                    match fn_ty {
+                        Type::Fn(params, ret) => {
+                            if params.len() != 2 {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "vec_fold function expects 2 arguments, got {}",
+                                        params.len()
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            } else {
+                                if !self.types_compatible(&params[0], init_ty) {
+                                    self.errors.push(TypeError {
+                                        message: format!("vec_fold function accumulator type mismatch: expected {:?}, got {:?}", init_ty, params[0]),
+                                        location: context.to_string(),
+                                    });
+                                }
+                                if !self.types_compatible(&params[1], elem) {
+                                    self.errors.push(TypeError {
+                                        message: format!("vec_fold function item type mismatch: expected {:?}, got {:?}", elem, params[1]),
+                                        location: context.to_string(),
+                                    });
+                                }
+                            }
+                            if !self.types_compatible(ret, init_ty) {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_fold function return type mismatch: expected {:?}, got {:?}", init_ty, ret),
+                                    location: context.to_string(),
+                                });
+                            }
+                            return Ok(Some(init_ty.clone()));
+                        }
+                        _ => {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "vec_fold expects function as third argument, got {:?}",
+                                    fn_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "vec_find" => {
+                self.check_builtin_arity(
+                    "vec_find expects 2 arguments (vec, predicate)",
+                    args,
+                    2,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_find", vec_ty, context);
+                }
+                if let (Some(Type::Vec(elem)), Some(fn_ty)) = (arg_types.first(), arg_types.get(1))
+                {
+                    match fn_ty {
+                        Type::Fn(params, ret) => {
+                            if params.len() != 1 {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "vec_find predicate function expects 1 argument, got {}",
+                                        params.len()
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            } else if !self.types_compatible(&params[0], elem) {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_find predicate argument type mismatch: expected {:?}, got {:?}", elem, params[0]),
+                                    location: context.to_string(),
+                                });
+                            }
+                            if !self.types_compatible(ret, &Type::Bool) {
+                                self.errors.push(TypeError {
+                                    message: format!("vec_find predicate return type mismatch: expected bool, got {:?}", ret),
+                                    location: context.to_string(),
+                                });
+                            }
+                            return Ok(Some(Type::Option(elem.clone())));
+                        }
+                        _ => {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "vec_find expects function as second argument, got {:?}",
+                                    fn_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
             }
             "hashmap_new" => {
                 self.check_builtin_arity("hashmap_new expects 0 arguments", args, 0, context);
@@ -1080,7 +2685,35 @@ impl TypeChecker {
                     name, &arg_types, expected,
                 ))
             }
-            "result_ok" => {
+            "hashmap_is_empty" => {
+                self.check_builtin_arity(
+                    "hashmap_is_empty expects 1 argument (map)",
+                    args,
+                    1,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(map_ty) = arg_types.first() {
+                    self.check_hashmap_handle_type("hashmap_is_empty", map_ty, context);
+                }
+                Ok(Some(Type::Bool))
+            }
+            "hashmap_values" => {
+                self.check_builtin_arity(
+                    "hashmap_values expects 1 argument (map)",
+                    args,
+                    1,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(map_ty) = arg_types.first() {
+                    self.check_hashmap_handle_type("hashmap_values", map_ty, context);
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "result_ok" | "Ok" => {
                 self.check_builtin_arity("result_ok expects 1 argument (value)", args, 1, context);
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
                 if let (Some(Type::Result(ok_ty, _)), Some(value_ty)) =
@@ -1100,7 +2733,7 @@ impl TypeChecker {
                     name, &arg_types, expected,
                 ))
             }
-            "result_err" => {
+            "result_err" | "Err" => {
                 self.check_builtin_arity("result_err expects 1 argument (error)", args, 1, context);
                 let arg_types = self.infer_builtin_arg_types(args, context)?;
                 if let (Some(Type::Result(_, err_ty)), Some(value_ty)) =
@@ -1116,6 +2749,96 @@ impl TypeChecker {
                         });
                     }
                 }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "hashmap_get_opt" => {
+                self.check_builtin_arity(
+                    "hashmap_get_opt expects 2 arguments (map, key)",
+                    args,
+                    2,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(map_ty) = arg_types.first() {
+                    self.check_hashmap_handle_type("hashmap_get_opt", map_ty, context);
+                    if let (Type::HashMap(key, _), Some(key_ty)) = (map_ty, arg_types.get(1)) {
+                        if !self.types_compatible(key, key_ty) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "hashmap_get_opt key type mismatch: expected {:?}, got {:?}",
+                                    key, key_ty
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "vec_get_opt" => {
+                self.check_builtin_arity(
+                    "vec_get_opt expects 2 arguments (vec, index)",
+                    args,
+                    2,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_get_opt", vec_ty, context);
+                }
+                if let Some(index_ty) = arg_types.get(1) {
+                    self.check_vec_index_type("vec_get_opt", index_ty, context);
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "vec_pop_opt" => {
+                self.check_builtin_arity("vec_pop_opt expects 1 argument (vec)", args, 1, context);
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                if let Some(vec_ty) = arg_types.first() {
+                    self.check_vec_handle_type("vec_pop_opt", vec_ty, context);
+                }
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "read_file_result" => {
+                self.check_builtin_arity(
+                    "read_file_result expects 1 argument (path)",
+                    args,
+                    1,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "write_file_result" => {
+                self.check_builtin_arity(
+                    "write_file_result expects 2 arguments (path, content)",
+                    args,
+                    2,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
+                Ok(builtins::infer_special_builtin_call_type(
+                    name, &arg_types, expected,
+                ))
+            }
+            "parse_int_result" => {
+                self.check_builtin_arity(
+                    "parse_int_result expects 1 argument (string)",
+                    args,
+                    1,
+                    context,
+                );
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
                 Ok(builtins::infer_special_builtin_call_type(
                     name, &arg_types, expected,
                 ))
@@ -1146,6 +2869,20 @@ impl TypeChecker {
                         }
                     }
                 }
+                Ok(
+                    builtins::infer_special_builtin_call_type(name, &arg_types, expected).or_else(
+                        || {
+                            builtins::lookup_typecheck_builtin(name)
+                                .map(|spec| spec.return_type.to_ast_type())
+                        },
+                    ),
+                )
+            }
+            "slice_new" | "slice_sub" | "slice_to_vec" | "vec_as_slice" | "vec_slice"
+            | "bytes_as_slice" | "bytes_slice" | "file_read" | "file_write" | "file_size"
+            | "file_remove" | "file_read_bytes" | "file_write_bytes" | "dir_create"
+            | "dir_remove" => {
+                let arg_types = self.infer_builtin_arg_types(args, context)?;
                 Ok(
                     builtins::infer_special_builtin_call_type(name, &arg_types, expected).or_else(
                         || {
@@ -1242,6 +2979,7 @@ impl TypeChecker {
                 | Type::Vec(_)
                 | Type::HashMap(_, _)
                 | Type::Array(_, _)
+                | Type::Slice(_)
                 | Type::Ref { .. }
                 | Type::Named(_)
         )
@@ -1254,27 +2992,681 @@ impl TypeChecker {
     /// Check if a type is implicitly copyable (primitives).
     /// Non-copy types (structs, arrays, strings) require explicit `copy` to avoid moving.
     fn is_copy_type(&self, ty: &Type) -> bool {
-        matches!(
-            ty,
-            Type::I32 | Type::I64 | Type::F32 | Type::F64 | Type::Bool
-        )
+        match ty {
+            Type::Tuple(elem_types) => elem_types.iter().all(|t| self.is_copy_type(t)),
+            Type::Never
+            | Type::Unit
+            | Type::I32
+            | Type::I64
+            | Type::F32
+            | Type::F64
+            | Type::Bool => true,
+            Type::Fn(_, _) => true,
+            Type::Named(name) => self.enums.contains_key(name),
+            _ => false,
+        }
+    }
+
+    fn check_enum_match(&mut self, expr_ty: &Type, arms: &[ast::MatchArm], context: &str) {
+        let Type::Named(enum_name) = expr_ty else {
+            return;
+        };
+        let Some(variants) = self.enums.get(enum_name).cloned() else {
+            return;
+        };
+
+        let mut seen = HashSet::new();
+        let mut has_wildcard = false;
+        let mut exhausted = false;
+        for arm in arms {
+            if exhausted {
+                self.errors.push(TypeError {
+                    message: format!(
+                        "Unreachable match arm: previous enum patterns already cover every declared variant of '{}'",
+                        enum_name
+                    ),
+                    location: context.to_string(),
+                });
+            }
+            if arm.guard.is_some() {
+                continue;
+            }
+            match &arm.pattern {
+                ast::Pattern::EnumVariant {
+                    enum_name: pat_enum,
+                    variant,
+                    bindings: _,
+                } => {
+                    if pat_enum != enum_name {
+                        continue;
+                    }
+                    if !seen.insert(variant.clone()) {
+                        self.errors.push(TypeError {
+                            message: format!("Duplicate match pattern '{}.{}'", pat_enum, variant),
+                            location: context.to_string(),
+                        });
+                    }
+                }
+                ast::Pattern::Ident(_) => {
+                    has_wildcard = true;
+                    exhausted = true;
+                }
+                _ => {}
+            }
+            if variants.iter().all(|v| seen.contains(v)) {
+                exhausted = true;
+            }
+        }
+
+        if has_wildcard {
+            return;
+        }
+
+        let missing: Vec<String> = variants
+            .iter()
+            .filter(|variant| !seen.contains(*variant))
+            .map(|variant| format!("{}.{}", enum_name, variant))
+            .collect();
+        if !missing.is_empty() {
+            self.errors.push(TypeError {
+                message: format!(
+                    "Non-exhaustive match on enum '{}'; missing {}",
+                    enum_name,
+                    missing.join(", ")
+                ),
+                location: context.to_string(),
+            });
+        }
+    }
+
+    fn check_result_match(&mut self, expr_ty: &Type, arms: &[ast::MatchArm], context: &str) {
+        let Type::Result(ok_ty, err_ty) = expr_ty else {
+            return;
+        };
+        let mut ok_patterns = Vec::new();
+        let mut err_patterns = Vec::new();
+        let mut seen_irrefutable_ok = false;
+        let mut seen_irrefutable_err = false;
+        let mut has_wildcard = false;
+        let mut exhausted = false;
+        for arm in arms {
+            if exhausted {
+                self.errors.push(TypeError {
+                    message:
+                        "Unreachable match arm: previous Result patterns already cover Ok and Err"
+                            .to_string(),
+                    location: context.to_string(),
+                });
+            }
+            if arm.guard.is_some() {
+                continue;
+            }
+            match &arm.pattern {
+                ast::Pattern::ResultOk(sub_pat) => {
+                    if seen_irrefutable_ok {
+                        self.errors.push(TypeError {
+                            message: "Duplicate match pattern 'Result.Ok'".to_string(),
+                            location: context.to_string(),
+                        });
+                    }
+                    if pattern_is_irrefutable(sub_pat) {
+                        seen_irrefutable_ok = true;
+                    }
+                    ok_patterns.push(sub_pat.as_ref());
+                }
+                ast::Pattern::ResultErr(sub_pat) => {
+                    if seen_irrefutable_err {
+                        self.errors.push(TypeError {
+                            message: "Duplicate match pattern 'Result.Err'".to_string(),
+                            location: context.to_string(),
+                        });
+                    }
+                    if pattern_is_irrefutable(sub_pat) {
+                        seen_irrefutable_err = true;
+                    }
+                    err_patterns.push(sub_pat.as_ref());
+                }
+                ast::Pattern::Ident(_) => {
+                    has_wildcard = true;
+                    exhausted = true;
+                }
+                _ => {}
+            }
+            if seen_irrefutable_ok && seen_irrefutable_err {
+                exhausted = true;
+            }
+        }
+        if has_wildcard {
+            return;
+        }
+        let covers_ok = patterns_exhaust_type(&ok_patterns, ok_ty, &self.enums);
+        let covers_err = patterns_exhaust_type(&err_patterns, err_ty, &self.enums);
+        let mut missing = Vec::new();
+        if !covers_ok {
+            missing.push("Result.Ok");
+        }
+        if !covers_err {
+            missing.push("Result.Err");
+        }
+        if !missing.is_empty() {
+            self.errors.push(TypeError {
+                message: format!(
+                    "Non-exhaustive match on Result; missing {}",
+                    missing.join(", ")
+                ),
+                location: context.to_string(),
+            });
+        }
+    }
+
+    fn check_option_match(&mut self, expr_ty: &Type, arms: &[ast::MatchArm], context: &str) {
+        let Type::Option(inner) = expr_ty else {
+            return;
+        };
+        let mut some_patterns = Vec::new();
+        let mut seen_none = false;
+        let mut seen_irrefutable_some = false;
+        let mut has_wildcard = false;
+        let mut exhausted = false;
+        for arm in arms {
+            if exhausted {
+                self.errors.push(TypeError {
+                    message: "Unreachable match arm: previous Option patterns already cover Some and None".to_string(),
+                    location: context.to_string(),
+                });
+            }
+            if arm.guard.is_some() {
+                continue;
+            }
+            match &arm.pattern {
+                ast::Pattern::Some(sub_pat) => {
+                    if seen_irrefutable_some {
+                        self.errors.push(TypeError {
+                            message: "Duplicate match pattern 'Some'".to_string(),
+                            location: context.to_string(),
+                        });
+                    }
+                    if pattern_is_irrefutable(sub_pat) {
+                        seen_irrefutable_some = true;
+                    }
+                    some_patterns.push(sub_pat.as_ref());
+                }
+                ast::Pattern::None => {
+                    if seen_none {
+                        self.errors.push(TypeError {
+                            message: "Duplicate match pattern 'None'".to_string(),
+                            location: context.to_string(),
+                        });
+                    }
+                    seen_none = true;
+                }
+                ast::Pattern::Ident(_) => {
+                    has_wildcard = true;
+                    exhausted = true;
+                }
+                _ => {}
+            }
+            if seen_irrefutable_some && seen_none {
+                exhausted = true;
+            }
+        }
+        if has_wildcard {
+            return;
+        }
+        let covers_some = patterns_exhaust_type(&some_patterns, inner, &self.enums);
+        let mut missing = Vec::new();
+        if !covers_some {
+            missing.push("Some");
+        }
+        if !seen_none {
+            missing.push("None");
+        }
+        if !missing.is_empty() {
+            self.errors.push(TypeError {
+                message: format!(
+                    "Non-exhaustive match on Option; missing {}",
+                    missing.join(", ")
+                ),
+                location: context.to_string(),
+            });
+        }
+    }
+
+    fn check_bool_match(&mut self, expr_ty: &Type, arms: &[ast::MatchArm], context: &str) {
+        if *expr_ty != Type::Bool {
+            return;
+        }
+        let mut seen_true = false;
+        let mut seen_false = false;
+        let mut has_wildcard = false;
+        let mut exhausted = false;
+        for arm in arms {
+            if exhausted {
+                self.errors.push(TypeError {
+                    message: "Unreachable match arm: previous boolean patterns already cover true and false".to_string(),
+                    location: context.to_string(),
+                });
+            }
+            if arm.guard.is_some() {
+                continue;
+            }
+            match &arm.pattern {
+                ast::Pattern::Bool(b) => {
+                    if *b {
+                        if seen_true {
+                            self.errors.push(TypeError {
+                                message: "Duplicate match pattern 'true'".to_string(),
+                                location: context.to_string(),
+                            });
+                        }
+                        seen_true = true;
+                    } else {
+                        if seen_false {
+                            self.errors.push(TypeError {
+                                message: "Duplicate match pattern 'false'".to_string(),
+                                location: context.to_string(),
+                            });
+                        }
+                        seen_false = true;
+                    }
+                }
+                ast::Pattern::Literal(Literal::Bool(b)) => {
+                    if *b {
+                        if seen_true {
+                            self.errors.push(TypeError {
+                                message: "Duplicate match pattern 'true'".to_string(),
+                                location: context.to_string(),
+                            });
+                        }
+                        seen_true = true;
+                    } else {
+                        if seen_false {
+                            self.errors.push(TypeError {
+                                message: "Duplicate match pattern 'false'".to_string(),
+                                location: context.to_string(),
+                            });
+                        }
+                        seen_false = true;
+                    }
+                }
+                ast::Pattern::Ident(_) => {
+                    has_wildcard = true;
+                    exhausted = true;
+                }
+                _ => {}
+            }
+            if seen_true && seen_false {
+                exhausted = true;
+            }
+        }
+        if has_wildcard {
+            return;
+        }
+        let mut missing = Vec::new();
+        if !seen_true {
+            missing.push("true");
+        }
+        if !seen_false {
+            missing.push("false");
+        }
+        if !missing.is_empty() {
+            self.errors.push(TypeError {
+                message: format!(
+                    "Non-exhaustive match on bool; missing {}",
+                    missing.join(", ")
+                ),
+                location: context.to_string(),
+            });
+        }
+    }
+
+    fn check_scalar_match(&mut self, expr_ty: &Type, arms: &[ast::MatchArm], context: &str) {
+        if !self.is_integer(expr_ty)
+            && *expr_ty != Type::Str
+            && *expr_ty != Type::F32
+            && *expr_ty != Type::F64
+        {
+            return;
+        }
+        let mut has_catchall = false;
+        for arm in arms {
+            if arm.guard.is_none() && matches!(arm.pattern, ast::Pattern::Ident(_)) {
+                has_catchall = true;
+                break;
+            }
+        }
+        if !has_catchall {
+            self.errors.push(TypeError {
+                message: format!(
+                    "Non-exhaustive match on {:?}; missing catch-all pattern or wildcard '_'",
+                    expr_ty
+                ),
+                location: context.to_string(),
+            });
+        }
+    }
+
+    fn check_match_semantics(&mut self, arms: &[ast::MatchArm], context: &str) {
+        let mut catch_all_seen = false;
+        let mut seen_int_literals: Vec<i64> = Vec::new();
+        let mut seen_str_literals: Vec<String> = Vec::new();
+        for arm in arms {
+            if catch_all_seen {
+                self.errors.push(TypeError {
+                    message: "Unreachable match arm: previous catch-all pattern already matches all values".to_string(),
+                    location: context.to_string(),
+                });
+            } else if arm.guard.is_none() {
+                match &arm.pattern {
+                    ast::Pattern::Literal(Literal::Int(n)) => {
+                        if seen_int_literals.contains(n) {
+                            self.errors.push(TypeError {
+                                message: format!("Duplicate match pattern '{}'", n),
+                                location: context.to_string(),
+                            });
+                        } else {
+                            seen_int_literals.push(*n);
+                        }
+                    }
+                    ast::Pattern::Literal(Literal::String(s)) => {
+                        if seen_str_literals.contains(s) {
+                            self.errors.push(TypeError {
+                                message: format!("Duplicate match pattern '\"{}\"'", s),
+                                location: context.to_string(),
+                            });
+                        } else {
+                            seen_str_literals.push(s.clone());
+                        }
+                    }
+                    ast::Pattern::Ident(_) => {
+                        catch_all_seen = true;
+                    }
+                    _ => {}
+                }
+            }
+        }
     }
 
     fn is_integer(&self, ty: &Type) -> bool {
         matches!(ty, Type::I32 | Type::I64)
     }
 
+    fn enum_variant_payloads(&self, enum_name: &str, variant: &str) -> Option<&[Type]> {
+        let names = self.enums.get(enum_name)?;
+        let index = names.iter().position(|name| name == variant)?;
+        self.enum_payloads
+            .get(enum_name)?
+            .get(index)
+            .map(|types| types.as_slice())
+    }
+
+    fn enum_variant_has_payload(&self, enum_name: &str, variant: &str) -> bool {
+        self.enum_variant_payloads(enum_name, variant)
+            .is_some_and(|types| !types.is_empty())
+    }
+
+    fn bind_pattern(&mut self, pattern: &ast::Pattern, expr_ty: &Type) {
+        match pattern {
+            ast::Pattern::Ident(name) if name != "_" => {
+                self.variables.insert(name.clone(), expr_ty.clone());
+            }
+            ast::Pattern::Tuple(sub_pats) => {
+                if let Type::Tuple(elem_types) = expr_ty {
+                    for (sub_pat, elem_ty) in sub_pats.iter().zip(elem_types.iter()) {
+                        self.bind_pattern(sub_pat, elem_ty);
+                    }
+                }
+            }
+            ast::Pattern::Struct { name, fields } => {
+                let decl_fields = self.structs.get(name).cloned().or_else(|| {
+                    self.structs.iter().find_map(|(k, v)| {
+                        if k.starts_with(&format!("{name}__")) {
+                            Some(v.clone())
+                        } else {
+                            None
+                        }
+                    })
+                });
+                if let Some(decl_fields) = decl_fields {
+                    for (field_name, sub_pat) in fields {
+                        if let Some((_, field_ty)) =
+                            decl_fields.iter().find(|(n, _)| n == field_name)
+                        {
+                            self.bind_pattern(sub_pat, field_ty);
+                        }
+                    }
+                }
+            }
+            ast::Pattern::Some(sub_pat) => {
+                if let Type::Option(inner) = expr_ty {
+                    self.bind_pattern(sub_pat, inner);
+                }
+            }
+            ast::Pattern::EnumVariant {
+                enum_name,
+                variant,
+                bindings,
+            } => {
+                let types = self
+                    .enum_variant_payloads(enum_name, variant)
+                    .map(|types| types.to_vec())
+                    .unwrap_or_default();
+                for (name, payload) in bindings.iter().zip(types.iter()) {
+                    if name != "_" {
+                        self.variables.insert(name.clone(), payload.clone());
+                    }
+                }
+            }
+            ast::Pattern::ResultOk(sub_pat) => {
+                if let Type::Result(ok_ty, _) = expr_ty {
+                    self.bind_pattern(sub_pat, ok_ty);
+                }
+            }
+            ast::Pattern::ResultErr(sub_pat) => {
+                if let Type::Result(_, err_ty) = expr_ty {
+                    self.bind_pattern(sub_pat, err_ty);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn check_enum_payload_constructor(
+        &mut self,
+        enum_name: &str,
+        variant: &str,
+        args: &[Expr],
+        context: &str,
+    ) -> Result<Type> {
+        let named = Type::Named(enum_name.to_string());
+        let payloads = self
+            .enum_variant_payloads(enum_name, variant)
+            .map(|types| types.to_vec());
+        match payloads.as_deref() {
+            None => {
+                self.errors.push(TypeError {
+                    message: format!("Unknown variant '{}' on enum {}", variant, enum_name),
+                    location: context.to_string(),
+                });
+                Ok(named)
+            }
+            Some([]) => {
+                if !args.is_empty() {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Unit variant {}.{} does not take a payload",
+                            enum_name, variant
+                        ),
+                        location: context.to_string(),
+                    });
+                }
+                Ok(named)
+            }
+            Some(types) if types.len() == 1 || types.len() == 2 => {
+                if args.len() != types.len() {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Variant {}.{} expects {} payload argument{}, got {}",
+                            enum_name,
+                            variant,
+                            types.len(),
+                            if types.len() == 1 { "" } else { "s" },
+                            args.len()
+                        ),
+                        location: context.to_string(),
+                    });
+                } else {
+                    for (index, expected) in types.iter().enumerate() {
+                        let expected = expected.clone();
+                        let actual =
+                            self.infer_expr_with_hint(&args[index], context, Some(&expected))?;
+                        if !self.types_compatible(&expected, &actual) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Payload type mismatch for {}.{} argument {}: expected {:?}, got {:?}",
+                                    enum_name,
+                                    variant,
+                                    index + 1,
+                                    expected,
+                                    actual
+                                ),
+                                location: context.to_string(),
+                            });
+                        }
+                    }
+                }
+                Ok(named)
+            }
+            Some(types) => {
+                self.errors.push(TypeError {
+                    message: format!(
+                        "Multi-field payload construction for {}.{} is not supported yet ({} fields)",
+                        enum_name,
+                        variant,
+                        types.len()
+                    ),
+                    location: context.to_string(),
+                });
+                Ok(named)
+            }
+        }
+    }
+
+    fn is_unit_enum(&self, ty: &Type) -> bool {
+        match ty {
+            Type::Named(name) => self.enums.contains_key(name),
+            _ => false,
+        }
+    }
+
     fn matches_builtin_arg_rule(&self, rule: BuiltinArgRule, ty: &Type) -> bool {
         match rule {
             BuiltinArgRule::Any => true,
-            BuiltinArgRule::Str => matches!(ty, Type::Str),
-            BuiltinArgRule::Integer => self.is_integer(ty),
-            BuiltinArgRule::StrOrArray => matches!(ty, Type::Str | Type::Array(_, _)),
+            BuiltinArgRule::Str => {
+                matches!(ty, Type::Str) || matches!(ty, Type::Named(name) if name == "Path")
+            }
+            BuiltinArgRule::Integer => self.is_integer(ty) || self.is_unit_enum(ty),
+            BuiltinArgRule::StrOrArray => {
+                matches!(ty, Type::Str | Type::Array(_, _) | Type::Slice(_))
+            }
         }
     }
 
     fn check_pattern_type(&mut self, pattern: &ast::Pattern, expr_ty: &Type, context: &str) {
         match pattern {
+            ast::Pattern::Unit => {
+                if *expr_ty != Type::Unit {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Unit pattern cannot match expression of type {:?}",
+                            expr_ty
+                        ),
+                        location: context.to_string(),
+                    });
+                }
+            }
+            ast::Pattern::Tuple(sub_pats) => {
+                if let Type::Tuple(elem_types) = expr_ty {
+                    if sub_pats.len() != elem_types.len() {
+                        self.errors.push(TypeError {
+                            message: format!(
+                                "Tuple pattern arity mismatch: expected {}, got {}",
+                                elem_types.len(),
+                                sub_pats.len()
+                            ),
+                            location: context.to_string(),
+                        });
+                    } else {
+                        for (sub_pat, elem_ty) in sub_pats.iter().zip(elem_types.iter()) {
+                            self.check_pattern_type(sub_pat, elem_ty, context);
+                        }
+                    }
+                } else {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Tuple pattern cannot match expression of type {:?}",
+                            expr_ty
+                        ),
+                        location: context.to_string(),
+                    });
+                }
+            }
+            ast::Pattern::Struct { name, fields } => {
+                let matches_struct = match expr_ty {
+                    Type::Named(struct_name) => {
+                        struct_name == name || struct_name.starts_with(&format!("{name}__"))
+                    }
+                    Type::Generic(struct_name, _) => struct_name == name,
+                    _ => false,
+                };
+                if !matches_struct {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Struct pattern for '{}' cannot match expression of type '{}'",
+                            name, expr_ty
+                        ),
+                        location: context.to_string(),
+                    });
+                } else {
+                    let decl_fields = match expr_ty {
+                        Type::Named(struct_name) => self
+                            .structs
+                            .get(struct_name)
+                            .cloned()
+                            .or_else(|| self.structs.get(name).cloned()),
+                        Type::Generic(struct_name, args) => {
+                            let mangled = crate::monomorphize::mangle_name(struct_name, args);
+                            self.structs
+                                .get(&mangled)
+                                .cloned()
+                                .or_else(|| self.structs.get(struct_name).cloned())
+                        }
+                        _ => self.structs.get(name).cloned(),
+                    };
+                    if let Some(decl_fields) = decl_fields {
+                        for (field_name, sub_pat) in fields {
+                            if let Some((_, field_ty)) =
+                                decl_fields.iter().find(|(n, _)| n == field_name)
+                            {
+                                self.check_pattern_type(sub_pat, field_ty, context);
+                            } else {
+                                self.errors.push(TypeError {
+                                    message: format!(
+                                        "Unknown field '{}' in struct pattern for '{}'",
+                                        field_name, name
+                                    ),
+                                    location: context.to_string(),
+                                });
+                            }
+                        }
+                    } else {
+                        self.errors.push(TypeError {
+                            message: format!("Unknown struct '{}' in pattern", name),
+                            location: context.to_string(),
+                        });
+                    }
+                }
+            }
             ast::Pattern::Literal(lit) => {
                 let pat_ty = self.literal_type(lit);
                 match lit {
@@ -1325,8 +3717,10 @@ impl TypeChecker {
                     }
                 }
             }
-            ast::Pattern::Some(_) => {
-                if !matches!(expr_ty, Type::Option(_)) {
+            ast::Pattern::Some(sub_pat) => {
+                if let Type::Option(inner) = expr_ty {
+                    self.check_pattern_type(sub_pat, inner, context);
+                } else {
                     self.errors.push(TypeError {
                         message: format!("Some pattern cannot match non-Option type {:?}", expr_ty),
                         location: context.to_string(),
@@ -1344,6 +3738,76 @@ impl TypeChecker {
             ast::Pattern::Ident(_) => {
                 // Identifier patterns (including wildcard "_") match any type
             }
+            ast::Pattern::EnumVariant {
+                enum_name,
+                variant,
+                bindings,
+            } => match expr_ty {
+                Type::Named(name) if name == enum_name => {
+                    if let Some(variants) = self.enums.get(enum_name) {
+                        if !variants.iter().any(|item| item == variant) {
+                            self.errors.push(TypeError {
+                                message: format!(
+                                    "Unknown variant '{}' on enum {}",
+                                    variant, enum_name
+                                ),
+                                location: context.to_string(),
+                            });
+                        } else {
+                            let expected = self
+                                .enum_variant_payloads(enum_name, variant)
+                                .map(|types| types.len())
+                                .unwrap_or(0);
+                            if bindings.len() != expected {
+                                if expected == 0 {
+                                    self.errors.push(TypeError {
+                                        message: format!(
+                                            "Unit variant {}.{} does not take a payload binding",
+                                            enum_name, variant
+                                        ),
+                                        location: context.to_string(),
+                                    });
+                                } else {
+                                    self.errors.push(TypeError {
+                                        message: format!(
+                                            "Variant {}.{} expects {} payload binding{}, got {}",
+                                            enum_name,
+                                            variant,
+                                            expected,
+                                            if expected == 1 { "" } else { "s" },
+                                            bindings.len()
+                                        ),
+                                        location: context.to_string(),
+                                    });
+                                }
+                            }
+                        }
+                    } else {
+                        self.errors.push(TypeError {
+                            message: format!("Unknown enum '{}'", enum_name),
+                            location: context.to_string(),
+                        });
+                    }
+                }
+                Type::Named(name) => {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Pattern '{}.{}' cannot match enum {}",
+                            enum_name, variant, name
+                        ),
+                        location: context.to_string(),
+                    });
+                }
+                other => {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Enum pattern '{}.{}' cannot match expression of type {:?}",
+                            enum_name, variant, other
+                        ),
+                        location: context.to_string(),
+                    });
+                }
+            },
             ast::Pattern::Bool(b) => {
                 if *expr_ty != Type::Bool {
                     self.errors.push(TypeError {
@@ -1355,11 +3819,59 @@ impl TypeChecker {
                     });
                 }
             }
+            ast::Pattern::EnumPayload { .. } => {}
+            ast::Pattern::ResultOk(sub_pat) => {
+                if let Type::Result(ok_ty, _) = expr_ty {
+                    self.check_pattern_type(sub_pat, ok_ty, context);
+                } else {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Result pattern cannot match expression of non-Result type {:?}",
+                            expr_ty
+                        ),
+                        location: context.to_string(),
+                    });
+                }
+            }
+            ast::Pattern::ResultErr(sub_pat) => {
+                if let Type::Result(_, err_ty) = expr_ty {
+                    self.check_pattern_type(sub_pat, err_ty, context);
+                } else {
+                    self.errors.push(TypeError {
+                        message: format!(
+                            "Result pattern cannot match expression of non-Result type {:?}",
+                            expr_ty
+                        ),
+                        location: context.to_string(),
+                    });
+                }
+            }
         }
     }
 
     fn types_compatible(&self, expected: &Type, actual: &Type) -> bool {
+        let expected_res = self.resolve_alias(expected);
+        let actual_res = self.resolve_alias(actual);
+        let expected = &expected_res;
+        let actual = &actual_res;
         if expected == actual {
+            return true;
+        }
+        if *actual == Type::Never {
+            return true;
+        }
+        if let (Type::Tuple(t1), Type::Tuple(t2)) = (expected, actual) {
+            if t1.len() == t2.len() {
+                return t1
+                    .iter()
+                    .zip(t2.iter())
+                    .all(|(a, b)| self.types_compatible(a, b));
+            }
+        }
+        // Unit enums lower to integer tags.
+        if (self.is_integer(expected) && self.is_unit_enum(actual))
+            || (self.is_unit_enum(expected) && self.is_integer(actual))
+        {
             return true;
         }
         // Allow numeric coercions
@@ -1368,6 +3880,17 @@ impl TypeChecker {
         }
         // Arrays with same element type
         if let (Type::Array(e1, _), Type::Array(e2, _)) = (expected, actual) {
+            return self.types_compatible(e1, e2);
+        }
+        // Slices with compatible element types
+        if let (Type::Slice(e1), Type::Slice(e2)) = (expected, actual) {
+            return self.types_compatible(e1, e2);
+        }
+        // Array or Vec compatible with Slice of same element type
+        if let (Type::Slice(e1), Type::Array(e2, _)) = (expected, actual) {
+            return self.types_compatible(e1, e2);
+        }
+        if let (Type::Slice(e1), Type::Vec(e2)) = (expected, actual) {
             return self.types_compatible(e1, e2);
         }
         // Option types with compatible inner types
@@ -1386,14 +3909,588 @@ impl TypeChecker {
         if let (Type::HashMap(key1, value1), Type::HashMap(key2, value2)) = (expected, actual) {
             return self.types_compatible(key1, key2) && self.types_compatible(value1, value2);
         }
+        // Fn types with compatible parameter and return types
+        if let (Type::Fn(p1, r1), Type::Fn(p2, r2)) = (expected, actual) {
+            if p1.len() == p2.len() {
+                return p1
+                    .iter()
+                    .zip(p2.iter())
+                    .all(|(a, b)| self.types_compatible(a, b))
+                    && self.types_compatible(r1, r2);
+            }
+        }
+        // Generic types with matching base name and compatible arguments
+        if let (Type::Generic(n1, a1), Type::Generic(n2, a2)) = (expected, actual) {
+            if n1 == n2 && a1.len() == a2.len() {
+                return a1
+                    .iter()
+                    .zip(a2.iter())
+                    .all(|(a, b)| self.types_compatible(a, b));
+            }
+        }
+        if let (Type::Generic(n, a), Type::Named(m)) | (Type::Named(m), Type::Generic(n, a)) =
+            (expected, actual)
+        {
+            if crate::monomorphize::mangle_name(n, a) == *m {
+                return true;
+            }
+        }
         false
     }
 }
 
+fn collect_unit_enums(file: &ast::File) -> HashMap<String, Vec<(String, Vec<Type>)>> {
+    let mut enums = HashMap::new();
+    for kernel in &file.kernels {
+        for item in &kernel.items {
+            if let ast::KernelItem::Enum(def) = item {
+                enums.insert(
+                    def.name.clone(),
+                    def.variants
+                        .iter()
+                        .map(|v| (v.name.clone(), v.payloads.clone()))
+                        .collect(),
+                );
+            }
+        }
+    }
+    enums
+}
+
+fn unit_enum_tag(
+    enums: &HashMap<String, Vec<(String, Vec<Type>)>>,
+    enum_name: &str,
+    variant: &str,
+) -> Option<i64> {
+    enums.get(enum_name).and_then(|variants| {
+        variants
+            .iter()
+            .position(|(item, _)| item == variant)
+            .map(|index| index as i64)
+    })
+}
+
+fn unit_enum_payload_types(
+    enums: &HashMap<String, Vec<(String, Vec<Type>)>>,
+    enum_name: &str,
+    variant: &str,
+) -> Vec<Type> {
+    enums
+        .get(enum_name)
+        .and_then(|variants| {
+            variants
+                .iter()
+                .find(|(item, _)| item == variant)
+                .map(|(_, types)| types.clone())
+        })
+        .unwrap_or_default()
+}
+
+fn lower_pattern(pattern: &mut ast::Pattern, enums: &HashMap<String, Vec<(String, Vec<Type>)>>) {
+    if let ast::Pattern::Tuple(sub_pats) = pattern {
+        for sub in sub_pats {
+            lower_pattern(sub, enums);
+        }
+        return;
+    }
+    if let ast::Pattern::Struct { fields, .. } = pattern {
+        for (_, sub_pat) in fields {
+            lower_pattern(sub_pat, enums);
+        }
+        return;
+    }
+    if let ast::Pattern::Some(sub_pat) = pattern {
+        lower_pattern(sub_pat, enums);
+        return;
+    }
+    if let ast::Pattern::ResultOk(sub_pat) = pattern {
+        lower_pattern(sub_pat, enums);
+        return;
+    }
+    if let ast::Pattern::ResultErr(sub_pat) = pattern {
+        lower_pattern(sub_pat, enums);
+        return;
+    }
+    let ast::Pattern::EnumVariant {
+        enum_name,
+        variant,
+        bindings,
+    } = pattern.clone()
+    else {
+        return;
+    };
+    if let Some(tag) = unit_enum_tag(enums, &enum_name, &variant) {
+        if bindings.is_empty() {
+            *pattern = ast::Pattern::Literal(Literal::Int(tag));
+        } else {
+            let types = unit_enum_payload_types(enums, &enum_name, &variant);
+            *pattern = ast::Pattern::EnumPayload {
+                tag,
+                bindings,
+                types,
+            };
+        }
+    }
+}
+
+fn pack_enum_payload(value: Expr, shift: i64, rest: Expr) -> Expr {
+    Expr::Binary {
+        op: BinaryOp::BitOr,
+        left: Box::new(Expr::Binary {
+            op: BinaryOp::Shl,
+            left: Box::new(value),
+            right: Box::new(Expr::Literal(Literal::Int(shift))),
+        }),
+        right: Box::new(rest),
+    }
+}
+
+fn lower_expr(expr: &mut Expr, enums: &HashMap<String, Vec<(String, Vec<Type>)>>) {
+    match expr {
+        Expr::Field {
+            expr: object,
+            field,
+        } => {
+            if let Expr::Ident(type_name) = object.as_ref() {
+                if let Some(tag) = unit_enum_tag(enums, type_name, field) {
+                    *expr = Expr::Literal(Literal::Int(tag));
+                    return;
+                }
+            }
+            lower_expr(object, enums);
+        }
+        Expr::Binary { left, right, .. } => {
+            lower_expr(left, enums);
+            lower_expr(right, enums);
+        }
+        Expr::Unary { expr: inner, .. } => lower_expr(inner, enums),
+        Expr::Call { func, args, .. } => {
+            // Pack payload constructors as (payload << 8) | tag.
+            // Pack two-field payload constructors as (a << 20) | (b << 8) | tag.
+            if let Expr::Field {
+                expr: object,
+                field,
+            } = func.as_ref()
+            {
+                if let Expr::Ident(type_name) = object.as_ref() {
+                    if let Some(tag) = unit_enum_tag(enums, type_name, field) {
+                        if args.len() == 1 {
+                            let mut payload = args[0].clone();
+                            lower_expr(&mut payload, enums);
+                            *expr = pack_enum_payload(payload, 8, Expr::Literal(Literal::Int(tag)));
+                            return;
+                        }
+                        if args.len() == 2 {
+                            let mut first = args[0].clone();
+                            let mut second = args[1].clone();
+                            lower_expr(&mut first, enums);
+                            lower_expr(&mut second, enums);
+                            *expr = pack_enum_payload(
+                                first,
+                                20,
+                                pack_enum_payload(second, 8, Expr::Literal(Literal::Int(tag))),
+                            );
+                            return;
+                        }
+                    }
+                }
+            }
+            lower_expr(func, enums);
+            for arg in args {
+                lower_expr(arg, enums);
+            }
+        }
+        Expr::Index { expr: inner, index } => {
+            lower_expr(inner, enums);
+            lower_expr(index, enums);
+        }
+        Expr::Use { args, .. } => {
+            for (_, value) in args {
+                lower_expr(value, enums);
+            }
+        }
+        Expr::Send { message, args, .. } => {
+            lower_expr(message, enums);
+            for (_, value) in args {
+                lower_expr(value, enums);
+            }
+        }
+        Expr::Lambda { body, .. } => lower_expr(body, enums),
+        Expr::If {
+            condition,
+            then_expr,
+            else_expr,
+        } => {
+            lower_expr(condition, enums);
+            lower_expr(then_expr, enums);
+            lower_expr(else_expr, enums);
+        }
+        Expr::Match {
+            expr: scrutinee,
+            arms,
+        } => {
+            lower_expr(scrutinee, enums);
+            for arm in arms {
+                lower_pattern(&mut arm.pattern, enums);
+                if let Some(guard) = &mut arm.guard {
+                    lower_expr(guard, enums);
+                }
+                match &mut arm.body {
+                    ast::MatchBody::Expr(body) => lower_expr(body, enums),
+                    ast::MatchBody::Block(block) => lower_block(block, enums),
+                }
+            }
+        }
+        Expr::Block(block) => lower_block(block, enums),
+        Expr::Some(inner) => lower_expr(inner, enums),
+        Expr::Tuple(elements) => {
+            for element in elements {
+                lower_expr(element, enums);
+            }
+        }
+        Expr::Array(elements) => {
+            for element in elements {
+                lower_expr(element, enums);
+            }
+        }
+        Expr::Struct { fields, .. } => {
+            for (_, value) in fields {
+                lower_expr(value, enums);
+            }
+        }
+        Expr::Try(inner) => lower_expr(inner, enums),
+        Expr::Copy(inner) => lower_expr(inner, enums),
+        Expr::Range { start, end, .. } => {
+            lower_expr(start, enums);
+            lower_expr(end, enums);
+        }
+        Expr::Cast { expr: inner, .. } => lower_expr(inner, enums),
+        Expr::Unit | Expr::Literal(_) | Expr::Ident(_) | Expr::None => {}
+    }
+}
+
+fn lower_stmt(stmt: &mut Stmt, enums: &HashMap<String, Vec<(String, Vec<Type>)>>) {
+    match stmt {
+        Stmt::Let { value, .. } => lower_expr(value, enums),
+        Stmt::Assign { target, value } => {
+            lower_expr(target, enums);
+            lower_expr(value, enums);
+        }
+        Stmt::Return(Some(value)) => lower_expr(value, enums),
+        Stmt::Return(None) | Stmt::Break(_) | Stmt::Continue(_) => {}
+        Stmt::If {
+            condition,
+            then_block,
+            else_block,
+        } => {
+            lower_expr(condition, enums);
+            lower_block(then_block, enums);
+            if let Some(block) = else_block {
+                lower_block(block, enums);
+            }
+        }
+        Stmt::For { iter, body, .. } => {
+            lower_expr(iter, enums);
+            lower_block(body, enums);
+        }
+        Stmt::While {
+            condition, body, ..
+        } => {
+            lower_expr(condition, enums);
+            lower_block(body, enums);
+        }
+        Stmt::Loop { body, .. } | Stmt::Defer(body) => lower_block(body, enums),
+        Stmt::Match { expr, arms } => {
+            lower_expr(expr, enums);
+            for arm in arms {
+                lower_pattern(&mut arm.pattern, enums);
+                if let Some(guard) = &mut arm.guard {
+                    lower_expr(guard, enums);
+                }
+                match &mut arm.body {
+                    ast::MatchBody::Expr(body) => lower_expr(body, enums),
+                    ast::MatchBody::Block(block) => lower_block(block, enums),
+                }
+            }
+        }
+        Stmt::Send { message, args, .. } => {
+            lower_expr(message, enums);
+            for (_, value) in args {
+                lower_expr(value, enums);
+            }
+        }
+        Stmt::Expr(expr) => lower_expr(expr, enums),
+    }
+}
+
+fn lower_block(block: &mut ast::Block, enums: &HashMap<String, Vec<(String, Vec<Type>)>>) {
+    for stmt in &mut block.statements {
+        lower_stmt(stmt, enums);
+    }
+}
+
+/// Replace unit-enum constructors and patterns with integer tags for codegen/JIT.
+pub fn lower_type_aliases(file: &mut ast::File) {
+    let mut aliases = HashMap::new();
+    for kernel in &file.kernels {
+        for item in &kernel.items {
+            if let ast::KernelItem::TypeAlias(a) = item {
+                aliases.insert(a.name.clone(), a.target.clone());
+            }
+        }
+    }
+    if aliases.is_empty() {
+        return;
+    }
+
+    fn resolve_ty(ty: &mut ast::Type, aliases: &HashMap<String, ast::Type>) {
+        let mut depth = 0;
+        while let ast::Type::Named(name) = ty {
+            if let Some(target) = aliases.get(name) {
+                *ty = target.clone();
+                depth += 1;
+                if depth > 32 {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+        match ty {
+            ast::Type::Option(inner) => resolve_ty(inner, aliases),
+            ast::Type::Result(ok, err) => {
+                resolve_ty(ok, aliases);
+                resolve_ty(err, aliases);
+            }
+            ast::Type::Vec(elem) => resolve_ty(elem, aliases),
+            ast::Type::HashMap(k, v) => {
+                resolve_ty(k, aliases);
+                resolve_ty(v, aliases);
+            }
+            ast::Type::Array(elem, _) => resolve_ty(elem, aliases),
+            ast::Type::Slice(elem) => resolve_ty(elem, aliases),
+            ast::Type::Tuple(elems) => {
+                for elem in elems {
+                    resolve_ty(elem, aliases);
+                }
+            }
+            ast::Type::Ref { ty: inner, .. } => resolve_ty(inner, aliases),
+            ast::Type::Fn(params, ret) => {
+                for p in params {
+                    resolve_ty(p, aliases);
+                }
+                resolve_ty(ret, aliases);
+            }
+            _ => {}
+        }
+    }
+
+    fn lower_block_types(block: &mut ast::Block, aliases: &HashMap<String, ast::Type>) {
+        for stmt in &mut block.statements {
+            match stmt {
+                ast::Stmt::Let { ty, value, .. } => {
+                    if let Some(t) = ty {
+                        resolve_ty(t, aliases);
+                    }
+                    lower_expr_types(value, aliases);
+                }
+                ast::Stmt::Assign { target, value } => {
+                    lower_expr_types(target, aliases);
+                    lower_expr_types(value, aliases);
+                }
+                ast::Stmt::Expr(expr) => lower_expr_types(expr, aliases),
+                ast::Stmt::Return(Some(expr)) => lower_expr_types(expr, aliases),
+                ast::Stmt::If {
+                    condition,
+                    then_block,
+                    else_block,
+                } => {
+                    lower_expr_types(condition, aliases);
+                    lower_block_types(then_block, aliases);
+                    if let Some(b) = else_block {
+                        lower_block_types(b, aliases);
+                    }
+                }
+                ast::Stmt::While {
+                    condition, body, ..
+                } => {
+                    lower_expr_types(condition, aliases);
+                    lower_block_types(body, aliases);
+                }
+                ast::Stmt::For { iter, body, .. } => {
+                    lower_expr_types(iter, aliases);
+                    lower_block_types(body, aliases);
+                }
+                ast::Stmt::Loop { body, .. } => {
+                    lower_block_types(body, aliases);
+                }
+                ast::Stmt::Defer(block) => {
+                    lower_block_types(block, aliases);
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn lower_expr_types(expr: &mut ast::Expr, aliases: &HashMap<String, ast::Type>) {
+        match expr {
+            ast::Expr::Cast {
+                expr: inner,
+                target_type,
+            } => {
+                lower_expr_types(inner, aliases);
+                resolve_ty(target_type, aliases);
+            }
+            ast::Expr::Binary { left, right, .. } => {
+                lower_expr_types(left, aliases);
+                lower_expr_types(right, aliases);
+            }
+            ast::Expr::Unary { expr: inner, .. } => lower_expr_types(inner, aliases),
+            ast::Expr::Call { func, args, .. } => {
+                lower_expr_types(func, aliases);
+                for arg in args {
+                    lower_expr_types(arg, aliases);
+                }
+            }
+            ast::Expr::Index { expr: inner, index } => {
+                lower_expr_types(inner, aliases);
+                lower_expr_types(index, aliases);
+            }
+            ast::Expr::Field { expr: inner, .. } => lower_expr_types(inner, aliases),
+            ast::Expr::If {
+                condition,
+                then_expr,
+                else_expr,
+            } => {
+                lower_expr_types(condition, aliases);
+                lower_expr_types(then_expr, aliases);
+                lower_expr_types(else_expr, aliases);
+            }
+            ast::Expr::Match { expr: inner, arms } => {
+                lower_expr_types(inner, aliases);
+                for arm in arms {
+                    if let Some(guard) = &mut arm.guard {
+                        lower_expr_types(guard, aliases);
+                    }
+                    match &mut arm.body {
+                        ast::MatchBody::Expr(e) => lower_expr_types(e, aliases),
+                        ast::MatchBody::Block(b) => lower_block_types(b, aliases),
+                    }
+                }
+            }
+            ast::Expr::Block(block) => lower_block_types(block, aliases),
+            ast::Expr::Some(inner) | ast::Expr::Copy(inner) | ast::Expr::Try(inner) => {
+                lower_expr_types(inner, aliases);
+            }
+            ast::Expr::Array(elements) | ast::Expr::Tuple(elements) => {
+                for el in elements {
+                    lower_expr_types(el, aliases);
+                }
+            }
+            ast::Expr::Struct { fields, .. } => {
+                for (_, val) in fields {
+                    lower_expr_types(val, aliases);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    for kernel in &mut file.kernels {
+        for item in &mut kernel.items {
+            match item {
+                ast::KernelItem::Function(func) | ast::KernelItem::ComptimeFn(func) => {
+                    for param in &mut func.params {
+                        resolve_ty(&mut param.ty, &aliases);
+                    }
+                    if let Some(ret) = &mut func.return_type {
+                        resolve_ty(ret, &aliases);
+                    }
+                    lower_block_types(&mut func.body, &aliases);
+                }
+                ast::KernelItem::Struct(s) => {
+                    for field in &mut s.fields {
+                        resolve_ty(&mut field.ty, &aliases);
+                    }
+                }
+                ast::KernelItem::Enum(e) => {
+                    for variant in &mut e.variants {
+                        for payload in &mut variant.payloads {
+                            resolve_ty(payload, &aliases);
+                        }
+                    }
+                }
+                ast::KernelItem::Const(c) => {
+                    resolve_ty(&mut c.ty, &aliases);
+                    lower_expr_types(&mut c.value, &aliases);
+                }
+                ast::KernelItem::TypeAlias(_) | ast::KernelItem::Import(_) => {}
+            }
+        }
+    }
+}
+
+pub fn lower_unit_enums(file: &mut ast::File) {
+    lower_type_aliases(file);
+    let enums = collect_unit_enums(file);
+    if enums.is_empty() {
+        return;
+    }
+
+    for kernel in &mut file.kernels {
+        for item in &mut kernel.items {
+            match item {
+                ast::KernelItem::Function(func) | ast::KernelItem::ComptimeFn(func) => {
+                    lower_block(&mut func.body, &enums);
+                }
+                ast::KernelItem::Const(def) => lower_expr(&mut def.value, &enums),
+                ast::KernelItem::Struct(_)
+                | ast::KernelItem::Enum(_)
+                | ast::KernelItem::TypeAlias(_)
+                | ast::KernelItem::Import(_) => {}
+            }
+        }
+    }
+}
+
 pub fn check_file(file: &ast::File) -> Result<Vec<TypeError>> {
+    check_file_with_strict_mutability(file, true)
+}
+
+pub fn check_file_with_strict_mutability(
+    file: &ast::File,
+    strict_mutability: bool,
+) -> Result<Vec<TypeError>> {
     let mut all_errors = Vec::new();
     let mut checker = TypeChecker::new();
+    checker.strict_mutability = strict_mutability;
 
+    // Validate file-level attributes and language version
+    checker.check_attributes(&file.attributes, "file");
+    if checker.language_version.is_none() {
+        checker.language_version = Some("1.0".to_string());
+    }
+    all_errors.extend(checker.errors.drain(..));
+
+    // Validate comptime evaluation and collect diagnostics
+    let mut file_clone = file.clone();
+    let comptime_stats = crate::comptime::fold_comptime_calls(&mut file_clone);
+    for err in comptime_stats.errors {
+        all_errors.push(TypeError {
+            message: err,
+            location: "comptime".to_string(),
+        });
+    }
+
+    // Pass 1: register all kernel declarations across all kernels
+    for kernel in &file.kernels {
+        if checker.registered_kernels.insert(kernel.name.clone()) {
+            checker.register_kernel_declarations(kernel);
+        }
+    }
+    all_errors.extend(checker.errors.drain(..));
+
+    // Pass 2: typecheck all kernels
     for kernel in &file.kernels {
         let before = checker.errors.len();
         checker.check_kernel(kernel)?;
@@ -1588,7 +4685,9 @@ fn check_shell_stmt(
                 check_shell_block(eb, agent_messages, shell_name, errors);
             }
         }
-        ast::Stmt::For { body, .. } | ast::Stmt::While { body, .. } | ast::Stmt::Loop(body) => {
+        ast::Stmt::For { body, .. }
+        | ast::Stmt::While { body, .. }
+        | ast::Stmt::Loop { body, .. } => {
             check_shell_block(body, agent_messages, shell_name, errors);
         }
         ast::Stmt::Match { arms, .. } => {

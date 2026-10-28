@@ -5,7 +5,7 @@
 
 kernel ForContinueTest {
     fn main() -> i32 {
-        let total: i32 = 0;
+        let mut total: i32 = 0;
         for i in 1..=10 {
             // Skip even numbers
             if i % 2 == 0 {

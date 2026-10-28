@@ -1,0 +1,40 @@
+// Test 94: NodeKind as a typed compiler API
+// Purpose: NodeKind can be a function parameter, return type, and local.
+// Expected: Result: 42
+
+kernel NodeKindTypedApi {
+    enum NodeKind {
+        Unused0,
+        Kernel,
+        Fn,
+        Param,
+    }
+
+    fn echo_kind(kind: NodeKind) -> NodeKind {
+        return kind;
+    }
+
+    fn is_fn_kind(kind: NodeKind) -> bool {
+        return kind == NodeKind.Fn;
+    }
+
+    fn classify(kind: NodeKind) -> i32 {
+        if kind == NodeKind.Kernel {
+            return 1;
+        }
+        if kind == NodeKind.Fn {
+            return 41;
+        }
+        return 0;
+    }
+
+    fn main() -> i32 {
+        let kind: NodeKind = echo_kind(NodeKind.Fn);
+        if is_fn_kind(kind) {
+            if int_to_string(kind) == "2" {
+                return classify(kind) + 1;
+            }
+        }
+        return 0;
+    }
+}

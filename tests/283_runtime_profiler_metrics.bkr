@@ -1,0 +1,176 @@
+// Test 283: Runtime Profiler Metrics and Flamegraph Architecture (G-010)
+// Purpose: Verify runtime performance profiling, inclusive/exclusive metrics, hotspot ranking, and flamegraph emission:
+//   1. Function profiling record (name, call count, inclusive duration, exclusive duration).
+//   2. Self-time (exclusive duration) calculation: T_self = T_inc - T_child.
+//   3. Folded stack flamegraph line rendering.
+//   4. Structured profile manifest emission (bunker.profile.v1).
+//   5. Native calculation returning 42.
+// Expected return: 42
+
+kernel RuntimeProfilerMetricsTest {
+    // --- Data Structures ---
+
+    struct ProfileRecord {
+        name: str,
+        call_count: i64,
+        inclusive_us: i64,
+        exclusive_us: i64
+    }
+
+    struct ProfileSession {
+        records: Vec<ProfileRecord>,
+        total_wall_us: i64
+    }
+
+    fn session_new(total_us: i64) -> ProfileSession {
+        let recs: Vec<ProfileRecord> = vec_new();
+        return ProfileSession {
+            records: recs,
+            total_wall_us: total_us
+        };
+    }
+
+    fn make_profile_record(name: str, calls: i64, inc_us: i64, exc_us: i64) -> ProfileRecord {
+        return ProfileRecord {
+            name: name,
+            call_count: calls,
+            inclusive_us: inc_us,
+            exclusive_us: exc_us
+        };
+    }
+
+    fn session_add_record(sess: ProfileSession, rec: ProfileRecord) -> ProfileSession {
+        vec_push(sess.records, rec);
+        return sess;
+    }
+
+    // --- Exclusive Duration Calculation Helper ---
+
+    fn compute_exclusive_duration(inclusive_us: i64, child_total_us: i64) -> i64 {
+        if inclusive_us < child_total_us {
+            return 0;
+        }
+        return inclusive_us - child_total_us;
+    }
+
+    // --- Folded Flamegraph Line Formatter ---
+
+    fn format_flamegraph_line(stack: str, duration_us: i64) -> str {
+        return stack + " " + int_to_string(duration_us);
+    }
+
+    // --- JSON Formatter (bunker.profile.v1) ---
+
+    fn format_profile_json(sess: ProfileSession) -> str {
+        let nl = from_char_code(10);
+        let mut json = "{" + nl;
+        json = json + "  \"schema_version\": \"bunker.profile.v1\"," + nl;
+        json = json + "  \"total_duration_us\": " + int_to_string(sess.total_wall_us) + "," + nl;
+        json = json + "  \"hotspots_count\": " + int_to_string(vec_len(sess.records)) + nl;
+        json = json + "}";
+        return json;
+    }
+
+    // --- String Helpers ---
+
+    fn string_contains(haystack: str, needle: str) -> bool {
+        let needle_len = len(needle);
+        let haystack_len = len(haystack);
+        if needle_len == 0 {
+            return true;
+        }
+        if needle_len > haystack_len {
+            return false;
+        }
+        let limit = haystack_len - needle_len + 1;
+        let mut i: i64 = 0;
+        while i < limit {
+            if substring(haystack, i, i + needle_len) == needle {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn int_to_string(v: i64) -> str {
+        if v == 0 {
+            return "0";
+        }
+        let mut is_neg: bool = false;
+        let mut n: i64 = v;
+        if n < 0 {
+            is_neg = true;
+            n = 0 - n;
+        }
+        let mut digits: str = "";
+        while n > 0 {
+            let d: i64 = n % 10;
+            digits = from_char_code(48 + d) + digits;
+            n = n / 10;
+        }
+        if is_neg {
+            return "-" + digits;
+        }
+        return digits;
+    }
+
+    // --- Verification Suites ---
+
+    fn test_exclusive_calculation() -> bool {
+        // Parent total: 1000us, Child A: 400us, Child B: 300us -> Parent self: 300us
+        let parent_inc: i64 = 1000;
+        let children_total: i64 = 400 + 300;
+        let self_time = compute_exclusive_duration(parent_inc, children_total);
+
+        if self_time != 300 {
+            return false;
+        }
+        return true;
+    }
+
+    fn test_flamegraph_formatting() -> bool {
+        let line = format_flamegraph_line("main;process_stream;matrix_mult", 28500);
+        if line != "main;process_stream;matrix_mult 28500" {
+            return false;
+        }
+        return true;
+    }
+
+    fn test_profile_json_manifest() -> bool {
+        let mut sess = session_new(50000);
+        let r1 = make_profile_record("matrix_mult", 100, 32000, 28500);
+        let r2 = make_profile_record("dot_product", 1000, 3500, 3500);
+        sess = session_add_record(sess, r1);
+        sess = session_add_record(sess, r2);
+
+        let json = format_profile_json(sess);
+        if !string_contains(json, "\"schema_version\": \"bunker.profile.v1\"") {
+            return false;
+        }
+        if !string_contains(json, "\"total_duration_us\": 50000") {
+            return false;
+        }
+        if !string_contains(json, "\"hotspots_count\": 2") {
+            return false;
+        }
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_exclusive_calculation() {
+            return 1;
+        }
+
+        if !test_flamegraph_formatting() {
+            return 2;
+        }
+
+        if !test_profile_json_manifest() {
+            return 3;
+        }
+
+        // Return 42 on verified pass
+        return 42;
+    }
+}

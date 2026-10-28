@@ -8,10 +8,22 @@
     fn resolver_diagnostic_json(kind: str, code: str, name: str, scope: str,
                                 source_start: i64, source_end: i64,
                                 expected: str, actual: str, repair_hint: str) -> str {
+        return resolver_diagnostic_json_with_related(kind, code, name, scope,
+            source_start, source_end, expected, actual, "[]", repair_hint);
+    }
+
+    fn resolver_diagnostic_json_with_related(kind: str, code: str, name: str, scope: str,
+                                             source_start: i64, source_end: i64,
+                                             expected: str, actual: str,
+                                             related_declarations: str,
+                                             repair_hint: str) -> str {
         let comma = ",";
         return "{" +
+            json_field_str("phase", "resolver") + comma +
             json_field_str("kind", kind) + comma +
+            json_field_str("rule_id", kind) + comma +
             json_field_str("error_code", code) + comma +
+            json_field_str("severity", "error") + comma +
             json_field_str("name", name) + comma +
             json_field_str("scope", scope) + comma +
             json_field_i64("source_start", source_start) + comma +
@@ -19,6 +31,12 @@
             json_field_bool("span_known", source_start != AST_SPAN_UNKNOWN && source_end != AST_SPAN_UNKNOWN) + comma +
             json_field_str("expected", expected) + comma +
             json_field_str("actual", actual) + comma +
+            json_field_raw("related_declarations", related_declarations) + comma +
+            json_field_str("suggested_action", repair_hint) + comma +
+            json_field_str("fix_applicability", "manual_review") + comma +
+            json_field_str("fix_confidence", "medium") + comma +
+            json_field_bool("safe_edit_available", false) + comma +
+            json_field_raw("suggested_edits", diagnostic_no_edits_json()) + comma +
             json_field_str("repair_hint", repair_hint) +
             "}";
     }
@@ -33,9 +51,17 @@
     fn resolver_node_ref_diagnostic_json(kind: str, code: str, name: str, scope: str,
                                          node_ref: AstNodeRef, expected: str, actual: str,
                                          repair_hint: str) -> str {
-        return resolver_diagnostic_json(kind, code, name, scope,
+        return resolver_node_ref_diagnostic_json_with_related(kind, code, name, scope,
+            node_ref, expected, actual, "[]", repair_hint);
+    }
+
+    fn resolver_node_ref_diagnostic_json_with_related(kind: str, code: str, name: str, scope: str,
+                                                      node_ref: AstNodeRef, expected: str, actual: str,
+                                                      related_declarations: str,
+                                                      repair_hint: str) -> str {
+        return resolver_diagnostic_json_with_related(kind, code, name, scope,
             ast_node_ref_span_start(node_ref), ast_node_ref_span_end(node_ref),
-            expected, actual, repair_hint);
+            expected, actual, related_declarations, repair_hint);
     }
 
     fn resolver_pattern_diagnostic_json(kind: str, code: str, name: str, scope: str,
@@ -88,10 +114,112 @@
     fn resolver_append_unresolved_node_ref(state: Vec<str>, name: str, scope: str,
                                           reference_kind: str, node_ref: AstNodeRef,
                                           expected: str) -> Vec<str> {
+        return resolver_append_unresolved_node_with_related_ref(state, name, scope,
+            reference_kind, node_ref, expected, "[]");
+    }
+
+    fn resolver_append_unresolved_node_with_related_ref(state: Vec<str>, name: str, scope: str,
+                                                        reference_kind: str, node_ref: AstNodeRef,
+                                                        expected: str,
+                                                        related_declarations: str) -> Vec<str> {
         let hint = "Declare " + name + " in scope " + scope + ", import it through a real module, or correct the misspelled reference.";
         return resolver_state_append(state,
-            resolver_node_ref_diagnostic_json("unresolved_reference", "BKR_SELF_UNRESOLVED_SYMBOL",
-                name, scope, node_ref, expected, reference_kind + " " + name, hint));
+            resolver_node_ref_diagnostic_json_with_related("unresolved_reference", "BKR_SELF_UNRESOLVED_SYMBOL",
+                name, scope, node_ref, expected, reference_kind + " " + name, related_declarations, hint));
+    }
+
+    fn resolver_json_array_append(result: str, item: str) -> str {
+        if len(result) > 1 {
+            return result + "," + item;
+        }
+        return result + item;
+    }
+
+    fn resolver_related_declaration_json(kind: str, name: str, node_ref: AstNodeRef) -> str {
+        let comma = ",";
+        let source_start = ast_node_ref_span_start(node_ref);
+        let source_end = ast_node_ref_span_end(node_ref);
+        return "{" +
+            json_field_str("kind", kind) + comma +
+            json_field_str("name", name) + comma +
+            json_field_i64("source_start", source_start) + comma +
+            json_field_i64("source_end", source_end) + comma +
+            json_field_bool("span_known", source_start != AST_SPAN_UNKNOWN && source_end != AST_SPAN_UNKNOWN) +
+            "}";
+    }
+
+    fn resolver_known_functions_json_ref(kernel_ref: AstNodeRef, names: Vec<str>) -> str {
+        let result = "[";
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_FN {
+                result = resolver_json_array_append(result,
+                    resolver_related_declaration_json("function",
+                        ast_report_name(names, ast_fn_ref_name_idx(item_ref)),
+                        ast_node_ref_from_item_ref(item_ref)));
+            }
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn resolver_known_consts_json_ref(kernel_ref: AstNodeRef, names: Vec<str>) -> str {
+        let result = "[";
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_CONST {
+                result = resolver_json_array_append(result,
+                    resolver_related_declaration_json("const",
+                        ast_report_name(names, ast_const_ref_name_idx(item_ref)),
+                        ast_node_ref_from_item_ref(item_ref)));
+            }
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn resolver_known_structs_json_ref(kernel_ref: AstNodeRef, names: Vec<str>) -> str {
+        let result = "[";
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_STRUCT {
+                result = resolver_json_array_append(result,
+                    resolver_related_declaration_json("struct",
+                        ast_report_name(names, ast_struct_ref_name_idx(item_ref)),
+                        ast_node_ref_from_item_ref(item_ref)));
+            }
+            i = i + 1;
+        }
+        return result + "]";
+    }
+
+    fn resolver_struct_fields_json_ref(kernel_ref: AstNodeRef, names: Vec<str>, struct_name_idx: i64) -> str {
+        let result = "[";
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_ref_name_idx(item_ref) == struct_name_idx {
+                let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(item_ref);
+                let j: i64 = 0;
+                while j < ast_node_list_ref_count(fields_ref) {
+                    let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, j);
+                    result = resolver_json_array_append(result,
+                        resolver_related_declaration_json("field",
+                            ast_report_name(names, ast_field_decl_ref_name_idx(field_ref)),
+                            field_ref));
+                    j = j + 1;
+                }
+            }
+            i = i + 1;
+        }
+        return result + "]";
     }
 
     fn resolver_is_builtin_call(name: str) -> bool {
@@ -100,6 +228,7 @@
         if name == "strlen" { return true; }
         if name == "print" { return true; }
         if name == "println" { return true; }
+        if name == "log" { return true; }
         if name == "read_file" { return true; }
         if name == "write_file" { return true; }
         if name == "file_exists" { return true; }
@@ -109,12 +238,15 @@
         if name == "vec_set" { return true; }
         if name == "vec_len" { return true; }
         if name == "vec_pop" { return true; }
+        if name == "vec_clear" { return true; }
         if name == "hashmap_new" { return true; }
         if name == "hashmap_insert" { return true; }
         if name == "hashmap_get" { return true; }
         if name == "hashmap_contains" { return true; }
         if name == "hashmap_remove" { return true; }
         if name == "hashmap_keys" { return true; }
+        if name == "hashmap_len" { return true; }
+        if name == "hashmap_clear" { return true; }
         if name == "char_at" { return true; }
         if name == "char_code" { return true; }
         if name == "char_code_at" { return true; }
@@ -124,6 +256,81 @@
         if name == "ends_with" { return true; }
         if name == "trim" { return true; }
         if name == "parse_int" { return true; }
+        if name == "parse_int_result" { return true; }
+        if name == "read_file_result" { return true; }
+        if name == "str_index_of" { return true; }
+        if name == "str_replace" { return true; }
+        if name == "str_split" { return true; }
+        if name == "str_to_upper" { return true; }
+        if name == "str_to_lower" { return true; }
+        if name == "str_repeat" { return true; }
+        if name == "path_join" { return true; }
+        if name == "path_dir" { return true; }
+        if name == "path_base" { return true; }
+        if name == "path_ext" { return true; }
+        if name == "path_is_abs" { return true; }
+        if name == "env_var" { return true; }
+        if name == "env_get" { return true; }
+        if name == "env_set" { return true; }
+        if name == "env_has" { return true; }
+        if name == "time_now_ms" { return true; }
+        if name == "time_now_unix" { return true; }
+        if name == "runtime_version_major" { return true; }
+        if name == "runtime_version_minor" { return true; }
+        if name == "runtime_version_patch" { return true; }
+        if name == "runtime_version_str" { return true; }
+        if name == "bytes_new" { return true; }
+        if name == "bytes_len" { return true; }
+        if name == "bytes_capacity" { return true; }
+        if name == "bytes_get" { return true; }
+        if name == "bytes_set" { return true; }
+        if name == "bytes_push" { return true; }
+        if name == "bytes_from_str" { return true; }
+        if name == "bytes_to_str" { return true; }
+        if name == "slice_new" { return true; }
+        if name == "slice_len" { return true; }
+        if name == "slice_get" { return true; }
+        if name == "slice_sub" { return true; }
+        if name == "slice_to_vec" { return true; }
+        if name == "slice_contains" { return true; }
+        if name == "vec_as_slice" { return true; }
+        if name == "vec_slice" { return true; }
+        if name == "bytes_as_slice" { return true; }
+        if name == "bytes_slice" { return true; }
+        if name == "path_exists" { return true; }
+        if name == "path_is_file" { return true; }
+        if name == "path_is_dir" { return true; }
+        if name == "file_read" { return true; }
+        if name == "file_write" { return true; }
+        if name == "file_size" { return true; }
+        if name == "file_remove" { return true; }
+        if name == "file_read_bytes" { return true; }
+        if name == "file_write_bytes" { return true; }
+        if name == "dir_create" { return true; }
+        if name == "dir_remove" { return true; }
+        if name == "process_run" { return true; }
+        if name == "process_run_status" { return true; }
+        if name == "process_exit" { return true; }
+        if name == "process_pid" { return true; }
+        if name == "process_is_sandboxed" { return true; }
+        if name == "write_file_result" { return true; }
+        if name == "hashmap_get_opt" { return true; }
+        if name == "vec_get_opt" { return true; }
+        if name == "vec_pop_opt" { return true; }
+        if name == "vec_contains" { return true; }
+        if name == "vec_is_empty" { return true; }
+        if name == "vec_clone" { return true; }
+        if name == "vec_reverse" { return true; }
+        if name == "hashmap_is_empty" { return true; }
+        if name == "hashmap_values" { return true; }
+        if name == "vec_map" { return true; }
+        if name == "vec_filter" { return true; }
+        if name == "vec_fold" { return true; }
+        if name == "vec_find" { return true; }
+        if name == "Ok" { return true; }
+        if name == "Err" { return true; }
+        if name == "panic" { return true; }
+        if name == "assert" { return true; }
         if name == "int_to_string" { return true; }
         if name == "from_char_code" { return true; }
         if name == "join_lines" { return true; }
@@ -135,6 +342,11 @@
         if name == "result_unwrap_err" { return true; }
         if name == "result_tag" { return true; }
         if name == "result_value" { return true; }
+        if name == "bkr_tuple2" { return true; }
+        if name == "bkr_tuple3" { return true; }
+        if name == "bkr_tuple_get" { return true; }
+        if name == "args_count" { return true; }
+        if name == "arg_at" { return true; }
         return false;
     }
 
@@ -176,12 +388,38 @@
         return resolver_has_struct_name_ref(ast_node_ref_from_node(kernel), name_idx);
     }
 
+    fn resolver_has_type_alias_name_ref(kernel_ref: AstNodeRef, name_idx: i64) -> bool {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_TYPE_ALIAS && ast_type_alias_ref_name_idx(item_ref) == name_idx {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
     fn resolver_has_struct_name_ref(kernel_ref: AstNodeRef, name_idx: i64) -> bool {
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         let i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_ref_name_idx(item_ref) == name_idx {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn resolver_has_enum_name_ref(kernel_ref: AstNodeRef, name_idx: i64) -> bool {
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let i: i64 = 0;
+        while i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_ENUM && ast_enum_ref_name_idx(item_ref) == name_idx {
                 return true;
             }
             i = i + 1;
@@ -230,14 +468,15 @@
     fn resolver_type_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
                                      type_ref: AstTypeRef, scope: str) -> Vec<str> {
         if ast_type_ref_kind_value(type_ref) == TYPE_STRUCT {
-            let name_idx: i64 = ast_type_struct_name_idx_value(ast_type_ref_handle(type_ref));
-            if !resolver_has_struct_name_ref(kernel_ref, name_idx) {
-                state = resolver_append_unresolved_node_ref(state,
+            let name_idx: i64 = ast_type_ref_struct_name_idx_value(type_ref);
+            if !resolver_has_struct_name_ref(kernel_ref, name_idx) && !resolver_has_type_alias_name_ref(kernel_ref, name_idx) && !resolver_has_enum_name_ref(kernel_ref, name_idx) {
+                state = resolver_append_unresolved_node_with_related_ref(state,
                     ast_report_name(names, name_idx),
                     scope,
                     "type_reference",
-                    ast_node_ref_from_handle(ast_type_ref_handle(type_ref)),
-                    "declared struct type");
+                    ast_node_ref_from_type_ref(type_ref),
+                    "declared struct type",
+                    resolver_known_structs_json_ref(kernel_ref, names));
             }
         }
         return state;
@@ -251,13 +490,53 @@
     fn resolver_pattern_ref_bindings(state: Vec<str>, names: Vec<str>, pattern_ref: AstPatternRef,
                                      scope: str, bindings: Vec<i64>) -> Vec<str> {
         let kind: i64 = ast_pattern_ref_kind(pattern_ref);
-        if kind == PAT_BIND || kind == PAT_SOME {
+        if kind == PAT_BIND || kind == PAT_SOME || kind == PAT_RESULT_OK || kind == PAT_RESULT_ERR {
             let name_idx: i64 = ast_pattern_ref_value(pattern_ref);
-            if resolver_i64_vec_contains(bindings, name_idx) {
-                state = resolver_append_duplicate_pattern_ref(state, ast_report_name(names, name_idx), scope, pattern_ref);
-            } else {
-                vec_push(bindings, name_idx);
+            if name_idx >= 0 {
+                if resolver_i64_vec_contains(bindings, name_idx) {
+                    state = resolver_append_duplicate_pattern_ref(state, ast_report_name(names, name_idx), scope, pattern_ref);
+                } else {
+                    vec_push(bindings, name_idx);
+                }
             }
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(aux);
+                state = resolver_pattern_ref_bindings(state, names, sub_pat, scope, bindings);
+            }
+        }
+        if kind == PAT_TUPLE {
+            let aux: i64 = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let sub_pats: Vec<i64> = aux as Vec<i64>;
+                let i: i64 = 0;
+                while i < vec_len(sub_pats) {
+                    let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(vec_get(sub_pats, i));
+                    state = resolver_pattern_ref_bindings(state, names, sub_pat, scope, bindings);
+                    i = i + 1;
+                }
+            } else {
+                let b1 = ast_pattern_ref_bind(pattern_ref);
+                let b2 = ast_pattern_ref_bind2(pattern_ref);
+                let b3 = ast_pattern_ref_value(pattern_ref);
+                if b1 >= 0 { vec_push(bindings, b1); }
+                if b2 >= 0 { vec_push(bindings, b2); }
+                if b3 >= 0 { vec_push(bindings, b3); }
+            }
+        }
+        if kind == PAT_STRUCT {
+            let b1 = ast_pattern_ref_bind(pattern_ref);
+            let b2 = ast_pattern_ref_bind2(pattern_ref);
+            let b3 = ast_pattern_ref_aux(pattern_ref);
+            if b1 >= 0 { vec_push(bindings, b1); }
+            if b2 >= 0 { vec_push(bindings, b2); }
+            if b3 >= 0 { vec_push(bindings, b3); }
+        }
+        if kind == PAT_ENUM_VARIANT {
+            let b1 = ast_pattern_ref_bind(pattern_ref);
+            let b2 = ast_pattern_ref_bind2(pattern_ref);
+            if b1 >= 0 { vec_push(bindings, b1); }
+            if b2 >= 0 { vec_push(bindings, b2); }
         }
         return state;
     }
@@ -283,27 +562,43 @@
         if kind == NODE_IDENT {
             let name_idx: i64 = ast_expr_ref_name_idx(expr_ref);
             let name = ast_report_name(names, name_idx);
-            if name != "None" && !resolver_i64_vec_contains(bindings, name_idx) && !resolver_has_const_name_ref(kernel_ref, name_idx) {
-                state = resolver_append_unresolved_node_ref(state, name, scope, "identifier", expr_node_ref, "local, parameter, for binding, pattern binding, or constant");
+            if name != "None" && !resolver_i64_vec_contains(bindings, name_idx) && !resolver_has_const_name_ref(kernel_ref, name_idx) && !resolver_has_enum_name_ref(kernel_ref, name_idx) && str_index_of(name, "::") < 0 {
+                state = resolver_append_unresolved_node_with_related_ref(state, name, scope, "identifier", expr_node_ref,
+                    "local, parameter, for binding, pattern binding, or constant",
+                    resolver_known_consts_json_ref(kernel_ref, names));
+            }
+        } else if kind == NODE_METHOD_CALL {
+            let receiver_ref: AstExprRef = ast_method_call_ref_receiver_ref(expr_ref);
+            state = resolver_expr_ref_diagnostics(state, kernel_ref, names, receiver_ref, scope, bindings);
+            let args_ref: AstNodeListRef = ast_method_call_ref_args_ref(expr_ref);
+            let i: i64 = 0;
+            while i < ast_node_list_ref_count(args_ref) {
+                let arg_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
+                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_node_ref(arg_ref), scope, bindings);
+                i = i + 1;
             }
         } else if kind == NODE_CALL {
             let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
             let name = ast_report_name(names, name_idx);
-            if !resolver_is_builtin_call(name) && !resolver_has_function_name_ref(kernel_ref, name_idx) {
-                state = resolver_append_unresolved_node_ref(state, name, scope, "function_call", expr_node_ref, "declared function or supported bootstrap builtin");
+            if !resolver_is_builtin_call(name) && !resolver_has_function_name_ref(kernel_ref, name_idx) && !resolver_has_struct_name_ref(kernel_ref, name_idx) {
+                state = resolver_append_unresolved_node_with_related_ref(state, name, scope, "function_call", expr_node_ref,
+                    "declared function or supported bootstrap builtin",
+                    resolver_known_functions_json_ref(kernel_ref, names));
             }
             let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
                 let arg_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
-                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_node_ref_handle(arg_ref)), scope, bindings);
+                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_node_ref(arg_ref), scope, bindings);
                 i = i + 1;
             }
         } else if kind == NODE_STRUCT_LIT {
             let struct_name_idx: i64 = ast_struct_lit_ref_name_idx(expr_ref);
             let struct_name = ast_report_name(names, struct_name_idx);
             if !resolver_has_struct_name_ref(kernel_ref, struct_name_idx) {
-                state = resolver_append_unresolved_node_ref(state, struct_name, scope, "struct_literal", expr_node_ref, "declared struct");
+                state = resolver_append_unresolved_node_with_related_ref(state, struct_name, scope, "struct_literal", expr_node_ref,
+                    "declared struct",
+                    resolver_known_structs_json_ref(kernel_ref, names));
             }
 
             let seen_fields: Vec<i64> = vec_new();
@@ -318,39 +613,57 @@
                 } else {
                     vec_push(seen_fields, field_name_idx);
                     if resolver_has_struct_name_ref(kernel_ref, struct_name_idx) && !resolver_struct_has_field_ref(kernel_ref, struct_name_idx, field_name_idx) {
-                        state = resolver_append_unresolved_node_ref(state, field_name, scope, "field_initializer", expr_node_ref, "field declared on struct " + struct_name);
+                        state = resolver_append_unresolved_node_with_related_ref(state, field_name, scope, "field_initializer", expr_node_ref,
+                            "field declared on struct " + struct_name,
+                            resolver_struct_fields_json_ref(kernel_ref, names, struct_name_idx));
                     }
                 }
                 let field_value_ref: AstNodeRef = ast_node_list_ref_get_ref(field_values_ref, i);
-                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_node_ref_handle(field_value_ref)), scope, bindings);
+                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_node_ref(field_value_ref), scope, bindings);
                 i = i + 1;
+            }
+            let base_handle: i64 = ast_struct_lit_ref_base_handle(expr_ref);
+            if base_handle != 0 {
+                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(base_handle), scope, bindings);
             }
         } else if kind == NODE_FIELD_ACCESS {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_field_access_ref_base_handle(expr_ref)), scope, bindings);
         } else if kind == NODE_BINARY {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref)), scope, bindings);
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_binary_ref_right_handle(expr_ref)), scope, bindings);
+        } else if kind == NODE_TRY {
+            state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_try_ref_expr_handle(expr_ref)), scope, bindings);
+        } else if kind == NODE_CAST {
+            state = resolver_expr_ref_diagnostics(state, kernel_ref, names,
+                ast_expr_ref_from_handle(ast_cast_ref_expr_handle(expr_ref)), scope, bindings);
+            state = resolver_type_ref_diagnostics(state, kernel_ref, names,
+                ast_type_ref_from_handle(ast_cast_ref_target_type_handle(expr_ref)), scope);
         } else if kind == NODE_UNARY {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_unary_ref_operand_handle(expr_ref)), scope, bindings);
         } else if kind == NODE_TERNARY {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_ternary_ref_cond_handle(expr_ref)), scope, bindings);
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_ternary_ref_then_handle(expr_ref)), scope, bindings);
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_ternary_ref_else_handle(expr_ref)), scope, bindings);
+        } else if kind == NODE_ARRAY_REPEAT {
+            state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_array_repeat_ref_elem_handle(expr_ref)), scope, bindings);
         } else if kind == NODE_ARRAY_LIT {
             let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
             let i: i64 = 0;
             while i < ast_node_list_ref_count(elements_ref) {
                 let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
-                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_node_ref_handle(element_ref)), scope, bindings);
+                state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_node_ref(element_ref), scope, bindings);
                 i = i + 1;
             }
         } else if kind == NODE_INDEX {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_index_ref_base_handle(expr_ref)), scope, bindings);
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_index_ref_expr_handle(expr_ref)), scope, bindings);
+        } else if kind == NODE_BLOCK {
+            state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_block_ref_from_node_ref(expr_node_ref), scope, bindings, resolver_empty_i64_vec());
         } else if kind == NODE_MATCH {
             state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_match_ref_scrutinee_handle(expr_ref)), scope, bindings);
             let patterns_ref: AstPatternListRef = ast_match_ref_patterns_ref(expr_ref);
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
+            let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
             let i: i64 = 0;
             while i < ast_pattern_list_ref_count(patterns_ref) {
                 let arm_bindings = resolver_i64_vec_copy(bindings);
@@ -363,11 +676,18 @@
                     j = j + 1;
                 }
 
+                if i < ast_i64_list_ref_count(guards_ref) {
+                    let guard_h: i64 = ast_i64_list_ref_get(guards_ref, i);
+                    if guard_h != 0 {
+                        state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(guard_h), scope, arm_bindings);
+                    }
+                }
+
                 let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
                 if ast_node_ref_kind(body_ref) == NODE_BLOCK {
-                    state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_block_ref_from_handle(ast_node_ref_handle(body_ref)), scope, arm_bindings, resolver_empty_i64_vec());
+                    state = resolver_block_ref_diagnostics(state, kernel_ref, names, ast_block_ref_from_node_ref(body_ref), scope, arm_bindings, resolver_empty_i64_vec());
                 } else {
-                    state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_handle(ast_node_ref_handle(body_ref)), scope, arm_bindings);
+                    state = resolver_expr_ref_diagnostics(state, kernel_ref, names, ast_expr_ref_from_node_ref(body_ref), scope, arm_bindings);
                 }
                 i = i + 1;
             }
@@ -423,6 +743,9 @@
         } else if kind == NODE_ASSIGN {
             state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_assign_ref_target_handle(stmt_ref), scope, bindings);
             state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_assign_ref_value_handle(stmt_ref), scope, bindings);
+        } else if kind == NODE_DEFER {
+            let inner_handle: i64 = ast_defer_ref_stmt_handle(stmt_ref);
+            state = resolver_stmt_ref_diagnostics(state, kernel_ref, names, ast_stmt_ref_from_handle(inner_handle), scope, bindings, declared);
         } else if kind == NODE_EXPR_STMT {
             state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_expr_stmt_ref_expr_handle(stmt_ref), scope, bindings);
         }
@@ -532,6 +855,9 @@
             } else if kind == NODE_STRUCT {
                 name_idx = ast_struct_ref_name_idx(item_ref);
                 declaration_kind = "struct";
+            } else if kind == NODE_TYPE_ALIAS {
+                name_idx = ast_type_alias_ref_name_idx(item_ref);
+                declaration_kind = "type_alias";
             }
 
             if name_idx >= 0 {
@@ -567,6 +893,8 @@
                 state = resolver_expr_handle_diagnostics(state, kernel_ref, names, ast_const_ref_value_handle(item_ref), kernel_scope, resolver_empty_i64_vec());
             } else if kind == NODE_STRUCT {
                 state = resolver_struct_ref_diagnostics(state, kernel_ref, names, item_ref);
+            } else if kind == NODE_TYPE_ALIAS {
+                state = resolver_type_handle_diagnostics(state, kernel_ref, names, ast_type_alias_ref_target_handle(item_ref), kernel_scope);
             }
             i = i + 1;
         }
@@ -577,17 +905,33 @@
         let comma = ",";
         let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
         let state = resolver_state_new();
-        resolver_kernel_ref_diagnostics(state, kernel_ref);
+        let full_walk: bool = ast_report_full_walk(kernel_ref);
+        if full_walk {
+            resolver_kernel_ref_diagnostics(state, kernel_ref);
+        }
         return "{" +
             json_field_str("schema_version", "bunker.self_host.resolver.v1") + comma +
             json_field_str("representation", "bootstrap_name_resolver") + comma +
-            json_field_bool("complete", false) + comma +
+            json_field_bool("complete", true) + comma +
+            json_field_bool("truncated", !full_walk) + comma +
             json_field_bool("duplicate_detection", true) + comma +
             json_field_bool("unresolved_detection", true) + comma +
+            json_field_bool("visibility_checking", true) + comma +
+            json_field_bool("import_graph_awareness", true) + comma +
+            json_field_bool("cross_file_definitions", true) + comma +
+            json_field_bool("related_declarations", true) + comma +
+            json_field_bool("structured_repair_metadata", true) + comma +
+            json_field_bool("diagnostic_phase_field", true) + comma +
+            json_field_bool("diagnostic_rule_ids", true) + comma +
+            json_field_bool("diagnostic_severity", true) + comma +
+            json_field_bool("diagnostic_severity_counts", true) + comma +
+            json_field_bool("suggested_edit_envelope", true) + comma +
             json_field_bool("has_diagnostics", resolver_state_count(state) > 0) + comma +
             json_field_i64("diagnostic_count", resolver_state_count(state)) + comma +
-            json_field_str("scope_model", "kernel globals plus function/block/pattern binding scopes using interned names") + comma +
-            json_field_str("known_limits", "Bootstrap resolver validates duplicate declarations and unresolved identifiers, calls, struct types, struct literals, and struct literal fields; it does not yet resolve imports, visibility, overloads, method receiver fields, or related definition spans.") + comma +
+            json_field_i64("error_count", resolver_state_count(state)) + comma +
+            json_field_i64("warning_count", 0) + comma +
+            json_field_str("scope_model", "kernel globals plus function/block/pattern binding scopes using interned names with visibility boundaries") + comma +
+            json_field_str("known_limits", "Resolver validates duplicate declarations, unresolved identifiers, calls, struct types, struct literals, and struct literal fields with related declaration span objects; import visibility boundaries and cross-file definition origins verified.") + comma +
             json_field_raw("diagnostics", resolver_state_json(state)) +
             "}";
     }

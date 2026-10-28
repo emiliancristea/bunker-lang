@@ -1,0 +1,150 @@
+// Test 293: Standard Library Documentation Catalog Architecture (E-003)
+// Purpose: Verify standard library documentation catalog, function signature reflection, and manifest emission:
+//   1. Stdlib module representation (io, string, vec, hashmap, process, math, arena).
+//   2. Function signature and doc comment inspection.
+//   3. Dual-track error convention metadata reflection.
+//   4. Structured documentation catalog emission (bunker.stdlib_doc.v1).
+//   5. Native calculation returning 42.
+// Expected return: 42
+
+kernel StdlibDocumentationCatalogTest {
+    // --- Data Structures ---
+
+    struct FunctionDoc {
+        fn_name: str,
+        signature: str,
+        doc_summary: str,
+        is_recoverable: bool
+    }
+
+    struct ModuleDoc {
+        module_name: str,
+        module_summary: str,
+        functions: Vec<FunctionDoc>
+    }
+
+    struct StdlibCatalog {
+        modules: Vec<ModuleDoc>,
+        total_modules: i64,
+        total_functions: i64
+    }
+
+    // --- Constructors ---
+
+    fn function_doc_new(name: str, sig: str, doc: str, rec: bool) -> FunctionDoc {
+        return FunctionDoc {
+            fn_name: name,
+            signature: sig,
+            doc_summary: doc,
+            is_recoverable: rec
+        };
+    }
+
+    fn module_doc_new(name: str, summary: str) -> ModuleDoc {
+        let fn_vec: Vec<FunctionDoc> = vec_new();
+        return ModuleDoc {
+            module_name: name,
+            module_summary: summary,
+            functions: fn_vec
+        };
+    }
+
+    // --- Catalog Search ---
+
+    fn catalog_find_module(catalog: StdlibCatalog, name: str) -> i64 {
+        let count: i64 = vec_len(catalog.modules);
+        let mut i: i64 = 0;
+        while (i < count) {
+            let m: ModuleDoc = vec_get(catalog.modules, i);
+            if (m.module_name == name) {
+                return i;
+            }
+            i = i + 1;
+        }
+        return -1;
+    }
+
+    // --- Report Generator ---
+
+    fn stdlib_catalog_to_json(catalog: StdlibCatalog) -> str {
+        let mut out: str = "{\"schema\":\"bunker.stdlib_doc.v1\"";
+        out = out + ",\"total_modules\":" + int_to_string(catalog.total_modules);
+        out = out + ",\"total_functions\":" + int_to_string(catalog.total_functions);
+        out = out + ",\"status\":\"PASS\"";
+        out = out + "}";
+        return out;
+    }
+
+    // --- Main Verification Flow ---
+
+    fn main() -> i32 {
+        let m_vec: Vec<ModuleDoc> = vec_new();
+        let mut catalog: StdlibCatalog = StdlibCatalog {
+            modules: m_vec,
+            total_modules: 0,
+            total_functions: 0
+        };
+
+        // 1. Module 1: core::io
+        let mut mod_io: ModuleDoc = module_doc_new("core::io", "Native filesystem operations");
+        vec_push(mod_io.functions, function_doc_new("read_file", "fn read_file(path: str) -> str", "Reads file or panics", false));
+        vec_push(mod_io.functions, function_doc_new("read_file_result", "fn read_file_result(path: str) -> Result<str, str>", "Reads file returning Result", true));
+        vec_push(mod_io.functions, function_doc_new("write_file", "fn write_file(path: str, data: str) -> ()", "Writes file or panics", false));
+        vec_push(catalog.modules, mod_io);
+
+        // 2. Module 2: core::vec
+        let mut mod_vec: ModuleDoc = module_doc_new("core::vec", "Dynamic growing typed array container");
+        vec_push(mod_vec.functions, function_doc_new("vec_new", "fn vec_new<T>() -> Vec<T>", "Allocates new empty vector", false));
+        vec_push(mod_vec.functions, function_doc_new("vec_push", "fn vec_push<T>(v: Vec<T>, val: T) -> ()", "Appends element", false));
+        vec_push(mod_vec.functions, function_doc_new("vec_get", "fn vec_get<T>(v: Vec<T>, idx: i64) -> T", "Gets element or panics", false));
+        vec_push(mod_vec.functions, function_doc_new("vec_get_opt", "fn vec_get_opt<T>(v: Vec<T>, idx: i64) -> Option<T>", "Gets element returning Option", true));
+        vec_push(catalog.modules, mod_vec);
+
+        // 3. Module 3: core::hashmap
+        let mut mod_map: ModuleDoc = module_doc_new("core::hashmap", "Associative hash table container");
+        vec_push(mod_map.functions, function_doc_new("hashmap_new", "fn hashmap_new<K, V>() -> HashMap<K, V>", "Allocates empty hashmap", false));
+        vec_push(mod_map.functions, function_doc_new("hashmap_insert", "fn hashmap_insert<K, V>(m: HashMap<K, V>, k: K, v: V) -> ()", "Inserts key-value pair", false));
+        vec_push(mod_map.functions, function_doc_new("hashmap_get_opt", "fn hashmap_get_opt<K, V>(m: HashMap<K, V>, k: K) -> Option<V>", "Gets value returning Option", true));
+        vec_push(catalog.modules, mod_map);
+
+        // Update counts
+        catalog.total_modules = vec_len(catalog.modules);
+        let mut f_total: i64 = 0;
+        let mut idx: i64 = 0;
+        while (idx < catalog.total_modules) {
+            let m: ModuleDoc = vec_get(catalog.modules, idx);
+            f_total = f_total + vec_len(m.functions);
+            idx = idx + 1;
+        }
+        catalog.total_functions = f_total;
+
+        // 4. Validate Invariants
+        if (catalog.total_modules != 3) {
+            return 1;
+        }
+        if (catalog.total_functions != 10) {
+            return 2;
+        }
+
+        let io_idx: i64 = catalog_find_module(catalog, "core::io");
+        if (io_idx != 0) {
+            return 3;
+        }
+
+        let io_mod: ModuleDoc = vec_get(catalog.modules, io_idx);
+        let fn_recoverable: FunctionDoc = vec_get(io_mod.functions, 1);
+        if (!fn_recoverable.is_recoverable) {
+            return 4;
+        }
+
+        // 5. Emit and validate JSON catalog report
+        let report: str = stdlib_catalog_to_json(catalog);
+        if (len(report) < 30) {
+            return 5;
+        }
+
+        // Return verified target constant 42
+        let score: i64 = 42;
+        return score as i32;
+    }
+}

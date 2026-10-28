@@ -1,0 +1,10 @@
+// Test 159: Unannotated HashMap Constructor Diagnostic (Q-252, T-008)
+// Purpose: Ensure `let m = hashmap_new();` without explicit HashMap<K, V> annotation is rejected.
+// Expected: `bunker check` fails.
+
+kernel UnannotatedMapCtorBad {
+    fn main() -> i32 {
+        let m = hashmap_new();
+        return 0;
+    }
+}

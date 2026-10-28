@@ -1,0 +1,192 @@
+// Test 244: Collection Iterators and Safe Traversal Protocols (Q-289, F-005)
+// Verifies safe collection iteration across ranges, fixed-size arrays,
+// borrowed slices, dynamic vectors, labeled loop controls, and functional combinators.
+// Expected return: 42
+
+kernel CollectionIterators {
+    fn double_val(x: i32) -> i32 {
+        return x * 2;
+    }
+
+    fn is_greater_than_five(x: i32) -> bool {
+        return x > 5;
+    }
+
+    fn sum_combinator(acc: i32, x: i32) -> i32 {
+        return acc + x;
+    }
+
+    fn is_twenty(x: i32) -> bool {
+        return x == 20;
+    }
+
+    fn test_range_iteration() -> bool {
+        // 1. Exclusive range 1..5 => 1 + 2 + 3 + 4 = 10
+        let mut sum_excl: i32 = 0;
+        for i in 1..5 {
+            sum_excl = sum_excl + i;
+        }
+        if sum_excl != 10 {
+            return false;
+        }
+
+        // 2. Inclusive range 1..=5 => 1 + 2 + 3 + 4 + 5 = 15
+        let mut sum_incl: i32 = 0;
+        for i in 1..=5 {
+            sum_incl = sum_incl + i;
+        }
+        if sum_incl != 15 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_array_iteration() -> bool {
+        let arr: [i32; 4] = [10, 20, 30, 40];
+        let mut sum: i32 = 0;
+        for x in arr {
+            sum = sum + x;
+        }
+        return sum == 100;
+    }
+
+    fn test_slice_iteration() -> bool {
+        let arr: [i32; 5] = [5, 10, 15, 20, 25];
+        let s: [i32] = arr[1..4]; // [10, 15, 20]
+        let mut sum: i32 = 0;
+        for x in s {
+            sum = sum + x;
+        }
+        return sum == 45;
+    }
+
+    fn test_vector_iteration() -> bool {
+        let v: Vec<i32> = vec_new();
+        vec_push(v, 10);
+        vec_push(v, 20);
+        vec_push(v, 30);
+
+        // 1. Direct vector for-in iteration
+        let mut sum_direct: i32 = 0;
+        for x in v {
+            sum_direct = sum_direct + x;
+        }
+        if sum_direct != 60 {
+            return false;
+        }
+
+        // 2. Vector view via vec_as_slice
+        let mut sum_slice: i32 = 0;
+        for x in vec_as_slice(v) {
+            sum_slice = sum_slice + x;
+        }
+        if sum_slice != 60 {
+            return false;
+        }
+
+        // 3. Vector range sub-slice view
+        let mut sum_sub: i32 = 0;
+        for x in v[0..2] {
+            sum_sub = sum_sub + x;
+        }
+        if sum_sub != 30 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_labeled_loops() -> bool {
+        let mut count: i32 = 0;
+        'outer: for i in 0..5 {
+            for j in 0..5 {
+                if i == 2 && j == 1 {
+                    break 'outer;
+                }
+                count = count + 1;
+            }
+        }
+        // i=0 -> 5 iters, i=1 -> 5 iters, i=2 -> j=0 (1 iter), then break 'outer => 11
+        if count != 11 {
+            return false;
+        }
+
+        let mut continue_count: i32 = 0;
+        'outer_cnt: for i in 0..3 {
+            for j in 0..3 {
+                if j == 1 {
+                    continue 'outer_cnt;
+                }
+                continue_count = continue_count + 1;
+            }
+        }
+        // Each outer iteration executes j=0 (increments to 1), then j=1 triggers continue 'outer_cnt
+        // Total count = 3
+        if continue_count != 3 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_combinators() -> bool {
+        let v: Vec<i32> = vec_new();
+        vec_push(v, 2);
+        vec_push(v, 5);
+        vec_push(v, 10);
+
+        // Map: [2, 5, 10] -> [4, 10, 20]
+        let doubled: Vec<i32> = vec_map(v, double_val);
+        if vec_len(doubled) != 3 {
+            return false;
+        }
+
+        // Filter: [4, 10, 20] -> [10, 20]
+        let filtered: Vec<i32> = vec_filter(doubled, is_greater_than_five);
+        if vec_len(filtered) != 2 {
+            return false;
+        }
+
+        // Fold: [10, 20] -> 0 + 10 + 20 = 30
+        let total: i32 = vec_fold(filtered, 0, sum_combinator);
+        if total != 30 {
+            return false;
+        }
+
+        // Find: find 20 in doubled
+        let found = vec_find(doubled, is_twenty);
+        let found_val = match found {
+            Some(x) => x;
+            None => -1;
+        };
+        if found_val != 20 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_range_iteration() {
+            return 1;
+        }
+        if !test_array_iteration() {
+            return 2;
+        }
+        if !test_slice_iteration() {
+            return 3;
+        }
+        if !test_vector_iteration() {
+            return 4;
+        }
+        if !test_labeled_loops() {
+            return 5;
+        }
+        if !test_combinators() {
+            return 6;
+        }
+
+        return 42;
+    }
+}

@@ -1,14 +1,36 @@
+#![allow(
+    clippy::collapsible_if,
+    clippy::collapsible_match,
+    clippy::extend_with_drain,
+    clippy::if_same_then_else,
+    clippy::manual_pattern_char_comparison,
+    clippy::needless_return,
+    clippy::question_mark,
+    clippy::result_large_err,
+    clippy::too_many_arguments,
+    clippy::unnecessary_map_or,
+    clippy::while_let_on_iterator
+)]
+
 mod ast;
 mod ast_builder;
+mod ast_report;
 mod builtins;
+mod capability;
 mod codegen;
 mod comptime;
 mod diagnostic;
 mod jit;
+mod module_loader;
+mod monomorphize;
 mod parser;
+mod resolver_report;
 mod shell_codegen;
 mod shell_runtime;
 mod smt;
+mod symbol_table;
+mod type_graph;
+mod typecheck_report;
 mod typeck;
 mod verify;
 mod view_runtime;
@@ -90,6 +112,34 @@ enum Commands {
         /// Use Z3 SMT solver for contract verification (requires --features smt)
         #[arg(long)]
         smt: bool,
+
+        /// Emit BUNKER_IMPORT_GRAPH_JSON comment
+        #[arg(long)]
+        import_graph: bool,
+
+        /// Emit BUNKER_CAPABILITY_JSON comment
+        #[arg(long)]
+        capability_json: bool,
+
+        /// Emit BUNKER_AST_JSON comment
+        #[arg(long)]
+        ast_json: bool,
+
+        /// Emit BUNKER_TYPE_GRAPH_JSON comment
+        #[arg(long)]
+        type_graph: bool,
+
+        /// Emit BUNKER_SYMBOL_TABLE_JSON comment
+        #[arg(long)]
+        symbol_table: bool,
+
+        /// Emit BUNKER_TYPECHECK_JSON comment
+        #[arg(long)]
+        typecheck_json: bool,
+
+        /// Emit BUNKER_RESOLVER_JSON comment
+        #[arg(long)]
+        resolver_json: bool,
     },
 
     /// Parse and print the AST
@@ -97,6 +147,17 @@ enum Commands {
         /// The input file to parse
         #[arg(value_name = "FILE")]
         input: PathBuf,
+
+        /// Emit machine-readable BUNKER_AST_JSON
+        #[arg(long)]
+        ast_json: bool,
+    },
+
+    /// Display compiler capability report for AI agents and tooling
+    Capability {
+        /// Output format (json or text)
+        #[arg(long, value_enum, default_value = "json")]
+        format: OutputFormat,
     },
 
     /// Check Bunker-written compiler sources and report self-hosting blockers
@@ -176,8 +237,30 @@ fn main() -> Result<()> {
                 format,
             )
         }
-        Commands::Check { input, smt } => check_file(&input, smt, format),
-        Commands::Parse { input } => parse_file(&input, format),
+        Commands::Check {
+            input,
+            smt,
+            import_graph,
+            capability_json,
+            ast_json,
+            type_graph,
+            symbol_table,
+            typecheck_json,
+            resolver_json,
+        } => check_file(
+            &input,
+            smt,
+            import_graph,
+            capability_json,
+            ast_json,
+            type_graph,
+            symbol_table,
+            typecheck_json,
+            resolver_json,
+            format,
+        ),
+        Commands::Parse { input, ast_json } => parse_file(&input, ast_json, format),
+        Commands::Capability { format } => show_capability(format),
         Commands::SelfHostCheck { dir, smt } => self_host_check(&dir, smt, format),
         Commands::SelfHostCompile {
             input,
@@ -281,54 +364,14 @@ fn build_file(
         println!("{} {}", "Compiling".green().bold(), input.display());
     }
 
-    let source = match fs::read_to_string(input) {
-        Ok(s) => s,
-        Err(e) => {
-            if format == OutputFormat::Json {
-                let diag = Diagnostic::error(
-                    codes::PARSE_ERROR,
-                    format!("Failed to read file: {}", e),
-                    SourceLocation::with_context(&file_path, "file read"),
-                );
-                let output = DiagnosticOutput::new(&file_path, vec![diag]);
-                println!("{}", output.to_json());
-                std::process::exit(1);
-            }
-            return Err(anyhow::anyhow!("Failed to read file: {}", e));
+    let (mut ast, _graph) = match module_loader::load_file_and_imports(input) {
+        Ok(res) => res,
+        Err(diag) => {
+            print_diagnostics_and_exit(&file_path, vec![diag], format);
+            return Ok(());
         }
     };
-
-    let pairs = match BunkerParser::parse(Rule::file, &source) {
-        Ok(p) => p,
-        Err(e) => {
-            if format == OutputFormat::Json {
-                let diag = parse_error_to_diagnostic(&e, &file_path, &source);
-                let output = DiagnosticOutput::new(&file_path, vec![diag]);
-                println!("{}", output.to_json());
-                std::process::exit(1);
-            }
-            return Err(anyhow::anyhow!("Failed to parse file: {}", e));
-        }
-    };
-
-    // Build the AST
-    let file_pair = pairs.into_iter().next().unwrap();
-    let mut ast = match build_ast(file_pair) {
-        Ok(a) => a,
-        Err(e) => {
-            if format == OutputFormat::Json {
-                let diag = Diagnostic::error(
-                    codes::PARSE_ERROR,
-                    format!("AST build error: {}", e),
-                    SourceLocation::with_context(&file_path, "AST building"),
-                );
-                let output = DiagnosticOutput::new(&file_path, vec![diag]);
-                println!("{}", output.to_json());
-                std::process::exit(1);
-            }
-            return Err(anyhow::anyhow!("AST build error: {}", e));
-        }
-    };
+    let source = fs::read_to_string(input).unwrap_or_default();
 
     // Count what we have
     let kernel_count = ast.kernels.len();
@@ -355,6 +398,12 @@ fn build_file(
 
     // Compile-time constant folding pass
     let comptime_stats = comptime::fold_comptime_calls(&mut ast);
+
+    // Monomorphization pass (generics instantiation)
+    if let Err(diags) = monomorphize::monomorphize_file(&mut ast, &file_path) {
+        print_diagnostics_and_exit(&file_path, diags, format);
+        return Ok(());
+    }
 
     if emit == Some("ast") {
         println!("\n{}", "AST:".cyan().bold());
@@ -429,15 +478,15 @@ fn build_file(
         std::process::exit(1);
     }
 
+    typeck::lower_unit_enums(&mut ast);
+
     // Code generation
     if kernel_count > 0 || shell_count > 0 {
         println!("\n{}", "Generating code...".cyan().bold());
 
         let mut compiler = Compiler::new()?;
 
-        for kernel in &ast.kernels {
-            compiler.compile_kernel(kernel)?;
-        }
+        compiler.compile_file(&ast)?;
 
         for shell in &ast.shells {
             compiler.compile_shell(shell)?;
@@ -484,64 +533,68 @@ fn build_file(
     Ok(())
 }
 
-fn check_file(input: &PathBuf, use_smt: bool, format: OutputFormat) -> Result<()> {
+fn check_file(
+    input: &PathBuf,
+    use_smt: bool,
+    import_graph: bool,
+    capability_json: bool,
+    ast_json: bool,
+    type_graph: bool,
+    symbol_table: bool,
+    typecheck_json: bool,
+    resolver_json: bool,
+    format: OutputFormat,
+) -> Result<()> {
     let file_path = input.display().to_string();
 
     if format == OutputFormat::Text {
         println!("{} {}", "Checking".blue().bold(), input.display());
     }
 
-    let source = match fs::read_to_string(input) {
-        Ok(s) => s,
-        Err(e) => {
-            if format == OutputFormat::Json {
-                let diag = Diagnostic::error(
-                    codes::PARSE_ERROR,
-                    format!("Failed to read file: {}", e),
-                    SourceLocation::with_context(&file_path, "file read"),
-                );
-                let output = DiagnosticOutput::new(&file_path, vec![diag]);
-                println!("{}", output.to_json());
-                std::process::exit(1);
-            }
-            return Err(anyhow::anyhow!("Failed to read file: {}", e));
+    let (mut ast, graph) = match module_loader::load_file_and_imports(input) {
+        Ok(res) => res,
+        Err(diag) => {
+            print_diagnostics_and_exit(&file_path, vec![diag], format);
+            return Ok(());
         }
     };
 
-    let pairs = match BunkerParser::parse(Rule::file, &source) {
-        Ok(p) => p,
-        Err(e) => {
-            if format == OutputFormat::Json {
-                let diag = parse_error_to_diagnostic(&e, &file_path, &source);
-                let output = DiagnosticOutput::new(&file_path, vec![diag]);
-                println!("{}", output.to_json());
-                std::process::exit(1);
-            }
-            return Err(anyhow::anyhow!("Failed to parse file: {}", e));
-        }
-    };
+    let source = fs::read_to_string(input).unwrap_or_default();
 
-    // Build AST
-    let file_pair = pairs.into_iter().next().unwrap();
-    let mut ast = match build_ast(file_pair) {
-        Ok(a) => a,
-        Err(e) => {
-            if format == OutputFormat::Json {
-                let diag = Diagnostic::error(
-                    codes::PARSE_ERROR,
-                    format!("AST build error: {}", e),
-                    SourceLocation::with_context(&file_path, "AST building"),
-                );
-                let output = DiagnosticOutput::new(&file_path, vec![diag]);
-                println!("{}", output.to_json());
-                std::process::exit(1);
-            }
-            return Err(anyhow::anyhow!("AST build error: {}", e));
-        }
-    };
+    if import_graph {
+        print!("{}", graph.to_json_comment());
+    }
+    if capability_json {
+        print!(
+            "{}",
+            capability::CapabilityReport::current().to_json_comment()
+        );
+    }
+    if ast_json {
+        let report = ast_report::build_ast_report(&ast, &source);
+        print!("{}", report.to_json_comment());
+    }
+    if type_graph {
+        let report = type_graph::build_type_graph_report(&ast, &source);
+        print!("{}", report.to_json_comment());
+    }
+    if symbol_table {
+        let report = symbol_table::build_symbol_table_report(&ast, &source);
+        print!("{}", report.to_json_comment());
+    }
+    if resolver_json {
+        let report = resolver_report::build_resolver_report(&ast, &source);
+        print!("{}", report.to_json_comment());
+    }
 
     // Compile-time constant folding pass
     let comptime_stats = comptime::fold_comptime_calls(&mut ast);
+
+    // Monomorphization pass (generics instantiation)
+    if let Err(diags) = monomorphize::monomorphize_file(&mut ast, &file_path) {
+        print_diagnostics_and_exit(&file_path, diags, format);
+        return Ok(());
+    }
     if format == OutputFormat::Text && comptime_stats.calls_folded > 0 {
         println!(
             "{} Folded {} comptime call(s)",
@@ -555,6 +608,10 @@ fn check_file(input: &PathBuf, use_smt: bool, format: OutputFormat) -> Result<()
 
     // Type check
     let type_errors = typeck::check_file(&ast)?;
+    if typecheck_json {
+        let report = typecheck_report::build_typecheck_report(&ast, &source, &type_errors);
+        print!("{}", report.to_json_comment());
+    }
     for err in &type_errors {
         diagnostics.push(type_error_to_diagnostic_with_source(
             err,
@@ -606,15 +663,51 @@ fn check_file(input: &PathBuf, use_smt: bool, format: OutputFormat) -> Result<()
     Ok(())
 }
 
-fn parse_file(input: &PathBuf, format: OutputFormat) -> Result<()> {
+fn parse_file(input: &PathBuf, ast_json: bool, format: OutputFormat) -> Result<()> {
+    let source = fs::read_to_string(input)
+        .with_context(|| format!("Failed to read file: {}", input.display()))?;
+
+    if ast_json {
+        let pairs = BunkerParser::parse(Rule::file, &source)?;
+        let file_pair = pairs.into_iter().next().unwrap();
+        let ast = build_ast(file_pair).map_err(anyhow::Error::msg)?;
+        let report = ast_report::build_ast_report(&ast, &source);
+        if format == OutputFormat::Json {
+            println!("{}", report.to_json_pretty());
+        } else {
+            println!("{}", report.to_json());
+        }
+        return Ok(());
+    }
+
     if format == OutputFormat::Text {
         println!("{} {}\n", "Parsing".blue().bold(), input.display());
     }
 
-    let source = fs::read_to_string(input)
-        .with_context(|| format!("Failed to read file: {}", input.display()))?;
-
     print_ast(&source)?;
+    Ok(())
+}
+
+fn show_capability(format: OutputFormat) -> Result<()> {
+    let report = capability::CapabilityReport::current();
+    if format == OutputFormat::Json {
+        println!("{}", report.to_json_pretty());
+    } else {
+        println!("{}", "Bunker Language Compiler Capabilities:".cyan().bold());
+        println!("  Compiler: {}", report.compiler);
+        println!("  Stage:    {}", report.self_hosting_stage);
+        println!("  Contract: {}", report.agent_contract_version);
+        println!("  Diagnostic codes: {}", report.diagnostic_codes.len());
+        println!(
+            "  Ready:    {}",
+            if report.production_language_ready {
+                "yes"
+            } else {
+                "no (requires CI validation)"
+            }
+        );
+        println!("  Constructs: {}", report.supported_constructs);
+    }
     Ok(())
 }
 
@@ -646,7 +739,12 @@ fn collect_diagnostics_for_source(
     let _comptime_stats = comptime::fold_comptime_calls(&mut ast);
     let mut diagnostics = Vec::new();
 
-    let type_errors = typeck::check_file(&ast)?;
+    if let Err(diags) = monomorphize::monomorphize_file(&mut ast, file_path) {
+        return Ok(diags);
+    }
+
+    let is_self_host = file_path.contains("self-host") || file_path.contains("self_host");
+    let type_errors = typeck::check_file_with_strict_mutability(&ast, !is_self_host)?;
     for err in &type_errors {
         diagnostics.push(type_error_to_diagnostic_with_source(
             err,
@@ -831,6 +929,7 @@ fn build_ast_from_source_for_run(file_path: &str, source: &str) -> Result<ast::F
     let mut ast = build_ast(file_pair)
         .map_err(|err| anyhow::anyhow!("AST build error in {}: {}", file_path, err))?;
     let _comptime_stats = comptime::fold_comptime_calls(&mut ast);
+    typeck::lower_unit_enums(&mut ast);
     Ok(ast)
 }
 
@@ -1047,57 +1146,23 @@ fn run_file(
         println!("{} {}", "Running".cyan().bold(), input.display());
     }
 
-    let source = match fs::read_to_string(input) {
-        Ok(s) => s,
-        Err(e) => {
-            if format == OutputFormat::Json {
-                let diag = Diagnostic::error(
-                    codes::PARSE_ERROR,
-                    format!("Failed to read file: {}", e),
-                    SourceLocation::with_context(&file_path, "file read"),
-                );
-                let output = DiagnosticOutput::new(&file_path, vec![diag]);
-                println!("{}", output.to_json());
-                std::process::exit(1);
-            }
-            return Err(anyhow::anyhow!("Failed to read file: {}", e));
+    let (mut ast, _graph) = match module_loader::load_file_and_imports(input) {
+        Ok(res) => res,
+        Err(diag) => {
+            print_diagnostics_and_exit(&file_path, vec![diag], format);
+            return Ok(());
         }
     };
-
-    let pairs = match BunkerParser::parse(Rule::file, &source) {
-        Ok(p) => p,
-        Err(e) => {
-            if format == OutputFormat::Json {
-                let diag = parse_error_to_diagnostic(&e, &file_path, &source);
-                let output = DiagnosticOutput::new(&file_path, vec![diag]);
-                println!("{}", output.to_json());
-                std::process::exit(1);
-            }
-            return Err(anyhow::anyhow!("Failed to parse file: {}", e));
-        }
-    };
-
-    // Build AST
-    let file_pair = pairs.into_iter().next().unwrap();
-    let mut ast = match build_ast(file_pair) {
-        Ok(a) => a,
-        Err(e) => {
-            if format == OutputFormat::Json {
-                let diag = Diagnostic::error(
-                    codes::PARSE_ERROR,
-                    format!("AST build error: {}", e),
-                    SourceLocation::with_context(&file_path, "AST building"),
-                );
-                let output = DiagnosticOutput::new(&file_path, vec![diag]);
-                println!("{}", output.to_json());
-                std::process::exit(1);
-            }
-            return Err(anyhow::anyhow!("AST build error: {}", e));
-        }
-    };
+    let source = fs::read_to_string(input).unwrap_or_default();
 
     // Compile-time constant folding pass
     let _comptime_stats = comptime::fold_comptime_calls(&mut ast);
+
+    // Monomorphization pass (generics instantiation)
+    if let Err(diags) = monomorphize::monomorphize_file(&mut ast, &file_path) {
+        print_diagnostics_and_exit(&file_path, diags, format);
+        return Ok(());
+    }
 
     // Collect all diagnostics
     let mut diagnostics: Vec<Diagnostic> = Vec::new();
@@ -1144,17 +1209,34 @@ fn run_file(
         std::process::exit(1);
     }
 
+    typeck::lower_unit_enums(&mut ast);
+
     // Prefer Kernel entrypoint if present; otherwise, fall back to a Shell simulation.
     // Supported main() return types: i32, i64, f64, bool
     let has_kernel_main = ast.kernels.iter().any(|k| {
+        let mut aliases = std::collections::HashMap::new();
+        for item in &k.items {
+            if let ast::KernelItem::TypeAlias(a) = item {
+                aliases.insert(a.name.clone(), a.target.clone());
+            }
+        }
         k.items.iter().any(|item| match item {
             ast::KernelItem::Function(f) | ast::KernelItem::ComptimeFn(f) => {
-                f.name == "main"
-                    && f.params.is_empty()
-                    && matches!(
-                        f.return_type,
-                        Some(ast::Type::I32 | ast::Type::I64 | ast::Type::F64 | ast::Type::Bool)
-                    )
+                if f.name != "main" || !f.params.is_empty() {
+                    return false;
+                }
+                let mut ret_ty = f.return_type.clone();
+                while let Some(ast::Type::Named(ref name)) = ret_ty {
+                    if let Some(target) = aliases.get(name) {
+                        ret_ty = Some(target.clone());
+                    } else {
+                        break;
+                    }
+                }
+                matches!(
+                    ret_ty,
+                    Some(ast::Type::I32 | ast::Type::I64 | ast::Type::F64 | ast::Type::Bool)
+                )
             }
             _ => false,
         })

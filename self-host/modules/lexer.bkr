@@ -78,7 +78,7 @@
 
             let start = pos;
             let c = char_code_at(source, pos);
-            let tok_type: i64 = 0;
+            let tok_type: TokenKind = TokenKind.Eof;
             let handled = false;
 
             // Identifier or keyword
@@ -91,8 +91,11 @@
 
                 if word == "kernel" { tok_type = TOK_KERNEL; }
                 if word == "struct" { tok_type = TOK_STRUCT; }
+                if word == "enum" { tok_type = TOK_ENUM; }
                 if word == "fn" { tok_type = TOK_FN; }
                 if word == "let" { tok_type = TOK_LET; }
+                if word == "pub" { tok_type = TOK_PUB; }
+                if word == "mut" { tok_type = TOK_MUT; }
                 if word == "if" { tok_type = TOK_IF; }
                 if word == "else" { tok_type = TOK_ELSE; }
                 if word == "for" { tok_type = TOK_FOR; }
@@ -102,6 +105,9 @@
                 if word == "continue" { tok_type = TOK_CONTINUE; }
                 if word == "loop" { tok_type = TOK_LOOP; }
                 if word == "return" { tok_type = TOK_RETURN; }
+                if word == "defer" { tok_type = TOK_DEFER; }
+                if word == "type" { tok_type = TOK_TYPE_KW; }
+                if word == "as" { tok_type = TOK_AS; }
                 if word == "match" { tok_type = TOK_MATCH; }
                 if word == "const" { tok_type = TOK_CONST; }
                 if word == "true" { tok_type = TOK_TRUE; }
@@ -150,7 +156,11 @@
                 pos = pos + 1;  // skip opening quote
                 let str_start = pos;
                 while pos < src_len && char_code_at(source, pos) != 34 {
-                    pos = pos + 1;
+                    if char_code_at(source, pos) == 92 && pos + 1 < src_len {
+                        pos = pos + 2;
+                    } else {
+                        pos = pos + 1;
+                    }
                 }
                 let str_val = substring(source, str_start, pos);
                 pos = pos + 1;  // skip closing quote
@@ -187,6 +197,7 @@
                 if !handled && c == 62 && c2 == 62 { tok_type = TOK_SHR; pos = pos + 2; handled = true; }
                 if !handled && c == 38 && c2 == 38 { tok_type = TOK_AND; pos = pos + 2; handled = true; }
                 if !handled && c == 124 && c2 == 124 { tok_type = TOK_OR; pos = pos + 2; handled = true; }
+                if !handled && c == 58 && c2 == 58 { tok_type = TOK_COLON_COLON; pos = pos + 2; handled = true; }
                 if handled {
                     vec_push(tokens, tok_type);
                     vec_push(tokens, start);

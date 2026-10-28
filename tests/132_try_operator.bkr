@@ -1,0 +1,104 @@
+// Test 132: Postfix Try Operator `?` for Result and Option
+// Purpose: Verify `expr?` unwraps Ok/Some, propagates Err/None with active defer execution.
+// Expected: Returns 42
+
+kernel TryOperator {
+    fn step_result(fail: bool, val: i32) -> Result<i32, str> {
+        if fail {
+            return result_err("failed step");
+        }
+        return result_ok(val);
+    }
+
+    fn test_result_success() -> Result<i32, str> {
+        let a: i32 = step_result(false, 10)?;
+        let b: i32 = step_result(false, 20)?;
+        return result_ok(a + b);
+    }
+
+    fn test_result_failure() -> Result<i32, str> {
+        let a: i32 = step_result(false, 10)?;
+        let b: i32 = step_result(true, 99)?;
+        return result_ok(a + b);
+    }
+
+    fn step_option(fail: bool, val: i32) -> Option<i32> {
+        if fail {
+            return None;
+        }
+        return Some(val);
+    }
+
+    fn test_option_success() -> Option<i32> {
+        let x: i32 = step_option(false, 5)?;
+        let y: i32 = step_option(false, 7)?;
+        return Some(x + y);
+    }
+
+    fn test_option_failure() -> Option<i32> {
+        let x: i32 = step_option(false, 5)?;
+        let y: i32 = step_option(true, 0)?;
+        return Some(x + y);
+    }
+
+    fn test_defer_propagation(tracker: [i32; 2]) -> Result<i32, str> {
+        tracker[0] = 1;
+        defer {
+            tracker[1] = 42;
+        }
+        let val: i32 = step_result(true, 0)?;
+        return result_ok(val);
+    }
+
+    fn main() -> i32 {
+        // 1. Result success: returns Ok(30)
+        let r_ok: Result<i32, str> = test_result_success();
+        let val1: i32 = match r_ok {
+            Ok(v) => v;
+            Err(e) => 0;
+        };
+        if val1 != 30 {
+            return 1;
+        }
+
+        // 2. Result error: propagates early Err
+        let r_err: Result<i32, str> = test_result_failure();
+        let val2: i32 = match r_err {
+            Ok(v) => 0;
+            Err(e) => 1;
+        };
+        if val2 != 1 {
+            return 2;
+        }
+
+        // 3. Option success: returns Some(12)
+        let o_some: Option<i32> = test_option_success();
+        let val3: i32 = match o_some {
+            Some(v) => v;
+            None => 0;
+        };
+        if val3 != 12 {
+            return 3;
+        }
+
+        // 4. Option None: propagates early None
+        let o_none: Option<i32> = test_option_failure();
+        let val4: i32 = match o_none {
+            Some(v) => 0;
+            None => 1;
+        };
+        if val4 != 1 {
+            return 4;
+        }
+
+        // 5. Defer executed on early return via ?
+        let tracker: [i32; 2] = [0, 0];
+        let _ = test_defer_propagation(tracker);
+        if tracker[1] != 42 {
+            return 5;
+        }
+
+        // 30 + 12 = 42
+        return val1 + val3;
+    }
+}

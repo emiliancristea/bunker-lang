@@ -24,7 +24,7 @@ kernel StringTest {
     fn scan_ident(source: str, pos: i64) -> i64 {
         let src_len = len(source);
         let start = pos;
-        let scanning = true;
+        let mut scanning = true;
 
         while scanning && pos < src_len {
             let code = char_code(char_at(source, pos));

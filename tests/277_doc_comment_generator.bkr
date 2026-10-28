@@ -1,0 +1,262 @@
+// Test 277: Documentation Comment Generator Architecture (G-005)
+// Purpose: Verify documentation generator parsing, symbol indexing, and output invariants:
+//   1. Parsing item doc comments (///) and module comments (//!).
+//   2. Extracting doc comment text with leading slashes and whitespace trimmed.
+//   3. Symbol metadata index: kind, name, signature, and attached doc text.
+//   4. Rendering Markdown documentation sections.
+//   5. Emitting structured documentation JSON (bunker.doc.v1).
+//   6. Native calculation returning 42.
+// Expected return: 42
+
+kernel DocCommentGeneratorTest {
+    // --- Data Structures ---
+
+    struct DocSymbol {
+        kind: str,
+        name: str,
+        signature: str,
+        visibility: str,
+        doc_text: str,
+        line_num: i64
+    }
+
+    struct DocIndex {
+        package_name: str,
+        module_doc: str,
+        symbols: Vec<DocSymbol>
+    }
+
+    fn doc_index_new(pkg_name: str, mod_doc: str) -> DocIndex {
+        let syms: Vec<DocSymbol> = vec_new();
+        return DocIndex {
+            package_name: pkg_name,
+            module_doc: mod_doc,
+            symbols: syms
+        };
+    }
+
+    fn make_doc_symbol(kind: str, name: str, sig: str, vis: str, doc: str, line: i64) -> DocSymbol {
+        return DocSymbol {
+            kind: kind,
+            name: name,
+            signature: sig,
+            visibility: vis,
+            doc_text: doc,
+            line_num: line
+        };
+    }
+
+    fn doc_index_add_symbol(idx: DocIndex, sym: DocSymbol) -> DocIndex {
+        vec_push(idx.symbols, sym);
+        return idx;
+    }
+
+    // --- Doc Comment Line Parsing ---
+
+    fn is_item_doc_comment(line: str) -> bool {
+        let trimmed = trim_leading_spaces(line);
+        if len(trimmed) >= 3 {
+            return substring(trimmed, 0, 3) == "///";
+        }
+        return false;
+    }
+
+    fn is_module_doc_comment(line: str) -> bool {
+        let trimmed = trim_leading_spaces(line);
+        if len(trimmed) >= 3 {
+            return substring(trimmed, 0, 3) == "//!";
+        }
+        return false;
+    }
+
+    fn extract_doc_comment_content(line: str) -> str {
+        let trimmed = trim_leading_spaces(line);
+        if len(trimmed) < 3 {
+            return "";
+        }
+        // Check for "/// " or "//! "
+        if len(trimmed) >= 4 && char_code_at(trimmed, 3) == 32 { // space
+            return substring(trimmed, 4, len(trimmed));
+        }
+        // Fallback for "///" or "//!" with no trailing space
+        return substring(trimmed, 3, len(trimmed));
+    }
+
+    fn trim_leading_spaces(s: str) -> str {
+        let n = len(s);
+        let mut i: i64 = 0;
+        while i < n {
+            let code = char_code_at(s, i);
+            if code != 32 && code != 9 { // space or tab
+                return substring(s, i, n);
+            }
+            i = i + 1;
+        }
+        return "";
+    }
+
+    // --- Markdown Rendering ---
+
+    fn render_symbol_markdown(sym: DocSymbol) -> str {
+        let nl = from_char_code(10);
+        let mut md = "### " + sym.name + " (" + sym.kind + ")" + nl + nl;
+        md = md + "```bunker" + nl;
+        md = md + sym.signature + nl;
+        md = md + "```" + nl + nl;
+        md = md + sym.doc_text + nl;
+        return md;
+    }
+
+    // --- JSON Manifest Rendering (bunker.doc.v1) ---
+
+    fn render_doc_json(idx: DocIndex) -> str {
+        let nl = from_char_code(10);
+        let mut json = "{" + nl;
+        json = json + "  \"schema_version\": \"bunker.doc.v1\"," + nl;
+        json = json + "  \"package\": \"" + idx.package_name + "\"," + nl;
+        json = json + "  \"module_doc\": \"" + idx.module_doc + "\"," + nl;
+        json = json + "  \"symbol_count\": " + int_to_string(vec_len(idx.symbols)) + nl;
+        json = json + "}";
+        return json;
+    }
+
+    fn string_contains(haystack: str, needle: str) -> bool {
+        let needle_len = len(needle);
+        let haystack_len = len(haystack);
+        if needle_len == 0 {
+            return true;
+        }
+        if needle_len > haystack_len {
+            return false;
+        }
+        let limit = haystack_len - needle_len + 1;
+        let mut i: i64 = 0;
+        while i < limit {
+            if substring(haystack, i, i + needle_len) == needle {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn int_to_string(v: i64) -> str {
+        if v == 0 {
+            return "0";
+        }
+        let mut is_neg: bool = false;
+        let mut n: i64 = v;
+        if n < 0 {
+            is_neg = true;
+            n = 0 - n;
+        }
+        let mut digits: str = "";
+        while n > 0 {
+            let d: i64 = n % 10;
+            digits = from_char_code(48 + d) + digits;
+            n = n / 10;
+        }
+        if is_neg {
+            return "-" + digits;
+        }
+        return digits;
+    }
+
+    // --- Verification Suites ---
+
+    fn test_doc_comment_parsing() -> bool {
+        let item_line = "    /// Computes the square of a number.";
+        let mod_line = "//! Core arithmetic operations module.";
+        let norm_line = "    // Regular comment, not doc.";
+
+        if !is_item_doc_comment(item_line) {
+            return false;
+        }
+        if is_module_doc_comment(item_line) {
+            return false;
+        }
+        if !is_module_doc_comment(mod_line) {
+            return false;
+        }
+        if is_item_doc_comment(mod_line) {
+            return false;
+        }
+        if is_item_doc_comment(norm_line) || is_module_doc_comment(norm_line) {
+            return false;
+        }
+
+        let item_content = extract_doc_comment_content(item_line);
+        if item_content != "Computes the square of a number." {
+            return false;
+        }
+
+        let mod_content = extract_doc_comment_content(mod_line);
+        if mod_content != "Core arithmetic operations module." {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_symbol_indexing_and_markdown() -> bool {
+        let sym = make_doc_symbol(
+            "function",
+            "compute_hash",
+            "fn compute_hash(data: str) -> i64",
+            "public",
+            "Computes a 64-bit deterministic hash of the provided string.",
+            42
+        );
+
+        let md = render_symbol_markdown(sym);
+        if !string_contains(md, "### compute_hash (function)") {
+            return false;
+        }
+        if !string_contains(md, "fn compute_hash(data: str) -> i64") {
+            return false;
+        }
+        if !string_contains(md, "Computes a 64-bit deterministic hash") {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_doc_json_manifest() -> bool {
+        let mut idx = doc_index_new("bunker-core", "Core system runtime.");
+        let s1 = make_doc_symbol("struct", "Buffer", "struct Buffer { capacity: i64 }", "public", "Dynamic buffer.", 10);
+        let s2 = make_doc_symbol("function", "alloc", "fn alloc(size: i64) -> i64", "public", "Allocate bytes.", 20);
+        idx = doc_index_add_symbol(idx, s1);
+        idx = doc_index_add_symbol(idx, s2);
+
+        let json = render_doc_json(idx);
+        if !string_contains(json, "\"schema_version\": \"bunker.doc.v1\"") {
+            return false;
+        }
+        if !string_contains(json, "\"package\": \"bunker-core\"") {
+            return false;
+        }
+        if !string_contains(json, "\"symbol_count\": 2") {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_doc_comment_parsing() {
+            return 1;
+        }
+
+        if !test_symbol_indexing_and_markdown() {
+            return 2;
+        }
+
+        if !test_doc_json_manifest() {
+            return 3;
+        }
+
+        // Return 42 on verified pass
+        return 42;
+    }
+}

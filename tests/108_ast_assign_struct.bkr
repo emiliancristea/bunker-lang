@@ -1,0 +1,60 @@
+// Test 108: AstAssign as a real compiler assignment-statement record
+// Purpose: Assign target/value/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstAssignStruct {
+    struct AstAssign {
+        start: i64,
+        end: i64,
+        target: i64,
+        value: i64
+    }
+
+    struct AstExprStmt {
+        start: i64,
+        end: i64,
+        expr: i64
+    }
+
+    fn make_assign(target: i64, value: i64) -> AstAssign {
+        return AstAssign {
+            start: 0,
+            end: 5,
+            target: target,
+            value: value
+        };
+    }
+
+    fn make_expr_stmt(expr: i64) -> AstExprStmt {
+        return AstExprStmt {
+            start: 1,
+            end: 4,
+            expr: expr
+        };
+    }
+
+    fn assign_value(stmt: AstAssign) -> i64 {
+        return stmt.value;
+    }
+
+    fn expr_stmt_expr(stmt: AstExprStmt) -> i64 {
+        return stmt.expr;
+    }
+
+    fn main() -> i32 {
+        let stmt: AstAssign = make_assign(1, 20);
+        let expr_stmt: AstExprStmt = make_expr_stmt(19);
+        if stmt.start == 0 {
+            if stmt.target == 1 {
+                if assign_value(make_assign(2, 21)) == 21 {
+                    if expr_stmt.start == 1 {
+                        if expr_stmt_expr(make_expr_stmt(21)) == 21 {
+                            return 42;
+                        }
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

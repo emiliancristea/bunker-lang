@@ -1,0 +1,7 @@
+import "modules/does_not_exist_404.bkr";
+
+kernel Main {
+    fn main() -> i32 {
+        return 42;
+    }
+}

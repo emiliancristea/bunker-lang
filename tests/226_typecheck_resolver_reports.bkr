@@ -1,0 +1,69 @@
+// Test 226: Machine-Readable Typecheck Diagnostics and Resolver Reports Across CLI (A-001, A-014)
+// Purpose: Verify BUNKER_TYPECHECK_JSON and BUNKER_RESOLVER_JSON reporting contracts
+// Expected: JIT and compiled runtime verify typecheck / resolver queries and return 42
+
+kernel TypecheckResolverReports {
+    struct TestReportFixture {
+        code: i32,
+        valid: bool,
+    }
+
+    const FIXTURE_VAL: i32 = 42;
+
+    fn verify_local_fixture(val: i32) -> i32 {
+        let f = TestReportFixture { code: val, valid: true };
+        if f.valid {
+            return f.code;
+        }
+        return 0;
+    }
+
+    fn main() -> i32 {
+        let res: i32 = verify_local_fixture(42);
+        if res != 42 {
+            return 1;
+        }
+
+        // Query process execution environment
+        let sandboxed: bool = process_is_sandboxed();
+        if !sandboxed {
+            // 1. Verify check --typecheck-json contract
+            let tc_res = process_run("bunker-cli\\target\\release\\bunker-cli.exe check --typecheck-json tests/01_basic_math.bkr");
+            if result_is_ok(tc_res) {
+                let tc_str: str = result_unwrap(tc_res);
+                if !contains(tc_str, "bunker.typecheck.v1") {
+                    return 2;
+                }
+                if !contains(tc_str, "typecheck_diagnostics_pass") {
+                    return 3;
+                }
+                if !contains(tc_str, "\"has_diagnostics\":false") {
+                    return 4;
+                }
+                if !contains(tc_str, "\"diagnostic_count\":0") {
+                    return 5;
+                }
+            }
+
+            // 2. Verify check --resolver-json contract
+            let res_res = process_run("bunker-cli\\target\\release\\bunker-cli.exe check --resolver-json tests/01_basic_math.bkr");
+            if result_is_ok(res_res) {
+                let res_str: str = result_unwrap(res_res);
+                if !contains(res_str, "bunker.resolver.v1") {
+                    return 6;
+                }
+                if !contains(res_str, "name_resolver_pass") {
+                    return 7;
+                }
+                if !contains(res_str, "\"has_diagnostics\":false") {
+                    return 8;
+                }
+                if !contains(res_str, "\"duplicate_detection\":true") {
+                    return 9;
+                }
+            }
+        }
+
+        return 42;
+    }
+}

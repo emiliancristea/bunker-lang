@@ -1,0 +1,23 @@
+// Test 168: Invalid nested struct field type (BAD)
+// Purpose: Verify type checker rejects invalid nested struct field assignment.
+// Expected: Type checking failure with struct_field_type_mismatch / Expected Vector, found i32
+
+kernel InvalidNestedStructFieldBad {
+    struct Vector {
+        x: i32,
+        y: i32
+    }
+
+    struct Transform {
+        pos: Vector,
+        scale: i32
+    }
+
+    fn main() -> i32 {
+        let t: Transform = Transform {
+            pos: 10,
+            scale: 2
+        };
+        return 0;
+    }
+}

@@ -1,0 +1,211 @@
+// Test 188: Complete Vec, HashMap & Standard Combinators (Q-263, R-002, R-003, F-006)
+// Purpose: Test vec_is_empty, vec_contains, vec_clone, vec_reverse, hashmap_is_empty, hashmap_values,
+//          and higher-order combinators vec_map, vec_filter, vec_fold, vec_find.
+// Expected: JIT returns 42
+
+kernel VecHashmapCombinators {
+    fn double_num(x: i32) -> i32 {
+        return x * 2;
+    }
+
+    fn is_even(x: i32) -> bool {
+        return x % 2 == 0;
+    }
+
+    fn sum_acc(acc: i32, x: i32) -> i32 {
+        return acc + x;
+    }
+
+    fn is_target(x: i32) -> bool {
+        return x == 20;
+    }
+
+    fn is_missing(x: i32) -> bool {
+        return x == 999;
+    }
+
+    fn test_vec_basics() -> i32 {
+        let v: Vec<i32> = vec_new();
+        if !vec_is_empty(v) {
+            return 1;
+        }
+
+        vec_push(v, 10);
+        vec_push(v, 20);
+        vec_push(v, 30);
+
+        if vec_is_empty(v) {
+            return 2;
+        }
+
+        if !vec_contains(v, 10) {
+            return 3;
+        }
+        if !vec_contains(v, 20) {
+            return 4;
+        }
+        if !vec_contains(v, 30) {
+            return 5;
+        }
+        if vec_contains(v, 99) {
+            return 6;
+        }
+
+        // Test string vector contains
+        let sv: Vec<str> = vec_new();
+        if !vec_is_empty(sv) {
+            return 7;
+        }
+        vec_push(sv, "alpha");
+        vec_push(sv, "beta");
+        if !vec_contains(sv, "alpha") {
+            return 8;
+        }
+        if !vec_contains(sv, "beta") {
+            return 9;
+        }
+        if vec_contains(sv, "gamma") {
+            return 10;
+        }
+
+        // Test clone
+        let v_clone: Vec<i32> = vec_clone(v);
+        if vec_len(v_clone) != 3 {
+            return 11;
+        }
+        vec_push(v_clone, 40);
+        if vec_len(v) != 3 {
+            return 12;
+        }
+        if vec_len(v_clone) != 4 {
+            return 13;
+        }
+
+        // Test reverse
+        if !vec_reverse(v_clone) {
+            return 14;
+        }
+        // v_clone was [10, 20, 30, 40], now [40, 30, 20, 10]
+        if vec_get(v_clone, 0) != 40 {
+            return 15;
+        }
+        if vec_get(v_clone, 1) != 30 {
+            return 16;
+        }
+        if vec_get(v_clone, 2) != 20 {
+            return 17;
+        }
+        if vec_get(v_clone, 3) != 10 {
+            return 18;
+        }
+
+        return 0;
+    }
+
+    fn test_hashmap_basics() -> i32 {
+        let map: HashMap<str, i32> = hashmap_new();
+        if !hashmap_is_empty(map) {
+            return 20;
+        }
+
+        hashmap_insert(map, "first", 100);
+        hashmap_insert(map, "second", 200);
+
+        if hashmap_is_empty(map) {
+            return 21;
+        }
+
+        let vals: Vec<i32> = hashmap_values(map);
+        if vec_len(vals) != 2 {
+            return 22;
+        }
+        if !vec_contains(vals, 100) {
+            return 23;
+        }
+        if !vec_contains(vals, 200) {
+            return 24;
+        }
+        if vec_contains(vals, 300) {
+            return 25;
+        }
+
+        return 0;
+    }
+
+    fn test_combinators() -> i32 {
+        let v: Vec<i32> = vec_new();
+        vec_push(v, 5);
+        vec_push(v, 10);
+        vec_push(v, 15);
+
+        // Test vec_map
+        let doubled: Vec<i32> = vec_map(v, double_num);
+        if vec_len(doubled) != 3 {
+            return 30;
+        }
+        if vec_get(doubled, 0) != 10 {
+            return 31;
+        }
+        if vec_get(doubled, 1) != 20 {
+            return 32;
+        }
+        if vec_get(doubled, 2) != 30 {
+            return 33;
+        }
+
+        // Test vec_filter
+        let evens: Vec<i32> = vec_filter(v, is_even);
+        if vec_len(evens) != 1 {
+            return 34;
+        }
+        if vec_get(evens, 0) != 10 {
+            return 35;
+        }
+
+        // Test vec_fold
+        let total: i32 = vec_fold(v, 0, sum_acc);
+        if total != 30 {
+            return 36;
+        }
+
+        // Test vec_find
+        let found_opt: Option<i32> = vec_find(doubled, is_target);
+        let found_val: i32 = match found_opt {
+            Some(x) => x;
+            None => -1;
+        };
+        if found_val != 20 {
+            return 37;
+        }
+
+        let missing_opt: Option<i32> = vec_find(doubled, is_missing);
+        let missing_val: i32 = match missing_opt {
+            Some(x) => x;
+            None => -1;
+        };
+        if missing_val != -1 {
+            return 38;
+        }
+
+        return 0;
+    }
+
+    fn main() -> i32 {
+        let err1: i32 = test_vec_basics();
+        if err1 != 0 {
+            return err1;
+        }
+
+        let err2: i32 = test_hashmap_basics();
+        if err2 != 0 {
+            return err2;
+        }
+
+        let err3: i32 = test_combinators();
+        if err3 != 0 {
+            return err3;
+        }
+
+        return 42;
+    }
+}

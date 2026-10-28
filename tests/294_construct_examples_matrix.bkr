@@ -1,0 +1,163 @@
+// Test 294: Construct Examples Matrix Architecture (E-004)
+// Purpose: Verify comprehensive construct coverage: structs, enums, pattern matching, collections, Option/Result:
+//   1. Structs, methods, and field access.
+//   2. User-defined ADT enums and match expressions.
+//   3. Option and Result sum types with error propagation.
+//   4. Collections: Vec<T> and HashMap<K, V>.
+//   5. Structured JSON construct catalog emission (bunker.examples.v1).
+//   6. Native calculation returning 42.
+// Expected return: 42
+
+kernel ConstructExamplesMatrixTest {
+    // --- Data Structures ---
+
+    struct Point {
+        x: i64,
+        y: i64
+    }
+
+    enum Status {
+        Pending,
+        Active(i64),
+        Completed(i64),
+    }
+
+    struct ConstructCatalog {
+        items_validated: i64,
+        structs_ok: bool,
+        enums_ok: bool,
+        options_ok: bool,
+        results_ok: bool,
+        collections_ok: bool
+    }
+
+    // --- Methods ---
+
+    fn Point::magnitude_sq(self: Point) -> i64 {
+        return (self.x * self.x) + (self.y * self.y);
+    }
+
+    // --- Functions ---
+
+    fn evaluate_status(s: Status) -> i64 {
+        return match s {
+            Status.Pending => 0;
+            Status.Active(code) => code;
+            Status.Completed(code) => code + 10;
+        };
+    }
+
+    fn safe_divide(a: i64, b: i64) -> Result<i64, str> {
+        if (b == 0) {
+            return result_err("division by zero");
+        }
+        return result_ok(a / b);
+    }
+
+    fn safe_lookup_and_double(val: Option<i64>) -> Option<i64> {
+        return match val {
+            Some(x) => Some(x * 2);
+            None => None;
+        };
+    }
+
+    // --- Report Generator ---
+
+    fn catalog_to_json(cat: ConstructCatalog) -> str {
+        let mut out: str = "{\"schema\":\"bunker.examples.v1\"";
+        out = out + ",\"items_validated\":" + int_to_string(cat.items_validated);
+        out = out + ",\"status\":\"";
+        if (cat.structs_ok && cat.enums_ok && cat.options_ok && cat.results_ok && cat.collections_ok) {
+            out = out + "PASS\"";
+        } else {
+            out = out + "FAIL\"";
+        }
+        out = out + "}";
+        return out;
+    }
+
+    // --- Main Verification Flow ---
+
+    fn main() -> i32 {
+        let mut cat: ConstructCatalog = ConstructCatalog {
+            items_validated: 0,
+            structs_ok: false,
+            enums_ok: false,
+            options_ok: false,
+            results_ok: false,
+            collections_ok: false
+        };
+
+        // 1. Struct and method verification
+        let pt: Point = Point { x: 3, y: 4 };
+        let mag_sq: i64 = pt.magnitude_sq();
+        if (mag_sq == 25) {
+            cat.structs_ok = true;
+            cat.items_validated = cat.items_validated + 1;
+        }
+
+        // 2. ADT enum and match verification
+        let s_act: Status = Status.Active(100);
+        let s_val: i64 = evaluate_status(s_act);
+        if (s_val == 100) {
+            cat.enums_ok = true;
+            cat.items_validated = cat.items_validated + 1;
+        }
+
+        // 3. Option sum type verification
+        let opt_val: Option<i64> = Some(21);
+        let opt_doubled: Option<i64> = safe_lookup_and_double(opt_val);
+        let opt_res: i64 = match opt_doubled {
+            Some(v) => v;
+            None => 0;
+        };
+        if (opt_res == 42) {
+            cat.options_ok = true;
+            cat.items_validated = cat.items_validated + 1;
+        }
+
+        // 4. Result sum type verification
+        let res_ok: Result<i64, str> = safe_divide(84, 2);
+        let val_divided: i64 = match res_ok {
+            Ok(n) => n;
+            Err(e) => 0;
+        };
+        if (val_divided == 42) {
+            cat.results_ok = true;
+            cat.items_validated = cat.items_validated + 1;
+        }
+
+        // 5. Collections (Vec and HashMap) verification
+        let v: Vec<i64> = vec_new();
+        vec_push(v, 10);
+        vec_push(v, 20);
+        vec_push(v, 12);
+        let v_sum: i64 = vec_get(v, 0) + vec_get(v, 1) + vec_get(v, 2);
+
+        let m: HashMap<str, i64> = hashmap_new();
+        hashmap_insert(m, "target", v_sum);
+        let m_val: i64 = hashmap_get(m, "target");
+        if (m_val == 42 && vec_len(v) == 3) {
+            cat.collections_ok = true;
+            cat.items_validated = cat.items_validated + 1;
+        }
+
+        // 6. Validate Invariants
+        if (cat.items_validated != 5) {
+            return 1;
+        }
+        if (!cat.structs_ok || !cat.enums_ok || !cat.options_ok || !cat.results_ok || !cat.collections_ok) {
+            return 2;
+        }
+
+        // 7. Validate JSON report
+        let report: str = catalog_to_json(cat);
+        if (len(report) < 30) {
+            return 3;
+        }
+
+        // Return verified target constant 42
+        let score: i64 = 42;
+        return score as i32;
+    }
+}

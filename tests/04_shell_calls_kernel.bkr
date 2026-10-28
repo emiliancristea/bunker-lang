@@ -21,7 +21,7 @@ shell Combat {
             // Call into the Kernel for verified math
             let damage = use Physics.calculate_damage with base=attack_power, multiplier=2;
             
-            let final_damage = damage - target_defense;
+            let mut final_damage = damage - target_defense;
             if final_damage < 0 {
                 final_damage = 0;
             }

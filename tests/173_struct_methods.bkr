@@ -1,0 +1,80 @@
+// Test 173: Struct Methods and Method Resolution (Q-258, D-004, T-020)
+// Purpose: Verify MoonBit-style flat struct method declarations (fn Struct::method),
+//          receiver call syntax (p.method()), path call syntax (Struct::method(p)),
+//          and self receiver inference.
+// Expected: JIT returns 42
+
+kernel StructMethodsTest {
+    struct Point {
+        x: i32,
+        y: i32
+    }
+
+    struct Counter {
+        val: i32
+    }
+
+    fn Point::new(x: i32, y: i32) -> Point {
+        return Point { x: x, y: y };
+    }
+
+    fn Point::sum(self) -> i32 {
+        return self.x + self.y;
+    }
+
+    fn Point::manhattan(self: Point, other: Point) -> i32 {
+        let dx: i32 = self.x - other.x;
+        let dy: i32 = self.y - other.y;
+        let mut mut_dx: i32 = dx;
+        if mut_dx < 0 {
+            mut_dx = 0 - mut_dx;
+        }
+        let mut mut_dy: i32 = dy;
+        if mut_dy < 0 {
+            mut_dy = 0 - mut_dy;
+        }
+        return mut_dx + mut_dy;
+    }
+
+    fn Counter::inc(self) -> Counter {
+        return Counter { val: self.val + 1 };
+    }
+
+    fn Counter::get(self) -> i32 {
+        return self.val;
+    }
+
+    fn main() -> i32 {
+        let p1: Point = Point::new(10, 20);
+        let p2: Point = Point::new(4, 8);
+
+        // Test method with implicit self
+        let s: i32 = p1.sum();
+        if s != 30 {
+            return 1;
+        }
+
+        // Test receiver call syntax: p1.manhattan(p2)
+        let dist1: i32 = p1.manhattan(p2);
+        if dist1 != 18 {
+            return 2;
+        }
+
+        // Test path call syntax: Point::manhattan(p1, p2)
+        let dist2: i32 = Point::manhattan(p1, p2);
+        if dist2 != 18 {
+            return 3;
+        }
+
+        // Test Counter methods
+        let c: Counter = Counter { val: 40 };
+        let c2: Counter = c.inc();
+        let c3: Counter = c2.inc();
+        let ans: i32 = c3.get();
+        if ans != 42 {
+            return 4;
+        }
+
+        return ans;
+    }
+}

@@ -1,0 +1,57 @@
+// Test 96: PatternKind and TypeKind as typed compiler APIs
+// Purpose: PatternKind/TypeKind can be function parameters, return types, and locals.
+// Expected: Result: 42
+
+kernel PatternTypeKindTypedApi {
+    enum PatternKind {
+        Unused0,
+        Int,
+        Bind,
+    }
+
+    enum TypeKind {
+        I32,
+        I64,
+        Bool,
+    }
+
+    fn echo_pattern(kind: PatternKind) -> PatternKind {
+        return kind;
+    }
+
+    fn echo_type(kind: TypeKind) -> TypeKind {
+        return kind;
+    }
+
+    fn is_int_pattern(kind: PatternKind) -> bool {
+        return kind == PatternKind.Int;
+    }
+
+    fn is_i64_type(kind: TypeKind) -> bool {
+        return kind == TypeKind.I64;
+    }
+
+    fn classify(pattern: PatternKind, ty: TypeKind) -> i32 {
+        if pattern == PatternKind.Int {
+            if ty == TypeKind.I64 {
+                return 41;
+            }
+        }
+        return 0;
+    }
+
+    fn main() -> i32 {
+        let pattern: PatternKind = echo_pattern(PatternKind.Int);
+        let ty: TypeKind = echo_type(TypeKind.I64);
+        if is_int_pattern(pattern) {
+            if is_i64_type(ty) {
+                if int_to_string(pattern) == "1" {
+                    if int_to_string(ty) == "1" {
+                        return classify(pattern, ty) + 1;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

@@ -19,6 +19,9 @@ tests/*.o
 .factory/
 
 # Local scratch files (dev/harness)
+test_output.txt
+tmp_*
+tmp_self_host_scan/
 bunker-cli/_rt.rs
 bunker-cli/write-test.txt
 bunker-cli/out*.txt

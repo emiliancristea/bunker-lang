@@ -1,0 +1,11 @@
+// Test 172: Typed HashMap Value Type Mismatch (Q-257, D-010)
+// Purpose: Ensure typechecker rejects inserting wrong value type into HashMap<str, i32>.
+// Expected: Typecheck error (hashmap_insert value type mismatch)
+
+kernel TypedHashMapValMismatch {
+    fn main() -> i32 {
+        let map: HashMap<str, i32> = hashmap_new();
+        hashmap_insert(map, "alpha", "wrong");
+        return 0;
+    }
+}

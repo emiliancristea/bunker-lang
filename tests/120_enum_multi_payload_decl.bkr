@@ -1,0 +1,14 @@
+// Test 120: Multi-field enum variant payload declarations
+// Purpose: Parse Variant(Type, Type) beside unit variants without constructing them.
+// Expected: Result: 42
+
+kernel EnumMultiPayloadDecl {
+    enum Pair {
+        Both(i32, i32),
+        Empty,
+    }
+
+    fn main() -> i32 {
+        return 42;
+    }
+}

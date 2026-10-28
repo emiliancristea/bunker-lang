@@ -1,0 +1,10 @@
+// Test 153: Builtin Call Arity Mismatch Diagnostic
+// Purpose: Ensure builtin calls with incorrect argument count are rejected.
+// Expected: `bunker check` fails.
+
+kernel BuiltinArityBad {
+    fn main() -> i64 {
+        let x = strlen("hello", 42);
+        return x;
+    }
+}

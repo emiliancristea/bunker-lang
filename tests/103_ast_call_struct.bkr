@@ -1,0 +1,39 @@
+// Test 103: AstCall as a real compiler call-expression record
+// Purpose: Call name/args/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstCallStruct {
+    struct AstCall {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        args: i64
+    }
+
+    fn make_call(name_idx: i64, args: i64) -> AstCall {
+        return AstCall {
+            start: 0,
+            end: 4,
+            name_idx: name_idx,
+            args: args
+        };
+    }
+
+    fn call_name(call: AstCall) -> i64 {
+        return call.name_idx;
+    }
+
+    fn main() -> i32 {
+        let call: AstCall = make_call(7, 35);
+        if call.start == 0 {
+            if call.end == 4 {
+                if call.args == 35 {
+                    if call_name(make_call(42, 0)) == 42 {
+                        return 42;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

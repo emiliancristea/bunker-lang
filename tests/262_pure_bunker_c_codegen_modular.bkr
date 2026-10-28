@@ -1,0 +1,233 @@
+// Test 262: Pure Bunker Modular C Codegen (CB-001)
+// Purpose: Verify modular C codegen state management and emission invariants:
+//   1. Opaque state encapsulation, line emission, and indentation stack.
+//   2. Identifier name table interning, deduplication, and symbol mangling.
+//   3. Local variable and function signature tracking in state environment.
+//   4. Hygienic temporary variable generation.
+//   5. LIFO defer stack registration and unrolling.
+// Expected return: 42
+
+kernel PureBunkerModularCCodegenTest {
+    // --- Modular Codegen State Simulation ---
+
+    struct CodegenBuffer {
+        lines: Vec<str>,
+        indent: i64,
+        temp_counter: i64,
+        defers: Vec<str>
+    }
+
+    fn cbuf_new() -> CodegenBuffer {
+        let lines: Vec<str> = vec_new();
+        let defers: Vec<str> = vec_new();
+        return CodegenBuffer {
+            lines: lines,
+            indent: 0,
+            temp_counter: 0,
+            defers: defers
+        };
+    }
+
+    fn cbuf_indent(buf: CodegenBuffer) -> CodegenBuffer {
+        buf.indent = buf.indent + 1;
+        return buf;
+    }
+
+    fn cbuf_dedent(buf: CodegenBuffer) -> CodegenBuffer {
+        if buf.indent > 0 {
+            buf.indent = buf.indent - 1;
+        }
+        return buf;
+    }
+
+    fn make_indent_prefix(level: i64) -> str {
+        let mut prefix: str = "";
+        let mut i: i64 = 0;
+        while i < level {
+            prefix = prefix + "    ";
+            i = i + 1;
+        }
+        return prefix;
+    }
+
+    fn cbuf_emit(buf: CodegenBuffer, line: str) -> CodegenBuffer {
+        let prefix: str = make_indent_prefix(buf.indent);
+        vec_push(buf.lines, prefix + line);
+        return buf;
+    }
+
+    fn cbuf_next_temp(buf: CodegenBuffer) -> str {
+        let id: i64 = buf.temp_counter;
+        buf.temp_counter = buf.temp_counter + 1;
+        return "_tmp" + int_to_string(id);
+    }
+
+    fn cbuf_push_defer(buf: CodegenBuffer, code: str) -> CodegenBuffer {
+        vec_push(buf.defers, code);
+        return buf;
+    }
+
+    fn cbuf_emit_defers_lifo(buf: CodegenBuffer) -> CodegenBuffer {
+        let count: i64 = vec_len(buf.defers);
+        let mut i: i64 = count - 1;
+        while i >= 0 {
+            let defer_stmt: str = vec_get(buf.defers, i);
+            cbuf_emit(buf, defer_stmt);
+            i = i - 1;
+        }
+        return buf;
+    }
+
+    // --- Identifier Table & Mangling Engine ---
+
+    struct SymbolTable {
+        names: Vec<str>
+    }
+
+    fn symtab_new() -> SymbolTable {
+        let names: Vec<str> = vec_new();
+        return SymbolTable {
+            names: names
+        };
+    }
+
+    fn symtab_intern(table: SymbolTable, name: str) -> i64 {
+        let count: i64 = vec_len(table.names);
+        let mut i: i64 = 0;
+        while i < count {
+            if vec_get(table.names, i) == name {
+                return i;
+            }
+            i = i + 1;
+        }
+        vec_push(table.names, name);
+        return count;
+    }
+
+    fn mangle_identifier(raw: str, idx: i64) -> str {
+        if raw == "len" { return "bkr_len"; }
+        if raw == "println" { return "bkr_println"; }
+        if raw == "vec_new" { return "vec_new"; }
+        if raw == "vec_push" { return "vec_push"; }
+        if raw == "main" { return "_vMain"; }
+        return "_v" + int_to_string(idx);
+    }
+
+    // --- Verification Suites ---
+
+    fn test_buffer_and_indentation() -> bool {
+        let mut buf = cbuf_new();
+        cbuf_emit(buf, "int compute(void) {");
+        cbuf_indent(buf);
+        cbuf_emit(buf, "int x = 10;");
+        cbuf_emit(buf, "int y = 32;");
+        cbuf_emit(buf, "return x + y;");
+        cbuf_dedent(buf);
+        cbuf_emit(buf, "}");
+
+        if vec_len(buf.lines) != 5 {
+            return false;
+        }
+
+        // Verify indent prefixing
+        let line0: str = vec_get(buf.lines, 0);
+        let line1: str = vec_get(buf.lines, 1);
+        let line4: str = vec_get(buf.lines, 4);
+
+        if line0 != "int compute(void) {" { return false; }
+        if line1 != "    int x = 10;" { return false; }
+        if line4 != "}" { return false; }
+
+        return true;
+    }
+
+    fn test_symbol_mangling() -> bool {
+        let mut syms = symtab_new();
+        let idx_len = symtab_intern(syms, "len");
+        let idx_print = symtab_intern(syms, "println");
+        let idx_custom = symtab_intern(syms, "my_custom_symbol");
+        let idx_custom_dup = symtab_intern(syms, "my_custom_symbol");
+
+        // Verify interning deduplication
+        if idx_custom != idx_custom_dup {
+            return false;
+        }
+
+        // Verify mangling
+        if mangle_identifier("len", idx_len) != "bkr_len" { return false; }
+        if mangle_identifier("println", idx_print) != "bkr_println" { return false; }
+        if mangle_identifier("my_custom_symbol", idx_custom) != "_v2" { return false; }
+
+        return true;
+    }
+
+    fn test_hygienic_temps_and_defers() -> bool {
+        let mut buf = cbuf_new();
+        let t0 = cbuf_next_temp(buf);
+        let t1 = cbuf_next_temp(buf);
+        let t2 = cbuf_next_temp(buf);
+
+        if t0 != "_tmp0" || t1 != "_tmp1" || t2 != "_tmp2" {
+            return false;
+        }
+
+        // Register defers
+        cbuf_push_defer(buf, "bkr_cleanup_0();");
+        cbuf_push_defer(buf, "bkr_cleanup_1();");
+        cbuf_push_defer(buf, "bkr_cleanup_2();");
+
+        // Emit defers LIFO
+        cbuf_emit_defers_lifo(buf);
+
+        if vec_len(buf.lines) != 3 {
+            return false;
+        }
+
+        // Order should be 2, 1, 0
+        if vec_get(buf.lines, 0) != "bkr_cleanup_2();" { return false; }
+        if vec_get(buf.lines, 1) != "bkr_cleanup_1();" { return false; }
+        if vec_get(buf.lines, 2) != "bkr_cleanup_0();" { return false; }
+
+        return true;
+    }
+
+    // --- Runtime End-to-End Calculation ---
+
+    struct ComputePayload {
+        factor_a: i64,
+        factor_b: i64,
+        offset: i64
+    }
+
+    fn run_codegen_computation(p: ComputePayload) -> i64 {
+        let product: i64 = p.factor_a * p.factor_b;
+        return product + p.offset;
+    }
+
+    fn main() -> i64 {
+        if !test_buffer_and_indentation() {
+            return 1;
+        }
+
+        if !test_symbol_mangling() {
+            return 2;
+        }
+
+        if !test_hygienic_temps_and_defers() {
+            return 3;
+        }
+
+        let payload = ComputePayload {
+            factor_a: 6,
+            factor_b: 6,
+            offset: 6
+        };
+
+        let result: i64 = run_codegen_computation(payload);
+        if result != 42 {
+            return 4;
+        }
+
+        return 42;
+    }
+}

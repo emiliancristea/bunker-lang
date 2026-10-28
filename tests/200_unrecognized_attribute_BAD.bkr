@@ -1,0 +1,14 @@
+// Test 200: Unrecognized Attribute (Negative Test)
+// Purpose: Verify unrecognized attribute is rejected with structured diagnostic.
+// Expected: Type error: Unsupported attribute 'unknown_future_flag'
+
+kernel Main {
+    #[unknown_future_flag]
+    fn helper() -> i32 {
+        return 10;
+    }
+
+    fn main() -> i32 {
+        return helper();
+    }
+}

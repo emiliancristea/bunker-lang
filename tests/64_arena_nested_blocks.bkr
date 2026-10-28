@@ -16,7 +16,7 @@ kernel ArenaNestTest {
 
     fn main() -> i32 {
         let outer: Point = make_point(10, 5);  // Allocated in main's block
-        let result: i32 = 0;
+        let mut result: i32 = 0;
 
         // Outer block allocations should persist
         if outer.x > 0 {

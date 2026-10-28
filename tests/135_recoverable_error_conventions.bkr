@@ -1,0 +1,158 @@
+// Test 135: Recoverable Error Conventions (C-007)
+// Purpose: Verify standard recoverable Option and Result stdlib APIs:
+// hashmap_get_opt, vec_get_opt, vec_pop_opt, read_file_result, write_file_result, parse_int_result,
+// along with pattern matching and postfix ? try operator unwrapping.
+// Expected: Returns 42
+
+kernel RecoverableErrorConventions {
+    fn try_find_and_increment(map: HashMap<i32, i32>, key: i32) -> Option<i32> {
+        let val: i32 = hashmap_get_opt(map, key)?;
+        return Some(val + 1);
+    }
+
+    fn try_parse_and_double(s: str) -> Result<i64, str> {
+        let n: i64 = parse_int_result(s)?;
+        return result_ok(n * 2);
+    }
+
+    fn main() -> i32 {
+        let mut score = 0;
+
+        // 1. HashMap recoverable lookup
+        let map: HashMap<i32, i32> = hashmap_new();
+        hashmap_insert(map, 10, 100);
+        hashmap_insert(map, 20, 200);
+
+        let opt_found: Option<i32> = hashmap_get_opt(map, 10);
+        let val_found: i32 = match opt_found {
+            Some(v) => v;
+            None => 0;
+        };
+        if val_found == 100 {
+            score = score + 5;
+        }
+
+        let opt_missing: Option<i32> = hashmap_get_opt(map, 999);
+        let val_missing: i32 = match opt_missing {
+            Some(v) => 0;
+            None => 1;
+        };
+        if val_missing == 1 {
+            score = score + 5;
+        }
+
+        // Test ? propagation on HashMap
+        let try_found = match try_find_and_increment(map, 20) {
+            Some(v) => v;
+            None => 0;
+        };
+        if try_found == 201 {
+            score = score + 5;
+        }
+
+        let try_miss = match try_find_and_increment(map, 404) {
+            Some(v) => 0;
+            None => 1;
+        };
+        if try_miss == 1 {
+            score = score + 5;
+        }
+
+        // 2. Vec recoverable lookup and pop
+        let v: Vec<i32> = vec_new();
+        vec_push(v, 11);
+        vec_push(v, 22);
+
+        let v_opt0: Option<i32> = vec_get_opt(v, 0);
+        let v_val0: i32 = match v_opt0 {
+            Some(x) => x;
+            None => 0;
+        };
+        if v_val0 == 11 {
+            score = score + 4;
+        }
+
+        let v_opt_oob: Option<i32> = vec_get_opt(v, 10);
+        let v_val_oob: i32 = match v_opt_oob {
+            Some(x) => 0;
+            None => 1;
+        };
+        if v_val_oob == 1 {
+            score = score + 4;
+        }
+
+        let pop1 = match vec_pop_opt(v) {
+            Some(x) => x;
+            None => 0;
+        };
+        let pop2 = match vec_pop_opt(v) {
+            Some(x) => x;
+            None => 0;
+        };
+        let pop3 = match vec_pop_opt(v) {
+            Some(x) => 0;
+            None => 1;
+        };
+        if pop1 == 22 && pop2 == 11 && pop3 == 1 {
+            score = score + 4;
+        }
+
+        // 3. parse_int_result
+        let parse_ok = match parse_int_result("15") {
+            Ok(n) => n;
+            Err(e) => 0;
+        };
+        if parse_ok == 15 {
+            score = score + 4;
+        }
+
+        let parse_err = match parse_int_result("not_a_number") {
+            Ok(n) => 0;
+            Err(e) => 1;
+        };
+        if parse_err == 1 {
+            score = score + 3;
+        }
+
+        // 4. File I/O recoverable operations
+        let test_path = "target/recoverable_test.txt";
+        let write_res = write_file_result(test_path, "bunker_ok");
+        let write_ok = match write_res {
+            Ok(b) => b;
+            Err(e) => false;
+        };
+        if write_ok {
+            score = score + 3;
+        }
+
+        let read_res = read_file_result(test_path);
+        let read_len = match read_res {
+            Ok(content) => len(content);
+            Err(e) => 0;
+        };
+        if read_len == 9 {
+            score = score + 2;
+        }
+
+        let missing_file_res = read_file_result("target/nonexistent_file_definitely_missing.txt");
+        let missing_ok = match missing_file_res {
+            Ok(c) => 0;
+            Err(e) => 1;
+        };
+        if missing_ok == 1 {
+            score = score + 1;
+        }
+
+        // 5. Test ? try operator on Result
+        let try_result_ok = match try_parse_and_double("21") {
+            Ok(v) => v;
+            Err(e) => 0;
+        };
+        if try_result_ok == 42 {
+            // Success
+            return 42;
+        }
+
+        return score;
+    }
+}

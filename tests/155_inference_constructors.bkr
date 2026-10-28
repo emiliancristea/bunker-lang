@@ -1,0 +1,90 @@
+// Test 155: Inference for None, Empty Arrays, Collections, and Result Constructors (Q-252, T-008)
+// Purpose: Verify contextual type propagation to None, [], vec_new(), hashmap_new(), Ok(...), Err(...)
+// in let bindings, return statements, function call arguments, and branching expressions.
+// Expected: Returns 42
+
+kernel InferenceConstructors {
+    fn make_none() -> Option<i32> {
+        return None;
+    }
+
+    fn make_arr() -> [i32; 0] {
+        return [];
+    }
+
+    fn make_vec() -> Vec<i32> {
+        return vec_new();
+    }
+
+    fn make_map() -> HashMap<i32, i32> {
+        return hashmap_new();
+    }
+
+    fn make_ok() -> Result<i32, str> {
+        return Ok(12);
+    }
+
+    fn make_err() -> Result<i32, str> {
+        return Err("err");
+    }
+
+    fn check_opt(opt: Option<i32>, default_val: i32) -> i32 {
+        return match opt {
+            Some(x) => x;
+            None => default_val;
+        };
+    }
+
+    fn check_result(res: Result<i32, str>) -> i32 {
+        return match res {
+            Ok(x) => x;
+            Err(e) => 0;
+        };
+    }
+
+    fn main() -> i32 {
+        // 1. Contextual inference in let bindings
+        let opt1: Option<i32> = None;
+        let arr1: [i32; 0] = [];
+        let v1: Vec<i32> = vec_new();
+        vec_push(v1, 5);
+        let m1: HashMap<i32, i32> = hashmap_new();
+        hashmap_insert(m1, 1, 5);
+        let r1: Result<i32, str> = Ok(10);
+        let r2: Result<i32, str> = Err("err");
+        let r3: Result<i32, str> = result_ok(5);
+        let r4: Result<i32, str> = result_err("err2");
+
+        let sum1: i32 = check_opt(opt1, 5); // 5
+        let sum2: i32 = check_result(r1);   // 10
+        let sum3: i32 = check_result(r3);   // 5
+
+        // 2. Contextual inference in return statements
+        let opt_ret: Option<i32> = make_none();
+        let arr_ret: [i32; 0] = make_arr();
+        let vec_ret: Vec<i32> = make_vec();
+        let map_ret: HashMap<i32, i32> = make_map();
+        let ok_ret: Result<i32, str> = make_ok();
+        let err_ret: Result<i32, str> = make_err();
+
+        let sum4: i32 = check_opt(opt_ret, 5); // 5
+        let sum5: i32 = check_result(ok_ret);  // 12
+        let sum6: i32 = check_result(err_ret); // 0
+
+        // 3. Contextual inference in function call arguments
+        let sum7: i32 = check_opt(None, 5); // 5
+
+        // 4. Contextual bidirectional inference in branching match expressions
+        let branch_opt: Option<i32> = match 0 {
+            0 => Some(0);
+            _ => None;
+        };
+        let branch_res: Result<i32, str> = match 0 {
+            0 => Ok(0);
+            _ => Err("bad");
+        };
+
+        // Total: sum1(5) + sum2(10) + sum3(5) + sum4(5) + sum5(12) + sum6(0) + sum7(5) = 42
+        return sum1 + sum2 + sum3 + sum4 + sum5 + sum6 + sum7;
+    }
+}

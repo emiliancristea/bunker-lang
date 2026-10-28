@@ -1,0 +1,32 @@
+// Test 92: Token-kind enum as integer tags
+// Purpose: TokenKind variants can seed i64 lexer constants.
+// Expected: Result: 42
+
+kernel TokenKindEnum {
+    enum TokenKind {
+        Eof,
+        Unused1,
+        Unused2,
+        Unused3,
+        Unused4,
+        Unused5,
+        Unused6,
+        Unused7,
+        Unused8,
+        Unused9,
+        Ident,
+    }
+
+    const TOK_EOF: i64 = TokenKind.Eof;
+    const TOK_IDENT: i64 = TokenKind.Ident;
+
+    fn main() -> i32 {
+        let kind: i64 = TOK_IDENT;
+        if kind == TokenKind.Ident {
+            if TOK_EOF == 0 {
+                return 42;
+            }
+        }
+        return 0;
+    }
+}

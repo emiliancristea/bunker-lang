@@ -1,0 +1,12 @@
+// Test 230: Soundness & UB Elimination - Invalid Slice Cast (BAD)
+// Purpose: Verify type checker rejects casting Slice to float or invalid scalar per BKR-SPEC-SAFE-001.
+// Expected: Type checking failure with "Cannot cast"
+
+kernel InvalidSliceCastBad {
+    fn main() -> i32 {
+        let arr: [i32; 2] = [1, 2];
+        let sl: Slice<i32> = arr[0..2];
+        let bad: f64 = sl as f64;
+        return 0;
+    }
+}

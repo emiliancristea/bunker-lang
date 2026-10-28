@@ -1,0 +1,20 @@
+// Test 236: Struct Operator Overload BAD (Q-284, T-021)
+// Purpose: Verify compiler rejects attempts to apply binary arithmetic operators
+//          to user-defined struct types, enforcing non-overloadability policy.
+// Expected: Typecheck error (Arithmetic on non-numeric types)
+
+kernel StructOperatorOverloadBad {
+    struct Vector {
+        x: i32,
+        y: i32
+    }
+
+    fn main() -> i32 {
+        let v1: Vector = Vector { x: 10, y: 20 };
+        let v2: Vector = Vector { x: 30, y: 40 };
+
+        // Invalid: Operator overloading is rejected by language policy
+        let v3: Vector = v1 + v2;
+        return 0;
+    }
+}

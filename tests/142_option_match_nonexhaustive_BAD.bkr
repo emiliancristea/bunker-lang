@@ -1,0 +1,13 @@
+// Test 142 (BAD): Non-exhaustive Option match
+// Purpose: Reject Option matches that omit the None variant.
+// Expected: Type error for missing None.
+
+kernel OptionMatchNonexhaustiveBad {
+    fn main() -> i32 {
+        let o: Option<i32> = Some(42);
+        let res = match o {
+            Some(v) => v;
+        };
+        return res;
+    }
+}

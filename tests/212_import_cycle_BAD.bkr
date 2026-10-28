@@ -1,0 +1,7 @@
+import "modules/cycle_a.bkr";
+
+kernel Main {
+    fn main() -> i32 {
+        return CycleA::func_a();
+    }
+}

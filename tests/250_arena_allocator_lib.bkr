@@ -1,0 +1,276 @@
+// Test 250: Arena Allocator Library (Q-292, R-013)
+// Verifies pure Bunker chunked arena bump allocation, multi-block overflow,
+// watermark snapshots, rollbacks, full resets, and utilization metrics.
+// Expected return: 42
+
+kernel ArenaAllocatorLibTest {
+    struct ArenaStats {
+        total_allocated: i64,
+        active_bytes: i64,
+        peak_bytes: i64,
+        block_count: i64,
+        reset_count: i64
+    }
+
+    struct ArenaWatermark {
+        block_index: i64,
+        offset: i64
+    }
+
+    struct Arena {
+        chunk_size: i64,
+        blocks: Vec<i64>,
+        current_block: i64,
+        current_offset: i64,
+        stats: ArenaStats
+    }
+
+    fn arena_new_with_chunk_size(chunk_size: i64) -> Arena {
+        let blks: Vec<i64> = vec_new();
+        let b0: i64 = bytes_new(chunk_size);
+        vec_push(blks, b0);
+
+        let initial_stats = ArenaStats {
+            total_allocated: 0,
+            active_bytes: 0,
+            peak_bytes: 0,
+            block_count: 1,
+            reset_count: 0
+        };
+
+        return Arena {
+            chunk_size: chunk_size,
+            blocks: blks,
+            current_block: 0,
+            current_offset: 0,
+            stats: initial_stats
+        };
+    }
+
+    fn arena_new() -> Arena {
+        return arena_new_with_chunk_size(65536);
+    }
+
+    fn arena_alloc(arena: Arena, size: i64) -> i64 {
+        if size <= 0 {
+            return 0;
+        }
+
+        let aligned_size: i64 = (size + 7) / 8 * 8;
+
+        if arena.current_offset + aligned_size <= arena.chunk_size {
+            let start = arena.current_offset;
+            arena.current_offset = arena.current_offset + aligned_size;
+            arena.stats.total_allocated = arena.stats.total_allocated + aligned_size;
+            arena.stats.active_bytes = arena.stats.active_bytes + aligned_size;
+            if arena.stats.active_bytes > arena.stats.peak_bytes {
+                arena.stats.peak_bytes = arena.stats.active_bytes;
+            }
+            return start;
+        }
+
+        if arena.current_block + 1 < vec_len(arena.blocks) {
+            arena.current_block = arena.current_block + 1;
+            arena.current_offset = 0;
+        } else {
+            let next_b: i64 = bytes_new(arena.chunk_size);
+            vec_push(arena.blocks, next_b);
+            arena.current_block = vec_len(arena.blocks) - 1;
+            arena.current_offset = 0;
+            arena.stats.block_count = vec_len(arena.blocks);
+        }
+
+        let start = arena.current_offset;
+        arena.current_offset = arena.current_offset + aligned_size;
+        arena.stats.total_allocated = arena.stats.total_allocated + aligned_size;
+        arena.stats.active_bytes = arena.stats.active_bytes + aligned_size;
+        if arena.stats.active_bytes > arena.stats.peak_bytes {
+            arena.stats.peak_bytes = arena.stats.active_bytes;
+        }
+
+        return start;
+    }
+
+    fn arena_watermark(arena: Arena) -> ArenaWatermark {
+        return ArenaWatermark {
+            block_index: arena.current_block,
+            offset: arena.current_offset
+        };
+    }
+
+    fn arena_reset_to(arena: Arena, mark: ArenaWatermark) {
+        if mark.block_index > arena.current_block {
+            return;
+        }
+        if mark.block_index == arena.current_block && mark.offset > arena.current_offset {
+            return;
+        }
+
+        let mut reclaimed: i64 = 0;
+        if arena.current_block == mark.block_index {
+            reclaimed = arena.current_offset - mark.offset;
+        } else {
+            reclaimed = arena.current_offset;
+            let mut b: i64 = mark.block_index + 1;
+            while b < arena.current_block {
+                reclaimed = reclaimed + arena.chunk_size;
+                b = b + 1;
+            }
+            reclaimed = reclaimed + (arena.chunk_size - mark.offset);
+        }
+
+        arena.current_block = mark.block_index;
+        arena.current_offset = mark.offset;
+        arena.stats.active_bytes = arena.stats.active_bytes - reclaimed;
+        if arena.stats.active_bytes < 0 {
+            arena.stats.active_bytes = 0;
+        }
+        arena.stats.reset_count = arena.stats.reset_count + 1;
+    }
+
+    fn arena_reset_all(arena: Arena) {
+        arena.current_block = 0;
+        arena.current_offset = 0;
+        arena.stats.active_bytes = 0;
+        arena.stats.reset_count = arena.stats.reset_count + 1;
+    }
+
+    fn arena_stats(arena: Arena) -> ArenaStats {
+        return arena.stats;
+    }
+
+    // --- Tests ---
+
+    fn test_basic_allocation() -> bool {
+        let a = arena_new_with_chunk_size(256);
+
+        let off1 = arena_alloc(a, 64);
+        if off1 != 0 {
+            return false;
+        }
+
+        let off2 = arena_alloc(a, 32);
+        if off2 != 64 {
+            return false;
+        }
+
+        let stats = arena_stats(a);
+        if stats.total_allocated != 96 {
+            return false;
+        }
+        if stats.active_bytes != 96 {
+            return false;
+        }
+        if stats.peak_bytes != 96 {
+            return false;
+        }
+        if stats.block_count != 1 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_chunk_overflow() -> bool {
+        let a = arena_new_with_chunk_size(256);
+
+        let off1 = arena_alloc(a, 128); // 128 used in block 0
+        if off1 != 0 {
+            return false;
+        }
+
+        // 200 bytes does not fit in remaining 128 bytes of block 0
+        // moves to block 1
+        let off2 = arena_alloc(a, 200);
+        if off2 != 0 {
+            return false;
+        }
+
+        let stats = arena_stats(a);
+        if stats.block_count != 2 {
+            return false;
+        }
+        if stats.total_allocated != 328 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_watermark_rollback() -> bool {
+        let a = arena_new_with_chunk_size(256);
+        arena_alloc(a, 64);
+
+        let mark = arena_watermark(a);
+        if mark.block_index != 0 || mark.offset != 64 {
+            return false;
+        }
+
+        arena_alloc(a, 128);
+        if a.stats.active_bytes != 192 {
+            return false;
+        }
+
+        arena_reset_to(a, mark);
+        if a.stats.active_bytes != 64 {
+            return false;
+        }
+        if a.current_offset != 64 {
+            return false;
+        }
+        if a.stats.reset_count != 1 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_full_reset_and_reuse() -> bool {
+        let a = arena_new_with_chunk_size(256);
+        arena_alloc(a, 200);
+        arena_alloc(a, 200); // 2 blocks
+
+        if a.stats.block_count != 2 {
+            return false;
+        }
+
+        arena_reset_all(a);
+        if a.stats.active_bytes != 0 {
+            return false;
+        }
+        if a.current_block != 0 {
+            return false;
+        }
+        if a.current_offset != 0 {
+            return false;
+        }
+
+        // Reallocate: reuses block 0 without allocating new block
+        let off = arena_alloc(a, 100);
+        if off != 0 {
+            return false;
+        }
+        if a.stats.block_count != 2 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_basic_allocation() {
+            return 1;
+        }
+        if !test_chunk_overflow() {
+            return 2;
+        }
+        if !test_watermark_rollback() {
+            return 3;
+        }
+        if !test_full_reset_and_reuse() {
+            return 4;
+        }
+
+        return 42;
+    }
+}

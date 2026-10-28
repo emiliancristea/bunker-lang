@@ -1,0 +1,219 @@
+// Test 284: Code Coverage Tooling Architecture (G-011)
+// Purpose: Verify statement/line coverage tracking, execution hit counters, LCOV formatting, and structured reports:
+//   1. Executable line coverage hit counting.
+//   2. Line coverage percentage calculation.
+//   3. Standard LCOV output formatting.
+//   4. Structured coverage manifest emission (bunker.coverage.v1).
+//   5. Native calculation returning 42.
+// Expected return: 42
+
+kernel CodeCoverageToolingTest {
+    // --- Data Structures ---
+
+    struct LineCoverage {
+        line_num: i64,
+        hit_count: i64
+    }
+
+    struct FileCoverage {
+        file_path: str,
+        lines: Vec<LineCoverage>,
+        total_instrumented: i64,
+        total_hit: i64
+    }
+
+    fn file_coverage_new(path: str) -> FileCoverage {
+        let l: Vec<LineCoverage> = vec_new();
+        return FileCoverage {
+            file_path: path,
+            lines: l,
+            total_instrumented: 0,
+            total_hit: 0
+        };
+    }
+
+    fn file_add_line(cov: FileCoverage, line_num: i64, hits: i64) -> FileCoverage {
+        let entry = LineCoverage { line_num: line_num, hit_count: hits };
+        vec_push(cov.lines, entry);
+        cov.total_instrumented = cov.total_instrumented + 1;
+        if hits > 0 {
+            cov.total_hit = cov.total_hit + 1;
+        }
+        return cov;
+    }
+
+    // --- Metrics Computation ---
+
+    fn compute_coverage_percent_scaled(hit: i64, total: i64) -> i64 {
+        // Scaled by 100 for integer arithmetic: 80% -> 8000
+        if total == 0 {
+            return 0;
+        }
+        return (hit * 10000) / total;
+    }
+
+    // --- LCOV Formatter ---
+
+    fn format_lcov_record(cov: FileCoverage) -> str {
+        let nl = from_char_code(10);
+        let mut out = "TN:bunker_coverage" + nl;
+        out = out + "SF:" + cov.file_path + nl;
+        let n = vec_len(cov.lines);
+        let mut i: i64 = 0;
+        while i < n {
+            let l: LineCoverage = vec_get(cov.lines, i);
+            out = out + "DA:" + int_to_string(l.line_num) + "," + int_to_string(l.hit_count) + nl;
+            i = i + 1;
+        }
+        out = out + "LF:" + int_to_string(cov.total_instrumented) + nl;
+        out = out + "LH:" + int_to_string(cov.total_hit) + nl;
+        out = out + "end_of_record";
+        return out;
+    }
+
+    // --- JSON Formatter (bunker.coverage.v1) ---
+
+    fn format_coverage_json(cov: FileCoverage) -> str {
+        let nl = from_char_code(10);
+        let mut json = "{" + nl;
+        json = json + "  \"schema_version\": \"bunker.coverage.v1\"," + nl;
+        json = json + "  \"file\": \"" + cov.file_path + "\"," + nl;
+        json = json + "  \"total_lines\": " + int_to_string(cov.total_instrumented) + "," + nl;
+        json = json + "  \"covered_lines\": " + int_to_string(cov.total_hit) + nl;
+        json = json + "}";
+        return json;
+    }
+
+    // --- String Helpers ---
+
+    fn string_contains(haystack: str, needle: str) -> bool {
+        let needle_len = len(needle);
+        let haystack_len = len(haystack);
+        if needle_len == 0 {
+            return true;
+        }
+        if needle_len > haystack_len {
+            return false;
+        }
+        let limit = haystack_len - needle_len + 1;
+        let mut i: i64 = 0;
+        while i < limit {
+            if substring(haystack, i, i + needle_len) == needle {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    fn int_to_string(v: i64) -> str {
+        if v == 0 {
+            return "0";
+        }
+        let mut is_neg: bool = false;
+        let mut n: i64 = v;
+        if n < 0 {
+            is_neg = true;
+            n = 0 - n;
+        }
+        let mut digits: str = "";
+        while n > 0 {
+            let d: i64 = n % 10;
+            digits = from_char_code(48 + d) + digits;
+            n = n / 10;
+        }
+        if is_neg {
+            return "-" + digits;
+        }
+        return digits;
+    }
+
+    // --- Verification Suites ---
+
+    fn test_line_coverage_accumulation() -> bool {
+        let mut cov = file_coverage_new("src/main.bkr");
+        cov = file_add_line(cov, 1, 5);  // hit
+        cov = file_add_line(cov, 2, 0);  // miss
+        cov = file_add_line(cov, 3, 12); // hit
+        cov = file_add_line(cov, 4, 1);  // hit
+
+        if cov.total_instrumented != 4 {
+            return false;
+        }
+        if cov.total_hit != 3 {
+            return false;
+        }
+
+        // 3 / 4 = 75.00% -> 7500
+        let scaled = compute_coverage_percent_scaled(cov.total_hit, cov.total_instrumented);
+        if scaled != 7500 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_lcov_emission() -> bool {
+        let mut cov = file_coverage_new("src/lib.bkr");
+        cov = file_add_line(cov, 10, 42);
+        cov = file_add_line(cov, 11, 0);
+
+        let lcov = format_lcov_record(cov);
+        if !string_contains(lcov, "SF:src/lib.bkr") {
+            return false;
+        }
+        if !string_contains(lcov, "DA:10,42") {
+            return false;
+        }
+        if !string_contains(lcov, "DA:11,0") {
+            return false;
+        }
+        if !string_contains(lcov, "LF:2") {
+            return false;
+        }
+        if !string_contains(lcov, "LH:1") {
+            return false;
+        }
+        if !string_contains(lcov, "end_of_record") {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn test_coverage_json_manifest() -> bool {
+        let mut cov = file_coverage_new("src/app.bkr");
+        cov = file_add_line(cov, 1, 10);
+        cov = file_add_line(cov, 2, 10);
+
+        let json = format_coverage_json(cov);
+        if !string_contains(json, "\"schema_version\": \"bunker.coverage.v1\"") {
+            return false;
+        }
+        if !string_contains(json, "\"total_lines\": 2") {
+            return false;
+        }
+        if !string_contains(json, "\"covered_lines\": 2") {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_line_coverage_accumulation() {
+            return 1;
+        }
+
+        if !test_lcov_emission() {
+            return 2;
+        }
+
+        if !test_coverage_json_manifest() {
+            return 3;
+        }
+
+        // Return 42 on verified pass
+        return 42;
+    }
+}

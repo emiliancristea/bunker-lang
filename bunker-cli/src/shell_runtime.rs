@@ -117,6 +117,13 @@ impl Value {
     pub(crate) fn get_field(&self, name: &str) -> Option<Value> {
         match self {
             Value::Struct(fields) => fields.get(name).cloned(),
+            Value::Array(items) => {
+                if let Ok(idx) = name.parse::<usize>() {
+                    items.get(idx).cloned()
+                } else {
+                    None
+                }
+            }
             _ => None,
         }
     }
@@ -504,7 +511,9 @@ impl<'a> Executor<'a> {
                 }
                 Ok(ControlFlow::Normal)
             }
-            ast::Stmt::For { var, iter, body } => {
+            ast::Stmt::For {
+                var, iter, body, ..
+            } => {
                 // Evaluate the iterator expression
                 match iter {
                     ast::Expr::Range {
@@ -575,7 +584,9 @@ impl<'a> Executor<'a> {
                 }
                 Ok(ControlFlow::Normal)
             }
-            ast::Stmt::While { condition, body } => {
+            ast::Stmt::While {
+                condition, body, ..
+            } => {
                 loop {
                     let cond = self.eval_expr(condition, env, queue)?.as_bool()?;
                     if !cond {
@@ -590,7 +601,7 @@ impl<'a> Executor<'a> {
                 }
                 Ok(ControlFlow::Normal)
             }
-            ast::Stmt::Loop(body) => {
+            ast::Stmt::Loop { body, .. } => {
                 loop {
                     let cf = self.exec_block_cf(body, env, queue)?;
                     match cf {
@@ -601,8 +612,8 @@ impl<'a> Executor<'a> {
                 }
                 Ok(ControlFlow::Normal)
             }
-            ast::Stmt::Break => Ok(ControlFlow::Break),
-            ast::Stmt::Continue => Ok(ControlFlow::Continue),
+            ast::Stmt::Break(_) => Ok(ControlFlow::Break),
+            ast::Stmt::Continue(_) => Ok(ControlFlow::Continue),
             ast::Stmt::Return(_) => {
                 // Return in shell agent handler - just stop the handler
                 Ok(ControlFlow::Break)
@@ -675,6 +686,7 @@ impl<'a> Executor<'a> {
         queue: &mut VecDeque<Event>,
     ) -> Result<Value> {
         match expr {
+            ast::Expr::Unit => Ok(Value::Int(0)),
             ast::Expr::Literal(lit) => Ok(match lit {
                 ast::Literal::Int(n) => Value::Int(*n),
                 ast::Literal::Float(f) => Value::Float(*f),
@@ -683,6 +695,13 @@ impl<'a> Executor<'a> {
                 ast::Literal::Char(c) => Value::Int(*c as i64),
                 ast::Literal::HexColor(s) => Value::Str(s.clone()),
             }),
+            ast::Expr::Tuple(items) => {
+                let mut vals = Vec::new();
+                for item in items {
+                    vals.push(self.eval_expr(item, env, queue)?);
+                }
+                Ok(Value::Array(vals))
+            }
             ast::Expr::Some(inner) => {
                 let val = self.eval_expr(inner, env, queue)?;
                 Ok(Value::Option(Some(Box::new(val))))
@@ -747,6 +766,16 @@ impl<'a> Executor<'a> {
                 let value = self.eval_expr(expr, env, queue)?;
                 for arm in arms {
                     if let Some(bindings) = match_bindings(&arm.pattern, &value) {
+                        let mut arm_env = env.clone();
+                        for (name, val) in &bindings {
+                            arm_env.insert(name.clone(), val.clone());
+                        }
+                        if let Some(guard) = &arm.guard {
+                            let guard_val = self.eval_expr(guard, &arm_env, queue)?;
+                            if !matches!(guard_val, Value::Bool(true)) {
+                                continue;
+                            }
+                        }
                         return match &arm.body {
                             ast::MatchBody::Expr(expr) => {
                                 let mut arm_env = env.clone();
@@ -777,8 +806,18 @@ impl<'a> Executor<'a> {
                 Ok(Value::Array(values))
             }
             // Struct literal: Point { x: 1, y: 2 }
-            ast::Expr::Struct { name: _, fields } => {
+            ast::Expr::Struct {
+                name: _,
+                fields,
+                base,
+                ..
+            } => {
                 let mut field_values = HashMap::new();
+                if let Some(base_expr) = base {
+                    if let Value::Struct(base_fields) = self.eval_expr(base_expr, env, queue)? {
+                        field_values.extend(base_fields);
+                    }
+                }
                 for (field_name, field_expr) in fields {
                     field_values
                         .insert(field_name.clone(), self.eval_expr(field_expr, env, queue)?);
@@ -804,10 +843,35 @@ impl<'a> Executor<'a> {
                     .ok_or_else(|| anyhow!("No field '{}' on value {:?}", field, struct_val))
             }
             // Function call: len(arr)
-            ast::Expr::Call { func, args } => {
+            ast::Expr::Call { func, args, .. } => {
                 // Handle built-in functions
                 if let ast::Expr::Ident(name) = func.as_ref() {
                     match name.as_str() {
+                        "panic" => {
+                            let msg = if let Some(arg) = args.first() {
+                                format!("{:?}", self.eval_expr(arg, env, queue)?)
+                            } else {
+                                "panic".to_string()
+                            };
+                            return Err(anyhow!("bunker runtime panic: {}", msg));
+                        }
+                        "assert" => {
+                            if let Some(cond_arg) = args.first() {
+                                let cond_val = self.eval_expr(cond_arg, env, queue)?;
+                                if cond_val == Value::Bool(false) {
+                                    let msg = if args.len() > 1 {
+                                        format!("{:?}", self.eval_expr(&args[1], env, queue)?)
+                                    } else {
+                                        "assertion failed".to_string()
+                                    };
+                                    return Err(anyhow!(
+                                        "bunker runtime assertion failed: {}",
+                                        msg
+                                    ));
+                                }
+                            }
+                            return Ok(Value::Int(0));
+                        }
                         "len" => {
                             if args.len() != 1 {
                                 return Err(anyhow!("len() takes exactly 1 argument"));
@@ -834,6 +898,14 @@ impl<'a> Executor<'a> {
             // Copy: in shell runtime, all values are already copy-by-value
             ast::Expr::Copy(inner) => self.eval_expr(inner, env, queue),
             // Cast: shell runtime doesn't enforce strict typing, just evaluate
+            ast::Expr::Try(inner) => {
+                let val = self.eval_expr(inner, env, queue)?;
+                match val {
+                    Value::Option(Some(boxed)) => Ok(*boxed),
+                    Value::Option(None) => Err(anyhow!("? operator on None")),
+                    _ => Ok(val),
+                }
+            }
             ast::Expr::Cast { expr, .. } => self.eval_expr(expr, env, queue),
         }
     }
@@ -1403,6 +1475,7 @@ fn parse_value_for_type(ty: &ast::Type, text: &str) -> Result<Value> {
 fn match_bindings(pattern: &ast::Pattern, value: &Value) -> Option<HashMap<String, Value>> {
     let mut bindings = HashMap::new();
     match pattern {
+        ast::Pattern::Unit => Some(bindings),
         ast::Pattern::Bool(b) => {
             if matches!(value, Value::Bool(v) if v == b) {
                 Some(bindings)
@@ -1418,17 +1491,40 @@ fn match_bindings(pattern: &ast::Pattern, value: &Value) -> Option<HashMap<Strin
             (ast::Literal::Char(a), Value::Int(b)) if (*a as i64) == *b => Some(bindings),
             _ => None,
         },
+        ast::Pattern::Tuple(sub_pats) => match value {
+            Value::Array(items) if items.len() == sub_pats.len() => {
+                for (pat, item) in sub_pats.iter().zip(items.iter()) {
+                    let sub_bindings = match_bindings(pat, item)?;
+                    bindings.extend(sub_bindings);
+                }
+                Some(bindings)
+            }
+            _ => None,
+        },
+        ast::Pattern::Struct { fields, .. } => match value {
+            Value::Struct(struct_fields) => {
+                for (f_name, sub_pat) in fields {
+                    if let Some(f_val) = struct_fields.get(f_name) {
+                        let sub_bindings = match_bindings(sub_pat, f_val)?;
+                        bindings.extend(sub_bindings);
+                    } else {
+                        return None;
+                    }
+                }
+                Some(bindings)
+            }
+            _ => None,
+        },
         ast::Pattern::Ident(name) => {
             if name != "_" {
                 bindings.insert(name.clone(), value.clone());
             }
             Some(bindings)
         }
-        ast::Pattern::Some(name) => match value {
+        ast::Pattern::Some(sub_pat) => match value {
             Value::Option(Some(inner)) => {
-                if name != "_" {
-                    bindings.insert(name.clone(), inner.as_ref().clone());
-                }
+                let sub_bindings = match_bindings(sub_pat, inner)?;
+                bindings.extend(sub_bindings);
                 Some(bindings)
             }
             _ => None,
@@ -1437,6 +1533,10 @@ fn match_bindings(pattern: &ast::Pattern, value: &Value) -> Option<HashMap<Strin
             Value::Option(None) => Some(bindings),
             _ => None,
         },
+        ast::Pattern::EnumVariant { .. } => None,
+        ast::Pattern::EnumPayload { .. } => None,
+        ast::Pattern::ResultOk(_) => None,
+        ast::Pattern::ResultErr(_) => None,
     }
 }
 

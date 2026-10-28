@@ -1,0 +1,9 @@
+kernel TestGenericUnknownTypeParamBad {
+    fn bad<T, T>(x: T) -> T {
+        return x;
+    }
+
+    pub fn main() -> i32 {
+        return 0;
+    }
+}

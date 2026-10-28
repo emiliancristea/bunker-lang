@@ -1,0 +1,18 @@
+// Test 166: ADT payload arity mismatch (BAD)
+// Purpose: Verify type checker rejects incorrect payload count in ADT variant pattern.
+// Expected: Type checking failure with Unit variant CustomOption.None does not take a payload binding
+
+kernel AdtPayloadArityMismatchBad {
+    enum CustomOption {
+        Some(i32),
+        None
+    }
+
+    fn main() -> i32 {
+        let opt: CustomOption = CustomOption.None;
+        return match opt {
+            CustomOption.Some(x) => x;
+            CustomOption.None(y) => y;
+        };
+    }
+}

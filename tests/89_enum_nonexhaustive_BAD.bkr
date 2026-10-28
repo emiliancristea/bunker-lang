@@ -1,0 +1,19 @@
+// Test 89 (BAD): Non-exhaustive unit-enum match
+// Purpose: Reject matches that omit a declared variant.
+// Expected: Type error for missing Color.Blue.
+
+kernel EnumNonexhaustiveBad {
+    enum Color {
+        Red,
+        Green,
+        Blue,
+    }
+
+    fn main() -> i32 {
+        let color = Color.Red;
+        return match color {
+            Color.Red => 1;
+            Color.Green => 2;
+        };
+    }
+}

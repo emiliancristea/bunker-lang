@@ -932,6 +932,8 @@ This section tracks the implementation status of each specification area against
 - [x] `Option<T>` sum type
 - [x] Exhaustive pattern matching (`match`)
 - [x] Struct and array types
+- [x] Unit enums (`enum Color { Red, Green }`, `Color.Red`)
+- [ ] Enum variants with payloads
 - [ ] Refinement types with SMT predicates
 - [ ] Row-polymorphic effect system
 - [ ] Full generic type parameters
@@ -940,9 +942,9 @@ This section tracks the implementation status of each specification area against
 - [x] Move semantics by default
 - [x] Explicit `copy` keyword
 - [x] `defer` statement for cleanup
+- [x] Arena-based memory allocator (JIT watermark/bump allocator)
 - [ ] Linear types with `!` suffix
 - [ ] Second-class references (no lifetime annotations)
-- [ ] Arena-based memory allocator
 - [ ] Region-based borrow checking
 
 #### Area 4: Formal Verification 🔶 Partial
@@ -950,8 +952,9 @@ This section tracks the implementation status of each specification area against
 - [x] `#[ensures]` attribute parsing
 - [x] `#[verified]` attribute parsing
 - [x] Lightweight linear expression verification
-- [ ] Z3 SMT solver integration
-- [ ] Counterexample generation
+- [x] Z3 SMT solver integration (`smt.rs`, `--smt`, optional `smt` Cargo feature)
+- [ ] Full Z3 CI coverage (requires Z3 installed on runners)
+- [ ] Counterexample generation in default CI
 - [ ] Incremental verification (<100ms)
 - [ ] Loop invariant checking
 
@@ -971,9 +974,9 @@ This section tracks the implementation status of each specification area against
 - [x] Compiler error messages
 - [x] Source location tracking
 - [x] Structured JSON error output
+- [x] Prompt-ready suggestions with applicability/confidence (Rust path + self-host reports)
 - [ ] Typed holes with hole fits
 - [ ] Error recovery during parsing
-- [ ] Machine-applicable fix suggestions
 - [ ] SARIF output format
 
 #### Area 7: Concurrency ❌ Not Started
@@ -990,9 +993,9 @@ This section tracks the implementation status of each specification area against
 - [ ] REPL with hot-reloading
 
 #### Area 9: Standard Library 🔶 Partial
-- [ ] Core numeric types
+- [x] Core numeric types (`i32`, `i64`, `f32`, `f64`, `bool`)
 - [x] String operations
-- [x] Collections (Vec, Map, Set)
+- [x] Collections (bootstrap `Vec<T>` and `HashMap<K,V>`; no `Set` type yet)
 - [x] I/O primitives
 - [ ] Consistent naming conventions
 
@@ -1009,28 +1012,29 @@ This section tracks the implementation status of each specification area against
 | Area | Status | Coverage | Priority |
 |------|--------|----------|----------|
 | 1. Grammar | ✅ | 85% | - |
-| 2. Type System | 🔶 | 60% | High |
-| 3. Memory Model | 🔶 | 40% | Medium |
-| 4. Verification | 🔶 | 30% | High |
+| 2. Type System | 🔶 | 55% | High |
+| 3. Memory Model | 🔶 | 50% | Medium |
+| 4. Verification | 🔶 | 35% | High |
 | 5. Agent Runtime | 🔶 | 50% | Medium |
-| 6. Error Handling | 🔶 | 25% | High |
-| 7. Concurrency | ❌ | 0% | Low |
+| 6. Error Handling | 🔶 | 45% | High |
+| 7. Concurrency | ❌ | 5% | Low |
 | 8. Tooling | ❌ | 0% | Low |
-| 9. Stdlib | 🔶 | 25% | Low |
+| 9. Stdlib | 🔶 | 30% | High |
 | 10. Metaprogramming | 🔶 | 40% | Medium |
 
 **Legend:** ✅ Complete (>80%), 🔶 Partial (20-80%), ❌ Not Started (<20%)
 
 ### Critical Path to MVP
 
-1. **Z3 SMT Integration** - Enables true contract verification
-2. **Standard Library Cleanup** - Replace bootstrap builtins with a coherent stdlib surface
-3. **Embedded/Metal Profile** - Completes the multi-profile execution story
-4. **Tooling (Formatter/LSP)** - Turns the prototype into a usable developer platform
+1. **Typed compiler data structures** - Replace raw `Vec<i64>` AST/token/type layouts with Bunker structs/enums
+2. **Real generics and ADTs** - Unlock typed collections and a writable compiler in Bunker
+3. **Ownership/resource model** - Bound compiler memory, define borrow/cleanup, add leak/stress gates
+4. **Stdlib and runtime ABI** - Finish typed Result/Vec/HashMap/string/file APIs needed by the compiler
+5. **Primary self-host path** - Make the Bunker compiler the normal compiler without Rust
 
 ### Test Coverage
 
-- **Total Tests:** 92 passing
+- **Total Tests:** 98 passing
 - **JIT-Enabled:** 57 tests
 - **Negative Tests:** 16 tests
 - **Shell-Bearing Files:** 14 tests

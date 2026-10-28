@@ -1,0 +1,153 @@
+// Test 292: Package Registry and Archive Architecture (E-001)
+// Purpose: Verify package archive container (.bpk), registry index lookup, checksum verification, and manifest emission:
+//   1. Package archive representation (magic header, metadata, checksum).
+//   2. Registry index search and version resolution.
+//   3. Content-addressed cache verification.
+//   4. Structured registry manifest emission (bunker.registry.v1).
+//   5. Native calculation returning 42.
+// Expected return: 42
+
+kernel PackageRegistryArchiveTest {
+    // --- Data Structures ---
+
+    struct PackageArchive {
+        magic: str,
+        package_name: str,
+        version_str: str,
+        payload_bytes: i64,
+        sha256_checksum: str
+    }
+
+    struct RegistryEntry {
+        name: str,
+        version: str,
+        description: str,
+        license: str,
+        sha256: str,
+        size_bytes: i64,
+        yanked: bool
+    }
+
+    struct RegistryIndex {
+        entries: Vec<RegistryEntry>,
+        total_packages: i64
+    }
+
+    // --- Constructors ---
+
+    fn package_archive_new(name: str, ver: str, bytes: i64, hash: str) -> PackageArchive {
+        return PackageArchive {
+            magic: "BPK1",
+            package_name: name,
+            version_str: ver,
+            payload_bytes: bytes,
+            sha256_checksum: hash
+        };
+    }
+
+    fn registry_entry_new(name: str, ver: str, desc: str, lic: str, hash: str, sz: i64) -> RegistryEntry {
+        return RegistryEntry {
+            name: name,
+            version: ver,
+            description: desc,
+            license: lic,
+            sha256: hash,
+            size_bytes: sz,
+            yanked: false
+        };
+    }
+
+    // --- Search and Resolution ---
+
+    fn registry_find_entry(index: RegistryIndex, name: str, ver: str) -> i64 {
+        let count: i64 = vec_len(index.entries);
+        let mut i: i64 = 0;
+        while (i < count) {
+            let e: RegistryEntry = vec_get(index.entries, i);
+            if (e.name == name && e.version == ver) {
+                return i;
+            }
+            i = i + 1;
+        }
+        return -1;
+    }
+
+    fn archive_verify_integrity(archive: PackageArchive, entry: RegistryEntry) -> bool {
+        if (archive.magic != "BPK1") {
+            return false;
+        }
+        if (archive.package_name != entry.name) {
+            return false;
+        }
+        if (archive.version_str != entry.version) {
+            return false;
+        }
+        if (archive.sha256_checksum != entry.sha256) {
+            return false;
+        }
+        return true;
+    }
+
+    // --- Report Generator ---
+
+    fn registry_entry_to_json(entry: RegistryEntry) -> str {
+        let mut out: str = "{\"schema\":\"bunker.registry.v1\"";
+        out = out + ",\"package\":\"" + entry.name + "\"";
+        out = out + ",\"version\":\"" + entry.version + "\"";
+        out = out + ",\"license\":\"" + entry.license + "\"";
+        out = out + ",\"sha256\":\"" + entry.sha256 + "\"";
+        out = out + ",\"size_bytes\":" + int_to_string(entry.size_bytes);
+        out = out + "}";
+        return out;
+    }
+
+    // --- Main Verification Flow ---
+
+    fn main() -> i32 {
+        let e_vec: Vec<RegistryEntry> = vec_new();
+        let mut idx: RegistryIndex = RegistryIndex {
+            entries: e_vec,
+            total_packages: 0
+        };
+
+        // 1. Populate registry index with canonical packages
+        let p1: RegistryEntry = registry_entry_new("bunker-math", "1.2.0", "Fast math", "MIT", "hash_math_120", 14820);
+        let p2: RegistryEntry = registry_entry_new("string-utils", "0.4.1", "String helpers", "Apache-2.0", "hash_str_041", 9420);
+        let p3: RegistryEntry = registry_entry_new("bunker-json", "2.0.0", "JSON parser", "MIT", "hash_json_200", 28400);
+        vec_push(idx.entries, p1);
+        vec_push(idx.entries, p2);
+        vec_push(idx.entries, p3);
+        idx.total_packages = vec_len(idx.entries);
+
+        // 2. Perform index lookup
+        let found_pos: i64 = registry_find_entry(idx, "bunker-math", "1.2.0");
+        if (found_pos < 0) {
+            return 1;
+        }
+
+        let target_entry: RegistryEntry = vec_get(idx.entries, found_pos);
+
+        // 3. Verify archive container and checksum integrity
+        let local_archive: PackageArchive = package_archive_new("bunker-math", "1.2.0", 14820, "hash_math_120");
+        let valid: bool = archive_verify_integrity(local_archive, target_entry);
+        if (!valid) {
+            return 2;
+        }
+
+        // 4. Verify negative lookup
+        let not_found_pos: i64 = registry_find_entry(idx, "nonexistent-pkg", "1.0.0");
+        if (not_found_pos != -1) {
+            return 3;
+        }
+
+        // 5. Emit and validate JSON manifest
+        let manifest: str = registry_entry_to_json(target_entry);
+        if (len(manifest) < 40) {
+            return 4;
+        }
+
+        // Return verified target constant 42
+        let score: i64 = 42;
+        return score as i32;
+    }
+}

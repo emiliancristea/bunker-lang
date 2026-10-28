@@ -1,0 +1,13 @@
+// Test 151: Call Arity Mismatch Diagnostic
+// Purpose: Ensure user function calls with incorrect argument count are rejected.
+// Expected: `bunker check` fails.
+
+kernel CallArityBad {
+    fn add(a: i64, b: i64) -> i64 {
+        return a + b;
+    }
+
+    fn main() -> i64 {
+        return add(10);
+    }
+}

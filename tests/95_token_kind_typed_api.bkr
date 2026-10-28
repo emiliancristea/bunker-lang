@@ -1,0 +1,39 @@
+// Test 95: TokenKind as a typed compiler API
+// Purpose: TokenKind can be a function parameter, return type, and local.
+// Expected: Result: 42
+
+kernel TokenKindTypedApi {
+    enum TokenKind {
+        Eof,
+        Ident,
+        Fn,
+    }
+
+    fn echo_kind(kind: TokenKind) -> TokenKind {
+        return kind;
+    }
+
+    fn is_fn_kind(kind: TokenKind) -> bool {
+        return kind == TokenKind.Fn;
+    }
+
+    fn classify(kind: TokenKind) -> i32 {
+        if kind == TokenKind.Eof {
+            return 1;
+        }
+        if kind == TokenKind.Fn {
+            return 41;
+        }
+        return 0;
+    }
+
+    fn main() -> i32 {
+        let kind: TokenKind = echo_kind(TokenKind.Fn);
+        if is_fn_kind(kind) {
+            if int_to_string(kind) == "2" {
+                return classify(kind) + 1;
+            }
+        }
+        return 0;
+    }
+}

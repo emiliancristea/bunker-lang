@@ -1,0 +1,15 @@
+// Test 165: ADT unknown variant (BAD)
+// Purpose: Verify type checker rejects non-existent variant on custom ADT.
+// Expected: Type checking failure with Unknown variant 'Missing' on enum CustomOption
+
+kernel AdtUnknownVariantBad {
+    enum CustomOption {
+        Some(i32),
+        None
+    }
+
+    fn main() -> i32 {
+        let opt: CustomOption = CustomOption.Missing;
+        return 0;
+    }
+}

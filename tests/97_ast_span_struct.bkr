@@ -1,0 +1,31 @@
+// Test 97: AstSpan as a real compiler span record
+// Purpose: Span start/end live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstSpanStruct {
+    struct AstSpan {
+        start: i64,
+        end: i64,
+    }
+
+    fn make_span(start: i64, end: i64) -> AstSpan {
+        return AstSpan { start: start, end: end };
+    }
+
+    fn span_len(span: AstSpan) -> i64 {
+        return span.end - span.start;
+    }
+
+    fn main() -> i32 {
+        let span: AstSpan = make_span(10, 52);
+        if span.start == 10 {
+            if span.end == 52 {
+                let length: i64 = span_len(make_span(0, 42));
+                if length == 42 {
+                    return 42;
+                }
+            }
+        }
+        return 0;
+    }
+}

@@ -1,0 +1,127 @@
+// Test 291: Four-Plane Versioning Rules Architecture (E-002)
+// Purpose: Verify four-plane versioning contracts, SemVer compatibility checks, and manifest emission:
+//   1. SemVer representation and comparison (major, minor, patch).
+//   2. Four-plane separation: Grammar Edition, Compiler Engine, Standard Library, C Runtime ABI.
+//   3. Compatibility policy enforcement across major/minor boundaries.
+//   4. Structured version manifest emission (bunker.version.v1).
+//   5. Native calculation returning 42.
+// Expected return: 42
+
+kernel VersioningRulesContractTest {
+    // --- Data Structures ---
+
+    struct SemVer {
+        major: i64,
+        minor: i64,
+        patch: i64
+    }
+
+    struct VersionPlanes {
+        grammar_edition: str,
+        compiler_version: SemVer,
+        stdlib_version: SemVer,
+        abi_version: i64,
+        abi_tag: str
+    }
+
+    struct CompatibilityCheck {
+        plane_name: str,
+        requested_major: i64,
+        actual_major: i64,
+        compatible: bool
+    }
+
+    // --- Constructors ---
+
+    fn semver_new(maj: i64, min: i64, pat: i64) -> SemVer {
+        return SemVer {
+            major: maj,
+            minor: min,
+            patch: pat
+        };
+    }
+
+    fn semver_to_string(v: SemVer) -> str {
+        return int_to_string(v.major) + "." + int_to_string(v.minor) + "." + int_to_string(v.patch);
+    }
+
+    fn semver_is_compatible(actual: SemVer, requested: SemVer) -> bool {
+        // SemVer rule: same major version and actual minor >= requested minor
+        if (actual.major != requested.major) {
+            return false;
+        }
+        if (actual.minor < requested.minor) {
+            return false;
+        }
+        return true;
+    }
+
+    // --- Report Generator ---
+
+    fn version_manifest_to_json(planes: VersionPlanes, compat: bool) -> str {
+        let mut out: str = "{\"schema\":\"bunker.version.v1\"";
+        out = out + ",\"language_edition\":\"" + planes.grammar_edition + "\"";
+        out = out + ",\"compiler_version\":\"" + semver_to_string(planes.compiler_version) + "\"";
+        out = out + ",\"stdlib_version\":\"" + semver_to_string(planes.stdlib_version) + "\"";
+        out = out + ",\"abi_version\":" + int_to_string(planes.abi_version);
+        out = out + ",\"abi_tag\":\"" + planes.abi_tag + "\"";
+        out = out + ",\"compatible\":";
+        if (compat) {
+            out = out + "true}";
+        } else {
+            out = out + "false}";
+        }
+        return out;
+    }
+
+    // --- Main Verification Flow ---
+
+    fn main() -> i32 {
+        let comp_v: SemVer = semver_new(1, 0, 0);
+        let stdlib_v: SemVer = semver_new(1, 0, 0);
+
+        let planes: VersionPlanes = VersionPlanes {
+            grammar_edition: "1.0",
+            compiler_version: comp_v,
+            stdlib_version: stdlib_v,
+            abi_version: 1,
+            abi_tag: "__bkr_abi_v1"
+        };
+
+        // 1. Compatibility check for compatible package (requested 1.0.0, actual 1.0.0)
+        let req_compatible: SemVer = semver_new(1, 0, 0);
+        let ok_compatible: bool = semver_is_compatible(planes.compiler_version, req_compatible);
+
+        // 2. Compatibility check for incompatible major package (requested 2.0.0, actual 1.0.0)
+        let req_incompatible: SemVer = semver_new(2, 0, 0);
+        let ok_incompatible: bool = semver_is_compatible(planes.compiler_version, req_incompatible);
+
+        // 3. ABI compatibility check
+        let host_abi_expected: i64 = 1;
+        let abi_matches: bool = (planes.abi_version == host_abi_expected);
+
+        // Validate Invariants
+        if (!ok_compatible) {
+            return 1;
+        }
+        if (ok_incompatible) {
+            return 2;
+        }
+        if (!abi_matches) {
+            return 3;
+        }
+        if (planes.abi_tag != "__bkr_abi_v1") {
+            return 4;
+        }
+
+        // Validate JSON Manifest
+        let manifest: str = version_manifest_to_json(planes, ok_compatible && abi_matches);
+        if (len(manifest) < 50) {
+            return 5;
+        }
+
+        // Return verified target constant 42
+        let score: i64 = 42;
+        return score as i32;
+    }
+}

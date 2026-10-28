@@ -1,0 +1,73 @@
+// Test 116: AstBreak/AstContinue/AstBlock as real compiler records
+// Purpose: Break/continue/block spans live in Bunker structs, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstBlockStruct {
+    struct AstBreak {
+        start: i64,
+        end: i64
+    }
+
+    struct AstContinue {
+        start: i64,
+        end: i64
+    }
+
+    struct AstBlock {
+        start: i64,
+        end: i64
+    }
+
+    fn make_break(start: i64, end: i64) -> AstBreak {
+        return AstBreak {
+            start: start,
+            end: end
+        };
+    }
+
+    fn make_continue(start: i64, end: i64) -> AstContinue {
+        return AstContinue {
+            start: start,
+            end: end
+        };
+    }
+
+    fn make_block(start: i64, end: i64) -> AstBlock {
+        return AstBlock {
+            start: start,
+            end: end
+        };
+    }
+
+    fn break_end(stmt: AstBreak) -> i64 {
+        return stmt.end;
+    }
+
+    fn continue_start(stmt: AstContinue) -> i64 {
+        return stmt.start;
+    }
+
+    fn block_end(block: AstBlock) -> i64 {
+        return block.end;
+    }
+
+    fn main() -> i32 {
+        let br: AstBreak = make_break(0, 5);
+        let cont: AstContinue = make_continue(1, 4);
+        let block: AstBlock = make_block(2, 8);
+        if br.start == 0 {
+            if break_end(make_break(3, 21)) == 21 {
+                if continue_start(make_continue(21, 0)) == 21 {
+                    if cont.end == 4 {
+                        if block.start == 2 {
+                            if block_end(make_block(0, 21)) == 21 {
+                                return 42;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

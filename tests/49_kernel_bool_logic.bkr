@@ -12,7 +12,7 @@ kernel BoolLogicTest {
     }
 
     fn main() -> i32 {
-        let result: i32 = 0;
+        let mut result: i32 = 0;
 
         // AND operator
         let t1: bool = true && true;   // true

@@ -1,0 +1,78 @@
+// Test 185: Higher-order functions and function types (T-018, F-003)
+// Tests function pointers as first-class values, passing functions as arguments,
+// returning functions, and invoking indirect function pointers.
+
+kernel HigherOrderFunctions {
+    fn add(a: i32, b: i32) -> i32 {
+        return a + b;
+    }
+
+    fn mul(a: i32, b: i32) -> i32 {
+        return a * b;
+    }
+
+    fn double(x: i32) -> i32 {
+        return x * 2;
+    }
+
+    fn inc(x: i32) -> i32 {
+        return x + 1;
+    }
+
+    // Higher-order function taking a function argument
+    fn apply_unary(f: fn(i32) -> i32, val: i32) -> i32 {
+        return f(val);
+    }
+
+    // Higher-order function taking a binary function argument
+    fn apply_binary(f: fn(i32, i32) -> i32, a: i32, b: i32) -> i32 {
+        return f(a, b);
+    }
+
+    // Higher-order function returning a function
+    fn pick_operator(use_mul: bool) -> fn(i32, i32) -> i32 {
+        if use_mul {
+            return mul;
+        } else {
+            return add;
+        }
+    }
+
+    // Fold-like function using function pointer
+    fn fold(f: fn(i32, i32) -> i32, init: i32, a: i32, b: i32) -> i32 {
+        let acc1 = f(init, a);
+        return f(acc1, b);
+    }
+
+    fn main() -> i32 {
+        // 1. Function pointer variable assignment and call
+        let f1: fn(i32) -> i32 = double;
+        let r1 = f1(10); // 20
+
+        // 2. Passing function as parameter to higher-order function
+        let r2 = apply_unary(double, 11); // 22
+        let sum1 = r1 + r2; // 42
+
+        // 3. Passing binary function
+        let r3 = apply_binary(add, 20, 22); // 42
+
+        // 4. Function returning function
+        let op_add = pick_operator(false);
+        let r4 = op_add(21, 21); // 42
+
+        let op_mul = pick_operator(true);
+        let r5 = op_mul(6, 7); // 42
+
+        // 5. Fold operation
+        let r6 = fold(add, 2, 20, 20); // 42
+
+        // 6. Direct call on returned function pointer variable
+        let op_choice = pick_operator(false);
+        let r7 = op_choice(40, 2); // 42
+
+        if sum1 == 42 && r3 == 42 && r4 == 42 && r5 == 42 && r6 == 42 && r7 == 42 {
+            return 42;
+        }
+        return 0;
+    }
+}

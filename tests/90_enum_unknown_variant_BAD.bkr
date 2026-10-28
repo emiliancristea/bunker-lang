@@ -1,0 +1,18 @@
+// Test 90 (BAD): Unknown unit-enum variant
+// Purpose: Reject constructors that are not declared on the enum.
+// Expected: Type error for Color.Yellow.
+
+kernel EnumUnknownVariantBad {
+    enum Color {
+        Red,
+        Green,
+    }
+
+    fn main() -> i32 {
+        let color = Color.Yellow;
+        return match color {
+            Color.Red => 1;
+            Color.Green => 2;
+        };
+    }
+}

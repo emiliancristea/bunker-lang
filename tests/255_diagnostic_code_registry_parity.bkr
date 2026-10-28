@@ -1,0 +1,244 @@
+// Test 255: Diagnostic Code Registry Parity (Q-294, A-002, A-006, A-008)
+// Verifies bidirectional mapping between standard E-series error codes and symbolic
+// BKR_SELF_ rule IDs, category classification, phase routing, calibrated confidence
+// scoring, and prompt-ready descriptions.
+// Expected return: 42
+
+kernel DiagnosticCodeRegistryParityTest {
+    // --- Registry Lookup Helpers ---
+
+    fn diag_code_to_rule_id(code: str) -> str {
+        if code == "E0101" { return "BKR_SELF_PARSE"; }
+        if code == "E0201" { return "BKR_SELF_TYPE_MISMATCH"; }
+        if code == "E0202" { return "BKR_SELF_UNRESOLVED_SYMBOL"; }
+        if code == "E0203" { return "BKR_SELF_UNRESOLVED_SYMBOL"; }
+        if code == "E0204" { return "BKR_SELF_ARITY_MISMATCH"; }
+        if code == "E0205" { return "BKR_SELF_TYPE_MISMATCH"; }
+        if code == "E0206" { return "BKR_SELF_RETURN_PATH"; }
+        if code == "E0207" { return "BKR_SELF_CONTROL_FLOW"; }
+        if code == "E0208" { return "BKR_SELF_TYPE_MISMATCH"; }
+        if code == "E0209" { return "BKR_SELF_STRUCT_LITERAL"; }
+        if code == "E0210" { return "BKR_SELF_STRUCT_LITERAL"; }
+        if code == "E0211" { return "BKR_SELF_AMBIGUOUS_TYPE"; }
+        if code == "E0212" { return "BKR_SELF_MATCH_PATTERN"; }
+        if code == "E0213" { return "BKR_SELF_VOID_VALUE"; }
+        if code == "E0301" { return "BKR_SELF_CONTRACT"; }
+        if code == "E0302" { return "BKR_SELF_CONTRACT"; }
+        if code == "E0303" { return "BKR_SELF_SMT_TIMEOUT"; }
+        if code == "E0304" { return "BKR_SELF_SMT_UNAVAILABLE"; }
+        if code == "E0401" { return "BKR_SELF_USE_AFTER_MOVE"; }
+        if code == "E0501" { return "BKR_SELF_ASSIGNMENT_TARGET"; }
+        if code == "E0502" { return "BKR_SELF_CONST_ASSIGNMENT"; }
+        if code == "E0601" { return "BKR_SELF_VIEW_BINDING"; }
+        if code == "E0602" { return "BKR_SELF_VIEW_BINDING"; }
+        if code == "E0701" { return "BKR_SELF_IMPORT"; }
+        if code == "E0702" { return "BKR_SELF_IMPORT_CYCLE"; }
+        if code == "E0703" { return "BKR_SELF_IMPORT_PATH"; }
+        if code == "E0801" { return "BKR_SELF_GENERIC_ARITY"; }
+        if code == "E0802" { return "BKR_SELF_GENERIC_INFERENCE"; }
+        if code == "E0803" { return "BKR_SELF_GENERIC_LIMIT"; }
+        if code == "E0804" { return "BKR_SELF_GENERIC_PARAM"; }
+        return code;
+    }
+
+    fn diag_rule_id_to_code(rule_id: str) -> str {
+        if rule_id == "BKR_SELF_PARSE" { return "E0101"; }
+        if rule_id == "BKR_SELF_TYPE_MISMATCH" { return "E0201"; }
+        if rule_id == "BKR_SELF_UNRESOLVED_SYMBOL" { return "E0202"; }
+        if rule_id == "BKR_SELF_DUPLICATE_SYMBOL" { return "E0202"; }
+        if rule_id == "BKR_SELF_ARITY_MISMATCH" { return "E0204"; }
+        if rule_id == "BKR_SELF_RETURN_PATH" { return "E0206"; }
+        if rule_id == "BKR_SELF_CONTROL_FLOW" { return "E0207"; }
+        if rule_id == "BKR_SELF_MATCH_PATTERN" { return "E0212"; }
+        if rule_id == "BKR_SELF_EXHAUSTIVENESS" { return "E0212"; }
+        if rule_id == "BKR_SELF_STRUCT_LITERAL" { return "E0210"; }
+        if rule_id == "BKR_SELF_AMBIGUOUS_TYPE" { return "E0211"; }
+        if rule_id == "BKR_SELF_VOID_VALUE" { return "E0213"; }
+        if rule_id == "BKR_SELF_CONTRACT" { return "E0301"; }
+        if rule_id == "BKR_SELF_SMT_TIMEOUT" { return "E0303"; }
+        if rule_id == "BKR_SELF_SMT_UNAVAILABLE" { return "E0304"; }
+        if rule_id == "BKR_SELF_USE_AFTER_MOVE" { return "E0401"; }
+        if rule_id == "BKR_SELF_ASSIGNMENT_TARGET" { return "E0501"; }
+        if rule_id == "BKR_SELF_CONST_ASSIGNMENT" { return "E0502"; }
+        if rule_id == "BKR_SELF_VIEW_BINDING" { return "E0601"; }
+        if rule_id == "BKR_SELF_IMPORT" { return "E0701"; }
+        if rule_id == "BKR_SELF_IMPORT_CYCLE" { return "E0702"; }
+        if rule_id == "BKR_SELF_IMPORT_PATH" { return "E0703"; }
+        if rule_id == "BKR_SELF_GENERIC_ARITY" { return "E0801"; }
+        if rule_id == "BKR_SELF_GENERIC_INFERENCE" { return "E0802"; }
+        if rule_id == "BKR_SELF_GENERIC_LIMIT" { return "E0803"; }
+        if rule_id == "BKR_SELF_GENERIC_PARAM" { return "E0804"; }
+        return rule_id;
+    }
+
+    fn diag_code_category(code: str) -> str {
+        if starts_with(code, "E01") || code == "BKR_SELF_PARSE" { return "syntax"; }
+        if starts_with(code, "E02") || starts_with(code, "BKR_SELF_TYPE_") || starts_with(code, "BKR_SELF_ARITY_") { return "type_system"; }
+        if code == "BKR_SELF_UNRESOLVED_SYMBOL" || code == "BKR_SELF_DUPLICATE_SYMBOL" { return "name_resolution"; }
+        if starts_with(code, "E03") || code == "BKR_SELF_CONTRACT" { return "contract"; }
+        if starts_with(code, "E04") || code == "BKR_SELF_USE_AFTER_MOVE" { return "linear_types"; }
+        if starts_with(code, "E05") || code == "BKR_SELF_CONTROL_FLOW" || code == "BKR_SELF_RETURN_PATH" { return "control_flow"; }
+        if starts_with(code, "E06") || code == "BKR_SELF_VIEW_BINDING" { return "reactive_state"; }
+        if starts_with(code, "E07") || starts_with(code, "BKR_SELF_IMPORT") { return "module"; }
+        if starts_with(code, "E08") || starts_with(code, "BKR_SELF_GENERIC_") { return "generics"; }
+        return "compiler";
+    }
+
+    fn diag_code_phase(code: str) -> str {
+        if starts_with(code, "E01") || code == "BKR_SELF_PARSE" { return "parse"; }
+        if code == "E0202" || code == "E0203" || code == "BKR_SELF_UNRESOLVED_SYMBOL" || code == "BKR_SELF_DUPLICATE_SYMBOL" { return "resolver"; }
+        if starts_with(code, "E02") || starts_with(code, "BKR_SELF_TYPE_") || starts_with(code, "BKR_SELF_ARITY_") { return "typecheck"; }
+        if starts_with(code, "E03") || code == "BKR_SELF_CONTRACT" { return "verify"; }
+        if starts_with(code, "E04") || code == "BKR_SELF_USE_AFTER_MOVE" { return "ownership"; }
+        if starts_with(code, "E05") || code == "BKR_SELF_CONTROL_FLOW" || code == "BKR_SELF_RETURN_PATH" { return "typecheck"; }
+        if starts_with(code, "E06") || code == "BKR_SELF_VIEW_BINDING" { return "view"; }
+        if starts_with(code, "E07") || starts_with(code, "BKR_SELF_IMPORT") { return "import"; }
+        if starts_with(code, "E08") || starts_with(code, "BKR_SELF_GENERIC_") { return "typecheck"; }
+        return "typecheck";
+    }
+
+    fn diag_code_description(code: str) -> str {
+        if code == "E0101" || code == "BKR_SELF_PARSE" { return "Parse error with expected and actual token details."; }
+        if code == "E0201" || code == "BKR_SELF_TYPE_MISMATCH" { return "Type mismatch in expression or statement."; }
+        if code == "E0202" || code == "BKR_SELF_UNRESOLVED_SYMBOL" { return "Undefined variable in current scope."; }
+        if code == "E0204" || code == "BKR_SELF_ARITY_MISMATCH" { return "Function call argument count mismatch."; }
+        if code == "E0206" || code == "BKR_SELF_RETURN_PATH" { return "Return statement type mismatch with function signature."; }
+        if code == "E0207" || code == "BKR_SELF_CONTROL_FLOW" { return "Condition expression must evaluate to boolean."; }
+        if code == "E0301" || code == "BKR_SELF_CONTRACT" { return "Contract precondition or postcondition violated."; }
+        if code == "E0401" || code == "BKR_SELF_USE_AFTER_MOVE" { return "Use of value after ownership transfer."; }
+        if code == "E0701" || code == "BKR_SELF_IMPORT" { return "Missing imported module."; }
+        if code == "E0703" || code == "BKR_SELF_IMPORT_PATH" { return "Invalid normalized relative import path."; }
+        if code == "E0801" || code == "BKR_SELF_GENERIC_ARITY" { return "Generic type argument count mismatch."; }
+        return "Compiler diagnostic.";
+    }
+
+    fn diag_confidence_score(confidence: str) -> i64 {
+        if confidence == "high" { return 95; }
+        if confidence == "medium" { return 75; }
+        if confidence == "low" { return 40; }
+        return 50;
+    }
+
+    // --- Tests ---
+
+    fn test_forward_mapping() -> bool {
+        if diag_code_to_rule_id("E0101") != "BKR_SELF_PARSE" { return false; }
+        if diag_code_to_rule_id("E0201") != "BKR_SELF_TYPE_MISMATCH" { return false; }
+        if diag_code_to_rule_id("E0202") != "BKR_SELF_UNRESOLVED_SYMBOL" { return false; }
+        if diag_code_to_rule_id("E0204") != "BKR_SELF_ARITY_MISMATCH" { return false; }
+        if diag_code_to_rule_id("E0206") != "BKR_SELF_RETURN_PATH" { return false; }
+        if diag_code_to_rule_id("E0207") != "BKR_SELF_CONTROL_FLOW" { return false; }
+        if diag_code_to_rule_id("E0210") != "BKR_SELF_STRUCT_LITERAL" { return false; }
+        if diag_code_to_rule_id("E0211") != "BKR_SELF_AMBIGUOUS_TYPE" { return false; }
+        if diag_code_to_rule_id("E0212") != "BKR_SELF_MATCH_PATTERN" { return false; }
+        if diag_code_to_rule_id("E0213") != "BKR_SELF_VOID_VALUE" { return false; }
+        if diag_code_to_rule_id("E0301") != "BKR_SELF_CONTRACT" { return false; }
+        if diag_code_to_rule_id("E0401") != "BKR_SELF_USE_AFTER_MOVE" { return false; }
+        if diag_code_to_rule_id("E0501") != "BKR_SELF_ASSIGNMENT_TARGET" { return false; }
+        if diag_code_to_rule_id("E0502") != "BKR_SELF_CONST_ASSIGNMENT" { return false; }
+        if diag_code_to_rule_id("E0601") != "BKR_SELF_VIEW_BINDING" { return false; }
+        if diag_code_to_rule_id("E0701") != "BKR_SELF_IMPORT" { return false; }
+        if diag_code_to_rule_id("E0702") != "BKR_SELF_IMPORT_CYCLE" { return false; }
+        if diag_code_to_rule_id("E0703") != "BKR_SELF_IMPORT_PATH" { return false; }
+        if diag_code_to_rule_id("E0801") != "BKR_SELF_GENERIC_ARITY" { return false; }
+        if diag_code_to_rule_id("E0802") != "BKR_SELF_GENERIC_INFERENCE" { return false; }
+        if diag_code_to_rule_id("E0803") != "BKR_SELF_GENERIC_LIMIT" { return false; }
+        if diag_code_to_rule_id("E0804") != "BKR_SELF_GENERIC_PARAM" { return false; }
+        return true;
+    }
+
+    fn test_reverse_mapping() -> bool {
+        if diag_rule_id_to_code("BKR_SELF_PARSE") != "E0101" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_TYPE_MISMATCH") != "E0201" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_UNRESOLVED_SYMBOL") != "E0202" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_DUPLICATE_SYMBOL") != "E0202" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_ARITY_MISMATCH") != "E0204" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_RETURN_PATH") != "E0206" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_CONTROL_FLOW") != "E0207" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_MATCH_PATTERN") != "E0212" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_EXHAUSTIVENESS") != "E0212" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_STRUCT_LITERAL") != "E0210" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_AMBIGUOUS_TYPE") != "E0211" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_VOID_VALUE") != "E0213" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_CONTRACT") != "E0301" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_SMT_TIMEOUT") != "E0303" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_USE_AFTER_MOVE") != "E0401" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_ASSIGNMENT_TARGET") != "E0501" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_CONST_ASSIGNMENT") != "E0502" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_IMPORT") != "E0701" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_IMPORT_CYCLE") != "E0702" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_IMPORT_PATH") != "E0703" { return false; }
+        if diag_rule_id_to_code("BKR_SELF_GENERIC_ARITY") != "E0801" { return false; }
+        return true;
+    }
+
+    fn test_phase_and_category_routing() -> bool {
+        // Syntax
+        if diag_code_category("E0101") != "syntax" { return false; }
+        if diag_code_phase("E0101") != "parse" { return false; }
+
+        // Resolver
+        if diag_code_category("BKR_SELF_UNRESOLVED_SYMBOL") != "name_resolution" { return false; }
+        if diag_code_phase("E0202") != "resolver" { return false; }
+
+        // Typecheck
+        if diag_code_category("E0201") != "type_system" { return false; }
+        if diag_code_phase("E0201") != "typecheck" { return false; }
+        if diag_code_phase("E0204") != "typecheck" { return false; }
+
+        // Verification & Contract
+        if diag_code_category("E0301") != "contract" { return false; }
+        if diag_code_phase("E0301") != "verify" { return false; }
+
+        // Ownership
+        if diag_code_category("E0401") != "linear_types" { return false; }
+        if diag_code_phase("E0401") != "ownership" { return false; }
+
+        // Module
+        if diag_code_category("E0701") != "module" { return false; }
+        if diag_code_phase("E0701") != "import" { return false; }
+
+        // Generics
+        if diag_code_category("E0801") != "generics" { return false; }
+        if diag_code_phase("E0801") != "typecheck" { return false; }
+
+        return true;
+    }
+
+    fn test_confidence_and_descriptions() -> bool {
+        if diag_confidence_score("high") != 95 { return false; }
+        if diag_confidence_score("medium") != 75 { return false; }
+        if diag_confidence_score("low") != 40 { return false; }
+
+        let desc_parse = diag_code_description("E0101");
+        if !starts_with(desc_parse, "Parse error") { return false; }
+
+        let desc_type = diag_code_description("E0201");
+        if !starts_with(desc_type, "Type mismatch") { return false; }
+
+        let desc_import = diag_code_description("E0703");
+        if !starts_with(desc_import, "Invalid normalized relative") { return false; }
+
+        return true;
+    }
+
+    fn main() -> i64 {
+        if !test_forward_mapping() {
+            return 1;
+        }
+
+        if !test_reverse_mapping() {
+            return 2;
+        }
+
+        if !test_phase_and_category_routing() {
+            return 3;
+        }
+
+        if !test_confidence_and_descriptions() {
+            return 4;
+        }
+
+        return 42;
+    }
+}

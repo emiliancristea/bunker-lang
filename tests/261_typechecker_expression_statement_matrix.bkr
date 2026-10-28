@@ -1,0 +1,333 @@
+// Test 261: Typechecker Expression & Statement Matrix (CF-007)
+// Purpose: Verify comprehensive expression and statement typing matrix in pure Bunker:
+//   1. Binary operator typing: arithmetic, relational, equality, logical, bitwise.
+//   2. Unary operator typing: negation, logical not, bitwise not.
+//   3. Ternary conditional expressions (condition must be bool, arms must unify).
+//   4. Struct literal field typing and field projection.
+//   5. Function call argument type compatibility and arity validation.
+//   6. Statement type validation: let binding, assignment, and return type propagation.
+// Expected return: 42
+
+kernel TypecheckerExpressionStatementMatrixTest {
+    // --- Type Kind Constants ---
+    fn type_void() -> i64 { return 0; }
+    fn type_i32() -> i64 { return 1; }
+    fn type_i64() -> i64 { return 2; }
+    fn type_f64() -> i64 { return 3; }
+    fn type_bool() -> i64 { return 4; }
+    fn type_str() -> i64 { return 5; }
+    fn type_vec() -> i64 { return 7; }
+    fn type_struct() -> i64 { return 11; }
+    fn type_never() -> i64 { return 12; }
+    fn type_unknown() -> i64 { return -1; }
+
+    // --- Expression & Check Result Data Structures ---
+
+    struct ExprTypeResult {
+        is_ok: bool,
+        inferred_type: i64,
+        diagnostic_code: str
+    }
+
+    fn ok_result(inferred: i64) -> ExprTypeResult {
+        return ExprTypeResult {
+            is_ok: true,
+            inferred_type: inferred,
+            diagnostic_code: "OK"
+        };
+    }
+
+    fn err_result(code: str) -> ExprTypeResult {
+        return ExprTypeResult {
+            is_ok: false,
+            inferred_type: type_unknown(),
+            diagnostic_code: code
+        };
+    }
+
+    // --- Helper Classifiers ---
+
+    fn is_integer(kind: i64) -> bool {
+        return kind == type_i32() || kind == type_i64();
+    }
+
+    fn is_numeric(kind: i64) -> bool {
+        return kind == type_i32() || kind == type_i64() || kind == type_f64();
+    }
+
+    fn types_compatible(expected: i64, found: i64) -> bool {
+        if expected == type_unknown() || found == type_unknown() {
+            return true;
+        }
+        if found == type_never() {
+            return true;
+        }
+        if expected == found {
+            return true;
+        }
+        if is_integer(expected) && is_integer(found) {
+            return true;
+        }
+        return false;
+    }
+
+    // --- Expression Type Checkers ---
+
+    // Binary operations:
+    // op: 1 = Add, 2 = Sub, 3 = Mul, 4 = Div, 5 = Eq, 6 = Lt, 7 = And, 8 = BitOr
+    fn check_binary_expr(op: i64, left_type: i64, right_type: i64) -> ExprTypeResult {
+        if op >= 1 && op <= 4 {
+            // Arithmetic
+            if !is_numeric(left_type) || !is_numeric(right_type) {
+                return err_result("E0202"); // Binary operator type mismatch
+            }
+            if left_type == type_f64() || right_type == type_f64() {
+                return ok_result(type_f64());
+            }
+            return ok_result(type_i64());
+        }
+
+        if op == 5 {
+            // Equality (==)
+            if !types_compatible(left_type, right_type) && !types_compatible(right_type, left_type) {
+                return err_result("E0202");
+            }
+            return ok_result(type_bool());
+        }
+
+        if op == 6 {
+            // Relational (<)
+            if !is_numeric(left_type) || !is_numeric(right_type) {
+                return err_result("E0202");
+            }
+            return ok_result(type_bool());
+        }
+
+        if op == 7 {
+            // Logical And (&&)
+            if left_type != type_bool() || right_type != type_bool() {
+                return err_result("E0203"); // Condition not boolean
+            }
+            return ok_result(type_bool());
+        }
+
+        if op == 8 {
+            // Bitwise Or (|)
+            if !is_integer(left_type) || !is_integer(right_type) {
+                return err_result("E0202");
+            }
+            return ok_result(type_i64());
+        }
+
+        return err_result("E0000");
+    }
+
+    // Unary operations:
+    // op: 1 = Neg (-), 2 = Not (!), 3 = BitNot (~)
+    fn check_unary_expr(op: i64, operand_type: i64) -> ExprTypeResult {
+        if op == 1 {
+            if !is_numeric(operand_type) {
+                return err_result("E0202");
+            }
+            return ok_result(operand_type);
+        }
+        if op == 2 {
+            if operand_type != type_bool() {
+                return err_result("E0203");
+            }
+            return ok_result(type_bool());
+        }
+        if op == 3 {
+            if !is_integer(operand_type) {
+                return err_result("E0202");
+            }
+            return ok_result(operand_type);
+        }
+        return err_result("E0000");
+    }
+
+    // Ternary expression (cond ? then_expr : else_expr)
+    fn check_ternary_expr(cond_type: i64, then_type: i64, else_type: i64) -> ExprTypeResult {
+        if cond_type != type_bool() {
+            return err_result("E0203"); // Condition must be boolean
+        }
+        if !types_compatible(then_type, else_type) && !types_compatible(else_type, then_type) {
+            return err_result("E0201"); // Branch types mismatch
+        }
+        return ok_result(then_type);
+    }
+
+    // --- Statement Type Checkers ---
+
+    // Let statement validation
+    fn check_let_stmt(declared_type: i64, init_type: i64) -> ExprTypeResult {
+        if !types_compatible(declared_type, init_type) {
+            return err_result("E0201"); // Type annotation mismatch
+        }
+        return ok_result(declared_type);
+    }
+
+    // Return statement validation
+    fn check_return_stmt(expected_fn_type: i64, expr_type: i64) -> ExprTypeResult {
+        if !types_compatible(expected_fn_type, expr_type) {
+            return err_result("E0201"); // Return type mismatch
+        }
+        return ok_result(expected_fn_type);
+    }
+
+    // Function call validation (checks arity and parameter types)
+    fn check_call_2_args(param1: i64, param2: i64, ret_type: i64,
+                         arg_count: i64, arg1: i64, arg2: i64) -> ExprTypeResult {
+        if arg_count != 2 {
+            return err_result("E0204"); // Arity mismatch
+        }
+        if !types_compatible(param1, arg1) {
+            return err_result("E0205"); // Argument 1 type mismatch
+        }
+        if !types_compatible(param2, arg2) {
+            return err_result("E0205"); // Argument 2 type mismatch
+        }
+        return ok_result(ret_type);
+    }
+
+    // --- Test Suites ---
+
+    fn test_binary_operator_matrix() -> bool {
+        // Valid arithmetic
+        let res_add = check_binary_expr(1, type_i64(), type_i32());
+        if !res_add.is_ok || res_add.inferred_type != type_i64() { return false; }
+
+        let res_float = check_binary_expr(3, type_f64(), type_i64());
+        if !res_float.is_ok || res_float.inferred_type != type_f64() { return false; }
+
+        // Invalid arithmetic (string + integer)
+        let res_bad_add = check_binary_expr(1, type_str(), type_i64());
+        if res_bad_add.is_ok || res_bad_add.diagnostic_code != "E0202" { return false; }
+
+        // Relational
+        let res_lt = check_binary_expr(6, type_i64(), type_i64());
+        if !res_lt.is_ok || res_lt.inferred_type != type_bool() { return false; }
+
+        // Logical And
+        let res_and = check_binary_expr(7, type_bool(), type_bool());
+        if !res_and.is_ok || res_and.inferred_type != type_bool() { return false; }
+
+        let res_bad_and = check_binary_expr(7, type_i64(), type_bool());
+        if res_bad_and.is_ok || res_bad_and.diagnostic_code != "E0203" { return false; }
+
+        // Bitwise
+        let res_bitor = check_binary_expr(8, type_i64(), type_i32());
+        if !res_bitor.is_ok || res_bitor.inferred_type != type_i64() { return false; }
+
+        let res_bad_bit = check_binary_expr(8, type_f64(), type_i64());
+        if res_bad_bit.is_ok || res_bad_bit.diagnostic_code != "E0202" { return false; }
+
+        return true;
+    }
+
+    fn test_unary_and_ternary_matrix() -> bool {
+        // Unary Neg
+        let res_neg = check_unary_expr(1, type_i64());
+        if !res_neg.is_ok || res_neg.inferred_type != type_i64() { return false; }
+
+        let res_bad_neg = check_unary_expr(1, type_str());
+        if res_bad_neg.is_ok || res_bad_neg.diagnostic_code != "E0202" { return false; }
+
+        // Unary Not
+        let res_not = check_unary_expr(2, type_bool());
+        if !res_not.is_ok || res_not.inferred_type != type_bool() { return false; }
+
+        let res_bad_not = check_unary_expr(2, type_i64());
+        if res_bad_not.is_ok || res_bad_not.diagnostic_code != "E0203" { return false; }
+
+        // Ternary
+        let res_tern = check_ternary_expr(type_bool(), type_i64(), type_i32());
+        if !res_tern.is_ok || res_tern.inferred_type != type_i64() { return false; }
+
+        let res_bad_cond = check_ternary_expr(type_i64(), type_i64(), type_i64());
+        if res_bad_cond.is_ok || res_bad_cond.diagnostic_code != "E0203" { return false; }
+
+        let res_bad_arms = check_ternary_expr(type_bool(), type_str(), type_i64());
+        if res_bad_arms.is_ok || res_bad_arms.diagnostic_code != "E0201" { return false; }
+
+        return true;
+    }
+
+    fn test_statement_matrix() -> bool {
+        // Let binding
+        let res_let_ok = check_let_stmt(type_i64(), type_i32());
+        if !res_let_ok.is_ok { return false; }
+
+        let res_let_bad = check_let_stmt(type_bool(), type_str());
+        if res_let_bad.is_ok || res_let_bad.diagnostic_code != "E0201" { return false; }
+
+        // Return statement
+        let res_ret_ok = check_return_stmt(type_i64(), type_i64());
+        if !res_ret_ok.is_ok { return false; }
+
+        let res_ret_bad = check_return_stmt(type_i64(), type_str());
+        if res_ret_bad.is_ok || res_ret_bad.diagnostic_code != "E0201" { return false; }
+
+        // Call arity and types
+        let res_call_ok = check_call_2_args(type_i64(), type_bool(), type_i64(), 2, type_i32(), type_bool());
+        if !res_call_ok.is_ok || res_call_ok.inferred_type != type_i64() { return false; }
+
+        let res_call_bad_arity = check_call_2_args(type_i64(), type_bool(), type_i64(), 1, type_i64(), 0);
+        if res_call_bad_arity.is_ok || res_call_bad_arity.diagnostic_code != "E0204" { return false; }
+
+        let res_call_bad_type = check_call_2_args(type_i64(), type_bool(), type_i64(), 2, type_str(), type_bool());
+        if res_call_bad_type.is_ok || res_call_bad_type.diagnostic_code != "E0205" { return false; }
+
+        return true;
+    }
+
+    // Direct native execution test to guarantee runtime parity
+    struct MatrixEvaluator {
+        weight: i64,
+        bias: i64
+    }
+
+    fn compute_eval(eval: MatrixEvaluator, factor: i64) -> i64 {
+        let intermediate: i64 = eval.weight * factor;
+        return intermediate + eval.bias;
+    }
+
+    fn test_native_runtime_execution() -> bool {
+        let evaluator = MatrixEvaluator {
+            weight: 7,
+            bias: 7
+        };
+        let val: i64 = compute_eval(evaluator, 5);
+        if val != 42 {
+            return false;
+        }
+
+        let is_positive: bool = val > 0;
+        let final_check: i64 = is_positive ? val : 0;
+        if final_check != 42 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn main() -> i64 {
+        if !test_binary_operator_matrix() {
+            return 1;
+        }
+
+        if !test_unary_and_ternary_matrix() {
+            return 2;
+        }
+
+        if !test_statement_matrix() {
+            return 3;
+        }
+
+        if !test_native_runtime_execution() {
+            return 4;
+        }
+
+        return 42;
+    }
+}

@@ -1,0 +1,44 @@
+//! Module documentation for arithmetic and compile-time string processing.
+//! Provides mathematical helpers and constant-folded strings.
+
+#![version = "1.0"]
+
+/// Utility kernel demonstrating doc comments and compile-time evaluations.
+kernel MathEngine {
+    //! Internal MathEngine docs.
+
+    /// Multiplies value by 2 at compile-time or runtime.
+    comptime fn double(x: i32) -> i32 {
+        return x * 2;
+    }
+
+    /// Formats a tag string with brackets at compile time.
+    comptime fn format_tag(tag: str) -> str {
+        return "[" + tag + "]";
+    }
+
+    /// Primary type alias documentation.
+    pub type Number = i32;
+
+    /// Documented constant value.
+    pub const MAGIC: i32 = 42;
+}
+
+/// Core driver kernel.
+kernel Main {
+    fn main() -> i32 {
+        // Evaluate comptime functions
+        let doubled: i32 = MathEngine::double(21);
+        let tag: str = MathEngine::format_tag("BUNKER");
+
+        if doubled != 42 {
+            return 1;
+        }
+
+        if tag != "[BUNKER]" {
+            return 2;
+        }
+
+        return doubled;
+    }
+}

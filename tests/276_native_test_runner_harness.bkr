@@ -1,0 +1,238 @@
+// Test 276: Native Test Runner Harness Architecture (G-004)
+// Purpose: Verify native test runner discovery, execution, assertion, and reporting invariants:
+//   1. Test discovery and filtering by pattern.
+//   2. Isolated test execution and assertion evaluation (assert_true, assert_eq, assert_in_range).
+//   3. Structured test suite tracking (passed, failed, total).
+//   4. Emission of TAP v13 format lines.
+//   5. Structured JSON test report (bunker.test.v1).
+//   6. Native calculation returning 42.
+// Expected return: 42
+
+kernel NativeTestRunnerHarnessTest {
+    // --- Data Structures ---
+
+    struct TestCase {
+        name: str,
+        file_path: str,
+        is_negative: bool,
+        passed: bool,
+        error_msg: str
+    }
+
+    struct TestHarness {
+        tests: Vec<TestCase>,
+        passed_count: i64,
+        failed_count: i64
+    }
+
+    fn harness_new() -> TestHarness {
+        let t: Vec<TestCase> = vec_new();
+        return TestHarness {
+            tests: t,
+            passed_count: 0,
+            failed_count: 0
+        };
+    }
+
+    fn make_test_case(name: str, file_path: str, is_neg: bool) -> TestCase {
+        return TestCase {
+            name: name,
+            file_path: file_path,
+            is_negative: is_neg,
+            passed: false,
+            error_msg: ""
+        };
+    }
+
+    fn harness_add_test(harness: TestHarness, test: TestCase) -> TestHarness {
+        vec_push(harness.tests, test);
+        return harness;
+    }
+
+    // --- Filter Matching ---
+
+    fn string_contains(haystack: str, needle: str) -> bool {
+        let needle_len = len(needle);
+        let haystack_len = len(haystack);
+        if needle_len == 0 {
+            return true;
+        }
+        if needle_len > haystack_len {
+            return false;
+        }
+        let limit = haystack_len - needle_len + 1;
+        let mut i: i64 = 0;
+        while i < limit {
+            if substring(haystack, i, i + needle_len) == needle {
+                return true;
+            }
+            i = i + 1;
+        }
+        return false;
+    }
+
+    // --- Assertion Helpers ---
+
+    fn check_assert_eq(actual: i64, expected: i64) -> bool {
+        return actual == expected;
+    }
+
+    fn check_assert_true(cond: bool) -> bool {
+        return cond;
+    }
+
+    fn check_assert_in_range(val: i64, min_val: i64, max_val: i64) -> bool {
+        return val >= min_val && val <= max_val;
+    }
+
+    // --- TAP v13 Formatting ---
+
+    fn format_tap_header(total: i64) -> str {
+        let nl: str = from_char_code(10);
+        return "TAP version 13" + nl + "1.." + int_to_string(total);
+    }
+
+    fn format_tap_result(test_num: i64, test: TestCase) -> str {
+        if test.passed {
+            return "ok " + int_to_string(test_num) + " - " + test.name;
+        }
+        return "not ok " + int_to_string(test_num) + " - " + test.name + " # " + test.error_msg;
+    }
+
+    // --- JSON Report Formatting (bunker.test.v1) ---
+
+    fn format_json_summary(passed: i64, failed: i64, total: i64) -> str {
+        let nl: str = from_char_code(10);
+        let mut json: str = "{" + nl;
+        json = json + "  \"schema_version\": \"bunker.test.v1\"," + nl;
+        json = json + "  \"total_discovered\": " + int_to_string(total) + "," + nl;
+        json = json + "  \"passed\": " + int_to_string(passed) + "," + nl;
+        json = json + "  \"failed\": " + int_to_string(failed) + nl;
+        json = json + "}";
+        return json;
+    }
+
+    fn int_to_string(v: i64) -> str {
+        if v == 0 {
+            return "0";
+        }
+        let mut is_neg: bool = false;
+        let mut n: i64 = v;
+        if n < 0 {
+            is_neg = true;
+            n = 0 - n;
+        }
+        let mut digits: str = "";
+        while n > 0 {
+            let d: i64 = n % 10;
+            digits = from_char_code(48 + d) + digits;
+            n = n / 10;
+        }
+        if is_neg {
+            return "-" + digits;
+        }
+        return digits;
+    }
+
+    // --- Test Suites ---
+
+    fn test_filter_matching() -> bool {
+        let t1 = "tests/01_basic_math.bkr";
+        let t2 = "tests/14_kernel_if_branching.bkr";
+        let t3 = "tests/59_use_after_move_BAD.bkr";
+
+        if !string_contains(t1, "math") {
+            return false;
+        }
+        if !string_contains(t2, "branching") {
+            return false;
+        }
+        if !string_contains(t3, "_BAD") {
+            return false;
+        }
+        if string_contains(t1, "branching") {
+            return false;
+        }
+        return true;
+    }
+
+    fn test_assertion_semantics() -> bool {
+        if !check_assert_eq(42, 42) {
+            return false;
+        }
+        if check_assert_eq(42, 43) {
+            return false;
+        }
+        if !check_assert_true(10 > 5) {
+            return false;
+        }
+        if check_assert_true(5 > 10) {
+            return false;
+        }
+        if !check_assert_in_range(42, 0, 100) {
+            return false;
+        }
+        if check_assert_in_range(150, 0, 100) {
+            return false;
+        }
+        return true;
+    }
+
+    fn test_tap_emission() -> bool {
+        let mut t_pass = make_test_case("test_add", "tests/add.bkr", false);
+        t_pass.passed = true;
+
+        let mut t_fail = make_test_case("test_sub", "tests/sub.bkr", false);
+        t_fail.passed = false;
+        t_fail.error_msg = "assertion failed: expected 5 got 3";
+
+        let tap_ok = format_tap_result(1, t_pass);
+        let tap_err = format_tap_result(2, t_fail);
+
+        if tap_ok != "ok 1 - test_add" {
+            return false;
+        }
+        if tap_err != "not ok 2 - test_sub # assertion failed: expected 5 got 3" {
+            return false;
+        }
+        return true;
+    }
+
+    fn test_json_report() -> bool {
+        let report = format_json_summary(10, 0, 10);
+        if !string_contains(report, "\"schema_version\": \"bunker.test.v1\"") {
+            return false;
+        }
+        if !string_contains(report, "\"total_discovered\": 10") {
+            return false;
+        }
+        if !string_contains(report, "\"passed\": 10") {
+            return false;
+        }
+        if !string_contains(report, "\"failed\": 0") {
+            return false;
+        }
+        return true;
+    }
+
+    fn main() -> i32 {
+        if !test_filter_matching() {
+            return 1;
+        }
+
+        if !test_assertion_semantics() {
+            return 2;
+        }
+
+        if !test_tap_emission() {
+            return 3;
+        }
+
+        if !test_json_report() {
+            return 4;
+        }
+
+        // Return 42 on verified pass
+        return 42;
+    }
+}

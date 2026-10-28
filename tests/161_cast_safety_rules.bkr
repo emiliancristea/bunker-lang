@@ -1,0 +1,38 @@
+// Test 161: Cast safety rules and numeric promotion
+// Purpose: Verify comprehensive type casting via 'as' across numeric, bool, and handle types.
+// Expected: Result: 42
+
+kernel CastSafetyRules {
+    fn main() -> i32 {
+        // Numeric to numeric
+        let a: i32 = 10;
+        let b: i64 = a as i64;
+        let c: i32 = b as i32;
+
+        let f: f64 = 12.85;
+        let f_int: i32 = f as i32;
+        let back_f: f64 = f_int as f64;
+
+        // Bool to numeric and numeric to bool
+        let t: bool = true;
+        let t_int: i32 = t as i32;
+        let zero_val: i32 = 0;
+        let b_flag: bool = zero_val as bool;
+
+        // Handle to i64 and i64 to handle
+        let s: str = "bunker";
+        let s_ptr: i64 = s as i64;
+        let s_back: str = s_ptr as str;
+
+        let v: Vec<i32> = vec_new();
+        vec_push(v, 42);
+        let v_ptr: i64 = v as i64;
+        let v_back: Vec<i32> = v_ptr as Vec<i32>;
+        let extracted: i32 = vec_get(v_back, 0);
+
+        if extracted == 42 && strlen(s_back) == 6 && !b_flag && (c == 10) && (f_int == 12) && (t_int == 1) {
+            return 42;
+        }
+        return 0;
+    }
+}

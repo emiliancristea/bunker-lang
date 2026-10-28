@@ -1,0 +1,12 @@
+kernel TestGenericRecursionBad {
+    struct Wrap<T>(T);
+
+    fn cycle<T>(x: T) -> i32 {
+        let w = Wrap(x);
+        return cycle(w);
+    }
+
+    pub fn main() -> i32 {
+        return cycle(1);
+    }
+}

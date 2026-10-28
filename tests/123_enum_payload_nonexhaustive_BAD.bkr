@@ -1,0 +1,17 @@
+// Test 123 (BAD): Non-exhaustive payload-enum match
+// Purpose: Reject matches on enums with payloads that omit a declared variant.
+// Expected: Type error for missing Pair.Empty.
+
+kernel EnumPayloadNonexhaustiveBad {
+    enum Pair {
+        Both(i32, i32),
+        Empty,
+    }
+
+    fn main() -> i32 {
+        let a = Pair.Both(40, 2);
+        return match a {
+            Pair.Both(x, y) => x + y;
+        };
+    }
+}

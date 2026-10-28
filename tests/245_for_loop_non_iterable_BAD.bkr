@@ -1,0 +1,12 @@
+// Test 245: Rejection of non-iterable for-loop target (Q-289, F-005)
+// Attempting to iterate over a non-collection / non-range scalar value must be rejected at compile time.
+
+kernel NonIterableLoopBad {
+    fn main() -> i32 {
+        let x: i32 = 12345;
+        for item in x {
+            let y = item;
+        }
+        return 0;
+    }
+}

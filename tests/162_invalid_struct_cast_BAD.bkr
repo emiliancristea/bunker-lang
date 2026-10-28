@@ -1,0 +1,16 @@
+// Test 162: Invalid struct cast (BAD)
+// Purpose: Verify type checker rejects casting struct to non-i64 scalar.
+// Expected: Type checking failure with cast_type_mismatch / Cannot cast struct to i32
+
+kernel InvalidStructCast {
+    struct Point {
+        x: i32,
+        y: i32
+    }
+
+    fn main() -> i32 {
+        let p: Point = Point { x: 1, y: 2 };
+        let bad: i32 = p as i32;
+        return bad;
+    }
+}

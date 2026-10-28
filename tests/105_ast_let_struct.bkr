@@ -1,0 +1,41 @@
+// Test 105: AstLet as a real compiler let-statement record
+// Purpose: Let name/type/init/span live in a Bunker struct, not Vec<i64>.
+// Expected: Result: 42
+
+kernel AstLetStruct {
+    struct AstLet {
+        start: i64,
+        end: i64,
+        name_idx: i64,
+        type_handle: i64,
+        init: i64
+    }
+
+    fn make_let(name_idx: i64, init: i64) -> AstLet {
+        return AstLet {
+            start: 0,
+            end: 6,
+            name_idx: name_idx,
+            type_handle: 0,
+            init: init
+        };
+    }
+
+    fn let_init(stmt: AstLet) -> i64 {
+        return stmt.init;
+    }
+
+    fn main() -> i32 {
+        let stmt: AstLet = make_let(1, 41);
+        if stmt.start == 0 {
+            if stmt.end == 6 {
+                if stmt.name_idx == 1 {
+                    if let_init(make_let(2, 42)) == 42 {
+                        return 42;
+                    }
+                }
+            }
+        }
+        return 0;
+    }
+}

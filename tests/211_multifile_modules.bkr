@@ -1,0 +1,17 @@
+import "modules/math_lib.bkr";
+import "modules/sub_mod.bkr";
+
+kernel MultiFileMain {
+    fn main() -> i32 {
+        let s = MathLib::add(10, 32);
+        assert(s == 42, "MathLib::add == 42");
+
+        let m = SubMod::compute_sub();
+        assert(m == 42, "SubMod::compute_sub == 42");
+
+        let pair = MathLib::MathPair { x: 20, y: 22 };
+        assert(pair.x + pair.y == 42, "pair sum == 42");
+
+        return 42;
+    }
+}

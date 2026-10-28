@@ -1,0 +1,14 @@
+// Test 203: Comptime Recursion Limit Exceeded (Negative Test)
+// Purpose: Verify comptime evaluation that exceeds max recursion depth is rejected.
+// Expected: Type error: Comptime evaluation of 'infinite_recurse' failed: comptime evaluation exceeded max depth
+
+kernel Main {
+    comptime fn infinite_recurse(n: i32) -> i32 {
+        return infinite_recurse(n + 1);
+    }
+
+    fn main() -> i32 {
+        let x = infinite_recurse(0);
+        return x;
+    }
+}

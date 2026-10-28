@@ -1,0 +1,10 @@
+kernel TestGenericConflictBad {
+    fn same<T>(a: T, b: T) -> T {
+        return a;
+    }
+
+    pub fn main() -> i32 {
+        let x = same(10, "hello");
+        return 0;
+    }
+}

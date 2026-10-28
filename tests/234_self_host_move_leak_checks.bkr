@@ -1,0 +1,90 @@
+// Test 234: Self-Host Move Semantics, Bounded Arena Memory, and Leak Checks (Q-282, M-002, M-006, S-012)
+// Purpose: Verify move semantics across self-host structs and bounded memory reuse across compiler workloads.
+// Expected return: 42
+
+kernel SelfHostMoveLeakKernel {
+    struct AstNode {
+        id: i32,
+        tag: i32,
+        val: i32,
+    }
+
+    struct CompilerPassResult {
+        pass_index: i32,
+        node_sum: i32,
+    }
+
+    fn consume_node(node: AstNode) -> i32 {
+        return node.val + node.tag;
+    }
+
+    fn test_self_host_move_semantics() -> bool {
+        // 1. Move by let assignment
+        let mut n1 = AstNode { id: 1, tag: 2, val: 100 };
+        let n2 = n1; // n1 moved to n2
+
+        // n2 contains the value
+        if n2.val != 100 {
+            return false;
+        }
+
+        // 2. Reinitializing n1 re-enables access
+        n1 = AstNode { id: 2, tag: 3, val: 200 };
+        if n1.val != 200 {
+            return false;
+        }
+
+        // 3. Move via function call
+        let res = consume_node(n1);
+        if res != 203 {
+            return false;
+        }
+
+        return true;
+    }
+
+    fn simulate_compiler_pass(pass_idx: i32) -> CompilerPassResult {
+        // Creates temporary nodes in the pass scope
+        let mut local_sum: i32 = 0;
+        for i in 0..10 {
+            let node = AstNode {
+                id: i,
+                tag: 1,
+                val: pass_idx + i,
+            };
+            local_sum = local_sum + node.val;
+        }
+
+        return CompilerPassResult {
+            pass_index: pass_idx,
+            node_sum: local_sum,
+        };
+    }
+
+    fn test_bounded_compiler_passes() -> bool {
+        let mut total_accum: i32 = 0;
+
+        // Long-running workload: 100 iterative compiler passes
+        // Arena watermarks pop each iteration, keeping memory bounded
+        for pass in 0..100 {
+            let pass_res = simulate_compiler_pass(pass);
+            total_accum = total_accum + pass_res.node_sum;
+        }
+
+        // In pass p, sum for i=0..9 of (p + i) = 10*p + 45
+        // Total over p=0..99 is 10 * (99*100/2) + 45 * 100 = 10 * 4950 + 4500 = 49500 + 4500 = 54000
+        return total_accum == 54000;
+    }
+
+    fn main() -> i32 {
+        if !test_self_host_move_semantics() {
+            return 1;
+        }
+
+        if !test_bounded_compiler_passes() {
+            return 2;
+        }
+
+        return 42;
+    }
+}

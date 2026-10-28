@@ -1,0 +1,16 @@
+// Test 201: Must-Use Return Value Ignored (Negative Test)
+// Purpose: Verify expression statement discarding return value of #[must_use] function is rejected.
+// Expected: Type error: Unused return value from function 'critical_operation' marked with #[must_use]: critical return code must be checked
+
+kernel Main {
+    #[must_use("critical return code must be checked")]
+    fn critical_operation() -> i32 {
+        return 42;
+    }
+
+    fn main() -> i32 {
+        // Discarding return value of #[must_use] function is rejected
+        critical_operation();
+        return 0;
+    }
+}

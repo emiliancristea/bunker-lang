@@ -8,7 +8,7 @@ kernel ComparisonsTest {
     }
 
     fn main() -> i32 {
-        let result: i32 = 0;
+        let mut result: i32 = 0;
 
         // Equal (==)
         result = result + bool_to_int(5 == 5);   // 1

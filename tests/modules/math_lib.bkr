@@ -1,0 +1,18 @@
+kernel MathLib {
+    pub struct MathPair {
+        x: i32,
+        y: i32,
+    }
+
+    pub fn add(a: i32, b: i32) -> i32 {
+        return a + b;
+    }
+
+    pub fn mul(a: i32, b: i32) -> i32 {
+        return a * b;
+    }
+
+    fn secret_internal() -> i32 {
+        return 999;
+    }
+}

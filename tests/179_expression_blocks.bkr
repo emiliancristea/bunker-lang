@@ -1,0 +1,53 @@
+// Test 179: Full Expression-Oriented Blocks (Q-260, L-006, L-007)
+// Purpose: Verify block expressions `{ statement*; expr; }` yielding typed values
+//          consistently outside match arms (e.g. let binding, nested blocks, arithmetic).
+// Expected: JIT returns 42
+
+kernel ExpressionBlocksTest {
+    struct Data {
+        val: i32
+    }
+
+    fn main() -> i32 {
+        // 1. Standalone block expression in let binding
+        let a: i32 = {
+            let x: i32 = 10;
+            let y: i32 = 20;
+            x + y;
+        };
+        if a != 30 {
+            return 1;
+        }
+
+        // 2. Nested block expression
+        let b: i32 = {
+            let u: i32 = {
+                let v: i32 = 5;
+                v * 2;
+            };
+            u + 2;
+        };
+        if b != 12 {
+            return 2;
+        }
+
+        // 3. Block expression yielding a struct
+        let d: Data = {
+            let inner: i32 = 42;
+            Data { val: inner };
+        };
+        if d.val != 42 {
+            return 3;
+        }
+
+        // 4. Block expression inside binary operation
+        let c: i32 = { 20; } + { 22; };
+        if c != 42 {
+            return 4;
+        }
+
+        // Compute final answer: 30 + 12 = 42
+        let ans: i32 = a + b;
+        return ans;
+    }
+}

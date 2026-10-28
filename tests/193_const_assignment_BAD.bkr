@@ -1,0 +1,12 @@
+// Test 193: Const Assignment (Negative Test)
+// Purpose: Verify that reassigning a constant is rejected by typechecker.
+// Expected: Type error: Cannot assign to constant 'MAX_LIMIT'
+
+kernel ConstAssignBad {
+    const MAX_LIMIT: i32 = 100;
+
+    fn main() -> i32 {
+        MAX_LIMIT = 200;
+        return MAX_LIMIT;
+    }
+}

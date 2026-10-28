@@ -1,0 +1,12 @@
+// Test 171: Typed Vec Get Type Mismatch (Q-257, D-009)
+// Purpose: Ensure typechecker rejects assigning element from Vec<i32> to a variable typed str.
+// Expected: Typecheck error (type mismatch)
+
+kernel TypedVecGetMismatch {
+    fn main() -> i32 {
+        let v: Vec<i32> = vec_new();
+        vec_push(v, 42);
+        let s: str = vec_get(v, 0);
+        return 0;
+    }
+}

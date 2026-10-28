@@ -4,7 +4,7 @@
 
 kernel ControlFlowTest {
     fn main() -> i32 {
-        let result: i32 = 0;
+        let mut result: i32 = 0;
 
         // Nested loops with break and continue
         for i in 0..10 {
@@ -21,7 +21,7 @@ kernel ControlFlowTest {
         }
 
         // While with nested if
-        let j: i32 = 0;
+        let mut j: i32 = 0;
         while j < 20 {
             j = j + 1;
             if j > 10 {
@@ -34,7 +34,7 @@ kernel ControlFlowTest {
         result = result + j;  // 9 + 15 = 24
 
         // Loop with condition
-        let k: i32 = 0;
+        let mut k: i32 = 0;
         loop {
             k = k + 3;
             if k >= 18 {

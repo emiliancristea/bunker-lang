@@ -1,0 +1,50 @@
+// Test 190: Visibility Modifiers and Mutable Bindings
+// Purpose: Verify pub items across kernel modules and explicit let mut local bindings.
+// Expected: Exits with return code 42.
+
+kernel MathLib {
+    pub const SCALE: i32 = 2;
+
+    pub struct Point {
+        x: i32,
+        y: i32,
+    }
+
+    pub enum Status {
+        Active(i32),
+        Inactive,
+    }
+
+    pub type Score = i32;
+
+    pub fn compute_scaled(a: i32, b: i32) -> i32 {
+        return (a + b) * SCALE;
+    }
+
+    fn internal_helper(x: i32) -> i32 {
+        return x + 1;
+    }
+}
+
+kernel Main {
+    fn main() -> i32 {
+        let mut total: i32 = 0;
+        total = total + MathLib::compute_scaled(10, 10);
+        total = total + MathLib::SCALE;
+
+        let mut pt = Point { x: 1, y: 2 };
+        pt.x = 42;
+
+        let mut st: Status = Status.Active(42);
+        let unpacked: i32 = match st {
+            Status.Active(val) => val;
+            Status.Inactive => 0;
+        };
+
+        if unpacked != 42 {
+            return 1;
+        }
+
+        return total;
+    }
+}

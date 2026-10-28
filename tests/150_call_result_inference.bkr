@@ -1,0 +1,104 @@
+// Test 150: Comprehensive Call-Result Type Inference
+// Milestone Q-251 / T-007: Builtins and user functions propagate exact result types where known.
+// Expected: Returns 42
+
+kernel CallResultInference {
+    struct Vec2 {
+        x: i64,
+        y: i64,
+    }
+
+    fn make_vec2(x: i64, y: i64) -> Vec2 {
+        return Vec2 { x: x, y: y };
+    }
+
+    fn make_tuple(a: i64, b: i64) -> (i64, i64) {
+        return (a, b);
+    }
+
+    fn get_option_val(flag: bool) -> Option<i64> {
+        if flag {
+            return Some(10);
+        }
+        return None;
+    }
+
+    fn get_result_val(flag: bool) -> Result<i64, str> {
+        if flag {
+            return result_ok(12);
+        }
+        return result_err("fail");
+    }
+
+    fn compute_scaled(v: i64, scale: i64) -> i64 {
+        return v * scale;
+    }
+
+    fn is_positive(v: i64) -> bool {
+        return v > 0;
+    }
+
+    fn get_label() -> str {
+        return "bunker_lang";
+    }
+
+    fn main() -> i64 {
+        // 1. User function returning struct
+        let v = make_vec2(5, 15);
+        let vx = v.x;
+        let vy = v.y;
+
+        // 2. User function returning tuple
+        let tup = make_tuple(7, 3);
+        let t0 = tup.0;
+        let t1 = tup.1;
+
+        // 3. User function returning Option
+        let opt = get_option_val(true);
+        let opt_val = match opt {
+            Some(x) => x;
+            None => 0;
+        };
+
+        // 4. User function returning Result
+        let res = get_result_val(true);
+        let res_val = match res {
+            Ok(x) => x;
+            Err(e) => 0;
+        };
+
+        // 5. User function returning primitive
+        let scaled = compute_scaled(t1, 2);
+        let pos = is_positive(scaled);
+        let label = get_label();
+
+        // 6. Builtin calls propagating exact types
+        let l = strlen(label);
+        let has_sub = contains(label, "lang");
+        let parsed_res = parse_int_result("4");
+        let parsed_val = match parsed_res {
+            Ok(num) => num;
+            Err(err) => 0;
+        };
+
+        // Invariants verification
+        if !pos {
+            return 1;
+        }
+        if !has_sub {
+            return 2;
+        }
+        if l != 11 {
+            return 3;
+        }
+        if t0 != 7 {
+            return 4;
+        }
+        if parsed_val != 4 {
+            return 5;
+        }
+
+        // Return exact 42: vx(5) + vy(15) + opt_val(10) + res_val(12) = 42
+        return vx + vy + opt_val + res_val;
+    }
+}

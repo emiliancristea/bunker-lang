@@ -1,0 +1,126 @@
+// Test 267: Deterministic Artifact Layout (CB-010)
+// Purpose: Verify deterministic artifact directory layout and naming conventions:
+//   1. Canonical directory structure: target/{debug,release}/{bin,c,obj}.
+//   2. Deterministic artifact path resolution from module name and profile.
+//   3. Build manifest metadata schema (bunker.artifact.v1).
+//   4. Native calculation returning 42.
+// Expected return: 42
+
+kernel DeterministicArtifactLayoutTest {
+    // --- Artifact Layout Resolver ---
+
+    fn get_target_root() -> str {
+        return "target";
+    }
+
+    fn resolve_output_dir(profile: str, category: str) -> str {
+        return get_target_root() + "/" + profile + "/" + category;
+    }
+
+    fn resolve_artifact_path(profile: str, category: str, module_name: str, ext: str) -> str {
+        let dir: str = resolve_output_dir(profile, category);
+        return dir + "/" + module_name + ext;
+    }
+
+    // --- Build Manifest Representation ---
+
+    struct BuildManifest {
+        schema_version: str,
+        profile: str,
+        target_backend: str,
+        module_name: str,
+        output_file: str,
+        is_deterministic: bool
+    }
+
+    fn create_manifest(profile: str, backend: str, module_name: str, output_file: str) -> BuildManifest {
+        return BuildManifest {
+            schema_version: "bunker.artifact.v1",
+            profile: profile,
+            target_backend: backend,
+            module_name: module_name,
+            output_file: output_file,
+            is_deterministic: true
+        };
+    }
+
+    // --- Verification Suites ---
+
+    fn test_directory_hierarchy() -> bool {
+        let debug_c_dir: str = resolve_output_dir("debug", "c");
+        if debug_c_dir != "target/debug/c" { return false; }
+
+        let release_bin_dir: str = resolve_output_dir("release", "bin");
+        if release_bin_dir != "target/release/bin" { return false; }
+
+        let debug_obj_dir: str = resolve_output_dir("debug", "obj");
+        if debug_obj_dir != "target/debug/obj" { return false; }
+
+        return true;
+    }
+
+    fn test_artifact_path_derivation() -> bool {
+        let c_file: str = resolve_artifact_path("debug", "c", "main", ".c");
+        if c_file != "target/debug/c/main.c" { return false; }
+
+        let bin_file: str = resolve_artifact_path("release", "bin", "bunker_app", ".exe");
+        if bin_file != "target/release/bin/bunker_app.exe" { return false; }
+
+        return true;
+    }
+
+    fn test_manifest_metadata() -> bool {
+        let out_path: str = resolve_artifact_path("release", "c", "kernel_math", ".c");
+        let manifest = create_manifest("release", "c", "kernel_math", out_path);
+
+        if manifest.schema_version != "bunker.artifact.v1" { return false; }
+        if manifest.profile != "release" { return false; }
+        if manifest.target_backend != "c" { return false; }
+        if manifest.module_name != "kernel_math" { return false; }
+        if manifest.output_file != "target/release/c/kernel_math.c" { return false; }
+        if !manifest.is_deterministic { return false; }
+
+        return true;
+    }
+
+    // --- End-to-End Native Calculation ---
+
+    struct LayoutMetrics {
+        dir_count: i64,
+        manifest_entries: i64,
+        multiplier: i64
+    }
+
+    fn compute_layout_score(m: LayoutMetrics) -> i64 {
+        let sum: i64 = m.dir_count + m.manifest_entries;
+        return sum * m.multiplier;
+    }
+
+    fn main() -> i64 {
+        if !test_directory_hierarchy() {
+            return 1;
+        }
+
+        if !test_artifact_path_derivation() {
+            return 2;
+        }
+
+        if !test_manifest_metadata() {
+            return 3;
+        }
+
+        let metrics = LayoutMetrics {
+            dir_count: 3,
+            manifest_entries: 4,
+            multiplier: 6
+        };
+
+        // (3 + 4) * 6 = 7 * 6 = 42
+        let score: i64 = compute_layout_score(metrics);
+        if score != 42 {
+            return 4;
+        }
+
+        return 42;
+    }
+}

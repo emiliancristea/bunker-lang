@@ -1,0 +1,32 @@
+// Test 238: Generic Constraint Missing Method BAD (Q-285, T-004)
+// Purpose: Verify compiler enforces structural constraints on generic type parameters,
+//          rejecting instantiations with types that do not provide the required methods.
+// Expected: Typecheck error (No method found on struct)
+
+kernel GenericConstraintMissingMethodBad {
+    struct Rect {
+        w: i32,
+        h: i32
+    }
+
+    struct Tag {
+        id: i32
+    }
+
+    fn Rect::area(self) -> i32 {
+        return self.w * self.h;
+    }
+
+    // Generic function with structural constraint: T must provide .area()
+    fn measure<T>(item: T) -> i32 {
+        return item.area();
+    }
+
+    fn main() -> i32 {
+        let t: Tag = Tag { id: 100 };
+
+        // Invalid: Tag does not satisfy structural constraint (.area() missing)
+        let a: i32 = measure(t);
+        return 0;
+    }
+}

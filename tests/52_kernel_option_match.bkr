@@ -18,7 +18,7 @@ kernel OptionMatchTest {
     }
 
     fn main() -> i32 {
-        let result: i32 = 0;
+        let mut result: i32 = 0;
 
         // Basic Some
         let opt1: Option<i32> = Some(10);

@@ -1,0 +1,42 @@
+// Test 164: User-defined ADT expressing Option and Result in Bunker source (D-003, D-001, D-002)
+// Purpose: Verify user-defined ADTs can express custom Option and Result sum types with mixed unit/payload variants.
+// Expected: Result: 42
+
+kernel UserDefinedAdtTest {
+    enum CustomOption {
+        Some(i32),
+        None
+    }
+
+    enum CustomResult {
+        Ok(i32),
+        Err(str)
+    }
+
+    fn check_option(opt: CustomOption) -> i32 {
+        return match opt {
+            CustomOption.Some(val) => val;
+            CustomOption.None => 0;
+        };
+    }
+
+    fn check_result(res: CustomResult) -> i32 {
+        return match res {
+            CustomResult.Ok(val) => val;
+            CustomResult.Err(msg) => strlen(msg);
+        };
+    }
+
+    fn main() -> i32 {
+        let o1: CustomOption = CustomOption.Some(20);
+        let o2: CustomOption = CustomOption.None;
+        let r1: CustomResult = CustomResult.Ok(16);
+        let r2: CustomResult = CustomResult.Err("fail");
+
+        let sum1: i32 = check_option(o1) + check_option(o2);
+        let sum2: i32 = check_result(r1) + check_result(r2);
+        let extra: i32 = 2;
+
+        return sum1 + sum2 + extra;
+    }
+}

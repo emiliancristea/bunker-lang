@@ -1429,21 +1429,22 @@ This section tracks the implementation status of each specification part against
 - [x] Static typing for Kernel layer
 - [x] Bidirectional type inference
 - [x] Sum types (`Option<T>`)
+- [x] Unit enums (`enum Name { A, B }`)
 - [x] Exhaustive pattern matching
 - [x] Struct and array types
 - [x] Type error messages with locations
+- [x] JSON-formatted type errors for AI (`--format=json`)
 - [ ] Refinement types with SMT predicates
 - [ ] Higher-kinded type avoidance (by design)
-- [ ] JSON-formatted type errors for AI
 
 ### Part 3: Memory Model and Ownership 🔶 Partial
 - [x] Move-by-default semantics
 - [x] Explicit `copy` keyword
 - [x] `defer` for deterministic cleanup
 - [x] Use-after-move detection
+- [x] Arena-based memory allocation (JIT watermark/bump allocator)
 - [ ] Linear types with `!` suffix notation
 - [ ] Second-class references (no lifetimes)
-- [ ] Arena-based memory allocation
 - [ ] Vale-style region borrow checking
 
 ### Part 4: Design-by-Contract and Verification 🔶 Partial
@@ -1451,9 +1452,9 @@ This section tracks the implementation status of each specification part against
 - [x] `#[ensures]` postcondition parsing
 - [x] `#[verified]` attribute parsing
 - [x] Lightweight linear verification (`verify.rs`)
-- [ ] Z3/CVC5 SMT solver integration
-- [ ] Verification condition generation
-- [ ] Counterexample formatting for AI
+- [x] Z3 SMT solver integration (`smt.rs`, optional `smt` feature; CVC5 not implemented)
+- [ ] Verification condition generation beyond the current encoder
+- [ ] Counterexample formatting in default CI
 - [ ] Incremental verification (<100ms)
 - [ ] Clover-style consistency checks
 
@@ -1490,9 +1491,10 @@ This section tracks the implementation status of each specification part against
 - [ ] Type-level lock ordering
 - [ ] Deterministic parallelism for pure functions
 
-### Part 8: Module System and Package Management ❌ Not Started
-- [ ] Flat module structure
-- [ ] Explicit imports (no wildcards)
+### Part 8: Module System and Package Management 🔶 Partial
+- [x] Bootstrap string-path imports with recursive expansion (`import "module.bkr"`)
+- [x] Explicit imports (no wildcards) in the self-host compiler
+- [ ] Visibility/export rules
 - [ ] Content-addressed dependencies
 - [ ] Lockfile generation
 - [ ] `bunker.toml` configuration
@@ -1500,7 +1502,7 @@ This section tracks the implementation status of each specification part against
 ### Part 9: Standard Library 🔶 Partial
 - [ ] Core numeric types with overflow options
 - [x] UTF-8 String type
-- [x] Collections (Vec, Array, Map, Set)
+- [x] Collections (arrays, bootstrap `Vec<T>` and `HashMap<K,V>`; no `Set` type yet)
 - [ ] Iterator pattern
 - [x] Option/Result combinators
 - [ ] Consistent naming conventions
@@ -1536,17 +1538,17 @@ This section tracks the implementation status of each specification part against
 | Part | Status | Coverage | Priority |
 |------|--------|----------|----------|
 | 1. Grammar | ✅ | 85% | - |
-| 2. Type System | 🔶 | 65% | High |
-| 3. Memory Model | 🔶 | 45% | Medium |
-| 4. Verification | 🔶 | 30% | High |
+| 2. Type System | 🔶 | 55% | High |
+| 3. Memory Model | 🔶 | 50% | Medium |
+| 4. Verification | 🔶 | 35% | High |
 | 5. Agent Runtime | 🔶 | 55% | Medium |
-| 6. Error Handling | 🔶 | 30% | High |
-| 7. Concurrency | ❌ | 0% | Low |
-| 8. Modules | ❌ | 0% | Low |
-| 9. Stdlib | ❌ | 0% | Low |
+| 6. Error Handling | 🔶 | 45% | High |
+| 7. Concurrency | ❌ | 10% | Low |
+| 8. Modules | 🔶 | 25% | High |
+| 9. Stdlib | 🔶 | 30% | High |
 | 10. Tooling | ❌ | 0% | Low |
 | 11. Systems | 🔶 | 35% | Medium |
-| 12. Integration | 🔶 | 50% | Medium |
+| 12. Integration | 🔶 | 55% | Medium |
 
 **Legend:** ✅ Complete (>80%), 🔶 Partial (20-80%), ❌ Not Started (<20%)
 
@@ -1562,17 +1564,17 @@ These features are specifically critical for AI code generation accuracy:
 | Typed holes | ❌ | Precise context for generation |
 | Contract verification | 🔶 | Eliminates hallucinations |
 | Explicit ownership | ✅ | Avoids borrow checker failures |
-| Self-host readiness reporting | ✅ | `self-host-check` reports 8/8 current Bunker-written compiler sources passing |
-| Self-host compile wrapper | 🔶 | `self-host-compile` runs `self-host/bkrc.bkr` on real input and emits C for the bootstrap subset |
+| Self-host readiness reporting | ✅ | `self-host-check` reports 8/8 top-level `self-host/*.bkr` files; it does not enumerate `self-host/modules/` |
+| Self-host compile wrapper | 🔶 | `self-host-compile` runs modular `self-host/bkrc.bkr` and stage1/stage2 self-compilation works for the bootstrap subset |
 
 ## Critical Path to AI-Native MVP
 
-1. **Embedded/Metal Profile** - Complete the multi-profile target story
-2. **Self-Host Execution Parity** - Expand the Bunker-written compiler subset and compare generated output against the Rust compiler
-3. **Typed Holes with Fits** - Provide precise generation context
-4. **Canonical Formatter** - Make training and reviews consistent
-5. **LSP with AI Extensions** - Expose compiler context to tools
-6. **Coherent Standard Library** - Replace bootstrap builtins with a stable surface
+1. **Typed compiler data structures** - Replace raw bootstrap `Vec<i64>` layouts with Bunker structs/enums
+2. **Real generics and ADTs** - Required before the self-host compiler can be written in real Bunker types
+3. **Self-host execution parity** - Keep golden Rust vs generated/stage2 comparisons while expanding the subset
+4. **Unified diagnostics** - One envelope across Rust and self-host, plus parser recovery
+5. **Coherent standard library** - Replace erased handles with typed Result/Vec/HashMap/string/file APIs
+6. **Primary self-host compiler** - Demote Rust from the production path once stage0/1/2 is documented and reproducible
 
 ## Test Coverage
 

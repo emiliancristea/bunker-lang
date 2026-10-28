@@ -479,7 +479,7 @@ impl<'ctx> SmtEncoder<'ctx> {
                 }
             }
 
-            ast::Expr::Call { func, args } => {
+            ast::Expr::Call { func, args, .. } => {
                 if let ast::Expr::Ident(name) = func.as_ref() {
                     if name == "old" {
                         if args.len() != 1 {
@@ -765,8 +765,9 @@ fn collect_places_in_expr(expr: &ast::Expr, out: &mut HashSet<String>) {
             collect_places_in_expr(left, out);
             collect_places_in_expr(right, out);
         }
+        ast::Expr::Try(expr) => collect_places_in_expr(expr, out),
         ast::Expr::Unary { expr, .. } => collect_places_in_expr(expr, out),
-        ast::Expr::Call { func, args } => {
+        ast::Expr::Call { func, args, .. } => {
             collect_places_in_expr(func, out);
             for arg in args {
                 collect_places_in_expr(arg, out);
@@ -817,7 +818,7 @@ fn format_expr_brief(expr: &ast::Expr) -> String {
             ast::Literal::Bool(b) => b.to_string(),
             _ => "...".to_string(),
         },
-        ast::Expr::Call { func, args } => {
+        ast::Expr::Call { func, args, .. } => {
             let func_name = format_expr_brief(func);
             let args_str: Vec<_> = args.iter().map(format_expr_brief).collect();
             format!("{}({})", func_name, args_str.join(", "))

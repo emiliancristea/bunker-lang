@@ -1,0 +1,345 @@
+    // ========================================
+    // JSON SERIALIZATION & QUERY ENGINE (R-009)
+    // ========================================
+    //
+    // Provides pure Bunker JSON serialization, escaping, object/array builders,
+    // and zero-dependency lexical field extraction for compiler outputs and diagnostics.
+
+    fn json_escape_str(raw: str) -> str {
+        let quote = from_char_code(34);
+        let backslash = from_char_code(92);
+        let out = "";
+        let i: i64 = 0;
+        let n: i64 = len(raw);
+        while i < n {
+            let ch = char_at(raw, i);
+            let ch_code = char_code(ch);
+
+            if ch_code == 10 {
+                out = out + backslash + "n";
+            } else if ch_code == 13 {
+                out = out + backslash + "r";
+            } else if ch_code == 9 {
+                out = out + backslash + "t";
+            } else if ch_code == 34 {
+                out = out + backslash + quote;
+            } else if ch_code == 92 {
+                out = out + backslash + backslash;
+            } else if ch_code == 47 && i > 0 && char_code_at(raw, i - 1) == 42 {
+                out = out + backslash + ch;
+            } else {
+                out = out + ch;
+            }
+
+            i = i + 1;
+        }
+
+        return out;
+    }
+
+    fn json_val_str(val: str) -> str {
+        let quote = from_char_code(34);
+        return quote + json_escape_str(val) + quote;
+    }
+
+    fn json_val_i64(val: i64) -> str {
+        return int_to_string(val);
+    }
+
+    fn json_val_bool(val: bool) -> str {
+        if val {
+            return "true";
+        }
+        return "false";
+    }
+
+    fn json_val_null() -> str {
+        return "null";
+    }
+
+    fn json_field_str(key: str, val: str) -> str {
+        let quote = from_char_code(34);
+        return quote + key + quote + ":" + json_val_str(val);
+    }
+
+    fn json_field_i64(key: str, val: i64) -> str {
+        let quote = from_char_code(34);
+        return quote + key + quote + ":" + json_val_i64(val);
+    }
+
+    fn json_field_bool(key: str, val: bool) -> str {
+        let quote = from_char_code(34);
+        return quote + key + quote + ":" + json_val_bool(val);
+    }
+
+    fn json_field_raw(key: str, raw_json: str) -> str {
+        let quote = from_char_code(34);
+        return quote + key + quote + ":" + raw_json;
+    }
+
+    struct JsonObject {
+        keys: Vec<str>,
+        values: Vec<str>
+    }
+
+    fn json_object_new() -> JsonObject {
+        let k: Vec<str> = vec_new();
+        let v: Vec<str> = vec_new();
+        return JsonObject { keys: k, values: v };
+    }
+
+    fn json_object_set_str(obj: JsonObject, key: str, val: str) {
+        vec_push(obj.keys, key);
+        vec_push(obj.values, json_val_str(val));
+    }
+
+    fn json_object_set_i64(obj: JsonObject, key: str, val: i64) {
+        vec_push(obj.keys, key);
+        vec_push(obj.values, json_val_i64(val));
+    }
+
+    fn json_object_set_bool(obj: JsonObject, key: str, val: bool) {
+        vec_push(obj.keys, key);
+        vec_push(obj.values, json_val_bool(val));
+    }
+
+    fn json_object_set_raw(obj: JsonObject, key: str, raw_json: str) {
+        vec_push(obj.keys, key);
+        vec_push(obj.values, raw_json);
+    }
+
+    fn json_object_to_json(obj: JsonObject) -> str {
+        let quote = from_char_code(34);
+        let mut out: str = "{";
+        let count: i64 = vec_len(obj.keys);
+        let mut i: i64 = 0;
+        while i < count {
+            if i > 0 {
+                out = out + ",";
+            }
+            let k: str = vec_get(obj.keys, i);
+            let v: str = vec_get(obj.values, i);
+            out = out + quote + k + quote + ":" + v;
+            i = i + 1;
+        }
+        return out + "}";
+    }
+
+    struct JsonArray {
+        items: Vec<str>
+    }
+
+    fn json_array_new() -> JsonArray {
+        let it: Vec<str> = vec_new();
+        return JsonArray { items: it };
+    }
+
+    fn json_array_push_str(arr: JsonArray, val: str) {
+        vec_push(arr.items, json_val_str(val));
+    }
+
+    fn json_array_push_i64(arr: JsonArray, val: i64) {
+        vec_push(arr.items, json_val_i64(val));
+    }
+
+    fn json_array_push_bool(arr: JsonArray, val: bool) {
+        vec_push(arr.items, json_val_bool(val));
+    }
+
+    fn json_array_push_raw(arr: JsonArray, raw_json: str) {
+        vec_push(arr.items, raw_json);
+    }
+
+    fn json_array_to_json(arr: JsonArray) -> str {
+        let mut out: str = "[";
+        let count: i64 = vec_len(arr.items);
+        let mut i: i64 = 0;
+        while i < count {
+            if i > 0 {
+                out = out + ",";
+            }
+            let item: str = vec_get(arr.items, i);
+            out = out + item;
+            i = i + 1;
+        }
+        return out + "]";
+    }
+
+    fn json_skip_whitespace(src: str, start_idx: i64) -> i64 {
+        let mut i: i64 = start_idx;
+        let n: i64 = len(src);
+        while i < n {
+            let c: i64 = char_code_at(src, i);
+            if c != 32 && c != 9 && c != 10 && c != 13 {
+                return i;
+            }
+            i = i + 1;
+        }
+        return i;
+    }
+
+    fn json_extract_field(src: str, key: str) -> str {
+        let quote = from_char_code(34);
+        let target = quote + key + quote;
+        let key_idx = str_index_of(src, target);
+        if key_idx < 0 {
+            return "";
+        }
+        let after_key = key_idx + len(target);
+        let colon_idx = str_index_of(substring(src, after_key, len(src)), ":");
+        if colon_idx < 0 {
+            return "";
+        }
+        let val_start = json_skip_whitespace(src, after_key + colon_idx + 1);
+        if val_start >= len(src) {
+            return "";
+        }
+
+        let first_ch = char_code_at(src, val_start);
+        if first_ch == 34 {
+            // Quoted string: scan until matching closing unescaped quote
+            let mut j: i64 = val_start + 1;
+            while j < len(src) {
+                let ch: i64 = char_code_at(src, j);
+                if ch == 34 && char_code_at(src, j - 1) != 92 {
+                    return substring(src, val_start + 1, j);
+                }
+                j = j + 1;
+            }
+            return "";
+        }
+
+        if first_ch == 123 {
+            // Nested object { ... }: scan matching braces
+            let mut depth: i64 = 1;
+            let mut j: i64 = val_start + 1;
+            while j < len(src) && depth > 0 {
+                let ch: i64 = char_code_at(src, j);
+                if ch == 123 {
+                    depth = depth + 1;
+                } else if ch == 125 {
+                    depth = depth - 1;
+                }
+                j = j + 1;
+            }
+            return substring(src, val_start, j);
+        }
+
+        if first_ch == 91 {
+            // Nested array [ ... ]: scan matching brackets
+            let mut depth: i64 = 1;
+            let mut j: i64 = val_start + 1;
+            while j < len(src) && depth > 0 {
+                let ch: i64 = char_code_at(src, j);
+                if ch == 91 {
+                    depth = depth + 1;
+                } else if ch == 93 {
+                    depth = depth - 1;
+                }
+                j = j + 1;
+            }
+            return substring(src, val_start, j);
+        }
+
+        // Scalar literal (number, bool, null): scan until comma, closing brace, or bracket
+        let mut k: i64 = val_start;
+        while k < len(src) {
+            let ch: i64 = char_code_at(src, k);
+            if ch == 44 || ch == 125 || ch == 93 || ch == 32 || ch == 10 || ch == 13 || ch == 9 {
+                return substring(src, val_start, k);
+            }
+            k = k + 1;
+        }
+        return substring(src, val_start, len(src));
+    }
+
+    fn json_query_str(src: str, key: str) -> str {
+        return json_extract_field(src, key);
+    }
+
+    fn json_query_i64(src: str, key: str) -> i64 {
+        let raw = json_extract_field(src, key);
+        if len(raw) == 0 {
+            return 0;
+        }
+        return parse_int(raw);
+    }
+
+    fn json_query_bool(src: str, key: str) -> bool {
+        let raw = json_extract_field(src, key);
+        return raw == "true";
+    }
+
+    fn json_query_has(src: str, key: str) -> bool {
+        let quote = from_char_code(34);
+        let target = quote + key + quote;
+        return str_index_of(src, target) >= 0;
+    }
+
+    fn json_array_elements(raw_array: str) -> Vec<str> {
+        let elements: Vec<str> = vec_new();
+        let n: i64 = len(raw_array);
+        if n < 2 {
+            return elements;
+        }
+
+        let mut i: i64 = 0;
+        while i < n && char_code_at(raw_array, i) != 91 {
+            i = i + 1;
+        }
+        i = i + 1; // skip '['
+
+        while i < n {
+            i = json_skip_whitespace(raw_array, i);
+            if i >= n || char_code_at(raw_array, i) == 93 {
+                break;
+            }
+
+            let start: i64 = i;
+            let first_ch: i64 = char_code_at(raw_array, i);
+
+            if first_ch == 34 {
+                // String element
+                i = i + 1;
+                while i < n {
+                    let ch: i64 = char_code_at(raw_array, i);
+                    if ch == 34 && char_code_at(raw_array, i - 1) != 92 {
+                        let elem_str = substring(raw_array, start + 1, i);
+                        vec_push(elements, elem_str);
+                        i = i + 1;
+                        break;
+                    }
+                    i = i + 1;
+                }
+            } else if first_ch == 123 {
+                // Object element
+                let mut depth: i64 = 1;
+                i = i + 1;
+                while i < n && depth > 0 {
+                    let ch: i64 = char_code_at(raw_array, i);
+                    if ch == 123 { depth = depth + 1; }
+                    else if ch == 125 { depth = depth - 1; }
+                    i = i + 1;
+                }
+                vec_push(elements, substring(raw_array, start, i));
+            } else {
+                // Number / bool / raw
+                while i < n {
+                    let ch: i64 = char_code_at(raw_array, i);
+                    if ch == 44 || ch == 93 {
+                        break;
+                    }
+                    i = i + 1;
+                }
+                vec_push(elements, substring(raw_array, start, i));
+            }
+
+            // Skip comma
+            i = json_skip_whitespace(raw_array, i);
+            if i < n && char_code_at(raw_array, i) == 44 {
+                i = i + 1;
+            }
+        }
+
+        return elements;
+    }

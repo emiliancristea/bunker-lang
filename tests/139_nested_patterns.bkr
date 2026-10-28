@@ -1,0 +1,76 @@
+// Test 139: Nested Patterns
+// Milestone Q-247 / T-013
+
+kernel NestedPatterns {
+    struct Point {
+        x: i64,
+        y: i64,
+    }
+
+    fn eval_opt_point(opt: Option<Point>) -> i64 {
+        let val: i64 = match opt {
+            Some(Point { x, y }) => x + y;
+            None => 0;
+        };
+        return val;
+    }
+
+    fn eval_opt_tuple(opt: Option<(i64, i64)>) -> i64 {
+        let val: i64 = match opt {
+            Some((a, b)) => a + b;
+            None => 0;
+        };
+        return val;
+    }
+
+    fn eval_result_opt(res: Result<Option<i64>, str>) -> i64 {
+        let val: i64 = match res {
+            Ok(Some(v)) => v;
+            Ok(None) => 1;
+            Err(e) => -1;
+        };
+        return val;
+    }
+
+    fn eval_tuple_opts(p: (Option<i64>, Option<i64>)) -> i64 {
+        let val: i64 = match p {
+            (Some(a), Some(b)) => a + b;
+            (Some(a), None) => a;
+            (None, Some(b)) => b;
+            (None, None) => 0;
+        };
+        return val;
+    }
+
+    fn eval_result_point(res: Result<Point, str>) -> i64 {
+        let val: i64 = match res {
+            Ok(Point { x, y }) => x + y;
+            Err(e) => 0;
+        };
+        return val;
+    }
+
+    fn main() -> i64 {
+        let p = Point { x: 10, y: 10 };
+        let s1: i64 = eval_opt_point(Some(p)); // 20
+
+        let s2: i64 = eval_opt_tuple(Some((5, 5))); // 10
+
+        let s3: i64 = eval_result_opt(result_ok(Some(7))); // 7
+
+        let s4: i64 = eval_tuple_opts((Some(3), Some(2))); // 5
+
+        let s5: i64 = eval_result_point(result_ok(Point { x: 50, y: 50 })); // 100
+        if s5 != 100 {
+            return 1;
+        }
+
+        let none_point: Option<Point> = None;
+        let s_none: i64 = eval_opt_point(none_point);
+        if s_none != 0 {
+            return 2;
+        }
+
+        return s1 + s2 + s3 + s4; // 20 + 10 + 7 + 5 = 42
+    }
+}

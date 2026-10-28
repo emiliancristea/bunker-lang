@@ -1,0 +1,90 @@
+// Test 140: Comprehensive Match Exhaustiveness
+// Purpose: Verify exhaustive match checking across bool, Option, Result,
+// unit-enum, payload-enum, nested patterns, and scalar types with catch-all.
+// Expected: Returns 42
+
+kernel ExhaustiveMatches {
+    enum Color {
+        Red,
+        Green,
+        Blue,
+    }
+
+    enum Shape {
+        Circle(i64),
+        Rect(i64, i64),
+        Point,
+    }
+
+    fn check_bool(b: bool) -> i64 {
+        let res: i64 = match b {
+            true => 5;
+            false => 2;
+        };
+        return res;
+    }
+
+    fn check_option(o: Option<i64>) -> i64 {
+        let res: i64 = match o {
+            Some(v) => v + 1;
+            None => 0;
+        };
+        return res;
+    }
+
+    fn check_result(r: Result<i64, str>) -> i64 {
+        let res: i64 = match r {
+            Ok(v) => v + 2;
+            Err(e) => 0;
+        };
+        return res;
+    }
+
+    fn check_unit_enum(c: Color) -> i64 {
+        let res: i64 = match c {
+            Color.Red => 10;
+            Color.Green => 20;
+            Color.Blue => 30;
+        };
+        return res;
+    }
+
+    fn check_payload_enum(s: Shape) -> i64 {
+        let res: i64 = match s {
+            Shape.Circle(r) => r * 2;
+            Shape.Rect(w, h) => w + h;
+            Shape.Point => 1;
+        };
+        return res;
+    }
+
+    fn check_nested(res: Result<Option<i64>, str>) -> i64 {
+        let val: i64 = match res {
+            Ok(Some(v)) => v * 3;
+            Ok(None) => 7;
+            Err(e) => -1;
+        };
+        return val;
+    }
+
+    fn check_scalar_catchall(n: i64) -> i64 {
+        let val: i64 = match n {
+            1 => 100;
+            2 => 200;
+            _ => 10;
+        };
+        return val;
+    }
+
+    fn main() -> i64 {
+        let v_bool = check_bool(true);       // 5
+        let v_opt = check_option(Some(3));   // 4
+        let v_res = check_result(result_ok(6)); // 8
+        let v_unit = check_unit_enum(Color.Red); // 10
+        let v_payload = check_payload_enum(Shape.Rect(2, 2)); // 4
+        let v_nested = check_nested(result_ok(None)); // 7
+        let v_scalar = check_scalar_catchall(99); // 10
+        // Total sum = 5 - 4 + 8 + 10 + 4 + 7 + 12 = 42
+        return v_bool - v_opt + v_res + v_unit + v_payload + v_nested + (v_scalar + 2);
+    }
+}
