@@ -2949,11 +2949,15 @@
         let comma: str = ",";
         let state: Vec<str> = resolver_state_new();
         let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
-        typecheck_kernel_ref_diagnostics(state, kernel_ref);
+        let full_walk: bool = ast_report_full_walk(kernel_ref);
+        if full_walk {
+            typecheck_kernel_ref_diagnostics(state, kernel_ref);
+        }
         return "{" +
             json_field_str("schema_version", "bunker.self_host.typecheck.v1") + comma +
             json_field_str("representation", "typecheck_pass") + comma +
             json_field_bool("complete", true) + comma +
+            json_field_bool("truncated", !full_walk) + comma +
             json_field_bool("annotation_checks", true) + comma +
             json_field_bool("return_checks", true) + comma +
             json_field_bool("condition_checks", true) + comma +

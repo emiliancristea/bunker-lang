@@ -1238,6 +1238,8 @@ jobs:
           grep -q 'let full_walk: bool = ast_report_full_walk(kernel_ref);' self-host/modules/symbol_table.bkr
           grep -q 'let full_walk: bool = ast_report_full_walk(kernel_ref);' self-host/modules/type_graph.bkr
           grep -q 'let full_walk: bool = ast_report_full_walk(kernel_ref);' self-host/modules/ast_report.bkr
+          grep -q 'let full_walk: bool = ast_report_full_walk(kernel_ref);' self-host/modules/resolver.bkr
+          grep -q 'let full_walk: bool = ast_report_full_walk(kernel_ref);' self-host/modules/typecheck.bkr
 
       - name: Require symbol-table statement AST refs
         shell: bash
@@ -3113,6 +3115,7 @@ jobs:
         timeout-minutes: 25
         run: |
           echo "[self-host smoke] stage1 compile bkrc"
+          rm -rf /tmp/bunker-self-host-compile-*
           (
             while true; do
               for trace in /tmp/bunker-self-host-compile-*/self_host_trace.log; do
@@ -3130,6 +3133,7 @@ jobs:
             -o /tmp/bkrc.c
           stage1_status=$?
           kill "$trace_pid" 2>/dev/null || true
+          wait "$trace_pid" 2>/dev/null || true
           set -e
           if [ "$stage1_status" -ne 0 ]; then
             echo "[self-host smoke] stage1 compile failed with status $stage1_status"

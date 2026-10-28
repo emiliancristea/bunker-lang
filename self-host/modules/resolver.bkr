@@ -905,11 +905,15 @@
         let comma = ",";
         let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
         let state = resolver_state_new();
-        resolver_kernel_ref_diagnostics(state, kernel_ref);
+        let full_walk: bool = ast_report_full_walk(kernel_ref);
+        if full_walk {
+            resolver_kernel_ref_diagnostics(state, kernel_ref);
+        }
         return "{" +
             json_field_str("schema_version", "bunker.self_host.resolver.v1") + comma +
             json_field_str("representation", "bootstrap_name_resolver") + comma +
             json_field_bool("complete", true) + comma +
+            json_field_bool("truncated", !full_walk) + comma +
             json_field_bool("duplicate_detection", true) + comma +
             json_field_bool("unresolved_detection", true) + comma +
             json_field_bool("visibility_checking", true) + comma +
