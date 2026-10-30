@@ -8,7 +8,7 @@ Thank you for your interest in contributing to Bunker! This document provides gu
 2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/bunker-lang.git`
 3. Create a branch: `git checkout -b feature/your-feature-name`
 4. Make your changes in `self-host/modules/` or `tests/`
-5. Run tests: `./run_tests.ps1`
+5. Run tests: `./bkrc run tools/test_runner.bkr`
 6. Commit: `git commit -m "Add your feature"`
 7. Push: `git push origin feature/your-feature-name`
 8. Open a Pull Request
@@ -36,11 +36,16 @@ bootstrap\build.bat
 
 ### Running Tests
 
-```powershell
-# Run full 320-test automated validation suite (Windows / PowerShell)
-$env:GITHUB_ACTIONS = "true"
-.\run_tests.ps1 -Verbose
+```bash
+# Run the full suite (Linux; needs a C compiler on PATH, override with BKR_CC)
+./bkrc run tools/test_runner.bkr
 ```
+
+The runner checks every `tests/*.bkr` file for real: `*_BAD` files must be rejected by
+`bkrc check`, files listed in `tests/expected_results.txt` must build, run and exit with the
+listed code, and the rest must pass `bkrc check`. Tests in `tests/known_failures.txt` may
+fail; any other failure fails the run, and so does a known failure that starts passing
+(remove it from the list in the same change).
 
 ```bash
 # Check or run specific tests using bkrc directly
@@ -100,7 +105,7 @@ When modifying compiler logic in `self-host/modules/*.bkr`:
    cd bootstrap; (Get-FileHash bkrc-stage1.c, bkrc-stage2.c, runtime.h -Algorithm SHA256) | ForEach-Object { "$($_.Hash.ToLower())  $($_.Path | Split-Path -Leaf)" } | Out-File -Encoding ascii SHA256SUMS
    ```
 7. **Run tests**:
-   Ensure all 320 tests pass cleanly with `./run_tests.ps1`.
+   Ensure `./bkrc run tools/test_runner.bkr` reports 0 unexpected failures.
 
 ## Code Style & Invariants
 

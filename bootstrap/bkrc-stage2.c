@@ -2,11 +2,11 @@
 */
 /* BUNKER_IMPORT_GRAPH_JSON: {"schema_version":"bunker.self_host.import_graph.v1","root_base_dir":"self-host","path_policy":"normalized_relative_forward_slash","base_directory_resolution":true,"recursive_expansion":true,"duplicate_suppression":true,"cycle_safe_expansion":true,"unique_import_count":20,"edge_count":20,"ok_edge_count":20,"missing_edge_count":0,"invalid_edge_count":0,"duplicate_edge_count":0,"duplicate_or_cycle_edge_count":0,"imports":["self-host/modules/constants.bkr","self-host/modules/kind_model.bkr","self-host/modules/ast.bkr","self-host/modules/lexer_result.bkr","self-host/modules/lexer.bkr","self-host/modules/parser_state.bkr","self-host/modules/parser.bkr","self-host/modules/cgen_state.bkr","self-host/modules/c_codegen.bkr","self-host/modules/json.bkr","self-host/modules/report_support.bkr","self-host/modules/ast_report.bkr","self-host/modules/symbol_table.bkr","self-host/modules/type_graph.bkr","self-host/modules/resolver.bkr","self-host/modules/typecheck.bkr","self-host/modules/shell.bkr","self-host/modules/view.bkr","self-host/modules/verify.bkr","self-host/modules/driver.bkr"],"edges":[{"from_base":"self-host","requested":"modules/constants.bkr","resolved":"self-host/modules/constants.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/kind_model.bkr","resolved":"self-host/modules/kind_model.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/ast.bkr","resolved":"self-host/modules/ast.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/lexer_result.bkr","resolved":"self-host/modules/lexer_result.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/lexer.bkr","resolved":"self-host/modules/lexer.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/parser_state.bkr","resolved":"self-host/modules/parser_state.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/parser.bkr","resolved":"self-host/modules/parser.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/cgen_state.bkr","resolved":"self-host/modules/cgen_state.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/c_codegen.bkr","resolved":"self-host/modules/c_codegen.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/json.bkr","resolved":"self-host/modules/json.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/report_support.bkr","resolved":"self-host/modules/report_support.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/ast_report.bkr","resolved":"self-host/modules/ast_report.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/symbol_table.bkr","resolved":"self-host/modules/symbol_table.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/type_graph.bkr","resolved":"self-host/modules/type_graph.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/resolver.bkr","resolved":"self-host/modules/resolver.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/typecheck.bkr","resolved":"self-host/modules/typecheck.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/shell.bkr","resolved":"self-host/modules/shell.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/view.bkr","resolved":"self-host/modules/view.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/verify.bkr","resolved":"self-host/modules/verify.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/driver.bkr","resolved":"self-host/modules/driver.bkr","status":"ok"}],"has_duplicate_or_cycle_import":false,"has_invalid_import":false,"invalid_import":"","has_missing_import":false,"missing_import":""}
 */
-/* BUNKER_AST_JSON: {"schema_version":"bunker.self_host.ast.v1","representation":"bootstrap_vec_i64","source_byte_spans":true,"complete_tree":false,"truncated":true,"root":{"kind":"kernel","name":"BunkerCompiler","entry":"main","source_start":178,"source_end":822336,"span_known":true},"summary":{"source_bytes":822337,"source_lines":18336,"item_count":1665,"function_count":1454,"struct_count":58,"enum_count":7,"const_count":146},"items":[],"tree":{"kind":"kernel"}}
+/* BUNKER_AST_JSON: {"schema_version":"bunker.self_host.ast.v1","representation":"bootstrap_vec_i64","source_byte_spans":true,"complete_tree":false,"truncated":true,"root":{"kind":"kernel","name":"BunkerCompiler","entry":"main","source_start":178,"source_end":825343,"span_known":true},"summary":{"source_bytes":825344,"source_lines":18429,"item_count":1671,"function_count":1460,"struct_count":58,"enum_count":7,"const_count":146},"items":[],"tree":{"kind":"kernel"}}
 */
-/* BUNKER_TYPE_GRAPH_JSON: {"schema_version":"bunker.self_host.type_graph.v1","representation":"bootstrap_codegen_inference","complete":false,"declared_types":false,"local_inference":false,"truncated":true,"known_limits":"Derived from declarations plus bootstrap C codegen inference; no real Bunker typechecker, generic graph, trait constraints, exhaustiveness graph, or cross-module type graph yet. Detail arrays are omitted when interned names exceed AST_REPORT_FULL_WALK_NAME_LIMIT.","summary":{"function_count":1454,"struct_count":58,"const_count":146},"structs":[],"constants":[],"functions":[]}
+/* BUNKER_TYPE_GRAPH_JSON: {"schema_version":"bunker.self_host.type_graph.v1","representation":"bootstrap_codegen_inference","complete":false,"declared_types":false,"local_inference":false,"truncated":true,"known_limits":"Derived from declarations plus bootstrap C codegen inference; no real Bunker typechecker, generic graph, trait constraints, exhaustiveness graph, or cross-module type graph yet. Detail arrays are omitted when interned names exceed AST_REPORT_FULL_WALK_NAME_LIMIT.","summary":{"function_count":1460,"struct_count":58,"const_count":146},"structs":[],"constants":[],"functions":[]}
 */
-/* BUNKER_SYMBOL_TABLE_JSON: {"schema_version":"bunker.self_host.symbol_table.v1","representation":"bootstrap_ast_walk","complete":false,"declarations":false,"references":false,"truncated":true,"scope_model":"bootstrap kernel/function/struct scopes paired with BUNKER_RESOLVER_JSON validation","known_limits":"Derived from AST names and paired with BUNKER_RESOLVER_JSON for bootstrap duplicate/unresolved diagnostics; imports, visibility, overloads, and related definition-use spans are not complete yet. Full declaration/reference tables are omitted when interned names exceed AST_REPORT_FULL_WALK_NAME_LIMIT so stage1 compile of bkrc stays inside runner memory.","resolver_report":"BUNKER_RESOLVER_JSON","summary":{"interned_name_count":2710,"function_count":1454,"struct_count":58,"const_count":146},"declaration_table":[],"reference_table":[]}
+/* BUNKER_SYMBOL_TABLE_JSON: {"schema_version":"bunker.self_host.symbol_table.v1","representation":"bootstrap_ast_walk","complete":false,"declarations":false,"references":false,"truncated":true,"scope_model":"bootstrap kernel/function/struct scopes paired with BUNKER_RESOLVER_JSON validation","known_limits":"Derived from AST names and paired with BUNKER_RESOLVER_JSON for bootstrap duplicate/unresolved diagnostics; imports, visibility, overloads, and related definition-use spans are not complete yet. Full declaration/reference tables are omitted when interned names exceed AST_REPORT_FULL_WALK_NAME_LIMIT so stage1 compile of bkrc stays inside runner memory.","resolver_report":"BUNKER_RESOLVER_JSON","summary":{"interned_name_count":2743,"function_count":1460,"struct_count":58,"const_count":146},"declaration_table":[],"reference_table":[]}
 */
 /* BUNKER_RESOLVER_JSON: {"schema_version":"bunker.self_host.resolver.v1","representation":"bootstrap_name_resolver","complete":true,"truncated":true,"duplicate_detection":true,"unresolved_detection":true,"visibility_checking":true,"import_graph_awareness":true,"cross_file_definitions":true,"related_declarations":true,"structured_repair_metadata":true,"diagnostic_phase_field":true,"diagnostic_rule_ids":true,"diagnostic_severity":true,"diagnostic_severity_counts":true,"suggested_edit_envelope":true,"has_diagnostics":false,"diagnostic_count":0,"error_count":0,"warning_count":0,"scope_model":"kernel globals plus function/block/pattern binding scopes using interned names with visibility boundaries","known_limits":"Resolver validates duplicate declarations, unresolved identifiers, calls, struct types, struct literals, and struct literal fields with related declaration span objects; import visibility boundaries and cross-file definition origins verified.","diagnostics":[]}
 */
@@ -2002,7 +2002,13 @@ bkr_i64 _v2668(bkr_str _v2623);
 bkr_str _v2671(bkr_str _v1209);
 bkr_str _v2672(bkr_str _v1209, bkr_str _v2673);
 bkr_bool _v2684(bkr_str _v2685);
-bkr_i32 _v2688(void);
+bkr_str _v2688(bkr_str _v1826, bkr_str _v2689);
+bkr_str _v2693(bkr_str _v1290);
+bkr_str _v2696(void);
+bkr_bool _v2701(bkr_str _v2685);
+bkr_bool _v2705(bkr_str _v2706);
+bkr_bool _v2707(void);
+bkr_i32 _v2708(void);
 
 bkr_str _v318(bkr_i64 _v319) {
     if ((_v319 == 1)) {
@@ -9544,7 +9550,7 @@ bkr_i64 _v1651(bkr_str _v1640) {
         return _v306;
     }
     if (bkr_str_eq(_v1640, "str_split")) {
-        return _v308;
+        return _v310;
     }
     if (bkr_str_eq(_v1640, "str_to_upper")) {
         return _v306;
@@ -19453,83 +19459,148 @@ bkr_bool _v2684(bkr_str _v2685) {
     return BKR_FALSE;
 }
 
-bkr_i32 _v2688(void) {
-    bkr_i64 _v2690 = bkr_args_count();
-    if ((file_exists("self_host_input.bkr") || (_v2690 <= 1))) {
-        bkr_str _v2692 = "self_host_input.bkr";
-        bkr_str _v2693 = "self_host_output.c";
-        bkr_str _v2694 = "kernel Test { fn main() -> i32 { let x: i32 = 40; let y: i32 = 2; return x + y; } }";
-        if ((!file_exists(_v2692))) {
-            write_file(_v2692, _v2694);
-        }
-        bkr_str _v1209 = read_file(_v2692);
-        bkr_str _v2685 = _v2672(_v1209, _v2562(_v2692));
-        write_file(_v2693, _v2685);
-        return 42;
+bkr_str _v2688(bkr_str _v1826, bkr_str _v2689) {
+    if ((!bkr_env_has((bkr_str)(intptr_t)(_v1826)))) {
+        return _v2689;
     }
-    bkr_str _v2695 = bkr_arg_at(1);
-    if ((bkr_str_eq(_v2695, "capability") || bkr_str_eq(_v2695, "--capability"))) {
+    bkr_i64 _v387 = bkr_env_get((bkr_str)(intptr_t)(_v1826));
+    return ({ bkr_i64 _match_val_0 = _v387; bkr_i64 _match_res_1 = 0; int _matched_2 = 0; if (!_matched_2 && (((_match_val_0 & 1) != 0))) { bkr_i64 _v2200 = (_match_val_0 >> 1); _match_res_1 = _v2200; _matched_2 = 1; } if (!_matched_2 && ((_match_val_0 == 0))) { _match_res_1 = _v2689; _matched_2 = 1; } _match_res_1; });
+}
+
+bkr_str _v2693(bkr_str _v1290) {
+    bkr_str _v2694 = from_char_code(39);
+    return bkr_str_concat(bkr_str_concat(_v2694, bkr_str_replace((bkr_str)(intptr_t)(_v1290), (bkr_str)(intptr_t)(_v2694), (bkr_str)(intptr_t)(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2694, from_char_code(92)), _v2694), _v2694)))), _v2694);
+}
+
+bkr_str _v2696(void) {
+    bkr_str _v2697 = _v2688("BKR_RUNTIME_DIR", "");
+    if ((bkr_len((bkr_str)(intptr_t)(_v2697)) > 0)) {
+        return _v2697;
+    }
+    bkr_str _v2698 = bkr_path_dir((bkr_str)(intptr_t)(bkr_arg_at(0)));
+    if ((bkr_len((bkr_str)(intptr_t)(_v2698)) == 0)) {
+        _v2698 = ".";
+    }
+    if (file_exists(bkr_str_concat(_v2698, "/bootstrap/runtime.h"))) {
+        return bkr_str_concat(_v2698, "/bootstrap");
+    }
+    if (file_exists(bkr_str_concat(_v2698, "/runtime.h"))) {
+        return _v2698;
+    }
+    return "bootstrap";
+}
+
+bkr_bool _v2701(bkr_str _v2685) {
+    bkr_str _v2686 = from_char_code(34);
+    bkr_str _v2702 = bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2686, "has_diagnostics"), _v2686), ":true");
+    bkr_i64 _v1536 = bkr_str_split((bkr_str)(intptr_t)(_v2685), (bkr_str)(intptr_t)(from_char_code(10)));
+    bkr_i64 _v1168 = 0;
+    while ((_v1168 < vec_len(_v1536))) {
+        bkr_str _v1582 = (bkr_str)(intptr_t)(vec_get(_v1536, _v1168));
+        if (contains(_v1582, _v2702)) {
+            bkr_println(_v1582);
+        }
+        _v1168 = (_v1168 + 1);
+    }
+    return BKR_TRUE;
+}
+
+bkr_bool _v2705(bkr_str _v2706) {
+    if ((!file_exists(_v2706))) {
+        return BKR_FALSE;
+    }
+    bkr_str _v1209 = read_file(_v2706);
+    bkr_str _v2685 = _v2672(_v1209, _v2562(_v2706));
+    return (!_v2684(_v2685));
+}
+
+bkr_bool _v2707(void) {
+    bkr_println("Usage: bkrc <command> [args]");
+    bkr_println("  check <file.bkr>                 Parse, resolve and typecheck");
+    bkr_println("  compile <file.bkr> [-o out.c]    Emit C for the program");
+    bkr_println("  run <file.bkr>                   Compile, build and execute; prints Result: <exit code>");
+    bkr_println("  parse <file.bkr> [--ast-json]    Print the AST report");
+    bkr_println("  self-host-check [dir]            Check the self-host compiler sources");
+    bkr_println("  capability                       Print the capability report");
+    return BKR_TRUE;
+}
+
+bkr_i32 _v2708(void) {
+    bkr_i64 _v2710 = bkr_args_count();
+    if ((_v2710 <= 1)) {
+        _v2707();
+        return 1;
+    }
+    bkr_str _v2712 = bkr_arg_at(1);
+    if ((bkr_str_eq(_v2712, "capability") || bkr_str_eq(_v2712, "--capability"))) {
         bkr_println(_v2626());
         return 0;
     }
-    if (bkr_str_eq(_v2695, "self-host-check")) {
-        bkr_str _v2698 = "self-host";
+    if (bkr_str_eq(_v2712, "self-host-check")) {
+        bkr_str _v2713 = "self-host";
         bkr_i64 _v1168 = 2;
-        while ((_v1168 < _v2690)) {
+        while ((_v1168 < _v2710)) {
             bkr_str _v1802 = bkr_arg_at(_v1168);
             if (((!starts_with(_v1802, "-")) && (bkr_len((bkr_str)(intptr_t)(_v1802)) > 0))) {
-                _v2698 = _v1802;
+                _v2713 = _v1802;
             }
             _v1168 = (_v1168 + 1);
         }
-        if ((ends_with(_v2698, "/") || ends_with(_v2698, "\\\\"))) {
-            _v2698 = substring(_v2698, 0, (bkr_len((bkr_str)(intptr_t)(_v2698)) - 1));
+        if ((ends_with(_v2713, "/") || ends_with(_v2713, "\\\\"))) {
+            _v2713 = substring(_v2713, 0, (bkr_len((bkr_str)(intptr_t)(_v2713)) - 1));
         }
-        bkr_println(bkr_str_concat("Checking self-host sources in ", _v2698));
-        bkr_println(bkr_str_concat(bkr_str_concat("  PASS ", _v2698), "/bkrc.bkr"));
-        bkr_println(bkr_str_concat(bkr_str_concat("  PASS ", _v2698), "/bkrc_simple.bkr"));
-        bkr_println(bkr_str_concat(bkr_str_concat("  PASS ", _v2698), "/c_codegen.bkr"));
-        bkr_println(bkr_str_concat(bkr_str_concat("  PASS ", _v2698), "/codegen.bkr"));
-        bkr_println(bkr_str_concat(bkr_str_concat("  PASS ", _v2698), "/compiler.bkr"));
-        bkr_println(bkr_str_concat(bkr_str_concat("  PASS ", _v2698), "/lexer.bkr"));
-        bkr_println(bkr_str_concat(bkr_str_concat("  PASS ", _v2698), "/parser.bkr"));
-        bkr_println(bkr_str_concat(bkr_str_concat("  PASS ", _v2698), "/typeck.bkr"));
+        bkr_println(bkr_str_concat("Checking self-host sources in ", _v2713));
+        bkr_i64 _v425 = bkr_str_split((bkr_str)(intptr_t)("bkrc.bkr,bkrc_simple.bkr,c_codegen.bkr,codegen.bkr,compiler.bkr,lexer.bkr,parser.bkr,typeck.bkr"), (bkr_str)(intptr_t)(","));
+        bkr_i64 _v2714 = 0;
+        bkr_i64 _v1629 = 0;
+        while ((_v1629 < vec_len(_v425))) {
+            bkr_str _v2715 = bkr_str_concat(bkr_str_concat(_v2713, "/"), vec_get(_v425, _v1629));
+            if (_v2705(_v2715)) {
+                bkr_println(bkr_str_concat("  PASS ", _v2715));
+                _v2714 = (_v2714 + 1);
+            } else {
+                bkr_println(bkr_str_concat("  FAIL ", _v2715));
+            }
+            _v1629 = (_v1629 + 1);
+        }
         bkr_println("");
-        bkr_println("Self-host readiness: 8/8 file(s) passing, 0 diagnostic(s)");
-        bkr_println("Ready: All Bunker self-host sources pass current checks.");
+        bkr_println(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("Self-host readiness: ", int_to_string(_v2714)), "/"), int_to_string(vec_len(_v425))), " file(s) passing"));
+        if ((_v2714 != vec_len(_v425))) {
+            return 1;
+        }
         return 0;
     }
-    if (bkr_str_eq(_v2695, "check")) {
-        bkr_str _v2699 = "";
-        bkr_bool _v2700 = BKR_FALSE;
-        bkr_bool _v2701 = BKR_FALSE;
-        bkr_bool _v2702 = BKR_FALSE;
-        bkr_bool _v2703 = BKR_FALSE;
-        bkr_bool _v2704 = BKR_FALSE;
-        bkr_bool _v2705 = BKR_FALSE;
+    if (bkr_str_eq(_v2712, "check")) {
+        bkr_str _v2716 = "";
+        bkr_bool _v2717 = BKR_FALSE;
+        bkr_bool _v2718 = BKR_FALSE;
+        bkr_bool _v2719 = BKR_FALSE;
+        bkr_bool _v2720 = BKR_FALSE;
+        bkr_bool _v2721 = BKR_FALSE;
+        bkr_bool _v2722 = BKR_FALSE;
         bkr_i64 _v1168 = 2;
-        while ((_v1168 < _v2690)) {
+        while ((_v1168 < _v2710)) {
             bkr_str _v1802 = bkr_arg_at(_v1168);
             if (bkr_str_eq(_v1802, "--capability-json")) {
-                _v2700 = BKR_TRUE;
+                _v2717 = BKR_TRUE;
             } else {
                 if (bkr_str_eq(_v1802, "--ast-json")) {
-                    _v2701 = BKR_TRUE;
+                    _v2718 = BKR_TRUE;
                 } else {
                     if (bkr_str_eq(_v1802, "--type-graph")) {
-                        _v2702 = BKR_TRUE;
+                        _v2719 = BKR_TRUE;
                     } else {
                         if (bkr_str_eq(_v1802, "--symbol-table")) {
-                            _v2703 = BKR_TRUE;
+                            _v2720 = BKR_TRUE;
                         } else {
                             if (bkr_str_eq(_v1802, "--typecheck-json")) {
-                                _v2704 = BKR_TRUE;
+                                _v2721 = BKR_TRUE;
                             } else {
                                 if (bkr_str_eq(_v1802, "--resolver-json")) {
-                                    _v2705 = BKR_TRUE;
+                                    _v2722 = BKR_TRUE;
                                 } else {
-                                    if (((!starts_with(_v1802, "-")) && (bkr_len((bkr_str)(intptr_t)(_v2699)) == 0))) {
-                                        _v2699 = bkr_arg_at(_v1168);
+                                    if (((!starts_with(_v1802, "-")) && (bkr_len((bkr_str)(intptr_t)(_v2716)) == 0))) {
+                                        _v2716 = bkr_arg_at(_v1168);
                                     }
                                 }
                             }
@@ -19539,98 +19610,109 @@ bkr_i32 _v2688(void) {
             }
             _v1168 = (_v1168 + 1);
         }
-        if (file_exists(bkr_str_concat(_v2699, "/bkrc.bkr"))) {
-            _v2699 = bkr_str_concat(_v2699, "/bkrc.bkr");
+        if (file_exists(bkr_str_concat(_v2716, "/bkrc.bkr"))) {
+            _v2716 = bkr_str_concat(_v2716, "/bkrc.bkr");
         }
-        if (((bkr_len((bkr_str)(intptr_t)(_v2699)) == 0) || (!file_exists(_v2699)))) {
-            bkr_println(bkr_str_concat("Error: input file not found: ", _v2699));
+        if (((bkr_len((bkr_str)(intptr_t)(_v2716)) == 0) || (!file_exists(_v2716)))) {
+            bkr_println(bkr_str_concat("Error: input file not found: ", _v2716));
             return 1;
         }
-        bkr_str _v1209 = read_file(_v2699);
-        bkr_str _v2685 = _v2672(_v1209, _v2562(_v2699));
-        if ((((((_v2700 || _v2701) || _v2702) || _v2703) || _v2704) || _v2705)) {
+        bkr_str _v1209 = read_file(_v2716);
+        bkr_str _v2685 = _v2672(_v1209, _v2562(_v2716));
+        if ((((((_v2717 || _v2718) || _v2719) || _v2720) || _v2721) || _v2722)) {
             bkr_println(_v2685);
             return 0;
         }
-        if ((contains(_v2699, "_BAD") || _v2684(_v2685))) {
-            bkr_println(bkr_str_concat("Error: diagnostics found in ", _v2699));
+        if (_v2684(_v2685)) {
+            _v2701(_v2685);
+            bkr_println(bkr_str_concat("Error: diagnostics found in ", _v2716));
             return 1;
         }
-        bkr_println(bkr_str_concat("Checking ", _v2699));
+        bkr_println(bkr_str_concat("Checking ", _v2716));
         bkr_println("Success: No errors found.");
         return 0;
     }
-    if (bkr_str_eq(_v2695, "run")) {
-        bkr_str _v2699 = "";
+    if (bkr_str_eq(_v2712, "run")) {
+        bkr_str _v2716 = "";
         bkr_i64 _v1168 = 2;
-        while ((_v1168 < _v2690)) {
+        while ((_v1168 < _v2710)) {
             bkr_str _v1802 = bkr_arg_at(_v1168);
-            if (((!starts_with(_v1802, "-")) && (bkr_len((bkr_str)(intptr_t)(_v2699)) == 0))) {
-                _v2699 = bkr_arg_at(_v1168);
+            if (((!starts_with(_v1802, "-")) && (bkr_len((bkr_str)(intptr_t)(_v2716)) == 0))) {
+                _v2716 = bkr_arg_at(_v1168);
             }
             _v1168 = (_v1168 + 1);
         }
-        if (((bkr_len((bkr_str)(intptr_t)(_v2699)) == 0) || (!file_exists(_v2699)))) {
-            bkr_println(bkr_str_concat("Error: input file not found: ", _v2699));
+        if (((bkr_len((bkr_str)(intptr_t)(_v2716)) == 0) || (!file_exists(_v2716)))) {
+            bkr_println(bkr_str_concat("Error: input file not found: ", _v2716));
             return 1;
         }
-        bkr_str _v1717 = "42";
-        if ((contains(_v2699, "while_loop") || contains(_v2699, "for_range"))) {
-            _v1717 = "55";
-        } else {
-            if ((((contains(_v2699, "while_break") || contains(_v2699, "option_basic")) || contains(_v2699, "len_builtin")) || contains(_v2699, "for_break"))) {
-                _v1717 = "15";
-            } else {
-                if (contains(_v2699, "match_block")) {
-                    _v1717 = "12";
-                } else {
-                    if (contains(_v2699, "string_concat")) {
-                        _v1717 = "11";
-                    } else {
-                        if ((contains(_v2699, "match_binding") || contains(_v2699, "option_if_infer"))) {
-                            _v1717 = "7";
-                        } else {
-                            if (contains(_v2699, "loop_break")) {
-                                _v1717 = "5";
-                            } else {
-                                if (contains(_v2699, "for_continue")) {
-                                    _v1717 = "25";
-                                } else {
-                                    if (contains(_v2699, "type_cast")) {
-                                        _v1717 = "46";
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        bkr_str _v1209 = read_file(_v2716);
+        bkr_str _v2685 = _v2672(_v1209, _v2562(_v2716));
+        if (_v2684(_v2685)) {
+            _v2701(_v2685);
+            bkr_println(bkr_str_concat("Error: diagnostics found in ", _v2716));
+            return 1;
         }
-        bkr_println(bkr_str_concat("Running ", _v2699));
-        bkr_println(bkr_str_concat("Result: ", _v1717));
-        return 0;
+        bkr_str _v2723 = bkr_str_concat(bkr_str_concat(_v2688("TMPDIR", "/tmp"), "/bkr-run-"), int_to_string(process_pid()));
+        bkr_str _v2725 = bkr_str_concat(_v2723, ".c");
+        bkr_str _v2726 = bkr_str_concat(_v2723, ".out");
+        bkr_str _v2727 = bkr_str_concat(_v2723, ".log");
+        if ((!write_file(_v2725, _v2685))) {
+            bkr_println(bkr_str_concat("Error: cannot write ", _v2725));
+            return 1;
+        }
+        bkr_str _v2728 = _v2688("BKR_CC", _v2688("CC", "cc"));
+        bkr_str _v2729 = bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2728, " -std=c11 -w -I "), _v2693(_v2696())), " "), _v2693(_v2725)), " -o "), _v2693(_v2726)), " -lm > "), _v2693(_v2727)), " 2>&1");
+        bkr_i64 _v2730 = process_run_status(_v2729);
+        bkr_i64 _v2732 = 1;
+        if (bkr_result_is_ok(_v2730)) {
+            _v2732 = bkr_result_unwrap(_v2730);
+        }
+        if ((_v2732 != 0)) {
+            if (file_exists(_v2727)) {
+                bkr_print(read_file(_v2727));
+            }
+            bkr_println(bkr_str_concat("Error: C backend failed to build ", _v2716));
+            file_remove(_v2725);
+            file_remove(_v2727);
+            return 1;
+        }
+        bkr_i64 _v2737 = process_run_status(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2693(_v2726), " > "), _v2693(_v2727)), " 2>&1"));
+        if ((!bkr_result_is_ok(_v2737))) {
+            bkr_println(bkr_str_concat("Error: failed to execute ", _v2726));
+            return 1;
+        }
+        bkr_i64 _v2738 = bkr_result_unwrap(_v2737);
+        if (file_exists(_v2727)) {
+            bkr_print(read_file(_v2727));
+        }
+        bkr_println(bkr_str_concat("Result: ", int_to_string(_v2738)));
+        file_remove(_v2725);
+        file_remove(_v2726);
+        file_remove(_v2727);
+        return ((bkr_i32)(_v2738));
     }
-    if (bkr_str_eq(_v2695, "parse")) {
-        bkr_str _v2699 = "";
-        bkr_bool _v2706 = BKR_FALSE;
+    if (bkr_str_eq(_v2712, "parse")) {
+        bkr_str _v2716 = "";
+        bkr_bool _v2739 = BKR_FALSE;
         bkr_i64 _v1168 = 2;
-        while ((_v1168 < _v2690)) {
+        while ((_v1168 < _v2710)) {
             bkr_str _v1802 = bkr_arg_at(_v1168);
             if (bkr_str_eq(_v1802, "--ast-json")) {
-                _v2706 = BKR_TRUE;
+                _v2739 = BKR_TRUE;
             } else {
-                if (((!starts_with(_v1802, "-")) && (bkr_len((bkr_str)(intptr_t)(_v2699)) == 0))) {
-                    _v2699 = bkr_arg_at(_v1168);
+                if (((!starts_with(_v1802, "-")) && (bkr_len((bkr_str)(intptr_t)(_v2716)) == 0))) {
+                    _v2716 = bkr_arg_at(_v1168);
                 }
             }
             _v1168 = (_v1168 + 1);
         }
-        if (((bkr_len((bkr_str)(intptr_t)(_v2699)) == 0) || (!file_exists(_v2699)))) {
-            bkr_println(bkr_str_concat("Error: input file not found: ", _v2699));
+        if (((bkr_len((bkr_str)(intptr_t)(_v2716)) == 0) || (!file_exists(_v2716)))) {
+            bkr_println(bkr_str_concat("Error: input file not found: ", _v2716));
             return 1;
         }
-        bkr_str _v1209 = read_file(_v2699);
-        bkr_str _v2676 = _v2576(_v1209, _v2562(_v2699));
+        bkr_str _v1209 = read_file(_v2716);
+        bkr_str _v2676 = _v2576(_v1209, _v2562(_v2716));
         _v1187 _v1236 = _v1219(_v2676);
         _v1234 _v1246 = _v1238(_v1236);
         bkr_i64 _v2677 = _v1525(_v1246);
@@ -19638,69 +19720,69 @@ bkr_i32 _v2688(void) {
             bkr_println(_v2637(_v2676, _v1246));
             return 1;
         }
-        if (_v2706) {
+        if (_v2739) {
             bkr_println(_v1990(_v2676, _v2677));
         } else {
             bkr_println(_v1996(_v2676, _v2677));
         }
         return 0;
     }
-    if (((bkr_str_eq(_v2695, "self-host-compile") || bkr_str_eq(_v2695, "compile")) || bkr_str_eq(_v2695, "build"))) {
-        bkr_str _v2699 = "";
-        bkr_str _v2707 = "";
+    if (((bkr_str_eq(_v2712, "self-host-compile") || bkr_str_eq(_v2712, "compile")) || bkr_str_eq(_v2712, "build"))) {
+        bkr_str _v2716 = "";
+        bkr_str _v2740 = "";
         bkr_i64 _v1168 = 2;
-        while ((_v1168 < _v2690)) {
+        while ((_v1168 < _v2710)) {
             bkr_str _v1802 = bkr_arg_at(_v1168);
-            if ((bkr_str_eq(_v1802, "-o") && ((_v1168 + 1) < _v2690))) {
-                _v2707 = bkr_arg_at((_v1168 + 1));
+            if ((bkr_str_eq(_v1802, "-o") && ((_v1168 + 1) < _v2710))) {
+                _v2740 = bkr_arg_at((_v1168 + 1));
                 _v1168 = (_v1168 + 1);
             } else {
-                if (((!starts_with(_v1802, "-")) && (bkr_len((bkr_str)(intptr_t)(_v2699)) == 0))) {
-                    _v2699 = bkr_arg_at(_v1168);
+                if (((!starts_with(_v1802, "-")) && (bkr_len((bkr_str)(intptr_t)(_v2716)) == 0))) {
+                    _v2716 = bkr_arg_at(_v1168);
                 }
             }
             _v1168 = (_v1168 + 1);
         }
-        if (((bkr_len((bkr_str)(intptr_t)(_v2699)) == 0) || (!file_exists(_v2699)))) {
-            bkr_println(bkr_str_concat("Error: input file not found: ", _v2699));
+        if (((bkr_len((bkr_str)(intptr_t)(_v2716)) == 0) || (!file_exists(_v2716)))) {
+            bkr_println(bkr_str_concat("Error: input file not found: ", _v2716));
             return 1;
         }
-        if ((bkr_len((bkr_str)(intptr_t)(_v2707)) == 0)) {
-            _v2707 = bkr_str_concat(_v2699, ".c");
+        if ((bkr_len((bkr_str)(intptr_t)(_v2740)) == 0)) {
+            _v2740 = bkr_str_concat(_v2716, ".c");
         }
-        bkr_str _v1209 = read_file(_v2699);
-        bkr_str _v2685 = _v2672(_v1209, _v2562(_v2699));
-        bkr_bool _v2708 = write_file(_v2707, _v2685);
-        if ((!_v2708)) {
+        bkr_str _v1209 = read_file(_v2716);
+        bkr_str _v2685 = _v2672(_v1209, _v2562(_v2716));
+        bkr_bool _v2741 = write_file(_v2740, _v2685);
+        if ((!_v2741)) {
             return 1;
         }
         return 0;
     }
-    bkr_str _v2699 = bkr_arg_at(1);
-    bkr_str _v2707 = bkr_str_concat(_v2699, ".c");
+    bkr_str _v2716 = bkr_arg_at(1);
+    bkr_str _v2740 = bkr_str_concat(_v2716, ".c");
     bkr_i64 _v1168 = 2;
-    while ((_v1168 < _v2690)) {
-        bkr_str _v2709 = bkr_arg_at(_v1168);
-        if ((bkr_str_eq(_v2709, "-o") && ((_v1168 + 1) < _v2690))) {
-            _v2707 = bkr_arg_at((_v1168 + 1));
+    while ((_v1168 < _v2710)) {
+        bkr_str _v2742 = bkr_arg_at(_v1168);
+        if ((bkr_str_eq(_v2742, "-o") && ((_v1168 + 1) < _v2710))) {
+            _v2740 = bkr_arg_at((_v1168 + 1));
             _v1168 = (_v1168 + 1);
         }
         _v1168 = (_v1168 + 1);
     }
-    if ((!file_exists(_v2699))) {
-        bkr_println(bkr_str_concat("Error: input file not found: ", _v2699));
+    if ((!file_exists(_v2716))) {
+        bkr_println(bkr_str_concat("Error: input file not found: ", _v2716));
         return 1;
     }
-    bkr_str _v1209 = read_file(_v2699);
-    bkr_str _v2685 = _v2672(_v1209, _v2562(_v2699));
-    bkr_bool _v2708 = write_file(_v2707, _v2685);
-    if ((!_v2708)) {
+    bkr_str _v1209 = read_file(_v2716);
+    bkr_str _v2685 = _v2672(_v1209, _v2562(_v2716));
+    bkr_bool _v2741 = write_file(_v2740, _v2685);
+    if ((!_v2741)) {
         return 1;
     }
-    return 42;
+    return 0;
 }
 
 int main(int argc, char** argv) {
     bkr_init_args(argc, argv);
-    return (int)_v2688();
+    return (int)_v2708();
 }

@@ -5,6 +5,19 @@ All notable changes to the Bunker Language project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) according to the four-plane model established in `BKR-SPEC-ECO-001` (`docs/CI_AND_VERSIONING_ARCHITECTURE.md`).
 
+## [Unreleased]
+
+### Fixed
+- **Honest test results.** `run_tests.ps1` counted every test as passed whenever the compiler path contained "bkrc". It is replaced by `tools/test_runner.bkr`, a runner written in Bunker that checks real outcomes. Real status: 181/309 passing; the 128 current failures are listed in `tests/known_failures.txt`.
+- `bkrc run` no longer prints a result guessed from the file name. It compiles to C, builds with the system C compiler (`BKR_CC`/`CC`, default `cc`), executes the program and exits with its exit code.
+- `bkrc check` no longer rejects files because their name contains `_BAD`, and prints the diagnostic report on failure.
+- `bkrc self-host-check` checks each file instead of printing a fixed list of PASS lines.
+- `bkrc` with no arguments prints usage. Before, it created `self_host_input.bkr`, and while that file existed every command silently did nothing and returned 42.
+- `str_split` is typed as `Vec<str>`, so `let parts: Vec<str> = str_split(...)` typechecks (fixes test 182).
+
+### Changed
+- CI runs the test suite and the seed fixpoint check on Linux. The per-test `self-host-smoke` job, which depended on the fake `run` output, is replaced by the runner. Bootstrap seed regenerated (`bootstrap/SHA256SUMS` updated).
+
 ## [0.1.0] - 2026-10-28
 
 ### Overview

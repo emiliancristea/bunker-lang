@@ -155,9 +155,9 @@ bunker-lang/
 │   ├── build.sh          # POSIX zero-dependency build script
 │   ├── build.bat         # Windows zero-dependency build script
 │   └── SHA256SUMS        # Deterministic cryptographic checksums
-├── tests/                # 320 acceptance tests
+├── tests/                # 309 acceptance tests, expected_results.txt, known_failures.txt
+├── tools/test_runner.bkr # Test runner written in Bunker
 ├── docs/                 # Canonical language specifications & architecture
-├── run_tests.ps1         # 320-test automated validation harness
 ├── ROADMAP.md            # Implementation roadmap & completion status
 └── README.md
 ```
@@ -267,7 +267,7 @@ view MyView {
 ### Implemented ✅
 - [x] Full PEG grammar for all three layers (AI-friendly LL(1))
 - [x] Complete AST builder
-- [x] Kernel: full type checking + Cranelift JIT for `fn main() -> i32|i64|f64|bool`
+- [x] Kernel: type checking + C backend; `bkrc run` builds the emitted C with the system C compiler and executes it (the Cranelift JIT went away with the Rust prototype)
 - [x] Kernel: structs, arrays, Option<T>, match expressions, defer, type casting, constants
 - [x] Kernel: comptime functions with compile-time evaluation
 - [x] Kernel: **move semantics** with explicit `copy` (simpler than Rust's borrow checker)
@@ -281,7 +281,7 @@ view MyView {
 - [x] Self-host readiness command (`self-host-check`) for top-level `self-host/*.bkr` sources; 8/8 of those files pass (this command does not enumerate `self-host/modules/`)
 - [x] Self-host compile wrapper (`self-host-compile`) that runs modular `self-host/bkrc.bkr` on real `.bkr` input and emits C
 - [x] Stage1/stage2 self-compilation for the supported bootstrap subset (CI-certified on `main`)
-- [x] **320 tests passing** across Kernel, Shell, View, and Contract Verification
+- [ ] **181 / 309 tests really pass** (`./bkrc run tools/test_runner.bkr`). The other 128 are listed in `tests/known_failures.txt`; earlier "320 passing" counts came from a runner that marked every test as passed
 - [x] Kernel unit enums (`enum Color { Red, Green }`, `Color.Red`, exhaustive match)
 - [x] Self-host unit-enum match exhaustiveness (`non_exhaustive_match` / `BKR_SELF_EXHAUSTIVENESS`)
 - [x] Enum variant payload declarations (`enum Opt { Some(i32), None }`)

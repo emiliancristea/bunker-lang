@@ -417,7 +417,7 @@
         if raw == "arg_at" { return TYPE_STR; }
         if raw == "str_index_of" { return TYPE_I64; }
         if raw == "str_replace" { return TYPE_STR; }
-        if raw == "str_split" { return TYPE_ARRAY; }
+        if raw == "str_split" { return TYPE_VEC; }
         if raw == "str_to_upper" { return TYPE_STR; }
         if raw == "str_to_lower" { return TYPE_STR; }
         if raw == "str_repeat" { return TYPE_STR; }

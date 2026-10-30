@@ -237,6 +237,20 @@ $ ./bkrc compile tests/01_basic_math.bkr -o math.c
 
 ---
 
+## Phase 10: Independence From Every Other Language
+
+**Goal:** Building Bunker and Bunker programs needs no C compiler, Rust, PowerShell or other toolchain. Linux x86-64 first.
+
+**Deliverables:**
+- [x] Honest test runner written in Bunker (`tools/test_runner.bkr`); PowerShell runner removed.
+- [ ] Native x86-64 backend in Bunker: instruction encoder plus ELF64 writer, so `bkrc` writes executables directly.
+- [ ] Runtime in Bunker on raw Linux syscalls (memory, files, processes), replacing `runtime.h` and libc.
+- [ ] `bkrc` compiles itself through the native backend (fixpoint without `cc`).
+- [ ] Checked-in `bkrc` Linux binary seed with checksums replaces the C seed; `cc` no longer needed to bootstrap.
+- [ ] Test runner spawns processes via syscalls instead of `/bin/sh`.
+
+---
+
 ## Timeline Summary
 
 | Phase | Duration | Milestone |
@@ -272,7 +286,7 @@ $ ./bkrc compile tests/01_basic_math.bkr -o math.c
 | 8 | ⬜ Not Started | Embedded/Metal profile |
 | 9 | ✅ Complete | Pure Bunker self-hosted toolchain (`self-host/`) is the primary production compiler; bootstraps from portable C11 (`bootstrap/`) with zero Rust or Cargo dependencies; zero-diff fixpoint certified. |
 
-**Test Suite:** 320 tests passing (including JIT/AOT validations, negative tests, shell actors, view declarative UI, contract verification)
+**Test Suite:** 181/309 tests really pass (`./bkrc run tools/test_runner.bkr`); the 128 current failures are tracked in `tests/known_failures.txt`. Shell, View and contract modules exist as libraries but the compiler does not yet compile `shell`/`view` blocks or enforce contracts.
 
 ---
 

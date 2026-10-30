@@ -973,19 +973,80 @@
         return false;
     }
 
+    fn env_or(key: str, fallback: str) -> str {
+        if !env_has(key) {
+            return fallback;
+        }
+        let value: Option<str> = env_get(key);
+        return match value {
+            Some(found) => found;
+            None => fallback;
+        };
+    }
+
+    fn shell_quote(text: str) -> str {
+        let tick = from_char_code(39);
+        return tick + str_replace(text, tick, tick + from_char_code(92) + tick + tick) + tick;
+    }
+
+    fn runtime_include_dir() -> str {
+        let configured = env_or("BKR_RUNTIME_DIR", "");
+        if len(configured) > 0 {
+            return configured;
+        }
+        let exe_dir = path_dir(arg_at(0));
+        if len(exe_dir) == 0 {
+            exe_dir = ".";
+        }
+        if file_exists(exe_dir + "/bootstrap/runtime.h") {
+            return exe_dir + "/bootstrap";
+        }
+        if file_exists(exe_dir + "/runtime.h") {
+            return exe_dir;
+        }
+        return "bootstrap";
+    }
+
+    fn print_diagnostic_reports(c_code: str) -> bool {
+        let q = from_char_code(34);
+        let marker = q + "has_diagnostics" + q + ":true";
+        let lines: Vec<str> = str_split(c_code, from_char_code(10));
+        let i: i64 = 0;
+        while i < vec_len(lines) {
+            let line: str = vec_get(lines, i);
+            if contains(line, marker) {
+                println(line);
+            }
+            i = i + 1;
+        }
+        return true;
+    }
+
+    fn check_source_file(path: str) -> bool {
+        if !file_exists(path) {
+            return false;
+        }
+        let source = read_file(path);
+        let c_code = compile_to_c_with_base_dir(source, import_path_dir(path));
+        return !has_diagnostic_error(c_code);
+    }
+
+    fn print_usage() -> bool {
+        println("Usage: bkrc <command> [args]");
+        println("  check <file.bkr>                 Parse, resolve and typecheck");
+        println("  compile <file.bkr> [-o out.c]    Emit C for the program");
+        println("  run <file.bkr>                   Compile, build and execute; prints Result: <exit code>");
+        println("  parse <file.bkr> [--ast-json]    Print the AST report");
+        println("  self-host-check [dir]            Check the self-host compiler sources");
+        println("  capability                       Print the capability report");
+        return true;
+    }
+
     fn main() -> i32 {
         let argc: i64 = args_count();
-        if file_exists("self_host_input.bkr") || argc <= 1 {
-            let default_input = "self_host_input.bkr";
-            let default_output = "self_host_output.c";
-            let default_source = "kernel Test { fn main() -> i32 { let x: i32 = 40; let y: i32 = 2; return x + y; } }";
-            if !file_exists(default_input) {
-                write_file(default_input, default_source);
-            }
-            let source = read_file(default_input);
-            let c_code = compile_to_c_with_base_dir(source, import_path_dir(default_input));
-            write_file(default_output, c_code);
-            return 42;
+        if argc <= 1 {
+            print_usage();
+            return 1;
         }
 
         let arg1 = arg_at(1);
@@ -1009,17 +1070,24 @@
                 target_dir = substring(target_dir, 0, len(target_dir) - 1);
             }
             println("Checking self-host sources in " + target_dir);
-            println("  PASS " + target_dir + "/bkrc.bkr");
-            println("  PASS " + target_dir + "/bkrc_simple.bkr");
-            println("  PASS " + target_dir + "/c_codegen.bkr");
-            println("  PASS " + target_dir + "/codegen.bkr");
-            println("  PASS " + target_dir + "/compiler.bkr");
-            println("  PASS " + target_dir + "/lexer.bkr");
-            println("  PASS " + target_dir + "/parser.bkr");
-            println("  PASS " + target_dir + "/typeck.bkr");
+            let names: Vec<str> = str_split("bkrc.bkr,bkrc_simple.bkr,c_codegen.bkr,codegen.bkr,compiler.bkr,lexer.bkr,parser.bkr,typeck.bkr", ",");
+            let passed: i64 = 0;
+            let j: i64 = 0;
+            while j < vec_len(names) {
+                let file_path = target_dir + "/" + vec_get(names, j);
+                if check_source_file(file_path) {
+                    println("  PASS " + file_path);
+                    passed = passed + 1;
+                } else {
+                    println("  FAIL " + file_path);
+                }
+                j = j + 1;
+            }
             println("");
-            println("Self-host readiness: 8/8 file(s) passing, 0 diagnostic(s)");
-            println("Ready: All Bunker self-host sources pass current checks.");
+            println("Self-host readiness: " + int_to_string(passed) + "/" + int_to_string(vec_len(names)) + " file(s) passing");
+            if passed != vec_len(names) {
+                return 1;
+            }
             return 0;
         }
 
@@ -1064,7 +1132,8 @@
                 println(c_code);
                 return 0;
             }
-            if contains(input_path, "_BAD") || has_diagnostic_error(c_code) {
+            if has_diagnostic_error(c_code) {
+                print_diagnostic_reports(c_code);
                 println("Error: diagnostics found in " + input_path);
                 return 1;
             }
@@ -1087,27 +1156,51 @@
                 println("Error: input file not found: " + input_path);
                 return 1;
             }
-            let res = "42";
-            if contains(input_path, "while_loop") || contains(input_path, "for_range") {
-                res = "55";
-            } else if contains(input_path, "while_break") || contains(input_path, "option_basic") || contains(input_path, "len_builtin") || contains(input_path, "for_break") {
-                res = "15";
-            } else if contains(input_path, "match_block") {
-                res = "12";
-            } else if contains(input_path, "string_concat") {
-                res = "11";
-            } else if contains(input_path, "match_binding") || contains(input_path, "option_if_infer") {
-                res = "7";
-            } else if contains(input_path, "loop_break") {
-                res = "5";
-            } else if contains(input_path, "for_continue") {
-                res = "25";
-            } else if contains(input_path, "type_cast") {
-                res = "46";
+            let source = read_file(input_path);
+            let c_code = compile_to_c_with_base_dir(source, import_path_dir(input_path));
+            if has_diagnostic_error(c_code) {
+                print_diagnostic_reports(c_code);
+                println("Error: diagnostics found in " + input_path);
+                return 1;
             }
-            println("Running " + input_path);
-            println("Result: " + res);
-            return 0;
+            let stem = env_or("TMPDIR", "/tmp") + "/bkr-run-" + int_to_string(process_pid());
+            let c_path = stem + ".c";
+            let exe_path = stem + ".out";
+            let log_path = stem + ".log";
+            if !write_file(c_path, c_code) {
+                println("Error: cannot write " + c_path);
+                return 1;
+            }
+            let cc = env_or("BKR_CC", env_or("CC", "cc"));
+            let cc_cmd = cc + " -std=c11 -w -I " + shell_quote(runtime_include_dir()) + " " + shell_quote(c_path) + " -o " + shell_quote(exe_path) + " -lm > " + shell_quote(log_path) + " 2>&1";
+            let cc_res = process_run_status(cc_cmd);
+            let cc_code: i64 = 1;
+            if result_is_ok(cc_res) {
+                cc_code = result_unwrap(cc_res);
+            }
+            if cc_code != 0 {
+                if file_exists(log_path) {
+                    print(read_file(log_path));
+                }
+                println("Error: C backend failed to build " + input_path);
+                file_remove(c_path);
+                file_remove(log_path);
+                return 1;
+            }
+            let run_res = process_run_status(shell_quote(exe_path) + " > " + shell_quote(log_path) + " 2>&1");
+            if !result_is_ok(run_res) {
+                println("Error: failed to execute " + exe_path);
+                return 1;
+            }
+            let exit_code: i64 = result_unwrap(run_res);
+            if file_exists(log_path) {
+                print(read_file(log_path));
+            }
+            println("Result: " + int_to_string(exit_code));
+            file_remove(c_path);
+            file_remove(exe_path);
+            file_remove(log_path);
+            return exit_code as i32;
         }
 
         if arg1 == "parse" {
@@ -1195,5 +1288,5 @@
         if !wrote {
             return 1;
         }
-        return 42;
+        return 0;
     }
