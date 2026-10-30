@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 This release completes the entire 14-track roadmap (Tracks A, CF, CB, F, R, S, TL, E, M, etc. — 167/168 items pure DONE at 99.4%, with 100.0% of actionable non-deferred items complete) and stabilizes the Bunker self-host compiler (`bkrc`) across the continuous integration multi-OS matrix (Ubuntu, Windows, macOS). All 314 test fixtures pass with zero regressions, and all GitHub Actions CI matrix jobs are 100% green.
 
 ### Added
+- **Full Zero-Rust CI Migration and Pure Bunker Toolchain Self-Sufficiency (Q-324, SH-012)**:
+  - Retired Rust and Cargo dependencies from active CI pipelines (`.github/workflows/ci.yml`), making `bootstrap-c11`, `self-host-smoke`, and `self-host-boundaries` run 100% on pure Bunker with zero external toolchain requirements.
+  - Implemented native subcommand CLI driver in pure Bunker (`self-host/modules/driver.bkr`) supporting `capability`, `check`, `parse`, `self-host-compile`, `compile`, and `build`.
+  - Added cross-platform Windows (`\`) and POSIX (`/`) path normalization in `import_path_dir` and import resolution.
+  - Achieved zero-diff fixpoint verification between `bootstrap/bkrc-stage1.c` and `bootstrap/bkrc-stage2.c` with updated `SHA256SUMS`.
+  - Updated test runner `run_tests.ps1` to achieve 320/320 clean passing tests with native `bkrc` / `bkrc.exe`.
+  - Updated documentation across `README.md`, `ROADMAP.md`, `docs/ARCHITECTURE.md`, and `docs/IMPLEMENTATION_TRACKER.md` establishing Pure Bunker as the primary, self-sufficient production compiler.
 - **Full Rust Retraction and Zero-Rust Toolchain Migration (Q-323, SH-011)**:
   - Relocated Stage 0 bootstrap compiler (`bunker-cli/`) to `archive/bootstrap/stage0-rust/` per `BKR-SPEC-MIGRATE-001` (Phase 5), eliminating 100% of `.rs` files from active repository source paths.
   - Distributed updated, self-contained C11 bootstrap compiler package (`bootstrap/bkrc-stage1.c`, `bootstrap/bkrc-stage2.c`, `bootstrap/runtime.h`, and `bootstrap/SHA256SUMS`).

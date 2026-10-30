@@ -22,6 +22,9 @@ tests/*.o
 bunker-cli/
 
 # Local scratch files (dev/harness)
+*.obj
+bkrc
+bkrc.exe
 test_output.txt
 tmp_*
 tmp_self_host_scan/

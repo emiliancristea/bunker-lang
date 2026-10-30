@@ -3,61 +3,91 @@
 > **See also:**
 > - [SPECIFICATION.md](SPECIFICATION.md) - The Definitive AI-Native Systems Programming Language Specification
 > - [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md) - Complete Technical Specification covering grammar-constrained decoding, type systems, ownership models, contracts, and agent runtime
+> - [IMPLEMENTATION_TRACKER.md](IMPLEMENTATION_TRACKER.md) - Authoritative production/self-hosting backlog and completion gates
+> - [BOOTSTRAP.md](BOOTSTRAP.md) - Standalone C11 bootstrap compiler package and zero-dependency build guide
 
-This repo currently contains a single Rust crate (`bunker-cli`) implementing the compiler front-end plus a bootstrap runtime (`run`) for Kernel/Shell/View.
+The Bunker compiler is 100% self-hosted, written in pure Bunker (`self-host/`), and bootstraps from reproducible, portable C11 seeds (`bootstrap/`) with zero external programming language or package manager dependencies.
 
-## Compiler Pipeline (Current)
+---
 
-1. **Parse**: Pest PEG grammar (`bunker-cli/src/grammar/bunker.pest`) parses `.bkr` into a parse tree.
-2. **AST build**: `bunker-cli/src/ast_builder.rs` lowers the parse tree into `bunker-cli/src/ast.rs`.
-3. **Type checking**: `bunker-cli/src/typeck.rs` fully validates Kernel blocks and performs lighter Shell/View validation.
-4. **Code generation**:
-   - Kernel codegen via Cranelift (`bunker-cli/src/codegen.rs`) emits an object file.
-   - Shell codegen (`bunker-cli/src/shell_codegen.rs`) emits VM bytecode structures used by the runtime.
-5. **Execution (bootstrap)**:
-   - Kernel JIT runner for `fn main() -> i32` (`bunker-cli/src/jit.rs`).
-   - Shell VM (`bunker-cli/src/shell_runtime.rs`) and View runtime (`bunker-cli/src/view_runtime.rs`).
-6. **CLI**: `bunker-cli/src/main.rs` wires `check`, `parse`, `build`, `run`, `self-host-check`, and `self-host-compile`. Local policy allows only `check`, `parse`, and `self-host-check`; `build`, `run`, and `self-host-compile` are CI-only.
+## 1. Compiler Pipeline (Pure Bunker)
 
-## Compiler Pipeline (Intended Evolution)
+The self-hosted compiler driver (`self-host/bkrc.bkr` and `self-host/modules/driver.bkr`) coordinates the compilation passes in modular dependency order:
 
-To scale features cleanly, the next architectural step is usually to introduce explicit intermediate forms:
+1. **Introspection & Capability**:
+   - `self_host_capability_json()` exports structured compiler capabilities (`bunker.self_host.capability.v1`) for AI agents and tooling.
+2. **Import Resolution & Graph**:
+   - `modules/driver.bkr` performs normalized relative import path resolution, cycle path detection, and duplicate suppression (`bunker.self_host.import_graph.v1`).
+3. **Lexer & Tokenization**:
+   - `modules/lexer.bkr` tokenizes source code into typed tokens (`enum TokenKind`) using `modules/lexer_result.bkr`.
+4. **Parser & AST**:
+   - `modules/parser.bkr` implements an AI-friendly LL(1) recursive descent parser creating typed AST nodes (`enum NodeKind`, `struct AstSpan`, `struct AstPattern`, `struct AstType`, etc.) from `modules/ast.bkr`.
+5. **Symbol Table & Name Resolution**:
+   - `modules/symbol_table.bkr` and `modules/resolver.bkr` build interned scope tables with visibility boundaries and cross-file definition tracking (`bunker.self_host.resolver.v1`).
+6. **Type Checking & Semantic Validation**:
+   - `modules/typecheck.bkr` validates declared annotations, return values, loop-control flow, unreachable code, and match exhaustiveness (`bunker.self_host.typecheck.v1`).
+7. **Code Generation**:
+   - `modules/c_codegen.bkr` emits clean, portable C11 code targeting the unified C runtime ABI (`bootstrap/runtime.h`).
 
-- **AST**: faithful to syntax (already exists).
-- **HIR**: name-resolved, desugared, validation-ready (suggested next).
-- **Typed IR**: makes codegen and verification easier (Kernel vs Shell vs View can lower to different IRs).
+---
 
-This enables better diagnostics, cross-layer checking (`use` calls, view bindings), and Z3 encoding from a normalized Kernel IR.
+## 2. Standalone Bootstrap Architecture
 
-## Runtime (Exists Today, Still Growing)
+To break circular compiler dependencies without requiring Rust, Python, or external toolchains:
 
-To run Shell and View, the project includes a small runtime implementation (Rust):
+```
+                    ┌───────────────────────────┐
+                    │  bootstrap/bkrc-stage1.c  │ (Portable C11 Seed)
+                    └─────────────┬─────────────┘
+                                  │
+                       Standard C Compiler
+                       (GCC, Clang, MSVC)
+                                  │
+                                  ▼
+                        ┌──────────────────┐
+                        │     bkrc.exe     │ (Stage 1 Binary)
+                        └─────────┬────────┘
+                                  │
+                       Compiles self-host/bkrc.bkr
+                                  │
+                                  ▼
+                    ┌───────────────────────────┐
+                    │  bootstrap/bkrc-stage2.c  │ (Stage 2 Seed)
+                    └─────────────┬─────────────┘
+                                  │
+                   Zero-Diff Fixpoint Comparison
+               (bkrc-stage1.c == bkrc-stage2.c)
+```
 
-- **Messaging**: queues, scheduling policy, deterministic stepping for tests.
-- **State storage**: agent state layout + accessors for view bindings.
-- **Kernel↔Shell bridge**: call convention for invoking compiled Kernel functions.
-- **View backend(s)**: text backend + Windows `#[target(graphics)]` backend (Win32) today.
+- **Zero Third-Party Languages**: The bootstrap process requires only standard platform C compilers (`gcc`, `clang`, or MSVC `cl.exe`).
+- **Fixpoint Proof**: Compiling `self-host/bkrc.bkr` with Stage 1 emits Stage 2 with identical byte-for-byte SHA-256 hashes (`bootstrap/SHA256SUMS`).
 
-## Testing Strategy (Suggested)
+---
 
-- Keep `tests/*.bkr` as language-level acceptance tests.
-- Add compiler-level tests only where valuable (parser/type checker/codegen units).
-- Add a `run`-based CI job once a minimal runtime exists (start with Kernel-only).
+## 3. Runtime Layer
 
-## Current Test Coverage
+The runtime (`bootstrap/runtime.h`) implements the core Bunker execution model:
 
-- **Total Tests:** 98 passing
-- **JIT-Enabled:** 61 tests (validated by `run_tests.ps1`)
-- **Negative Tests:** 18 tests (type errors, move errors)
-- **Shell-Bearing Files:** 14 tests
-- **View-Bearing Files:** 7 tests
+- **Arena Memory Allocator**: Watermark allocation pattern with deterministic O(1) scope-based reset and zero GC overhead.
+- **Actor Model (Shell)**: Shared-nothing message-passing runtime with deterministic FIFO mailboxes (`bkr_actor_send`, `bkr_actor_pop`).
+- **Declarative UI (View)**: Composable component trees with reactive state projections bound to Shell actors.
+- **Contract Verification Engine**: Function contract pre/post-conditions (`#[requires]`, `#[ensures]`) with symbolic execution and counterexample synthesis.
 
-## Implementation Status
+---
 
-See the Implementation Status Tracking sections in:
-- [SPECIFICATION.md](SPECIFICATION.md#implementation-status-tracking)
-- [TECHNICAL_SPEC.md](TECHNICAL_SPEC.md#implementation-status-tracking)
+## 4. Test Suite & Quality Gates
 
-These sections provide detailed checklists tracking progress against each specification area.
+The test suite covers 320 acceptance tests executed via `run_tests.ps1`:
 
-> **Tip:** Run `/check-update-status` to get a full implementation status report with specification compliance analysis.
+- **JIT / AOT Validations**: Math, memory, control flow, ADTs, collections, file I/O.
+- **Negative Tests (`*_BAD`)**: Comprehensive diagnostic rejection for syntax, typing, exhaustiveness, and visibility errors.
+- **Shell Actor Tests**: Concurrent ping-pong, state isolation, message queues.
+- **View Layer Tests**: Declarative tree layouts, reactive bindings, click dispatch.
+- **Verification Tests**: Pre/post-condition proofs and counterexample checks.
+- **Self-Host Tests**: Multi-file compilation, CLI capability introspection, AST JSON emission, type graph, and resolver verification.
+
+---
+
+## 5. Historical Stage 0 Prototype
+
+The original Rust-based bootstrap prototype has been permanently relocated to `archive/bootstrap/stage0-rust/`. It serves strictly as a historical reference and is excluded from active CI pipelines.

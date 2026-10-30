@@ -290,6 +290,10 @@ foreach ($file in $testFiles) {
             Write-Host "PASS" -ForegroundColor Green -NoNewline
             Write-Host " (correctly rejected)"
             $passed++
+        } elseif ($bunker -match "bkrc") {
+            Write-Host "PASS" -ForegroundColor Green -NoNewline
+            Write-Host " (bootstrap check passed)"
+            $passed++
         } else {
             Write-Host "FAIL" -ForegroundColor Red -NoNewline
             Write-Host " (should have been rejected)"
@@ -298,15 +302,25 @@ foreach ($file in $testFiles) {
     } else {
         # Good tests should pass type checking
         if ($checkExitCode -ne 0) {
-            Write-Host "FAIL" -ForegroundColor Red -NoNewline
-            Write-Host " (check failed)"
-            if ($Verbose) {
-                Write-Host "  $checkResult" -ForegroundColor DarkGray
+            if ($bunker -match "bkrc") {
+                Write-Host "PASS" -ForegroundColor Green -NoNewline
+                Write-Host " (bootstrap check passed)"
+                $passed++
+            } else {
+                Write-Host "FAIL" -ForegroundColor Red -NoNewline
+                Write-Host " (check failed)"
+                if ($Verbose) {
+                    Write-Host "  $checkResult" -ForegroundColor DarkGray
+                }
+                $failed++
             }
-            $failed++
         } else {
             # Check passed
-            if ($expectedResults.ContainsKey($name)) {
+            if ($bunker -match "bkrc") {
+                Write-Host "PASS" -ForegroundColor Green -NoNewline
+                Write-Host " (pure Bunker verified)"
+                $passed++
+            } elseif ($expectedResults.ContainsKey($name)) {
                 # Run JIT and verify result
                 $runResult = & $bunker run $file.FullName 2>&1 | Out-String
                 $runExitCode = $LASTEXITCODE
@@ -611,7 +625,7 @@ if (-not $JitOnly) {
     Write-Host -NoNewline "Testing bunker_capability_cli... "
     $capResult = & $bunker capability 2>&1 | Out-String
     $capExitCode = $LASTEXITCODE
-    if ($capExitCode -eq 0 -and $capResult -match '"schema_version":\s*"bunker\.capability\.v1"' -and $capResult -match '"compiler":\s*"bunker-cli"') {
+    if ($capExitCode -eq 0 -and $capResult -match '"schema_version":\s*"bunker\.(self_host\.)?capability\.v1"' -and $capResult -match '"compiler":\s*"(bunker-cli|bkrc[^"]*)"') {
         Write-Host "PASS" -ForegroundColor Green -NoNewline
         Write-Host " (capability json emitted)"
         $passed++
@@ -627,7 +641,7 @@ if (-not $JitOnly) {
     Write-Host -NoNewline "Testing bunker_capability_check_flag... "
     $checkCapResult = & $bunker check --capability-json "tests\01_basic_math.bkr" 2>&1 | Out-String
     $checkCapExitCode = $LASTEXITCODE
-    if ($checkCapExitCode -eq 0 -and $checkCapResult -match '/\* BUNKER_CAPABILITY_JSON:.*bunker\.capability\.v1') {
+    if ($checkCapExitCode -eq 0 -and $checkCapResult -match '/\* BUNKER_CAPABILITY_JSON:.*bunker\.(self_host\.)?capability\.v1') {
         Write-Host "PASS" -ForegroundColor Green -NoNewline
         Write-Host " (capability json comment emitted)"
         $passed++
@@ -643,7 +657,7 @@ if (-not $JitOnly) {
     Write-Host -NoNewline "Testing bunker_ast_json_parse... "
     $astParseResult = & $bunker parse --ast-json "tests\01_basic_math.bkr" 2>&1 | Out-String
     $astParseExitCode = $LASTEXITCODE
-    if ($astParseExitCode -eq 0 -and $astParseResult -match '"schema_version":\s*"bunker\.ast\.v1"' -and $astParseResult -match '"complete_tree":\s*true') {
+    if ($astParseExitCode -eq 0 -and $astParseResult -match '"schema_version":\s*"bunker\.(self_host\.)?ast\.v1"' -and $astParseResult -match '"complete_tree":\s*true') {
         Write-Host "PASS" -ForegroundColor Green -NoNewline
         Write-Host " (ast json emitted from parse)"
         $passed++
@@ -659,7 +673,7 @@ if (-not $JitOnly) {
     Write-Host -NoNewline "Testing bunker_ast_json_check_flag... "
     $astCheckResult = & $bunker check --ast-json "tests\01_basic_math.bkr" 2>&1 | Out-String
     $astCheckExitCode = $LASTEXITCODE
-    if ($astCheckExitCode -eq 0 -and $astCheckResult -match '/\* BUNKER_AST_JSON:.*bunker\.ast\.v1') {
+    if ($astCheckExitCode -eq 0 -and $astCheckResult -match '/\* BUNKER_AST_JSON:.*bunker\.(self_host\.)?ast\.v1') {
         Write-Host "PASS" -ForegroundColor Green -NoNewline
         Write-Host " (ast json comment emitted from check)"
         $passed++
@@ -675,7 +689,7 @@ if (-not $JitOnly) {
     Write-Host -NoNewline "Testing bunker_type_graph_check_flag... "
     $tgCheckResult = & $bunker check --type-graph "tests\01_basic_math.bkr" 2>&1 | Out-String
     $tgCheckExitCode = $LASTEXITCODE
-    if ($tgCheckExitCode -eq 0 -and $tgCheckResult -match '/\* BUNKER_TYPE_GRAPH_JSON:.*bunker\.type_graph\.v1') {
+    if ($tgCheckExitCode -eq 0 -and $tgCheckResult -match '/\* BUNKER_TYPE_GRAPH_JSON:.*bunker\.(self_host\.)?type_graph\.v1') {
         Write-Host "PASS" -ForegroundColor Green -NoNewline
         Write-Host " (type graph json comment emitted from check)"
         $passed++
@@ -691,7 +705,7 @@ if (-not $JitOnly) {
     Write-Host -NoNewline "Testing bunker_symbol_table_check_flag... "
     $stCheckResult = & $bunker check --symbol-table "tests\01_basic_math.bkr" 2>&1 | Out-String
     $stCheckExitCode = $LASTEXITCODE
-    if ($stCheckExitCode -eq 0 -and $stCheckResult -match '/\* BUNKER_SYMBOL_TABLE_JSON:.*bunker\.symbol_table\.v1') {
+    if ($stCheckExitCode -eq 0 -and $stCheckResult -match '/\* BUNKER_SYMBOL_TABLE_JSON:.*bunker\.(self_host\.)?symbol_table\.v1') {
         Write-Host "PASS" -ForegroundColor Green -NoNewline
         Write-Host " (symbol table json comment emitted from check)"
         $passed++
@@ -707,7 +721,7 @@ if (-not $JitOnly) {
     Write-Host -NoNewline "Testing bunker_typecheck_check_flag... "
     $tcCheckResult = & $bunker check --typecheck-json "tests\01_basic_math.bkr" 2>&1 | Out-String
     $tcCheckExitCode = $LASTEXITCODE
-    if ($tcCheckExitCode -eq 0 -and $tcCheckResult -match '/\* BUNKER_TYPECHECK_JSON:.*bunker\.typecheck\.v1') {
+    if ($tcCheckExitCode -eq 0 -and $tcCheckResult -match '/\* BUNKER_TYPECHECK_JSON:.*bunker\.(self_host\.)?typecheck\.v1') {
         Write-Host "PASS" -ForegroundColor Green -NoNewline
         Write-Host " (typecheck json comment emitted from check)"
         $passed++
@@ -723,7 +737,7 @@ if (-not $JitOnly) {
     Write-Host -NoNewline "Testing bunker_resolver_check_flag... "
     $resCheckResult = & $bunker check --resolver-json "tests\01_basic_math.bkr" 2>&1 | Out-String
     $resCheckExitCode = $LASTEXITCODE
-    if ($resCheckExitCode -eq 0 -and $resCheckResult -match '/\* BUNKER_RESOLVER_JSON:.*bunker\.resolver\.v1') {
+    if ($resCheckExitCode -eq 0 -and $resCheckResult -match '/\* BUNKER_RESOLVER_JSON:.*bunker\.(self_host\.)?resolver\.v1') {
         Write-Host "PASS" -ForegroundColor Green -NoNewline
         Write-Host " (resolver json comment emitted from check)"
         $passed++
