@@ -91,6 +91,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Link archived Stage 0 Rust compiler
+        shell: bash
+        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
+
       - name: Prevent raw AST collection traversal outside AST boundary
         shell: bash
         run: |
@@ -1571,6 +1575,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Link archived Stage 0 Rust compiler
+        shell: bash
+        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
 
       - name: Build pure Bunker compiler from bootstrap C seed
         run: |
@@ -3472,6 +3480,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Link archived Stage 0 Rust compiler
+        shell: bash
+        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
 
       - name: Build pure Bunker compiler from bootstrap C seed
         run: |
