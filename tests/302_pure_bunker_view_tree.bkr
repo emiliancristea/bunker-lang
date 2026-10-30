@@ -1,0 +1,170 @@
+// Test 302: Pure Bunker View Declarative Tree Architecture (BKR-SPEC-VIEW-001)
+// Purpose: Verify declarative UI component tree construction, properties, and hierarchy in pure Bunker.
+// Expected return: 42
+
+kernel PureBunkerViewTree {
+    struct ViewComponent {
+        id: i64,
+        kind: str,
+        title: str,
+        text: str,
+        width: i64,
+        height: i64,
+        spacing: i64,
+        columns: i64,
+        font_size: i64,
+        bound_agent: str,
+        bound_key: str,
+        on_click_target: str,
+        on_click_message: str,
+        children_ids: Vec<i64>,
+    }
+
+    struct ViewTree {
+        components: Vec<ViewComponent>,
+        root_id: i64,
+        name: str,
+    }
+
+    fn view_component_default(id: i64, kind: str) -> ViewComponent {
+        let children: Vec<i64> = vec_new();
+        return ViewComponent {
+            id: id,
+            kind: kind,
+            title: "",
+            text: "",
+            width: 0,
+            height: 0,
+            spacing: 0,
+            columns: 0,
+            font_size: 14,
+            bound_agent: "",
+            bound_key: "",
+            on_click_target: "",
+            on_click_message: "",
+            children_ids: children
+        };
+    }
+
+    fn view_tree_new(name: str) -> ViewTree {
+        let components: Vec<ViewComponent> = vec_new();
+        return ViewTree {
+            components: components,
+            root_id: -1,
+            name: name
+        };
+    }
+
+    fn view_create_component(tree: ViewTree, kind: str) -> i64 {
+        let id = vec_len(tree.components);
+        let comp = view_component_default(id, kind);
+        vec_push(tree.components, comp);
+        if tree.root_id < 0 {
+            tree.root_id = id;
+        }
+        return id;
+    }
+
+    fn view_add_child(tree: ViewTree, parent_id: i64, child_id: i64) -> bool {
+        if parent_id < 0 || parent_id >= vec_len(tree.components) {
+            return false;
+        }
+        if child_id < 0 || child_id >= vec_len(tree.components) {
+            return false;
+        }
+        let parent = vec_get(tree.components, parent_id);
+        vec_push(parent.children_ids, child_id);
+        return true;
+    }
+
+    fn view_set_title(tree: ViewTree, id: i64, title: str) -> bool {
+        if id < 0 || id >= vec_len(tree.components) { return false; }
+        let comp = vec_get(tree.components, id);
+        comp.title = title;
+        return true;
+    }
+
+    fn view_set_dimensions(tree: ViewTree, id: i64, w: i64, h: i64) -> bool {
+        if id < 0 || id >= vec_len(tree.components) { return false; }
+        let comp = vec_get(tree.components, id);
+        comp.width = w;
+        comp.height = h;
+        return true;
+    }
+
+    fn view_set_text(tree: ViewTree, id: i64, text: str) -> bool {
+        if id < 0 || id >= vec_len(tree.components) { return false; }
+        let comp = vec_get(tree.components, id);
+        comp.text = text;
+        return true;
+    }
+
+    fn view_set_spacing(tree: ViewTree, id: i64, spacing: i64) -> bool {
+        if id < 0 || id >= vec_len(tree.components) { return false; }
+        let comp = vec_get(tree.components, id);
+        comp.spacing = spacing;
+        return true;
+    }
+
+    fn view_set_on_click(tree: ViewTree, id: i64, target: str, message: str) -> bool {
+        if id < 0 || id >= vec_len(tree.components) { return false; }
+        let comp = vec_get(tree.components, id);
+        comp.on_click_target = target;
+        comp.on_click_message = message;
+        return true;
+    }
+
+    fn main() -> i32 {
+        let tree = view_tree_new("CalculatorView");
+
+        // Create Window root
+        let win_id = view_create_component(tree, "Window");
+        if win_id != 0 { return 1; }
+        view_set_title(tree, win_id, "Calculator");
+        view_set_dimensions(tree, win_id, 320, 480);
+
+        // Create main Column container
+        let col_id = view_create_component(tree, "Column");
+        view_set_spacing(tree, col_id, 8);
+        if !view_add_child(tree, win_id, col_id) { return 2; }
+
+        // Create Display Label
+        let lbl_id = view_create_component(tree, "Label");
+        view_set_text(tree, lbl_id, "0");
+        if !view_add_child(tree, col_id, lbl_id) { return 3; }
+
+        // Create Button Row
+        let row_id = view_create_component(tree, "Row");
+        view_set_spacing(tree, row_id, 4);
+        if !view_add_child(tree, col_id, row_id) { return 4; }
+
+        // Create Button
+        let btn_id = view_create_component(tree, "Button");
+        view_set_text(tree, btn_id, "7");
+        view_set_on_click(tree, btn_id, "CalcAgent", "digit_7");
+        if !view_add_child(tree, row_id, btn_id) { return 5; }
+
+        // Verify component counts
+        if vec_len(tree.components) != 5 { return 6; }
+
+        // Verify root
+        if tree.root_id != 0 { return 7; }
+        let root = vec_get(tree.components, tree.root_id);
+        if root.title != "Calculator" { return 8; }
+        if root.width != 320 || root.height != 480 { return 9; }
+        if vec_len(root.children_ids) != 1 { return 10; }
+
+        // Verify column
+        let col = vec_get(tree.components, col_id);
+        if col.spacing != 8 { return 11; }
+        if vec_len(col.children_ids) != 2 { return 12; }
+
+        // Verify button
+        let btn = vec_get(tree.components, btn_id);
+        if btn.text != "7" { return 13; }
+        if btn.on_click_target != "CalcAgent" { return 14; }
+        if btn.on_click_message != "digit_7" { return 15; }
+
+        return 42;
+    }
+}

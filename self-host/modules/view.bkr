@@ -1,0 +1,225 @@
+    // ========================================
+    // VIEW LAYER DECLARATIVE UI RUNTIME
+    // ========================================
+    //
+    // Pure Bunker implementation of the View Declarative UI model (BKR-SPEC-VIEW-001).
+    // Provides component hierarchies, reactive bindings to Shell agent state,
+    // and decoupled UI rendering.
+
+    struct ViewTree {
+        component_kinds: Vec<str>,
+        component_titles: Vec<str>,
+        component_texts: Vec<str>,
+        component_widths: Vec<i64>,
+        component_heights: Vec<i64>,
+        component_spacings: Vec<i64>,
+        component_columns: Vec<i64>,
+        component_font_sizes: Vec<i64>,
+        component_bound_agents: Vec<str>,
+        component_bound_keys: Vec<str>,
+        component_click_targets: Vec<str>,
+        component_click_messages: Vec<str>,
+        component_parents: Vec<i64>,
+        root_id: i64,
+        name: str,
+    }
+
+    fn view_tree_new(name: str) -> ViewTree {
+        let kinds: Vec<str> = vec_new();
+        let titles: Vec<str> = vec_new();
+        let texts: Vec<str> = vec_new();
+        let widths: Vec<i64> = vec_new();
+        let heights: Vec<i64> = vec_new();
+        let spacings: Vec<i64> = vec_new();
+        let cols: Vec<i64> = vec_new();
+        let font_sizes: Vec<i64> = vec_new();
+        let bound_agents: Vec<str> = vec_new();
+        let bound_keys: Vec<str> = vec_new();
+        let click_targets: Vec<str> = vec_new();
+        let click_messages: Vec<str> = vec_new();
+        let parents: Vec<i64> = vec_new();
+
+        return ViewTree {
+            component_kinds: kinds,
+            component_titles: titles,
+            component_texts: texts,
+            component_widths: widths,
+            component_heights: heights,
+            component_spacings: spacings,
+            component_columns: cols,
+            component_font_sizes: font_sizes,
+            component_bound_agents: bound_agents,
+            component_bound_keys: bound_keys,
+            component_click_targets: click_targets,
+            component_click_messages: click_messages,
+            component_parents: parents,
+            root_id: -1,
+            name: name
+        };
+    }
+
+    fn view_create_component(tree: ViewTree, kind: str) -> i64 {
+        let id = vec_len(tree.component_kinds);
+        vec_push(tree.component_kinds, kind);
+        vec_push(tree.component_titles, "");
+        vec_push(tree.component_texts, "");
+        vec_push(tree.component_widths, 0);
+        vec_push(tree.component_heights, 0);
+        vec_push(tree.component_spacings, 0);
+        vec_push(tree.component_columns, 0);
+        vec_push(tree.component_font_sizes, 14);
+        vec_push(tree.component_bound_agents, "");
+        vec_push(tree.component_bound_keys, "");
+        vec_push(tree.component_click_targets, "");
+        vec_push(tree.component_click_messages, "");
+        vec_push(tree.component_parents, -1);
+
+        if tree.root_id < 0 {
+            tree.root_id = id;
+        }
+        return id;
+    }
+
+    fn view_add_child(tree: ViewTree, parent_id: i64, child_id: i64) -> bool {
+        let total = vec_len(tree.component_kinds);
+        if parent_id < 0 || parent_id >= total { return false; }
+        if child_id < 0 || child_id >= total { return false; }
+        vec_set(tree.component_parents, child_id, parent_id);
+        return true;
+    }
+
+    fn view_set_title(tree: ViewTree, id: i64, title: str) -> bool {
+        let total = vec_len(tree.component_kinds);
+        if id < 0 || id >= total { return false; }
+        vec_set(tree.component_titles, id, title);
+        return true;
+    }
+
+    fn view_set_dimensions(tree: ViewTree, id: i64, w: i64, h: i64) -> bool {
+        let total = vec_len(tree.component_kinds);
+        if id < 0 || id >= total { return false; }
+        vec_set(tree.component_widths, id, w);
+        vec_set(tree.component_heights, id, h);
+        return true;
+    }
+
+    fn view_set_text(tree: ViewTree, id: i64, text: str) -> bool {
+        let total = vec_len(tree.component_kinds);
+        if id < 0 || id >= total { return false; }
+        vec_set(tree.component_texts, id, text);
+        return true;
+    }
+
+    fn view_set_spacing(tree: ViewTree, id: i64, spacing: i64) -> bool {
+        let total = vec_len(tree.component_kinds);
+        if id < 0 || id >= total { return false; }
+        vec_set(tree.component_spacings, id, spacing);
+        return true;
+    }
+
+    fn view_set_columns(tree: ViewTree, id: i64, columns: i64) -> bool {
+        let total = vec_len(tree.component_kinds);
+        if id < 0 || id >= total { return false; }
+        vec_set(tree.component_columns, id, columns);
+        return true;
+    }
+
+    fn view_set_font_size(tree: ViewTree, id: i64, size: i64) -> bool {
+        let total = vec_len(tree.component_kinds);
+        if id < 0 || id >= total { return false; }
+        vec_set(tree.component_font_sizes, id, size);
+        return true;
+    }
+
+    fn view_bind_state(tree: ViewTree, id: i64, agent: str, key: str) -> bool {
+        let total = vec_len(tree.component_kinds);
+        if id < 0 || id >= total { return false; }
+        vec_set(tree.component_bound_agents, id, agent);
+        vec_set(tree.component_bound_keys, id, key);
+        return true;
+    }
+
+    fn view_set_on_click(tree: ViewTree, id: i64, target: str, message: str) -> bool {
+        let total = vec_len(tree.component_kinds);
+        if id < 0 || id >= total { return false; }
+        vec_set(tree.component_click_targets, id, target);
+        vec_set(tree.component_click_messages, id, message);
+        return true;
+    }
+
+    fn view_get_kind(tree: ViewTree, id: i64) -> str {
+        if id < 0 || id >= vec_len(tree.component_kinds) { return ""; }
+        return vec_get(tree.component_kinds, id);
+    }
+
+    fn view_get_title(tree: ViewTree, id: i64) -> str {
+        if id < 0 || id >= vec_len(tree.component_titles) { return ""; }
+        return vec_get(tree.component_titles, id);
+    }
+
+    fn view_get_width(tree: ViewTree, id: i64) -> i64 {
+        if id < 0 || id >= vec_len(tree.component_widths) { return 0; }
+        return vec_get(tree.component_widths, id);
+    }
+
+    fn view_get_height(tree: ViewTree, id: i64) -> i64 {
+        if id < 0 || id >= vec_len(tree.component_heights) { return 0; }
+        return vec_get(tree.component_heights, id);
+    }
+
+    fn view_get_spacing(tree: ViewTree, id: i64) -> i64 {
+        if id < 0 || id >= vec_len(tree.component_spacings) { return 0; }
+        return vec_get(tree.component_spacings, id);
+    }
+
+    fn view_get_text(tree: ViewTree, id: i64) -> str {
+        if id < 0 || id >= vec_len(tree.component_texts) { return ""; }
+        return vec_get(tree.component_texts, id);
+    }
+
+    fn view_get_click_target(tree: ViewTree, id: i64) -> str {
+        if id < 0 || id >= vec_len(tree.component_click_targets) { return ""; }
+        return vec_get(tree.component_click_targets, id);
+    }
+
+    fn view_get_click_message(tree: ViewTree, id: i64) -> str {
+        if id < 0 || id >= vec_len(tree.component_click_messages) { return ""; }
+        return vec_get(tree.component_click_messages, id);
+    }
+
+    fn view_resolve_text(tree: ViewTree, id: i64, sys: ShellSystem) -> str {
+        let total = vec_len(tree.component_kinds);
+        if id < 0 || id >= total { return ""; }
+        let bound_agent = vec_get(tree.component_bound_agents, id);
+        let bound_key = vec_get(tree.component_bound_keys, id);
+        if len(bound_agent) > 0 && len(bound_key) > 0 {
+            let int_val = shell_agent_get_int(sys, bound_agent, bound_key);
+            let prefix = vec_get(tree.component_texts, id);
+            if len(prefix) > 0 {
+                return prefix + int_to_string(int_val);
+            }
+            return int_to_string(int_val);
+        }
+        return vec_get(tree.component_texts, id);
+    }
+
+    fn view_click_button(tree: ViewTree, id: i64, sys: ShellSystem) -> bool {
+        let total = vec_len(tree.component_kinds);
+        if id < 0 || id >= total { return false; }
+        let target = vec_get(tree.component_click_targets, id);
+        let message = vec_get(tree.component_click_messages, id);
+        if len(target) > 0 && len(message) > 0 {
+            return shell_send(sys, target, "View", message, 0);
+        }
+        return false;
+    }
+
+    fn view_tree_json(tree: ViewTree) -> str {
+        let comma = ",";
+        return "{" +
+            json_field_str("schema_version", "bunker.view.v1") + comma +
+            json_field_str("view_name", tree.name) + comma +
+            json_field_i64("component_count", vec_len(tree.component_kinds)) + comma +
+            json_field_i64("root_id", tree.root_id) +
+            "}";
+    }

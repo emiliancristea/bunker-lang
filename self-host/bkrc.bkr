@@ -37,5 +37,7 @@ kernel BunkerCompiler {
 
     import "modules/shell.bkr";
 
+    import "modules/view.bkr";
+
     import "modules/driver.bkr";
 }
