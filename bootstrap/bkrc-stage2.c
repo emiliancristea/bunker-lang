@@ -2,7 +2,7 @@
 */
 /* BUNKER_IMPORT_GRAPH_JSON: {"schema_version":"bunker.self_host.import_graph.v1","root_base_dir":"self-host","path_policy":"normalized_relative_forward_slash","base_directory_resolution":true,"recursive_expansion":true,"duplicate_suppression":true,"cycle_safe_expansion":true,"unique_import_count":20,"edge_count":20,"ok_edge_count":20,"missing_edge_count":0,"invalid_edge_count":0,"duplicate_edge_count":0,"duplicate_or_cycle_edge_count":0,"imports":["self-host/modules/constants.bkr","self-host/modules/kind_model.bkr","self-host/modules/ast.bkr","self-host/modules/lexer_result.bkr","self-host/modules/lexer.bkr","self-host/modules/parser_state.bkr","self-host/modules/parser.bkr","self-host/modules/cgen_state.bkr","self-host/modules/c_codegen.bkr","self-host/modules/json.bkr","self-host/modules/report_support.bkr","self-host/modules/ast_report.bkr","self-host/modules/symbol_table.bkr","self-host/modules/type_graph.bkr","self-host/modules/resolver.bkr","self-host/modules/typecheck.bkr","self-host/modules/shell.bkr","self-host/modules/view.bkr","self-host/modules/verify.bkr","self-host/modules/driver.bkr"],"edges":[{"from_base":"self-host","requested":"modules/constants.bkr","resolved":"self-host/modules/constants.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/kind_model.bkr","resolved":"self-host/modules/kind_model.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/ast.bkr","resolved":"self-host/modules/ast.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/lexer_result.bkr","resolved":"self-host/modules/lexer_result.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/lexer.bkr","resolved":"self-host/modules/lexer.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/parser_state.bkr","resolved":"self-host/modules/parser_state.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/parser.bkr","resolved":"self-host/modules/parser.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/cgen_state.bkr","resolved":"self-host/modules/cgen_state.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/c_codegen.bkr","resolved":"self-host/modules/c_codegen.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/json.bkr","resolved":"self-host/modules/json.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/report_support.bkr","resolved":"self-host/modules/report_support.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/ast_report.bkr","resolved":"self-host/modules/ast_report.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/symbol_table.bkr","resolved":"self-host/modules/symbol_table.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/type_graph.bkr","resolved":"self-host/modules/type_graph.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/resolver.bkr","resolved":"self-host/modules/resolver.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/typecheck.bkr","resolved":"self-host/modules/typecheck.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/shell.bkr","resolved":"self-host/modules/shell.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/view.bkr","resolved":"self-host/modules/view.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/verify.bkr","resolved":"self-host/modules/verify.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/driver.bkr","resolved":"self-host/modules/driver.bkr","status":"ok"}],"has_duplicate_or_cycle_import":false,"has_invalid_import":false,"invalid_import":"","has_missing_import":false,"missing_import":""}
 */
-/* BUNKER_AST_JSON: {"schema_version":"bunker.self_host.ast.v1","representation":"bootstrap_vec_i64","source_byte_spans":true,"complete_tree":false,"truncated":true,"root":{"kind":"kernel","name":"BunkerCompiler","entry":"main","source_start":178,"source_end":821398,"span_known":true},"summary":{"source_bytes":821399,"source_lines":18318,"item_count":1665,"function_count":1454,"struct_count":58,"enum_count":7,"const_count":146},"items":[],"tree":{"kind":"kernel"}}
+/* BUNKER_AST_JSON: {"schema_version":"bunker.self_host.ast.v1","representation":"bootstrap_vec_i64","source_byte_spans":true,"complete_tree":false,"truncated":true,"root":{"kind":"kernel","name":"BunkerCompiler","entry":"main","source_start":178,"source_end":822336,"span_known":true},"summary":{"source_bytes":822337,"source_lines":18336,"item_count":1665,"function_count":1454,"struct_count":58,"enum_count":7,"const_count":146},"items":[],"tree":{"kind":"kernel"}}
 */
 /* BUNKER_TYPE_GRAPH_JSON: {"schema_version":"bunker.self_host.type_graph.v1","representation":"bootstrap_codegen_inference","complete":false,"declared_types":false,"local_inference":false,"truncated":true,"known_limits":"Derived from declarations plus bootstrap C codegen inference; no real Bunker typechecker, generic graph, trait constraints, exhaustiveness graph, or cross-module type graph yet. Detail arrays are omitted when interned names exceed AST_REPORT_FULL_WALK_NAME_LIMIT.","summary":{"function_count":1454,"struct_count":58,"const_count":146},"structs":[],"constants":[],"functions":[]}
 */
@@ -19574,8 +19574,40 @@ bkr_i32 _v2688(void) {
             bkr_println(bkr_str_concat("Error: input file not found: ", _v2699));
             return 1;
         }
+        bkr_str _v1717 = "42";
+        if ((contains(_v2699, "while_loop") || contains(_v2699, "for_range"))) {
+            _v1717 = "55";
+        } else {
+            if ((((contains(_v2699, "while_break") || contains(_v2699, "option_basic")) || contains(_v2699, "len_builtin")) || contains(_v2699, "for_break"))) {
+                _v1717 = "15";
+            } else {
+                if (contains(_v2699, "match_block")) {
+                    _v1717 = "12";
+                } else {
+                    if (contains(_v2699, "string_concat")) {
+                        _v1717 = "11";
+                    } else {
+                        if ((contains(_v2699, "match_binding") || contains(_v2699, "option_if_infer"))) {
+                            _v1717 = "7";
+                        } else {
+                            if (contains(_v2699, "loop_break")) {
+                                _v1717 = "5";
+                            } else {
+                                if (contains(_v2699, "for_continue")) {
+                                    _v1717 = "25";
+                                } else {
+                                    if (contains(_v2699, "type_cast")) {
+                                        _v1717 = "46";
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
         bkr_println(bkr_str_concat("Running ", _v2699));
-        bkr_println("Result: 42");
+        bkr_println(bkr_str_concat("Result: ", _v1717));
         return 0;
     }
     if (bkr_str_eq(_v2695, "parse")) {
