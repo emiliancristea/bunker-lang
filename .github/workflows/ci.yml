@@ -25,14 +25,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Link archived Stage 0 Rust compiler
-        shell: pwsh
-        run: |
-          if ($IsWindows) {
-            if (Test-Path bunker-cli) { Remove-Item -Recurse -Force bunker-cli }
-            New-Item -ItemType Junction -Path bunker-cli -Target archive\bootstrap\stage0-rust
-          } else {
-            ln -sf archive/bootstrap/stage0-rust bunker-cli
-          }
+        if: runner.os != 'Windows'
+        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
 
       - name: Select Rust toolchain
         run: rustup default ${{ matrix.rust }}
@@ -77,14 +71,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Link archived Stage 0 Rust compiler
-        shell: pwsh
-        run: |
-          if ($IsWindows) {
-            if (Test-Path bunker-cli) { Remove-Item -Recurse -Force bunker-cli }
-            New-Item -ItemType Junction -Path bunker-cli -Target archive\bootstrap\stage0-rust
-          } else {
-            ln -sf archive/bootstrap/stage0-rust bunker-cli
-          }
+        if: runner.os != 'Windows'
+        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
 
       - name: Select Rust toolchain
         run: rustup default stable
@@ -106,14 +94,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Link archived Stage 0 Rust compiler
-        shell: pwsh
-        run: |
-          if ($IsWindows) {
-            if (Test-Path bunker-cli) { Remove-Item -Recurse -Force bunker-cli }
-            New-Item -ItemType Junction -Path bunker-cli -Target archive\bootstrap\stage0-rust
-          } else {
-            ln -sf archive/bootstrap/stage0-rust bunker-cli
-          }
+        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
 
       - name: Prevent raw AST collection traversal outside AST boundary
         shell: bash
@@ -1597,14 +1578,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Link archived Stage 0 Rust compiler
-        shell: pwsh
-        run: |
-          if ($IsWindows) {
-            if (Test-Path bunker-cli) { Remove-Item -Recurse -Force bunker-cli }
-            New-Item -ItemType Junction -Path bunker-cli -Target archive\bootstrap\stage0-rust
-          } else {
-            ln -sf archive/bootstrap/stage0-rust bunker-cli
-          }
+        if: runner.os != 'Windows'
+        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
 
       - name: Select Rust toolchain
         run: rustup default stable
@@ -3508,14 +3483,8 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Link archived Stage 0 Rust compiler
-        shell: pwsh
-        run: |
-          if ($IsWindows) {
-            if (Test-Path bunker-cli) { Remove-Item -Recurse -Force bunker-cli }
-            New-Item -ItemType Junction -Path bunker-cli -Target archive\bootstrap\stage0-rust
-          } else {
-            ln -sf archive/bootstrap/stage0-rust bunker-cli
-          }
+        if: runner.os != 'Windows'
+        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
 
       - name: Select Rust toolchain
         run: rustup default stable
