@@ -232,6 +232,8 @@ $expectedResults = @{
     "301_shell_agent_ping_pong" = 42
     "302_pure_bunker_view_tree" = 42
     "303_view_reactive_state_binding" = 42
+    "304_contract_verification_engine" = 42
+    "305_verified_pre_post_conditions" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
