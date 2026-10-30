@@ -243,7 +243,7 @@ $ ./bkrc compile tests/01_basic_math.bkr -o math.c
 
 **Deliverables:**
 - [x] Honest test runner written in Bunker (`tools/test_runner.bkr`); PowerShell runner removed.
-- [~] Native x86-64 backend in Bunker (`self-host/modules/x86_codegen.bkr`): instruction encoder plus ELF64 writer, so `bkrc native` writes executables directly. Integers, bools, functions, locals, consts and all control flow work; 20/207 run tests pass natively (`tests/native_known_failures.txt`). Missing: structs, enums, match, strings, arrays, floats, builtins.
+- [~] Native x86-64 backend in Bunker (`self-host/modules/x86_codegen.bkr`): instruction encoder plus ELF64 writer, so `bkrc native` writes executables directly. Integers, bools, structs (nesting, methods, update syntax), fixed arrays with bounds checks, enums, Option, match with guards, block expressions, functions and all control flow work; 73/207 run tests pass natively (`tests/native_known_failures.txt`). Missing: strings, Vec/HashMap/Result and other builtins (needs a native runtime), floats, tuples, closures.
 - [ ] Runtime in Bunker on raw Linux syscalls (memory, files, processes), replacing `runtime.h` and libc.
 - [ ] `bkrc` compiles itself through the native backend (fixpoint without `cc`).
 - [ ] Checked-in `bkrc` Linux binary seed with checksums replaces the C seed; `cc` no longer needed to bootstrap.

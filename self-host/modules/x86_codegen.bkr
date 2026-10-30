@@ -3,9 +3,18 @@
     // Code generation is a simple stack machine: every expression leaves its value in rax,
     // binary operators spill the left operand with push/pop, and locals live in 8-byte slots
     // below rbp. Functions use rdi, rsi, rdx, rcx, r8, r9 for up to six arguments.
-    // Supported today: integers and bools, functions, locals, consts, if/else, while, for,
-    // loop, break/continue, ternary, casts between integer types, arithmetic, comparisons,
-    // bitwise and logical operators. Anything else is reported as an unsupported construct.
+    // Struct values live in the frame as consecutive 8-byte words; a struct-typed expression
+    // leaves the address of its words in rax, and let/assign/arguments/return copy the words,
+    // which keeps value semantics. Functions returning a struct receive a hidden destination
+    // pointer in rdi. Enums and Option use the same integer packing as the C backend:
+    // tag | payload << 8 (or a << 20 | b << 8 | tag), Some(x) = x << 1 | 1, None = 0.
+    // Fixed arrays use the same word layout, with type descriptor "[N]T"; indexing is
+    // bounds-checked and exits with code 101 (the runtime panic code) when out of range.
+    // Supported today: integers, bools, structs (fields, nesting, literals, update syntax,
+    // methods), fixed arrays of scalars, unit and payload enums, Option, match with guards,
+    // block expressions,
+    // functions, locals, consts and all control flow. Anything else is reported as an
+    // unsupported construct.
 
     struct X86State {
         code: Vec<i64>,
@@ -20,6 +29,22 @@
         // Scoped locals: parallel stacks of name and rbp offset
         local_names: Vec<str>,
         local_offsets: Vec<i64>,
+        // Local type: "" for a scalar, otherwise the struct name
+        local_types: Vec<str>,
+        // Function name -> return type ("" scalar or struct name)
+        fn_ret: HashMap<str, str>,
+        // Struct layouts: struct name -> size in words, plus flat field tables
+        struct_size: HashMap<str, i64>,
+        struct_names: HashMap<str, i64>,
+        sf_struct: Vec<str>,
+        sf_name: Vec<str>,
+        sf_type: Vec<str>,
+        sf_offset: Vec<i64>,
+        // Enums: enum name set and "Enum.Variant" -> tag
+        enum_names: HashMap<str, i64>,
+        enum_tags: HashMap<str, i64>,
+        // Current function: [0] return type
+        cur_ret: Vec<str>,
         // Kernel consts: name -> value expression handle
         consts: HashMap<str, i64>,
         // Loop jump fixups: position of rel32 and owning loop id
@@ -28,7 +53,8 @@
         cont_fix_pos: Vec<i64>,
         cont_fix_loop: Vec<i64>,
         loop_stack: Vec<i64>,
-        // [0] next frame slot bytes, [1] max frame bytes, [2] next loop id
+        // [0] next frame slot bytes, [1] max frame bytes, [2] next loop id,
+        // [3] frame offset of the hidden struct return pointer (0 when none)
         counters: Vec<i64>,
     }
 
@@ -39,6 +65,9 @@
         vec_push(counters, 0);
         vec_push(counters, 0);
         vec_push(counters, 0);
+        vec_push(counters, 0);
+        let cur_ret: Vec<str> = vec_new();
+        vec_push(cur_ret, "");
         return X86State {
             code: vec_new(),
             names: names,
@@ -49,6 +78,17 @@
             call_fix_name: vec_new(),
             local_names: vec_new(),
             local_offsets: vec_new(),
+            local_types: vec_new(),
+            fn_ret: hashmap_new(),
+            struct_size: hashmap_new(),
+            struct_names: hashmap_new(),
+            sf_struct: vec_new(),
+            sf_name: vec_new(),
+            sf_type: vec_new(),
+            sf_offset: vec_new(),
+            enum_names: hashmap_new(),
+            enum_tags: hashmap_new(),
+            cur_ret: cur_ret,
             consts: hashmap_new(),
             break_fix_pos: vec_new(),
             break_fix_loop: vec_new(),
@@ -156,6 +196,72 @@
         return x86_u32(st, 0 - offset);
     }
 
+    fn x86_lea_rax(st: X86State, offset: i64) -> bool {
+        // lea rax, [rbp - offset]
+        x86_b3(st, 72, 141, 133);
+        return x86_u32(st, 0 - offset);
+    }
+
+    fn x86_lea_rdx(st: X86State, offset: i64) -> bool {
+        // lea rdx, [rbp - offset]
+        x86_b3(st, 72, 141, 149);
+        return x86_u32(st, 0 - offset);
+    }
+
+    fn x86_load_rdx_local(st: X86State, offset: i64) -> bool {
+        // mov rdx, [rbp - offset]
+        x86_b3(st, 72, 139, 149);
+        return x86_u32(st, 0 - offset);
+    }
+
+    fn x86_load_field(st: X86State, word: i64) -> bool {
+        // mov rax, [rax + 8 * word]
+        x86_b3(st, 72, 139, 128);
+        return x86_u32(st, word * 8);
+    }
+
+    fn x86_add_rax_imm(st: X86State, value: i64) -> bool {
+        x86_b2(st, 72, 5);
+        return x86_u32(st, value);
+    }
+
+    fn x86_cmp_rax_imm(st: X86State, value: i64) -> bool {
+        // mov rcx, imm64; cmp rax, rcx
+        x86_b2(st, 72, 185);
+        x86_u64(st, value);
+        return x86_b3(st, 72, 57, 200);
+    }
+
+    fn x86_sar_rax(st: X86State, bits: i64) -> bool {
+        x86_b3(st, 72, 193, 248);
+        return x86_b(st, bits);
+    }
+
+    fn x86_and_rax_imm(st: X86State, value: i64) -> bool {
+        x86_b2(st, 72, 37);
+        return x86_u32(st, value);
+    }
+
+    // Copy `words` 8-byte words from [rax] to [rdx]; clobbers rcx.
+    fn x86_copy_words(st: X86State, words: i64) -> bool {
+        let k: i64 = 0;
+        while k < words {
+            x86_b3(st, 72, 139, 136);
+            x86_u32(st, k * 8);
+            x86_b3(st, 72, 137, 138);
+            x86_u32(st, k * 8);
+            k = k + 1;
+        }
+        return true;
+    }
+
+    fn x86_jne_fwd(st: X86State) -> i64 {
+        x86_b2(st, 15, 133);
+        let pos = x86_pos(st);
+        x86_u32(st, 0);
+        return pos;
+    }
+
     fn x86_push_rax(st: X86State) -> bool {
         return x86_b(st, 80);
     }
@@ -219,26 +325,52 @@
 
     // ---- Locals ----
 
-    fn x86_alloc_local(st: X86State, name: str) -> i64 {
-        let offset = vec_get(st.counters, 0) + 8;
+    // Reserve `words` consecutive slots; the block starts at [rbp - offset].
+    fn x86_alloc_block(st: X86State, words: i64) -> i64 {
+        let offset = vec_get(st.counters, 0) + 8 * words;
         vec_set(st.counters, 0, offset);
         if offset > vec_get(st.counters, 1) {
             vec_set(st.counters, 1, offset);
         }
-        vec_push(st.local_names, name);
-        vec_push(st.local_offsets, offset);
         return offset;
     }
 
-    fn x86_lookup_local(st: X86State, name: str) -> i64 {
+    fn x86_bind_local(st: X86State, name: str, offset: i64, ty: str) -> i64 {
+        vec_push(st.local_names, name);
+        vec_push(st.local_offsets, offset);
+        vec_push(st.local_types, ty);
+        return offset;
+    }
+
+    fn x86_alloc_local(st: X86State, name: str) -> i64 {
+        return x86_bind_local(st, name, x86_alloc_block(st, 1), "");
+    }
+
+    fn x86_local_index(st: X86State, name: str) -> i64 {
         let i = vec_len(st.local_names) - 1;
         while i >= 0 {
             if vec_get(st.local_names, i) == name {
-                return vec_get(st.local_offsets, i);
+                return i;
             }
             i = i - 1;
         }
         return -1;
+    }
+
+    fn x86_lookup_local(st: X86State, name: str) -> i64 {
+        let i = x86_local_index(st, name);
+        if i < 0 {
+            return -1;
+        }
+        return vec_get(st.local_offsets, i);
+    }
+
+    fn x86_local_type(st: X86State, name: str) -> str {
+        let i = x86_local_index(st, name);
+        if i < 0 {
+            return "";
+        }
+        return vec_get(st.local_types, i);
     }
 
     fn x86_scope_mark(st: X86State) -> i64 {
@@ -249,8 +381,204 @@
         while vec_len(st.local_names) > mark {
             vec_pop(st.local_names);
             vec_pop(st.local_offsets);
+            vec_pop(st.local_types);
         }
         return true;
+    }
+
+    // ---- Types and layouts ----
+
+    fn x86_is_struct(st: X86State, ty: str) -> bool {
+        return len(ty) > 0;
+    }
+
+    fn x86_is_array(st: X86State, ty: str) -> bool {
+        return starts_with(ty, "[");
+    }
+
+    fn x86_array_len(st: X86State, ty: str) -> i64 {
+        return parse_int(substring(ty, 1, str_index_of(ty, "]")));
+    }
+
+    fn x86_array_elem(st: X86State, ty: str) -> str {
+        return substring(ty, str_index_of(ty, "]") + 1, len(ty));
+    }
+
+    fn x86_size_of(st: X86State, ty: str) -> i64 {
+        if len(ty) == 0 {
+            return 1;
+        }
+        if x86_is_array(st, ty) {
+            return x86_array_len(st, ty) * x86_size_of(st, x86_array_elem(st, ty));
+        }
+        let size: i64 = hashmap_get(st.struct_size, ty);
+        return size;
+    }
+
+    // Map a type annotation to "" (scalar) or a struct name.
+    fn x86_type_of(st: X86State, type_ref: AstTypeRef) -> str {
+        if ast_type_ref_is_none(type_ref) {
+            return "";
+        }
+        let kind: i64 = ast_type_ref_kind_value(type_ref);
+        if kind == TYPE_ARRAY {
+            let elem_kind: i64 = ast_type_ref_array_elem_kind_value(type_ref);
+            if elem_kind == TYPE_STRUCT || elem_kind == TYPE_ARRAY {
+                x86_fail(st, "unsupported type: array of structs or arrays");
+                return "";
+            }
+            return "[" + int_to_string(ast_type_ref_array_len_value(type_ref)) + "]";
+        }
+        if kind == TYPE_STRUCT {
+            let name = x86_name(st, ast_type_ref_struct_name_idx_value(type_ref));
+            if hashmap_contains(st.struct_names, name) {
+                return name;
+            }
+        }
+        return "";
+    }
+
+    fn x86_type_of_handle(st: X86State, handle: i64) -> str {
+        if !ast_optional_is_some(handle) {
+            return "";
+        }
+        return x86_type_of(st, ast_type_ref_from_handle(handle));
+    }
+
+    fn x86_field_index(st: X86State, struct_name: str, field: str) -> i64 {
+        let i: i64 = 0;
+        while i < vec_len(st.sf_struct) {
+            if vec_get(st.sf_struct, i) == struct_name && vec_get(st.sf_name, i) == field {
+                return i;
+            }
+            i = i + 1;
+        }
+        return -1;
+    }
+
+    // Field by declaration position (used by tuple-struct constructors).
+    fn x86_field_at(st: X86State, struct_name: str, position: i64) -> i64 {
+        let seen: i64 = 0;
+        let i: i64 = 0;
+        while i < vec_len(st.sf_struct) {
+            if vec_get(st.sf_struct, i) == struct_name {
+                if seen == position {
+                    return i;
+                }
+                seen = seen + 1;
+            }
+            i = i + 1;
+        }
+        return -1;
+    }
+
+    fn x86_compute_struct_size(st: X86State, name: str, depth: i64) -> i64 {
+        if hashmap_contains(st.struct_size, name) {
+            let known: i64 = hashmap_get(st.struct_size, name);
+            return known;
+        }
+        if depth > 64 {
+            x86_fail(st, "recursive struct layout: " + name);
+            return 1;
+        }
+        let words: i64 = 0;
+        let i: i64 = 0;
+        while i < vec_len(st.sf_struct) {
+            if vec_get(st.sf_struct, i) == name {
+                vec_set(st.sf_offset, i, words);
+                let field_ty: str = vec_get(st.sf_type, i);
+                if len(field_ty) == 0 {
+                    words = words + 1;
+                } else if x86_is_array(st, field_ty) {
+                    words = words + x86_size_of(st, field_ty);
+                } else {
+                    words = words + x86_compute_struct_size(st, field_ty, depth + 1);
+                }
+            }
+            i = i + 1;
+        }
+        if words == 0 {
+            words = 1;
+        }
+        hashmap_insert(st.struct_size, name, words);
+        return words;
+    }
+
+    fn x86_method_name(st: X86State, expr_ref: AstExprRef) -> str {
+        let receiver_ty = x86_expr_type(st, ast_method_call_ref_receiver_ref(expr_ref));
+        return receiver_ty + "::" + x86_name(st, ast_method_call_ref_method_name_idx(expr_ref));
+    }
+
+    fn x86_fn_ret_type(st: X86State, name: str) -> str {
+        if hashmap_contains(st.fn_ret, name) {
+            let ty: str = hashmap_get(st.fn_ret, name);
+            return ty;
+        }
+        return "";
+    }
+
+    // Static type of an expression: "" for scalars, the struct name for struct values.
+    fn x86_expr_type(st: X86State, expr_ref: AstExprRef) -> str {
+        let kind: i64 = ast_expr_ref_kind(expr_ref);
+        if kind == NODE_IDENT {
+            return x86_local_type(st, x86_name(st, ast_expr_ref_name_idx(expr_ref)));
+        }
+        if kind == NODE_STRUCT_LIT {
+            return x86_name(st, ast_struct_lit_ref_name_idx(expr_ref));
+        }
+        if kind == NODE_CALL {
+            let name = x86_name(st, ast_call_ref_name_idx(expr_ref));
+            if hashmap_contains(st.struct_names, name) {
+                return name;
+            }
+            return x86_fn_ret_type(st, name);
+        }
+        if kind == NODE_METHOD_CALL {
+            return x86_fn_ret_type(st, x86_method_name(st, expr_ref));
+        }
+        if kind == NODE_FIELD_ACCESS {
+            let base_ty = x86_expr_type(st, ast_field_access_ref_base_ref(expr_ref));
+            if len(base_ty) == 0 {
+                return "";
+            }
+            let f = x86_field_index(st, base_ty, x86_name(st, ast_field_access_ref_name_idx(expr_ref)));
+            if f < 0 {
+                return "";
+            }
+            return vec_get(st.sf_type, f);
+        }
+        if kind == NODE_TERNARY {
+            return x86_expr_type(st, ast_expr_ref_from_handle(ast_ternary_ref_then_handle(expr_ref)));
+        }
+        if kind == NODE_INDEX {
+            let base_ty = x86_expr_type(st, ast_expr_ref_from_handle(ast_index_ref_base_handle(expr_ref)));
+            if x86_is_array(st, base_ty) {
+                return x86_array_elem(st, base_ty);
+            }
+            return "";
+        }
+        if kind == NODE_ARRAY_LIT {
+            let elems_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
+            let count = ast_node_list_ref_count(elems_ref);
+            let elem_ty = "";
+            if count > 0 {
+                elem_ty = x86_expr_type(st, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(elems_ref, 0)));
+            }
+            return "[" + int_to_string(count) + "]" + elem_ty;
+        }
+        if kind == NODE_ARRAY_REPEAT {
+            return "[" + int_to_string(ast_array_repeat_ref_count(expr_ref)) + "]" + x86_expr_type(st, ast_array_repeat_ref_elem_ref(expr_ref));
+        }
+        if kind == NODE_MATCH {
+            let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
+            if ast_node_list_ref_count(bodies_ref) > 0 {
+                let body = ast_node_list_ref_get_handle(bodies_ref, 0);
+                if ast_node_ref_kind(ast_node_ref_from_handle(body)) != NODE_BLOCK {
+                    return x86_expr_type(st, ast_expr_ref_from_handle(body));
+                }
+            }
+        }
+        return "";
     }
 
     // ---- Expressions ----
@@ -277,7 +605,13 @@
             let name = x86_name(st, ast_expr_ref_name_idx(expr_ref));
             let offset = x86_lookup_local(st, name);
             if offset > 0 {
+                if x86_is_struct(st, x86_local_type(st, name)) {
+                    return x86_lea_rax(st, offset);
+                }
                 return x86_load_local(st, offset);
+            }
+            if name == "None" {
+                return x86_mov_rax_imm(st, 0);
             }
             if hashmap_contains(st.consts, name) {
                 let value_handle: i64 = hashmap_get(st.consts, name);
@@ -325,6 +659,120 @@
 
         if kind == NODE_CALL {
             return x86_gen_call(st, expr_ref);
+        }
+
+        if kind == NODE_METHOD_CALL {
+            let handles: Vec<i64> = vec_new();
+            vec_push(handles, ast_method_call_ref_receiver_handle(expr_ref));
+            let args_ref: AstNodeListRef = ast_method_call_ref_args_ref(expr_ref);
+            let i: i64 = 0;
+            while i < ast_node_list_ref_count(args_ref) {
+                vec_push(handles, ast_node_list_ref_get_handle(args_ref, i));
+                i = i + 1;
+            }
+            return x86_emit_call(st, x86_method_name(st, expr_ref), handles);
+        }
+
+        if kind == NODE_FIELD_ACCESS {
+            let base_ref: AstExprRef = ast_field_access_ref_base_ref(expr_ref);
+            let field = x86_name(st, ast_field_access_ref_name_idx(expr_ref));
+            if ast_expr_ref_kind(base_ref) == NODE_IDENT {
+                let base_name = x86_name(st, ast_expr_ref_name_idx(base_ref));
+                if x86_lookup_local(st, base_name) < 0 && hashmap_contains(st.enum_names, base_name) {
+                    let key = base_name + "." + field;
+                    if !hashmap_contains(st.enum_tags, key) {
+                        return x86_fail(st, "unknown enum variant: " + key);
+                    }
+                    let tag: i64 = hashmap_get(st.enum_tags, key);
+                    return x86_mov_rax_imm(st, tag);
+                }
+            }
+            let base_ty = x86_expr_type(st, base_ref);
+            if !x86_is_struct(st, base_ty) {
+                return x86_fail(st, "field access on a non-struct value: ." + field);
+            }
+            let f = x86_field_index(st, base_ty, field);
+            if f < 0 {
+                return x86_fail(st, "unknown field " + base_ty + "." + field);
+            }
+            x86_gen_expr(st, base_ref);
+            if x86_is_struct(st, vec_get(st.sf_type, f)) {
+                return x86_add_rax_imm(st, vec_get(st.sf_offset, f) * 8);
+            }
+            return x86_load_field(st, vec_get(st.sf_offset, f));
+        }
+
+        if kind == NODE_STRUCT_LIT {
+            return x86_gen_struct_lit(st, expr_ref);
+        }
+
+        if kind == NODE_ARRAY_LIT {
+            let elems_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
+            let count = ast_node_list_ref_count(elems_ref);
+            let ty = x86_expr_type(st, expr_ref);
+            let elem_ty = x86_array_elem(st, ty);
+            let elem_words = x86_size_of(st, elem_ty);
+            let base = x86_alloc_block(st, x86_size_of(st, ty));
+            let i: i64 = 0;
+            while i < count {
+                let slot = base - 8 * elem_words * i;
+                x86_gen_expr_handle(st, ast_node_list_ref_get_handle(elems_ref, i));
+                if x86_is_struct(st, elem_ty) {
+                    x86_lea_rdx(st, slot);
+                    x86_copy_words(st, elem_words);
+                } else {
+                    x86_store_local(st, slot);
+                }
+                i = i + 1;
+            }
+            return x86_lea_rax(st, base);
+        }
+
+        if kind == NODE_ARRAY_REPEAT {
+            let count = ast_array_repeat_ref_count(expr_ref);
+            let elem_ref: AstExprRef = ast_array_repeat_ref_elem_ref(expr_ref);
+            if x86_is_struct(st, x86_expr_type(st, elem_ref)) {
+                return x86_fail(st, "repeat arrays of structs are not supported");
+            }
+            if count <= 0 {
+                return x86_fail(st, "repeat array needs a positive length");
+            }
+            let base = x86_alloc_block(st, count);
+            x86_gen_expr(st, elem_ref);
+            // lea rdx, [base]; mov rcx, count; loop: mov [rdx], rax; add rdx, 8; dec rcx; jnz loop
+            x86_lea_rdx(st, base);
+            x86_b2(st, 72, 185);
+            x86_u64(st, count);
+            let top = x86_pos(st);
+            x86_b3(st, 72, 137, 2);
+            x86_b3(st, 72, 131, 194);
+            x86_b(st, 8);
+            x86_b3(st, 72, 255, 201);
+            x86_b2(st, 15, 133);
+            let back = x86_pos(st);
+            x86_u32(st, 0);
+            x86_patch_rel32(st, back, top);
+            return x86_lea_rax(st, base);
+        }
+
+        if kind == NODE_INDEX {
+            let elem_ty = x86_expr_type(st, expr_ref);
+            if !x86_gen_index_addr(st, expr_ref) {
+                return false;
+            }
+            if x86_is_struct(st, elem_ty) {
+                return true;
+            }
+            // mov rax, [rax]
+            return x86_b3(st, 72, 139, 0);
+        }
+
+        if kind == NODE_MATCH {
+            return x86_gen_match(st, expr_ref);
+        }
+
+        if kind == NODE_BLOCK {
+            return x86_gen_block_value(st, ast_block_ref_from_handle(ast_expr_ref_handle(expr_ref)));
         }
 
         return x86_fail(st, "unsupported expression: " + x86_kind_name(kind));
@@ -404,37 +852,347 @@
         return x86_setcc_rax(st, cc);
     }
 
+    // Leave the address of base[index] in rax, exiting with code 101 when out of bounds.
+    fn x86_gen_index_addr(st: X86State, expr_ref: AstExprRef) -> bool {
+        let base_ref: AstExprRef = ast_expr_ref_from_handle(ast_index_ref_base_handle(expr_ref));
+        let base_ty = x86_expr_type(st, base_ref);
+        if !x86_is_array(st, base_ty) {
+            return x86_fail(st, "indexing is only supported on fixed arrays");
+        }
+        let count = x86_array_len(st, base_ty);
+        let elem_bytes = 8 * x86_size_of(st, x86_array_elem(st, base_ty));
+        x86_gen_expr(st, base_ref);
+        x86_push_rax(st);
+        x86_gen_expr_handle(st, ast_index_ref_expr_handle(expr_ref));
+        x86_cmp_rax_imm(st, count);
+        // jb in_bounds; mov edi, 101; mov eax, 60; syscall
+        x86_b2(st, 15, 130);
+        let ok = x86_pos(st);
+        x86_u32(st, 0);
+        x86_b(st, 191);
+        x86_u32(st, 101);
+        x86_b(st, 184);
+        x86_u32(st, 60);
+        x86_b2(st, 15, 5);
+        x86_patch_rel32(st, ok, x86_pos(st));
+        // imul rcx, rax, elem_bytes; pop rax; add rax, rcx
+        x86_b3(st, 72, 105, 200);
+        x86_u32(st, elem_bytes);
+        x86_pop_rax(st);
+        return x86_b3(st, 72, 1, 200);
+    }
+
     fn x86_gen_call(st: X86State, expr_ref: AstExprRef) -> bool {
         let name = x86_name(st, ast_call_ref_name_idx(expr_ref));
         let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
         let argc = ast_node_list_ref_count(args_ref);
+        if name == "len" && argc == 1 && !hashmap_contains(st.fn_arity, name) {
+            let arg_ty = x86_expr_type(st, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+            if x86_is_array(st, arg_ty) {
+                return x86_mov_rax_imm(st, x86_array_len(st, arg_ty));
+            }
+        }
+        if name == "Some" && argc == 1 {
+            x86_gen_expr_handle(st, ast_node_list_ref_get_handle(args_ref, 0));
+            // shl rax, 1; or rax, 1
+            x86_b3(st, 72, 209, 224);
+            x86_b3(st, 72, 131, 200);
+            return x86_b(st, 1);
+        }
+        if hashmap_contains(st.struct_names, name) {
+            // Tuple-struct constructor: fields in declaration order
+            let words = x86_size_of(st, name);
+            let base = x86_alloc_block(st, words);
+            let i: i64 = 0;
+            while i < argc {
+                let f = x86_field_at(st, name, i);
+                if f < 0 {
+                    return x86_fail(st, "too many fields for " + name);
+                }
+                x86_store_field_value(st, base, f, ast_node_list_ref_get_handle(args_ref, i));
+                i = i + 1;
+            }
+            return x86_lea_rax(st, base);
+        }
+        let handles: Vec<i64> = vec_new();
+        let i: i64 = 0;
+        while i < argc {
+            vec_push(handles, ast_node_list_ref_get_handle(args_ref, i));
+            i = i + 1;
+        }
+        return x86_emit_call(st, name, handles);
+    }
+
+    // Evaluate arguments, pass them in registers (struct arguments by address) and call.
+    // Functions returning a struct get a fresh destination block as hidden first argument.
+    fn x86_emit_call(st: X86State, name: str, handles: Vec<i64>) -> bool {
         if !hashmap_contains(st.fn_arity, name) {
             return x86_fail(st, "unsupported call to builtin or unknown function: " + name);
         }
-        if argc > 6 {
-            return x86_fail(st, "calls with more than 6 arguments are not supported: " + name);
+        let argc = vec_len(handles);
+        let ret_ty = x86_fn_ret_type(st, name);
+        let hidden: i64 = 0;
+        if x86_is_struct(st, ret_ty) {
+            hidden = 1;
+        }
+        if argc + hidden > 6 {
+            return x86_fail(st, "calls with more than 6 register arguments are not supported: " + name);
         }
         let i: i64 = 0;
         while i < argc {
-            x86_gen_expr_handle(st, ast_node_list_ref_get_handle(args_ref, i));
+            x86_gen_expr_handle(st, vec_get(handles, i));
             x86_push_rax(st);
             i = i + 1;
         }
-        // Pop into argument registers in reverse order
+        if hidden == 1 {
+            x86_lea_rax(st, x86_alloc_block(st, x86_size_of(st, ret_ty)));
+            x86_push_rax(st);
+            x86_pop_arg(st, 0);
+        }
         let r = argc - 1;
         while r >= 0 {
-            if r == 0 { x86_b(st, 95); }
-            if r == 1 { x86_b(st, 94); }
-            if r == 2 { x86_b(st, 90); }
-            if r == 3 { x86_b(st, 89); }
-            if r == 4 { x86_b2(st, 65, 88); }
-            if r == 5 { x86_b2(st, 65, 89); }
+            x86_pop_arg(st, r + hidden);
             r = r - 1;
         }
         x86_b(st, 232);
         vec_push(st.call_fix_pos, x86_pos(st));
         vec_push(st.call_fix_name, name);
         return x86_u32(st, 0);
+    }
+
+    fn x86_pop_arg(st: X86State, reg: i64) -> bool {
+        if reg == 0 { return x86_b(st, 95); }
+        if reg == 1 { return x86_b(st, 94); }
+        if reg == 2 { return x86_b(st, 90); }
+        if reg == 3 { return x86_b(st, 89); }
+        if reg == 4 { return x86_b2(st, 65, 88); }
+        return x86_b2(st, 65, 89);
+    }
+
+    // Evaluate the value for field f and store it into the struct block at [rbp - base].
+    fn x86_store_field_value(st: X86State, base: i64, f: i64, value_handle: i64) -> bool {
+        let field_offset = base - 8 * vec_get(st.sf_offset, f);
+        let field_ty: str = vec_get(st.sf_type, f);
+        x86_gen_expr_handle(st, value_handle);
+        if x86_is_struct(st, field_ty) {
+            x86_lea_rdx(st, field_offset);
+            return x86_copy_words(st, x86_size_of(st, field_ty));
+        }
+        return x86_store_local(st, field_offset);
+    }
+
+    fn x86_gen_struct_lit(st: X86State, expr_ref: AstExprRef) -> bool {
+        let name = x86_name(st, ast_struct_lit_ref_name_idx(expr_ref));
+        if !hashmap_contains(st.struct_names, name) {
+            return x86_fail(st, "unknown struct: " + name);
+        }
+        let words = x86_size_of(st, name);
+        let base = x86_alloc_block(st, words);
+        let base_handle = ast_struct_lit_ref_base_handle(expr_ref);
+        if ast_optional_is_some(base_handle) {
+            x86_gen_expr_handle(st, base_handle);
+            x86_lea_rdx(st, base);
+            x86_copy_words(st, words);
+        }
+        let names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
+        let values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
+        let i: i64 = 0;
+        while i < ast_i64_list_ref_count(names_ref) {
+            let field = x86_name(st, ast_i64_list_ref_get(names_ref, i));
+            let f = x86_field_index(st, name, field);
+            if f < 0 {
+                return x86_fail(st, "unknown field " + name + "." + field);
+            }
+            x86_store_field_value(st, base, f, ast_node_list_ref_get_handle(values_ref, i));
+            i = i + 1;
+        }
+        return x86_lea_rax(st, base);
+    }
+
+    // Value of a block used as an expression: the trailing expression statement, else 0.
+    fn x86_gen_block_value(st: X86State, block_ref: AstBlockRef) -> bool {
+        let mark = x86_scope_mark(st);
+        let count = ast_block_ref_stmt_count(block_ref);
+        let has_value = false;
+        let i: i64 = 0;
+        while i < count {
+            let stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, i);
+            if i == count - 1 && ast_stmt_ref_kind(stmt_ref) == NODE_EXPR_STMT {
+                x86_gen_expr_handle(st, ast_expr_stmt_ref_expr_handle(stmt_ref));
+                has_value = true;
+            } else {
+                x86_gen_stmt(st, stmt_ref);
+            }
+            i = i + 1;
+        }
+        if !has_value {
+            x86_mov_rax_imm(st, 0);
+        }
+        return x86_scope_restore(st, mark);
+    }
+
+    fn x86_gen_node_value(st: X86State, handle: i64) -> bool {
+        if ast_node_ref_kind(ast_node_ref_from_handle(handle)) == NODE_BLOCK {
+            return x86_gen_block_value(st, ast_block_ref_from_handle(handle));
+        }
+        return x86_gen_expr_handle(st, handle);
+    }
+
+    // ---- Match ----
+
+    fn x86_enum_tag_for_pattern(st: X86State, pattern_ref: AstPatternRef) -> i64 {
+        let key = x86_name(st, ast_pattern_ref_value(pattern_ref)) + "." + x86_name(st, ast_pattern_ref_aux(pattern_ref));
+        if !hashmap_contains(st.enum_tags, key) {
+            x86_fail(st, "unknown enum variant in pattern: " + key);
+            return -1;
+        }
+        let tag: i64 = hashmap_get(st.enum_tags, key);
+        return tag;
+    }
+
+    // Store (value at slot) >> bits, masked when mask > 0, into a new slot and return it.
+    fn x86_derive_slot(st: X86State, slot: i64, bits: i64, mask: i64) -> i64 {
+        x86_load_local(st, slot);
+        if bits > 0 {
+            x86_sar_rax(st, bits);
+        }
+        if mask > 0 {
+            x86_and_rax_imm(st, mask);
+        }
+        let derived = x86_alloc_block(st, 1);
+        x86_store_local(st, derived);
+        return derived;
+    }
+
+    // Emit tests for a pattern against the value at slot; mismatches jump to `fails` fixups.
+    fn x86_pattern_test(st: X86State, pattern_ref: AstPatternRef, slot: i64, fails: Vec<i64>) -> bool {
+        let kind: i64 = ast_pattern_ref_kind(pattern_ref);
+        let value = ast_pattern_ref_value(pattern_ref);
+        if kind == PAT_BIND || kind == PAT_WILDCARD {
+            return true;
+        }
+        if kind == PAT_INT || kind == PAT_BOOL {
+            x86_load_local(st, slot);
+            let expected = value;
+            if kind == PAT_BOOL && value != 0 {
+                expected = 1;
+            }
+            x86_cmp_rax_imm(st, expected);
+            vec_push(fails, x86_jne_fwd(st));
+            return true;
+        }
+        if kind == PAT_NONE {
+            x86_load_local(st, slot);
+            vec_push(fails, x86_jnz_fwd(st));
+            return true;
+        }
+        if kind == PAT_SOME {
+            x86_load_local(st, slot);
+            x86_and_rax_imm(st, 1);
+            vec_push(fails, x86_jz_fwd(st));
+            let aux = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let inner = x86_derive_slot(st, slot, 1, 0);
+                return x86_pattern_test(st, ast_pattern_ref_from_handle(aux), inner, fails);
+            }
+            return true;
+        }
+        if kind == PAT_ENUM_VARIANT {
+            let tag = x86_enum_tag_for_pattern(st, pattern_ref);
+            x86_load_local(st, slot);
+            if ast_pattern_ref_bind(pattern_ref) >= 0 {
+                x86_and_rax_imm(st, 255);
+            }
+            x86_cmp_rax_imm(st, tag);
+            vec_push(fails, x86_jne_fwd(st));
+            return true;
+        }
+        return x86_fail(st, "unsupported match pattern kind " + int_to_string(kind));
+    }
+
+    fn x86_bind_from_slot(st: X86State, name_idx: i64, slot: i64, bits: i64, mask: i64) -> bool {
+        let derived = x86_derive_slot(st, slot, bits, mask);
+        x86_bind_local(st, x86_name(st, name_idx), derived, "");
+        return true;
+    }
+
+    fn x86_pattern_bind(st: X86State, pattern_ref: AstPatternRef, slot: i64) -> bool {
+        let kind: i64 = ast_pattern_ref_kind(pattern_ref);
+        let value = ast_pattern_ref_value(pattern_ref);
+        if kind == PAT_BIND {
+            return x86_bind_from_slot(st, value, slot, 0, 0);
+        }
+        if kind == PAT_SOME {
+            if value >= 0 {
+                x86_bind_from_slot(st, value, slot, 1, 0);
+            }
+            let aux = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                let inner = x86_derive_slot(st, slot, 1, 0);
+                return x86_pattern_bind(st, ast_pattern_ref_from_handle(aux), inner);
+            }
+            return true;
+        }
+        if kind == PAT_ENUM_VARIANT {
+            let bind = ast_pattern_ref_bind(pattern_ref);
+            let bind2 = ast_pattern_ref_bind2(pattern_ref);
+            if bind >= 0 && bind2 >= 0 {
+                x86_bind_from_slot(st, bind, slot, 20, 0);
+                return x86_bind_from_slot(st, bind2, slot, 8, 4095);
+            }
+            if bind >= 0 {
+                return x86_bind_from_slot(st, bind, slot, 8, 0);
+            }
+        }
+        return true;
+    }
+
+    fn x86_gen_match(st: X86State, expr_ref: AstExprRef) -> bool {
+        let scrutinee_ref: AstExprRef = ast_expr_ref_from_handle(ast_match_ref_scrutinee_handle(expr_ref));
+        if x86_is_struct(st, x86_expr_type(st, scrutinee_ref)) {
+            return x86_fail(st, "match on struct values is not supported");
+        }
+        x86_gen_expr(st, scrutinee_ref);
+        let slot = x86_alloc_block(st, 1);
+        x86_store_local(st, slot);
+
+        let patterns_ref: AstPatternListRef = ast_match_ref_patterns_ref(expr_ref);
+        let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
+        let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
+        let end_fixes: Vec<i64> = vec_new();
+        let i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            let mark = x86_scope_mark(st);
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            let fails: Vec<i64> = vec_new();
+            x86_pattern_test(st, pattern_ref, slot, fails);
+            x86_pattern_bind(st, pattern_ref, slot);
+            if i < ast_i64_list_ref_count(guards_ref) {
+                let guard = ast_i64_list_ref_get(guards_ref, i);
+                if guard != 0 {
+                    x86_gen_expr_handle(st, guard);
+                    vec_push(fails, x86_jz_fwd(st));
+                }
+            }
+            x86_gen_node_value(st, ast_node_list_ref_get_handle(bodies_ref, i));
+            vec_push(end_fixes, x86_jmp_fwd(st));
+            let next = x86_pos(st);
+            let j: i64 = 0;
+            while j < vec_len(fails) {
+                x86_patch_rel32(st, vec_get(fails, j), next);
+                j = j + 1;
+            }
+            x86_scope_restore(st, mark);
+            i = i + 1;
+        }
+        x86_mov_rax_imm(st, 0);
+        let end = x86_pos(st);
+        let k: i64 = 0;
+        while k < vec_len(end_fixes) {
+            x86_patch_rel32(st, vec_get(end_fixes, k), end);
+            k = k + 1;
+        }
+        return true;
     }
 
     // ---- Statements ----
@@ -489,27 +1247,85 @@
         if kind == NODE_LET {
             let name = x86_name(st, ast_let_ref_name_idx(stmt_ref));
             let init = ast_let_ref_init_handle(stmt_ref);
+            let ty = x86_type_of_handle(st, ast_let_ref_type_handle(stmt_ref));
+            if !x86_is_struct(st, ty) && ast_optional_is_some(init) {
+                ty = x86_expr_type(st, ast_expr_ref_from_handle(init));
+            }
             if ast_optional_is_some(init) {
                 x86_gen_expr_handle(st, init);
             } else {
                 x86_mov_rax_imm(st, 0);
             }
-            // Allocate after evaluating the initializer so `let x = x + 1` sees the outer x.
+            // Bind after evaluating the initializer so `let x = x + 1` sees the outer x.
+            if x86_is_struct(st, ty) {
+                let words = x86_size_of(st, ty);
+                let block = x86_alloc_block(st, words);
+                if ast_optional_is_some(init) {
+                    x86_lea_rdx(st, block);
+                    x86_copy_words(st, words);
+                }
+                x86_bind_local(st, name, block, ty);
+                return true;
+            }
             let offset = x86_alloc_local(st, name);
             return x86_store_local(st, offset);
         }
 
         if kind == NODE_ASSIGN {
             let target_ref: AstExprRef = ast_expr_ref_from_handle(ast_assign_ref_target_handle(stmt_ref));
-            if ast_expr_ref_kind(target_ref) != NODE_IDENT {
-                return x86_fail(st, "only assignment to local variables is supported");
+            let value_handle = ast_assign_ref_value_handle(stmt_ref);
+            let target_kind: i64 = ast_expr_ref_kind(target_ref);
+            if target_kind == NODE_FIELD_ACCESS {
+                let base_ref: AstExprRef = ast_field_access_ref_base_ref(target_ref);
+                let base_ty = x86_expr_type(st, base_ref);
+                let field = x86_name(st, ast_field_access_ref_name_idx(target_ref));
+                let f = x86_field_index(st, base_ty, field);
+                if !x86_is_struct(st, base_ty) || f < 0 {
+                    return x86_fail(st, "assignment to unknown field ." + field);
+                }
+                // Address of the field, kept on the stack while the value is computed
+                x86_gen_expr(st, base_ref);
+                x86_add_rax_imm(st, vec_get(st.sf_offset, f) * 8);
+                x86_push_rax(st);
+                x86_gen_expr_handle(st, value_handle);
+                let field_ty: str = vec_get(st.sf_type, f);
+                if x86_is_struct(st, field_ty) {
+                    // pop rdx
+                    x86_b(st, 90);
+                    return x86_copy_words(st, x86_size_of(st, field_ty));
+                }
+                x86_pop_rcx(st);
+                // mov [rcx], rax
+                return x86_b3(st, 72, 137, 1);
+            }
+            if target_kind == NODE_INDEX {
+                let elem_ty = x86_expr_type(st, target_ref);
+                if !x86_gen_index_addr(st, target_ref) {
+                    return false;
+                }
+                x86_push_rax(st);
+                x86_gen_expr_handle(st, value_handle);
+                if x86_is_struct(st, elem_ty) {
+                    x86_b(st, 90);
+                    return x86_copy_words(st, x86_size_of(st, elem_ty));
+                }
+                x86_pop_rcx(st);
+                return x86_b3(st, 72, 137, 1);
+            }
+            if target_kind != NODE_IDENT {
+                return x86_fail(st, "unsupported assignment target");
             }
             let name = x86_name(st, ast_expr_ref_name_idx(target_ref));
             let offset = x86_lookup_local(st, name);
             if offset <= 0 {
                 return x86_fail(st, "assignment to unknown local: " + name);
             }
-            x86_gen_expr_handle(st, ast_assign_ref_value_handle(stmt_ref));
+            x86_gen_expr_handle(st, value_handle);
+            let local_ty = x86_local_type(st, name);
+            if x86_is_struct(st, local_ty) {
+                x86_lea_rdx(st, offset);
+                return x86_copy_words(st, x86_size_of(st, local_ty));
+            }
             return x86_store_local(st, offset);
         }
 
@@ -519,6 +1335,13 @@
                 x86_gen_expr_handle(st, expr);
             } else {
                 x86_mov_rax_imm(st, 0);
+            }
+            let ret_ty: str = vec_get(st.cur_ret, 0);
+            if x86_is_struct(st, ret_ty) {
+                // Copy the value into the caller's block and return its address
+                x86_load_rdx_local(st, vec_get(st.counters, 3));
+                x86_copy_words(st, x86_size_of(st, ret_ty));
+                x86_b3(st, 72, 137, 208);
             }
             return x86_epilogue(st);
         }
@@ -625,6 +1448,32 @@
 
     // ---- Functions and program ----
 
+    // mov [rbp - offset], <argument register reg>
+    fn x86_store_arg(st: X86State, reg: i64, offset: i64) -> bool {
+        if reg == 0 { x86_b3(st, 72, 137, 189); }
+        if reg == 1 { x86_b3(st, 72, 137, 181); }
+        if reg == 2 { x86_b3(st, 72, 137, 149); }
+        if reg == 3 { x86_b3(st, 72, 137, 141); }
+        if reg == 4 { x86_b3(st, 76, 137, 133); }
+        if reg == 5 { x86_b3(st, 76, 137, 141); }
+        return x86_u32(st, 0 - offset);
+    }
+
+    // Parameter type; an untyped `self` in `fn Type::method(self)` has the type Type.
+    fn x86_param_type(st: X86State, fn_name: str, param_ref: AstNodeRef) -> str {
+        let ty = x86_type_of_handle(st, ast_param_ref_type_handle(param_ref));
+        if len(ty) == 0 && x86_name(st, ast_param_ref_name_idx(param_ref)) == "self" {
+            let sep = str_index_of(fn_name, "::");
+            if sep > 0 {
+                let owner = substring(fn_name, 0, sep);
+                if hashmap_contains(st.struct_names, owner) {
+                    return owner;
+                }
+            }
+        }
+        return ty;
+    }
+
     fn x86_gen_fn(st: X86State, fn_ref: AstItemRef) -> bool {
         let name = x86_name(st, ast_fn_ref_name_idx(fn_ref));
         hashmap_insert(st.fn_offsets, name, x86_pos(st));
@@ -639,20 +1488,47 @@
         let frame_pos = x86_pos(st);
         x86_u32(st, 0);
 
+        let ret_ty = x86_fn_ret_type(st, name);
+        vec_set(st.cur_ret, 0, ret_ty);
+        let hidden: i64 = 0;
+        vec_set(st.counters, 3, 0);
+        if x86_is_struct(st, ret_ty) {
+            hidden = 1;
+            let ret_slot = x86_alloc_block(st, 1);
+            vec_set(st.counters, 3, ret_slot);
+            x86_store_arg(st, 0, ret_slot);
+        }
+
+        // Spill register arguments, then copy struct arguments into their own blocks.
         let params_ref: AstNodeListRef = ast_fn_ref_params_ref(fn_ref);
         let count = ast_node_list_ref_count(params_ref);
+        if count + hidden > 6 {
+            x86_fail(st, "functions with more than 6 register parameters are not supported: " + name);
+        }
+        let param_slots: Vec<i64> = vec_new();
         let i: i64 = 0;
         while i < count {
+            let slot = x86_alloc_block(st, 1);
+            x86_store_arg(st, i + hidden, slot);
+            vec_push(param_slots, slot);
+            i = i + 1;
+        }
+        i = 0;
+        while i < count {
             let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
-            let offset = x86_alloc_local(st, x86_name(st, ast_param_ref_name_idx(param_ref)));
-            // mov [rbp - offset], <arg register>
-            if i == 0 { x86_b3(st, 72, 137, 189); }
-            if i == 1 { x86_b3(st, 72, 137, 181); }
-            if i == 2 { x86_b3(st, 72, 137, 149); }
-            if i == 3 { x86_b3(st, 72, 137, 141); }
-            if i == 4 { x86_b3(st, 76, 137, 133); }
-            if i == 5 { x86_b3(st, 76, 137, 141); }
-            x86_u32(st, 0 - offset);
+            let param_name = x86_name(st, ast_param_ref_name_idx(param_ref));
+            let param_ty = x86_param_type(st, name, param_ref);
+            let slot: i64 = vec_get(param_slots, i);
+            if x86_is_struct(st, param_ty) {
+                let words = x86_size_of(st, param_ty);
+                let block = x86_alloc_block(st, words);
+                x86_load_local(st, slot);
+                x86_lea_rdx(st, block);
+                x86_copy_words(st, words);
+                x86_bind_local(st, param_name, block, param_ty);
+            } else {
+                x86_bind_local(st, param_name, slot, "");
+            }
             i = i + 1;
         }
 
@@ -671,20 +1547,61 @@
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         let item_count = ast_node_list_ref_count(items_ref);
 
-        // First pass: collect functions and consts so calls and names resolve in any order.
+        // First pass: struct and enum names.
         let i: i64 = 0;
         while i < item_count {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             let item_kind: i64 = ast_item_ref_kind(item_ref);
-            if item_kind == NODE_FN {
+            if item_kind == NODE_STRUCT {
+                hashmap_insert(st.struct_names, x86_name(st, ast_struct_ref_name_idx(item_ref)), 1);
+            } else if item_kind == NODE_ENUM {
+                let enum_name = x86_name(st, ast_enum_ref_name_idx(item_ref));
+                hashmap_insert(st.enum_names, enum_name, 1);
+                let variants_ref: AstI64ListRef = ast_enum_ref_variants_ref(item_ref);
+                let v: i64 = 0;
+                while v < ast_i64_list_ref_count(variants_ref) {
+                    hashmap_insert(st.enum_tags, enum_name + "." + x86_name(st, ast_i64_list_ref_get(variants_ref, v)), v);
+                    v = v + 1;
+                }
+            }
+            i = i + 1;
+        }
+
+        // Second pass: struct fields, function signatures and consts.
+        i = 0;
+        while i < item_count {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            let item_kind: i64 = ast_item_ref_kind(item_ref);
+            if item_kind == NODE_STRUCT {
+                let struct_name = x86_name(st, ast_struct_ref_name_idx(item_ref));
+                let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(item_ref);
+                let f: i64 = 0;
+                while f < ast_node_list_ref_count(fields_ref) {
+                    let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, f);
+                    vec_push(st.sf_struct, struct_name);
+                    vec_push(st.sf_name, x86_name(st, ast_field_decl_ref_name_idx(field_ref)));
+                    vec_push(st.sf_type, x86_type_of(st, ast_field_decl_ref_type_ref(field_ref)));
+                    vec_push(st.sf_offset, 0);
+                    f = f + 1;
+                }
+            } else if item_kind == NODE_FN {
                 let fn_name = x86_name(st, ast_fn_ref_name_idx(item_ref));
                 hashmap_insert(st.fn_arity, fn_name, ast_node_list_ref_count(ast_fn_ref_params_ref(item_ref)));
+                hashmap_insert(st.fn_ret, fn_name, x86_type_of_handle(st, ast_fn_ref_return_type_handle(item_ref)));
             } else if item_kind == NODE_CONST {
                 hashmap_insert(st.consts, x86_name(st, ast_const_ref_name_idx(item_ref)), ast_const_ref_value_handle(item_ref));
-            } else {
+            } else if item_kind != NODE_ENUM {
+                // Enum values are integers and need no layout; anything else is unsupported.
                 x86_fail(st, "unsupported top-level item: " + x86_kind_name(item_kind));
             }
             i = i + 1;
+        }
+
+        let names_list: Vec<str> = hashmap_keys(st.struct_names);
+        let n: i64 = 0;
+        while n < vec_len(names_list) {
+            x86_compute_struct_size(st, vec_get(names_list, n), 0);
+            n = n + 1;
         }
 
         let entry = x86_name(st, ast_kernel_ref_entry_idx(kernel_ref));

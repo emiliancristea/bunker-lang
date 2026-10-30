@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Native x86-64 backend** (`self-host/modules/x86_codegen.bkr`). `bkrc native file.bkr -o out` and `bkrc run --native` write a Linux ELF64 executable directly, with no C compiler or linker. Covers integers, bools, functions, locals, consts, if/else, while, for, loop, break/continue, ternary and all integer operators; 20 of 207 run tests pass natively so far, tracked in `tests/native_known_failures.txt` and checked in CI.
+- Native backend: structs (nested, methods, `..base` update syntax, struct arguments and returns with value semantics), fixed arrays of scalars with bounds-checked indexing (exit code 101 like a runtime panic), unit and payload enums, `Option` (`Some`/`None`), `match` with guards and bindings, and block expressions. 73 of 207 run tests now pass natively.
 - `file_set_executable(path)` builtin.
 
 ### Fixed
