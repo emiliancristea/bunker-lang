@@ -1,0 +1,236 @@
+// Test 300: Pure Bunker Shell Actor Model Runtime (BKR-SPEC-SHELL-001)
+// Purpose: Verify shared-nothing actor state, message queues, and FIFO stepping in pure Bunker.
+// Expected return: 42
+
+kernel PureBunkerShellActor {
+    struct ShellMessage {
+        target: str,
+        source: str,
+        message: str,
+        payload: i64,
+    }
+
+    struct ShellSystem {
+        agents: Vec<str>,
+        queue_target: Vec<str>,
+        queue_source: Vec<str>,
+        queue_message: Vec<str>,
+        queue_payload: Vec<i64>,
+        queue_head: i64,
+        step_count: i64,
+        max_steps: i64,
+        terminated: bool,
+        agent_states: HashMap<str, i64>,
+        agent_strings: HashMap<str, str>,
+    }
+
+    fn shell_system_new(max_steps: i64) -> ShellSystem {
+        let agents: Vec<str> = vec_new();
+        let queue_target: Vec<str> = vec_new();
+        let queue_source: Vec<str> = vec_new();
+        let queue_message: Vec<str> = vec_new();
+        let queue_payload: Vec<i64> = vec_new();
+        let agent_states: HashMap<str, i64> = hashmap_new();
+        let agent_strings: HashMap<str, str> = hashmap_new();
+
+        return ShellSystem {
+            agents: agents,
+            queue_target: queue_target,
+            queue_source: queue_source,
+            queue_message: queue_message,
+            queue_payload: queue_payload,
+            queue_head: 0,
+            step_count: 0,
+            max_steps: max_steps,
+            terminated: false,
+            agent_states: agent_states,
+            agent_strings: agent_strings
+        };
+    }
+
+    fn shell_register_agent(sys: ShellSystem, name: str) -> bool {
+        let mut i: i64 = 0;
+        while i < vec_len(sys.agents) {
+            if vec_get(sys.agents, i) == name {
+                return false;
+            }
+            i = i + 1;
+        }
+        vec_push(sys.agents, name);
+        return true;
+    }
+
+    fn shell_agent_key(agent: str, key: str) -> str {
+        return agent + "." + key;
+    }
+
+    fn shell_agent_set_int(sys: ShellSystem, agent: str, key: str, val: i64) -> bool {
+        let composite = shell_agent_key(agent, key);
+        return hashmap_insert(sys.agent_states, composite, val);
+    }
+
+    fn shell_agent_get_int(sys: ShellSystem, agent: str, key: str) -> i64 {
+        let composite = shell_agent_key(agent, key);
+        if !hashmap_contains(sys.agent_states, composite) {
+            return 0;
+        }
+        return hashmap_get(sys.agent_states, composite);
+    }
+
+    fn shell_agent_set_str(sys: ShellSystem, agent: str, key: str, val: str) -> bool {
+        let composite = shell_agent_key(agent, key);
+        return hashmap_insert(sys.agent_strings, composite, val);
+    }
+
+    fn shell_agent_get_str(sys: ShellSystem, agent: str, key: str) -> str {
+        let composite = shell_agent_key(agent, key);
+        if !hashmap_contains(sys.agent_strings, composite) {
+            return "";
+        }
+        return hashmap_get(sys.agent_strings, composite);
+    }
+
+    fn shell_send(sys: ShellSystem, target: str, source: str, message: str, payload: i64) -> bool {
+        vec_push(sys.queue_target, target);
+        vec_push(sys.queue_source, source);
+        vec_push(sys.queue_message, message);
+        vec_push(sys.queue_payload, payload);
+        return true;
+    }
+
+    fn shell_queue_len(sys: ShellSystem) -> i64 {
+        let total = vec_len(sys.queue_message);
+        if sys.queue_head >= total {
+            return 0;
+        }
+        return total - sys.queue_head;
+    }
+
+    fn shell_has_pending(sys: ShellSystem) -> bool {
+        return shell_queue_len(sys) > 0;
+    }
+
+    fn shell_pop_message(sys: ShellSystem) -> ShellMessage {
+        if !shell_has_pending(sys) {
+            return ShellMessage {
+                target: "",
+                source: "",
+                message: "",
+                payload: 0
+            };
+        }
+        let target = vec_get(sys.queue_target, sys.queue_head);
+        let source = vec_get(sys.queue_source, sys.queue_head);
+        let message = vec_get(sys.queue_message, sys.queue_head);
+        let payload = vec_get(sys.queue_payload, sys.queue_head);
+        sys.queue_head = sys.queue_head + 1;
+        return ShellMessage {
+            target: target,
+            source: source,
+            message: message,
+            payload: payload
+        };
+    }
+
+    fn shell_terminate(sys: ShellSystem) -> bool {
+        sys.terminated = true;
+        return true;
+    }
+
+    fn shell_is_terminated(sys: ShellSystem) -> bool {
+        return sys.terminated;
+    }
+
+    fn shell_step_advance(sys: ShellSystem) -> i64 {
+        sys.step_count = sys.step_count + 1;
+        return sys.step_count;
+    }
+
+    fn main() -> i32 {
+        let sys = shell_system_new(1000);
+
+        // Register agents
+        if !shell_register_agent(sys, "Producer") {
+            return 1;
+        }
+        if !shell_register_agent(sys, "Consumer") {
+            return 2;
+        }
+        // Duplicate agent rejected
+        if shell_register_agent(sys, "Producer") {
+            return 3;
+        }
+
+        // Initialize state
+        if !shell_agent_set_int(sys, "Producer", "items_produced", 10) {
+            return 4;
+        }
+        if !shell_agent_set_str(sys, "Producer", "status", "active") {
+            return 5;
+        }
+        if !shell_agent_set_int(sys, "Consumer", "items_consumed", 0) {
+            return 6;
+        }
+
+        // Verify state access
+        if shell_agent_get_int(sys, "Producer", "items_produced") != 10 {
+            return 7;
+        }
+        if shell_agent_get_str(sys, "Producer", "status") != "active" {
+            return 8;
+        }
+        if shell_agent_get_int(sys, "Consumer", "items_consumed") != 0 {
+            return 9;
+        }
+
+        // Send messages
+        if !shell_send(sys, "Consumer", "Producer", "data_packet", 100) {
+            return 10;
+        }
+        if !shell_send(sys, "Consumer", "Producer", "data_packet", 200) {
+            return 11;
+        }
+
+        if shell_queue_len(sys) != 2 {
+            return 12;
+        }
+
+        // Pop first message
+        let msg1 = shell_pop_message(sys);
+        if msg1.target != "Consumer" {
+            return 13;
+        }
+        if msg1.source != "Producer" {
+            return 14;
+        }
+        if msg1.message != "data_packet" {
+            return 15;
+        }
+        if msg1.payload != 100 {
+            return 16;
+        }
+
+        // Pop second message
+        let msg2 = shell_pop_message(sys);
+        if msg2.payload != 200 {
+            return 17;
+        }
+
+        if shell_has_pending(sys) {
+            return 18;
+        }
+
+        shell_step_advance(sys);
+        shell_step_advance(sys);
+        if sys.step_count != 2 {
+            return 19;
+        }
+
+        shell_terminate(sys);
+        if !shell_is_terminated(sys) {
+            return 20;
+        }
+
+        return 42;
+    }
+}

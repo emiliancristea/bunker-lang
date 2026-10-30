@@ -1,0 +1,205 @@
+// Test 301: Pure Bunker Shell Ping-Pong Actor Coordination (BKR-SPEC-SHELL-001)
+// Purpose: Verify full multi-agent ping-pong message exchange and termination in pure Bunker.
+// Expected return: 42
+
+kernel ShellAgentPingPong {
+    struct ShellMessage {
+        target: str,
+        source: str,
+        message: str,
+        payload: i64,
+    }
+
+    struct ShellSystem {
+        agents: Vec<str>,
+        queue_target: Vec<str>,
+        queue_source: Vec<str>,
+        queue_message: Vec<str>,
+        queue_payload: Vec<i64>,
+        queue_head: i64,
+        step_count: i64,
+        max_steps: i64,
+        terminated: bool,
+        agent_states: HashMap<str, i64>,
+        agent_strings: HashMap<str, str>,
+    }
+
+    fn shell_system_new(max_steps: i64) -> ShellSystem {
+        let agents: Vec<str> = vec_new();
+        let queue_target: Vec<str> = vec_new();
+        let queue_source: Vec<str> = vec_new();
+        let queue_message: Vec<str> = vec_new();
+        let queue_payload: Vec<i64> = vec_new();
+        let agent_states: HashMap<str, i64> = hashmap_new();
+        let agent_strings: HashMap<str, str> = hashmap_new();
+
+        return ShellSystem {
+            agents: agents,
+            queue_target: queue_target,
+            queue_source: queue_source,
+            queue_message: queue_message,
+            queue_payload: queue_payload,
+            queue_head: 0,
+            step_count: 0,
+            max_steps: max_steps,
+            terminated: false,
+            agent_states: agent_states,
+            agent_strings: agent_strings
+        };
+    }
+
+    fn shell_register_agent(sys: ShellSystem, name: str) -> bool {
+        let mut i: i64 = 0;
+        while i < vec_len(sys.agents) {
+            if vec_get(sys.agents, i) == name {
+                return false;
+            }
+            i = i + 1;
+        }
+        vec_push(sys.agents, name);
+        return true;
+    }
+
+    fn shell_agent_key(agent: str, key: str) -> str {
+        return agent + "." + key;
+    }
+
+    fn shell_agent_set_int(sys: ShellSystem, agent: str, key: str, val: i64) -> bool {
+        let composite = shell_agent_key(agent, key);
+        return hashmap_insert(sys.agent_states, composite, val);
+    }
+
+    fn shell_agent_get_int(sys: ShellSystem, agent: str, key: str) -> i64 {
+        let composite = shell_agent_key(agent, key);
+        if !hashmap_contains(sys.agent_states, composite) {
+            return 0;
+        }
+        return hashmap_get(sys.agent_states, composite);
+    }
+
+    fn shell_send(sys: ShellSystem, target: str, source: str, message: str, payload: i64) -> bool {
+        vec_push(sys.queue_target, target);
+        vec_push(sys.queue_source, source);
+        vec_push(sys.queue_message, message);
+        vec_push(sys.queue_payload, payload);
+        return true;
+    }
+
+    fn shell_queue_len(sys: ShellSystem) -> i64 {
+        let total = vec_len(sys.queue_message);
+        if sys.queue_head >= total {
+            return 0;
+        }
+        return total - sys.queue_head;
+    }
+
+    fn shell_has_pending(sys: ShellSystem) -> bool {
+        return shell_queue_len(sys) > 0;
+    }
+
+    fn shell_pop_message(sys: ShellSystem) -> ShellMessage {
+        if !shell_has_pending(sys) {
+            return ShellMessage {
+                target: "",
+                source: "",
+                message: "",
+                payload: 0
+            };
+        }
+        let target = vec_get(sys.queue_target, sys.queue_head);
+        let source = vec_get(sys.queue_source, sys.queue_head);
+        let message = vec_get(sys.queue_message, sys.queue_head);
+        let payload = vec_get(sys.queue_payload, sys.queue_head);
+        sys.queue_head = sys.queue_head + 1;
+        return ShellMessage {
+            target: target,
+            source: source,
+            message: message,
+            payload: payload
+        };
+    }
+
+    fn shell_terminate(sys: ShellSystem) -> bool {
+        sys.terminated = true;
+        return true;
+    }
+
+    fn shell_is_terminated(sys: ShellSystem) -> bool {
+        return sys.terminated;
+    }
+
+    fn shell_step_advance(sys: ShellSystem) -> i64 {
+        sys.step_count = sys.step_count + 1;
+        return sys.step_count;
+    }
+
+    fn dispatch_event(sys: ShellSystem, msg: ShellMessage) -> bool {
+        shell_step_advance(sys);
+
+        if msg.target == "System" && msg.message == "done" {
+            shell_terminate(sys);
+            return true;
+        }
+
+        if msg.target == "PingAgent" {
+            if msg.message == "start" {
+                shell_send(sys, "PongAgent", "PingAgent", "ping", 0);
+                return true;
+            }
+            if msg.message == "pong" {
+                let count = shell_agent_get_int(sys, "PingAgent", "count") + 1;
+                shell_agent_set_int(sys, "PingAgent", "count", count);
+
+                if count < 3 {
+                    shell_send(sys, "PongAgent", "PingAgent", "ping", count);
+                } else {
+                    shell_send(sys, "System", "PingAgent", "done", count);
+                }
+                return true;
+            }
+        }
+
+        if msg.target == "PongAgent" {
+            if msg.message == "ping" {
+                shell_send(sys, "PingAgent", "PongAgent", "pong", msg.payload);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    fn main() -> i32 {
+        let sys = shell_system_new(100);
+
+        shell_register_agent(sys, "PingAgent");
+        shell_register_agent(sys, "PongAgent");
+        shell_agent_set_int(sys, "PingAgent", "count", 0);
+
+        // Kick off ping pong exchange
+        shell_send(sys, "PingAgent", "System", "start", 0);
+
+        // Event loop execution
+        while shell_has_pending(sys) && !shell_is_terminated(sys) {
+            let msg = shell_pop_message(sys);
+            dispatch_event(sys, msg);
+        }
+
+        // Verify termination conditions
+        if !shell_is_terminated(sys) {
+            return 1;
+        }
+
+        let final_count = shell_agent_get_int(sys, "PingAgent", "count");
+        if final_count != 3 {
+            return 2;
+        }
+
+        // 8 steps: start -> ping -> pong -> ping -> pong -> ping -> pong -> done
+        if sys.step_count != 8 {
+            return 3;
+        }
+
+        return 42;
+    }
+}

@@ -35,5 +35,7 @@ kernel BunkerCompiler {
 
     import "modules/typecheck.bkr";
 
+    import "modules/shell.bkr";
+
     import "modules/driver.bkr";
 }

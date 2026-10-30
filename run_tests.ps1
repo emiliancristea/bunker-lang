@@ -228,6 +228,8 @@ $expectedResults = @{
     "297_spec_sync_cross_referencer" = 42
     "298_roadmap_ci_gates_verifier" = 42
     "299_borrow_resource_checker" = 42
+    "300_pure_bunker_shell_actor" = 42
+    "301_shell_agent_ping_pong" = 42
 }
 
 # Expected results for non-integer JIT tests (i64, f64, bool)
