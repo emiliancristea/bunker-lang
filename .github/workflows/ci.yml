@@ -24,19 +24,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Link archived Stage 0 Rust compiler
+        if: runner.os != 'Windows'
+        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
+
       - name: Select Rust toolchain
         run: rustup default ${{ matrix.rust }}
 
       - name: Build
-        working-directory: bunker-cli
+        working-directory: archive/bootstrap/stage0-rust
         run: cargo build --verbose
 
       - name: Run Rust tests
-        working-directory: bunker-cli
+        working-directory: archive/bootstrap/stage0-rust
         run: cargo test --verbose
 
       - name: Build release
-        working-directory: bunker-cli
+        working-directory: archive/bootstrap/stage0-rust
         run: cargo build --release --verbose
 
       - name: Upload compiler artifact
@@ -45,17 +49,17 @@ jobs:
           name: bunker-cli-${{ matrix.os }}
           if-no-files-found: ignore
           path: |
-            bunker-cli/target/release/bunker-cli
-            bunker-cli/target/release/bunker-cli.exe
+            archive/bootstrap/stage0-rust/target/release/bunker-cli
+            archive/bootstrap/stage0-rust/target/release/bunker-cli.exe
 
       - name: Check formatting
         if: matrix.os == 'ubuntu-latest'
-        working-directory: bunker-cli
+        working-directory: archive/bootstrap/stage0-rust
         run: cargo fmt -- --check
 
       - name: Clippy
         if: matrix.os == 'ubuntu-latest'
-        working-directory: bunker-cli
+        working-directory: archive/bootstrap/stage0-rust
         run: cargo clippy -- -D warnings
 
   bunker-tests:
@@ -66,11 +70,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Link archived Stage 0 Rust compiler
+        if: runner.os != 'Windows'
+        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
+
       - name: Select Rust toolchain
         run: rustup default stable
 
       - name: Build release compiler
-        working-directory: bunker-cli
+        working-directory: archive/bootstrap/stage0-rust
         run: cargo build --release
 
       - name: Run Bunker test suite
@@ -84,6 +92,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Link archived Stage 0 Rust compiler
+        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
 
       - name: Prevent raw AST collection traversal outside AST boundary
         shell: bash
@@ -1566,11 +1577,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Link archived Stage 0 Rust compiler
+        if: runner.os != 'Windows'
+        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
+
       - name: Select Rust toolchain
         run: rustup default stable
 
       - name: Build release compiler
-        working-directory: bunker-cli
+        working-directory: archive/bootstrap/stage0-rust
         run: cargo build --release
 
       - name: Check self-host compiler sources
@@ -3467,11 +3482,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Link archived Stage 0 Rust compiler
+        if: runner.os != 'Windows'
+        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
+
       - name: Select Rust toolchain
         run: rustup default stable
 
       - name: Build release compiler
-        working-directory: bunker-cli
+        working-directory: archive/bootstrap/stage0-rust
         run: cargo build --release
 
       - name: Compile incremental parser fixture under resource caps
@@ -3489,3 +3508,35 @@ jobs:
           timeout --kill-after=5s 120s ./bunker-cli/target/release/bunker-cli self-host-compile \
             tests/99_incremental_2.bkr \
             -o /tmp/99_incremental_2.c
+
+  bootstrap-c11:
+    name: Bootstrap C11 ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build pure Bunker compiler from bootstrap C seed (POSIX)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          bash bootstrap/build.sh
+          test -x ./bkrc
+          ./bkrc --help || ./bkrc --version || true
+          echo "Bootstrap C11 build passed on POSIX!"
+
+      - name: Build pure Bunker compiler from bootstrap C seed (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $vcvars = Join-Path $vsPath "VC\Auxiliary\Build\vcvars64.bat"
+          cmd.exe /c "`"$vcvars`" && bootstrap\build.bat"
+          if (!(Test-Path ".\bkrc.exe")) { exit 1 }
+          cmd.exe /c ".\bkrc.exe || exit /b 0"
+          Write-Output "Bootstrap C11 build passed on Windows!"

@@ -1,12 +1,12 @@
-/* BUNKER_CAPABILITY_JSON: {"schema_version":"bunker.self_host.capability.v1","compiler":"bkrc-self-host-bootstrap","agent_contract_version":"bunker.agent.diagnostics.v1","self_hosting_stage":"bootstrap-self-hosted-reports","ai_agent_native_diagnostics":true,"production_language_ready":false,"requires_ci_validation":true,"source_byte_spans":true,"source_excerpts":true,"structured_repair_metadata":true,"structured_parse_diagnostics":true,"diagnostic_code_registry":true,"diagnostic_phase_field":true,"diagnostic_rule_ids":true,"diagnostic_severity":true,"diagnostic_severity_counts":true,"suggested_edit_envelope":true,"import_expansion":true,"import_graph_report":true,"import_duplicate_or_cycle_summary":true,"stage1_stage2_ci_gate":true,"type_graph_report":true,"symbol_table_report":true,"name_resolver_report":true,"typecheck_report":true,"real_typechecker":true,"full_subset_type_enforcement":true,"modular_c_codegen":true,"typed_c_emission":true,"cgen_state_ref_routing":true,"hygienic_temporaries":true,"gnu_statement_expressions_locked":true,"c99_standard_portability":true,"multi_target_backend_strategy":true,"deterministic_artifact_layout":true,"supported_backends":"c, cranelift, llvm","constant_folding":true,"dead_code_elimination":true,"incremental_compilation_cache":true,"debug_info_source_mapping":true,"source_line_directives":true,"closures":true,"lambdas":true,"closure_captures":true,"code_formatter":true,"static_linter":true,"test_runner":true,"doc_generator":true,"package_manager":true,"build_cache":true,"language_server":true,"watch_mode":true,"debugger_hooks":true,"profiler_hooks":true,"coverage_tooling":true,"benchmark_tooling":true,"fuzzing_harness":true,"differential_testing":true,"property_testing":true,"stress_testing":true,"cross_platform_ci":true,"versioning_rules":true,"package_registry":true,"stdlib_documentation":true,"construct_examples":true,"migration_guides":true,"contribution_guide":true,"spec_sync":true,"roadmap_ci_gates":true,"borrow_resource_checker":true,"typed_ast":true,"real_module_resolver":true,"module_cycle_path_detection":true,"visibility_boundary_enforcement":true,"semantic_validation_passes":true,"loop_control_validation":true,"unreachable_code_detection":true,"return_path_validation":true,"real_generics":true,"user_defined_adts":true,"multi_error_recovery":true,"multi_error_parse_recovery":true,"parse_recovery_synchronization":true,"diagnostic_codes":[{"code":"BKR_SELF_PARSE","rule_id":"BKR_SELF_PARSE","phase":"parse","category":"syntax","description":"Parse error with expected and actual token details."},{"code":"BKR_SELF_IMPORT_PATH","rule_id":"BKR_SELF_IMPORT_PATH","phase":"import","category":"module","description":"Invalid normalized relative import path."},{"code":"BKR_SELF_IMPORT","rule_id":"BKR_SELF_IMPORT","phase":"import","category":"module","description":"Missing imported module."},{"code":"BKR_SELF_IMPORT_CYCLE","rule_id":"BKR_SELF_IMPORT_CYCLE","phase":"import","category":"module","description":"Cyclic dependency detected in import graph."},{"code":"BKR_SELF_VISIBILITY","rule_id":"BKR_SELF_VISIBILITY","phase":"resolver","category":"visibility","description":"Attempt to access private symbol across kernel or module boundaries."},{"code":"BKR_SELF_DUPLICATE_SYMBOL","rule_id":"BKR_SELF_DUPLICATE_SYMBOL","phase":"resolver","category":"name_resolution","description":"Duplicate declaration in a scope."},{"code":"BKR_SELF_UNRESOLVED_SYMBOL","rule_id":"BKR_SELF_UNRESOLVED_SYMBOL","phase":"resolver","category":"name_resolution","description":"Unresolved identifier, function, type, struct literal, or field reference."},{"code":"BKR_SELF_TYPE_MISMATCH","rule_id":"BKR_SELF_TYPE_MISMATCH","phase":"typecheck","category":"type_system","description":"Expected/found type mismatch."},{"code":"BKR_SELF_ARITY_MISMATCH","rule_id":"BKR_SELF_ARITY_MISMATCH","phase":"typecheck","category":"type_system","description":"Function call argument count mismatch."},{"code":"BKR_SELF_ASSIGNMENT_TARGET","rule_id":"BKR_SELF_ASSIGNMENT_TARGET","phase":"typecheck","category":"type_system","description":"Invalid non-assignable assignment target."},{"code":"BKR_SELF_CONTROL_FLOW","rule_id":"BKR_SELF_CONTROL_FLOW","phase":"typecheck","category":"control_flow","description":"Invalid break or continue outside a loop."},{"code":"BKR_SELF_RETURN_PATH","rule_id":"BKR_SELF_RETURN_PATH","phase":"typecheck","category":"control_flow","description":"Non-void function can fall through without returning a value."},{"code":"BKR_SELF_UNREACHABLE_CODE","rule_id":"BKR_SELF_UNREACHABLE_CODE","phase":"typecheck","category":"control_flow","description":"Statement cannot execute because a previous statement terminates control flow."},{"code":"BKR_SELF_MATCH_PATTERN","rule_id":"BKR_SELF_MATCH_PATTERN","phase":"typecheck","category":"pattern_matching","description":"Duplicate or unreachable match pattern."},{"code":"BKR_SELF_EXHAUSTIVENESS","rule_id":"BKR_SELF_EXHAUSTIVENESS","phase":"typecheck","category":"pattern_matching","description":"Non-exhaustive match for a known finite scrutinee."},{"code":"BKR_SELF_STRUCT_LITERAL","rule_id":"BKR_SELF_STRUCT_LITERAL","phase":"typecheck","category":"data_model","description":"Invalid struct literal shape such as duplicate or missing fields."},{"code":"BKR_SELF_CONST_ASSIGNMENT","rule_id":"BKR_SELF_CONST_ASSIGNMENT","phase":"typecheck","category":"control_flow","description":"Assignment attempts to modify a top-level constant."},{"code":"BKR_SELF_AMBIGUOUS_TYPE","rule_id":"BKR_SELF_AMBIGUOUS_TYPE","phase":"typecheck","category":"type_system","description":"Expression requires a type annotation or contextual type."},{"code":"BKR_SELF_VOID_VALUE","rule_id":"BKR_SELF_VOID_VALUE","phase":"typecheck","category":"type_system","description":"Void expression is used where a value is required."},{"code":"BKR_SELF_ENTRY_POINT","rule_id":"BKR_SELF_ENTRY_POINT","phase":"typecheck","category":"program_structure","description":"Kernel entry function is missing."},{"code":"BKR_SELF_CALL_TARGET","rule_id":"BKR_SELF_CALL_TARGET","phase":"typecheck","category":"type_system","description":"Known non-function symbol is used as a call target."}],"supported_constructs":"kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec<T> handles, HashMap<K,V> handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals, closures, lambdas","known_limits":"byte spans only, no file span table; import graph with normalized relative path policy, exact cycle path detection, visibility boundary checking, pure typechecker, modular typed C codegen, debug source mapping, and semantic validation passes active","agent_guidance":"Use BUNKER_CAPABILITY_JSON before generating Bunker code. Use BUNKER_DIAGNOSTIC_JSON, BUNKER_RESOLVER_JSON, and BUNKER_TYPECHECK_JSON for repair tasks. Treat production_language_ready=false as requiring CI validation before release."}
+/* BUNKER_CAPABILITY_JSON: {"schema_version":"bunker.self_host.capability.v1","compiler":"bkrc-self-host-bootstrap","agent_contract_version":"bunker.agent.diagnostics.v1","self_hosting_stage":"bootstrap-self-hosted-reports","ai_agent_native_diagnostics":true,"production_language_ready":false,"requires_ci_validation":true,"source_byte_spans":true,"source_excerpts":true,"structured_repair_metadata":true,"structured_parse_diagnostics":true,"diagnostic_code_registry":true,"diagnostic_phase_field":true,"diagnostic_rule_ids":true,"diagnostic_severity":true,"diagnostic_severity_counts":true,"suggested_edit_envelope":true,"import_expansion":true,"import_graph_report":true,"import_duplicate_or_cycle_summary":true,"stage1_stage2_ci_gate":true,"type_graph_report":true,"symbol_table_report":true,"name_resolver_report":true,"typecheck_report":true,"real_typechecker":true,"full_subset_type_enforcement":true,"modular_c_codegen":true,"typed_c_emission":true,"cgen_state_ref_routing":true,"hygienic_temporaries":true,"gnu_statement_expressions_locked":true,"c99_standard_portability":true,"multi_target_backend_strategy":true,"deterministic_artifact_layout":true,"supported_backends":"c, cranelift, llvm","constant_folding":true,"dead_code_elimination":true,"incremental_compilation_cache":true,"debug_info_source_mapping":true,"source_line_directives":true,"closures":true,"lambdas":true,"closure_captures":true,"code_formatter":true,"static_linter":true,"test_runner":true,"doc_generator":true,"package_manager":true,"build_cache":true,"language_server":true,"watch_mode":true,"debugger_hooks":true,"profiler_hooks":true,"coverage_tooling":true,"benchmark_tooling":true,"fuzzing_harness":true,"differential_testing":true,"property_testing":true,"stress_testing":true,"cross_platform_ci":true,"versioning_rules":true,"package_registry":true,"stdlib_documentation":true,"construct_examples":true,"migration_guides":true,"contribution_guide":true,"spec_sync":true,"roadmap_ci_gates":true,"borrow_resource_checker":true,"shell_actor_runtime":true,"declarative_view_runtime":true,"contract_verification":true,"typed_ast":true,"real_module_resolver":true,"module_cycle_path_detection":true,"visibility_boundary_enforcement":true,"semantic_validation_passes":true,"loop_control_validation":true,"unreachable_code_detection":true,"return_path_validation":true,"real_generics":true,"user_defined_adts":true,"multi_error_recovery":true,"multi_error_parse_recovery":true,"parse_recovery_synchronization":true,"diagnostic_codes":[{"code":"BKR_SELF_PARSE","rule_id":"BKR_SELF_PARSE","phase":"parse","category":"syntax","description":"Parse error with expected and actual token details."},{"code":"BKR_SELF_IMPORT_PATH","rule_id":"BKR_SELF_IMPORT_PATH","phase":"import","category":"module","description":"Invalid normalized relative import path."},{"code":"BKR_SELF_IMPORT","rule_id":"BKR_SELF_IMPORT","phase":"import","category":"module","description":"Missing imported module."},{"code":"BKR_SELF_IMPORT_CYCLE","rule_id":"BKR_SELF_IMPORT_CYCLE","phase":"import","category":"module","description":"Cyclic dependency detected in import graph."},{"code":"BKR_SELF_VISIBILITY","rule_id":"BKR_SELF_VISIBILITY","phase":"resolver","category":"visibility","description":"Attempt to access private symbol across kernel or module boundaries."},{"code":"BKR_SELF_DUPLICATE_SYMBOL","rule_id":"BKR_SELF_DUPLICATE_SYMBOL","phase":"resolver","category":"name_resolution","description":"Duplicate declaration in a scope."},{"code":"BKR_SELF_UNRESOLVED_SYMBOL","rule_id":"BKR_SELF_UNRESOLVED_SYMBOL","phase":"resolver","category":"name_resolution","description":"Unresolved identifier, function, type, struct literal, or field reference."},{"code":"BKR_SELF_TYPE_MISMATCH","rule_id":"BKR_SELF_TYPE_MISMATCH","phase":"typecheck","category":"type_system","description":"Expected/found type mismatch."},{"code":"BKR_SELF_ARITY_MISMATCH","rule_id":"BKR_SELF_ARITY_MISMATCH","phase":"typecheck","category":"type_system","description":"Function call argument count mismatch."},{"code":"BKR_SELF_ASSIGNMENT_TARGET","rule_id":"BKR_SELF_ASSIGNMENT_TARGET","phase":"typecheck","category":"type_system","description":"Invalid non-assignable assignment target."},{"code":"BKR_SELF_CONTROL_FLOW","rule_id":"BKR_SELF_CONTROL_FLOW","phase":"typecheck","category":"control_flow","description":"Invalid break or continue outside a loop."},{"code":"BKR_SELF_RETURN_PATH","rule_id":"BKR_SELF_RETURN_PATH","phase":"typecheck","category":"control_flow","description":"Non-void function can fall through without returning a value."},{"code":"BKR_SELF_UNREACHABLE_CODE","rule_id":"BKR_SELF_UNREACHABLE_CODE","phase":"typecheck","category":"control_flow","description":"Statement cannot execute because a previous statement terminates control flow."},{"code":"BKR_SELF_MATCH_PATTERN","rule_id":"BKR_SELF_MATCH_PATTERN","phase":"typecheck","category":"pattern_matching","description":"Duplicate or unreachable match pattern."},{"code":"BKR_SELF_EXHAUSTIVENESS","rule_id":"BKR_SELF_EXHAUSTIVENESS","phase":"typecheck","category":"pattern_matching","description":"Non-exhaustive match for a known finite scrutinee."},{"code":"BKR_SELF_STRUCT_LITERAL","rule_id":"BKR_SELF_STRUCT_LITERAL","phase":"typecheck","category":"data_model","description":"Invalid struct literal shape such as duplicate or missing fields."},{"code":"BKR_SELF_CONST_ASSIGNMENT","rule_id":"BKR_SELF_CONST_ASSIGNMENT","phase":"typecheck","category":"control_flow","description":"Assignment attempts to modify a top-level constant."},{"code":"BKR_SELF_AMBIGUOUS_TYPE","rule_id":"BKR_SELF_AMBIGUOUS_TYPE","phase":"typecheck","category":"type_system","description":"Expression requires a type annotation or contextual type."},{"code":"BKR_SELF_VOID_VALUE","rule_id":"BKR_SELF_VOID_VALUE","phase":"typecheck","category":"type_system","description":"Void expression is used where a value is required."},{"code":"BKR_SELF_ENTRY_POINT","rule_id":"BKR_SELF_ENTRY_POINT","phase":"typecheck","category":"program_structure","description":"Kernel entry function is missing."},{"code":"BKR_SELF_CALL_TARGET","rule_id":"BKR_SELF_CALL_TARGET","phase":"typecheck","category":"type_system","description":"Known non-function symbol is used as a call target."}],"supported_constructs":"kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec<T> handles, HashMap<K,V> handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals, closures, lambdas","known_limits":"byte spans only, no file span table; import graph with normalized relative path policy, exact cycle path detection, visibility boundary checking, pure typechecker, modular typed C codegen, debug source mapping, and semantic validation passes active","agent_guidance":"Use BUNKER_CAPABILITY_JSON before generating Bunker code. Use BUNKER_DIAGNOSTIC_JSON, BUNKER_RESOLVER_JSON, and BUNKER_TYPECHECK_JSON for repair tasks. Treat production_language_ready=false as requiring CI validation before release."}
 */
-/* BUNKER_IMPORT_GRAPH_JSON: {"schema_version":"bunker.self_host.import_graph.v1","root_base_dir":"/tmp/bkrc-self","path_policy":"normalized_relative_forward_slash","base_directory_resolution":true,"recursive_expansion":true,"duplicate_suppression":true,"cycle_safe_expansion":true,"unique_import_count":17,"edge_count":17,"ok_edge_count":17,"missing_edge_count":0,"invalid_edge_count":0,"duplicate_edge_count":0,"duplicate_or_cycle_edge_count":0,"imports":["/tmp/bkrc-self/modules/constants.bkr","/tmp/bkrc-self/modules/kind_model.bkr","/tmp/bkrc-self/modules/ast.bkr","/tmp/bkrc-self/modules/lexer_result.bkr","/tmp/bkrc-self/modules/lexer.bkr","/tmp/bkrc-self/modules/parser_state.bkr","/tmp/bkrc-self/modules/parser.bkr","/tmp/bkrc-self/modules/cgen_state.bkr","/tmp/bkrc-self/modules/c_codegen.bkr","/tmp/bkrc-self/modules/json.bkr","/tmp/bkrc-self/modules/report_support.bkr","/tmp/bkrc-self/modules/ast_report.bkr","/tmp/bkrc-self/modules/symbol_table.bkr","/tmp/bkrc-self/modules/type_graph.bkr","/tmp/bkrc-self/modules/resolver.bkr","/tmp/bkrc-self/modules/typecheck.bkr","/tmp/bkrc-self/modules/driver.bkr"],"edges":[{"from_base":"/tmp/bkrc-self","requested":"modules/constants.bkr","resolved":"/tmp/bkrc-self/modules/constants.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/kind_model.bkr","resolved":"/tmp/bkrc-self/modules/kind_model.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/ast.bkr","resolved":"/tmp/bkrc-self/modules/ast.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/lexer_result.bkr","resolved":"/tmp/bkrc-self/modules/lexer_result.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/lexer.bkr","resolved":"/tmp/bkrc-self/modules/lexer.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/parser_state.bkr","resolved":"/tmp/bkrc-self/modules/parser_state.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/parser.bkr","resolved":"/tmp/bkrc-self/modules/parser.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/cgen_state.bkr","resolved":"/tmp/bkrc-self/modules/cgen_state.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/c_codegen.bkr","resolved":"/tmp/bkrc-self/modules/c_codegen.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/json.bkr","resolved":"/tmp/bkrc-self/modules/json.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/report_support.bkr","resolved":"/tmp/bkrc-self/modules/report_support.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/ast_report.bkr","resolved":"/tmp/bkrc-self/modules/ast_report.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/symbol_table.bkr","resolved":"/tmp/bkrc-self/modules/symbol_table.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/type_graph.bkr","resolved":"/tmp/bkrc-self/modules/type_graph.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/resolver.bkr","resolved":"/tmp/bkrc-self/modules/resolver.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/typecheck.bkr","resolved":"/tmp/bkrc-self/modules/typecheck.bkr","status":"ok"},{"from_base":"/tmp/bkrc-self","requested":"modules/driver.bkr","resolved":"/tmp/bkrc-self/modules/driver.bkr","status":"ok"}],"has_duplicate_or_cycle_import":false,"has_invalid_import":false,"invalid_import":"","has_missing_import":false,"missing_import":""}
+/* BUNKER_IMPORT_GRAPH_JSON: {"schema_version":"bunker.self_host.import_graph.v1","root_base_dir":"","path_policy":"normalized_relative_forward_slash","base_directory_resolution":true,"recursive_expansion":true,"duplicate_suppression":true,"cycle_safe_expansion":true,"unique_import_count":0,"edge_count":0,"ok_edge_count":0,"missing_edge_count":0,"invalid_edge_count":0,"duplicate_edge_count":0,"duplicate_or_cycle_edge_count":0,"imports":[],"edges":[],"has_duplicate_or_cycle_import":false,"has_invalid_import":false,"invalid_import":"","has_missing_import":false,"missing_import":""}
 */
-/* BUNKER_AST_JSON: {"schema_version":"bunker.self_host.ast.v1","representation":"bootstrap_vec_i64","source_byte_spans":true,"complete_tree":false,"truncated":true,"root":{"kind":"kernel","name":"BunkerCompiler","entry":"main","source_start":178,"source_end":790715,"span_known":true},"summary":{"source_bytes":790716,"source_lines":17458,"item_count":1604,"function_count":1398,"struct_count":53,"enum_count":7,"const_count":146},"items":[],"tree":{"kind":"kernel"}}
+/* BUNKER_AST_JSON: {"schema_version":"bunker.self_host.ast.v1","representation":"bootstrap_vec_i64","source_byte_spans":true,"complete_tree":false,"truncated":true,"root":{"kind":"kernel","name":"BunkerCompiler","entry":"main","source_start":178,"source_end":814330,"span_known":true},"summary":{"source_bytes":814331,"source_lines":18147,"item_count":1664,"function_count":1453,"struct_count":58,"enum_count":7,"const_count":146},"items":[],"tree":{"kind":"kernel"}}
 */
-/* BUNKER_TYPE_GRAPH_JSON: {"schema_version":"bunker.self_host.type_graph.v1","representation":"bootstrap_codegen_inference","complete":false,"declared_types":false,"local_inference":false,"truncated":true,"known_limits":"Derived from declarations plus bootstrap C codegen inference; no real Bunker typechecker, generic graph, trait constraints, exhaustiveness graph, or cross-module type graph yet. Detail arrays are omitted when interned names exceed AST_REPORT_FULL_WALK_NAME_LIMIT.","summary":{"function_count":1398,"struct_count":53,"const_count":146},"structs":[],"constants":[],"functions":[]}
+/* BUNKER_TYPE_GRAPH_JSON: {"schema_version":"bunker.self_host.type_graph.v1","representation":"bootstrap_codegen_inference","complete":false,"declared_types":false,"local_inference":false,"truncated":true,"known_limits":"Derived from declarations plus bootstrap C codegen inference; no real Bunker typechecker, generic graph, trait constraints, exhaustiveness graph, or cross-module type graph yet. Detail arrays are omitted when interned names exceed AST_REPORT_FULL_WALK_NAME_LIMIT.","summary":{"function_count":1453,"struct_count":58,"const_count":146},"structs":[],"constants":[],"functions":[]}
 */
-/* BUNKER_SYMBOL_TABLE_JSON: {"schema_version":"bunker.self_host.symbol_table.v1","representation":"bootstrap_ast_walk","complete":false,"declarations":false,"references":false,"truncated":true,"scope_model":"bootstrap kernel/function/struct scopes paired with BUNKER_RESOLVER_JSON validation","known_limits":"Derived from AST names and paired with BUNKER_RESOLVER_JSON for bootstrap duplicate/unresolved diagnostics; imports, visibility, overloads, and related definition-use spans are not complete yet. Full declaration/reference tables are omitted when interned names exceed AST_REPORT_FULL_WALK_NAME_LIMIT so stage1 compile of bkrc stays inside runner memory.","resolver_report":"BUNKER_RESOLVER_JSON","summary":{"interned_name_count":2549,"function_count":1398,"struct_count":53,"const_count":146},"declaration_table":[],"reference_table":[]}
+/* BUNKER_SYMBOL_TABLE_JSON: {"schema_version":"bunker.self_host.symbol_table.v1","representation":"bootstrap_ast_walk","complete":false,"declarations":false,"references":false,"truncated":true,"scope_model":"bootstrap kernel/function/struct scopes paired with BUNKER_RESOLVER_JSON validation","known_limits":"Derived from AST names and paired with BUNKER_RESOLVER_JSON for bootstrap duplicate/unresolved diagnostics; imports, visibility, overloads, and related definition-use spans are not complete yet. Full declaration/reference tables are omitted when interned names exceed AST_REPORT_FULL_WALK_NAME_LIMIT so stage1 compile of bkrc stays inside runner memory.","resolver_report":"BUNKER_RESOLVER_JSON","summary":{"interned_name_count":2696,"function_count":1453,"struct_count":58,"const_count":146},"declaration_table":[],"reference_table":[]}
 */
 /* BUNKER_RESOLVER_JSON: {"schema_version":"bunker.self_host.resolver.v1","representation":"bootstrap_name_resolver","complete":true,"truncated":true,"duplicate_detection":true,"unresolved_detection":true,"visibility_checking":true,"import_graph_awareness":true,"cross_file_definitions":true,"related_declarations":true,"structured_repair_metadata":true,"diagnostic_phase_field":true,"diagnostic_rule_ids":true,"diagnostic_severity":true,"diagnostic_severity_counts":true,"suggested_edit_envelope":true,"has_diagnostics":false,"diagnostic_count":0,"error_count":0,"warning_count":0,"scope_model":"kernel globals plus function/block/pattern binding scopes using interned names with visibility boundaries","known_limits":"Resolver validates duplicate declarations, unresolved identifiers, calls, struct types, struct literals, and struct literal fields with related declaration span objects; import visibility boundaries and cross-file definition origins verified.","diagnostics":[]}
 */
@@ -347,6 +347,60 @@ typedef struct _v1897 {
 typedef struct _v1908 {
     bkr_i64 _v423;
 } _v1908;
+
+typedef struct _v2398 {
+    bkr_str _v386;
+    bkr_str _v1209;
+    bkr_str _v2399;
+    bkr_i64 _v344;
+} _v2398;
+
+typedef struct _v2400 {
+    bkr_i64 _v2401;
+    bkr_i64 _v2402;
+    bkr_i64 _v2403;
+    bkr_i64 _v2404;
+    bkr_i64 _v2405;
+    bkr_i64 _v2406;
+    bkr_i64 _v2407;
+    bkr_i64 _v2408;
+    bkr_bool _v2361;
+    bkr_i64 _v2409;
+    bkr_i64 _v2411;
+} _v2400;
+
+typedef struct _v2436 {
+    bkr_i64 _v2437;
+    bkr_i64 _v2438;
+    bkr_i64 _v2439;
+    bkr_i64 _v2440;
+    bkr_i64 _v2441;
+    bkr_i64 _v2442;
+    bkr_i64 _v2443;
+    bkr_i64 _v2444;
+    bkr_i64 _v2445;
+    bkr_i64 _v2446;
+    bkr_i64 _v2447;
+    bkr_i64 _v2448;
+    bkr_i64 _v2449;
+    bkr_i64 _v2450;
+    bkr_str _v1348;
+} _v2436;
+
+typedef struct _v2498 {
+    bkr_i64 _v2499;
+    bkr_i64 _v2500;
+    bkr_i64 _v2501;
+} _v2498;
+
+typedef struct _v2502 {
+    bkr_str _v2503;
+    bkr_i64 _v2504;
+    bkr_i64 _v2505;
+    bkr_bool _v2506;
+    bkr_bool _v2507;
+    bkr_str _v2508;
+} _v2502;
 
 static const bkr_i64 _v129 = 0;
 static const bkr_i64 _v131 = 10;
@@ -1832,67 +1886,122 @@ bkr_str _v2394(bkr_i64 _v0);
 bkr_i64 _v2395(bkr_i64 _v1239, _v341 _v1530);
 bkr_str _v2396(bkr_i64 _v0);
 bkr_str _v2397(bkr_i64 _v0);
-bkr_bool _v2398(bkr_str _v1582);
-bkr_str _v2401(bkr_str _v1582);
-bkr_bool _v2402(bkr_str _v2403);
-bkr_bool _v2404(bkr_str _v2403);
-bkr_bool _v2405(bkr_str _v2403);
-bkr_bool _v2408(bkr_str _v2403);
-bkr_bool _v2409(bkr_str _v2403);
-bkr_str _v2410(bkr_str _v2411, bkr_str _v2403);
-bkr_str _v2412(bkr_str _v2413);
-bkr_bool _v2415(bkr_i64 _v2416, bkr_str _v2403);
-bkr_str _v2417(bkr_str _v2418, bkr_str _v1582, bkr_i64 _v2416, bkr_str _v2411);
-bkr_str _v2423(bkr_str _v1209, bkr_i64 _v2416, bkr_str _v2411);
-bkr_str _v2425(bkr_str _v1209);
-bkr_str _v2426(bkr_str _v1209, bkr_str _v2411);
-bkr_str _v2427(bkr_str _v1582, bkr_i64 _v2416, bkr_str _v2411);
-bkr_str _v2428(bkr_str _v1209, bkr_i64 _v2416, bkr_str _v2411);
-bkr_str _v2429(bkr_str _v1209);
-bkr_str _v2430(bkr_str _v1209, bkr_str _v2411);
-bkr_str _v2431(bkr_str _v1582, bkr_i64 _v2416, bkr_str _v2411);
-bkr_str _v2432(bkr_str _v1209, bkr_i64 _v2416, bkr_str _v2411);
-bkr_str _v2434(bkr_str _v1209);
-bkr_str _v2435(bkr_str _v1209, bkr_str _v2411);
-bkr_i64 _v2436(bkr_str _v1582, bkr_i64 _v2416, bkr_str _v2411);
-bkr_i64 _v2437(bkr_str _v1209, bkr_i64 _v2416, bkr_str _v2411);
-bkr_i64 _v2438(bkr_str _v1209);
-bkr_i64 _v2439(bkr_str _v1209, bkr_str _v2411);
-bkr_str _v2440(bkr_str _v1193, bkr_str _v557);
-bkr_str _v2441(bkr_str _v1193, bkr_str _v423);
-bkr_str _v2442(bkr_str _v1582, bkr_i64 _v2416, bkr_str _v2411);
-bkr_str _v2443(bkr_str _v1209, bkr_i64 _v2416, bkr_str _v2411);
-bkr_str _v2444(bkr_str _v1209);
-bkr_str _v2445(bkr_str _v1209, bkr_str _v2411);
-bkr_str _v2446(bkr_str _v2447, bkr_str _v2448, bkr_str _v2449, bkr_str _v2450);
-bkr_str _v2451(bkr_str _v1582, bkr_i64 _v2416, bkr_str _v2411);
-bkr_str _v2452(bkr_str _v1209, bkr_i64 _v2416, bkr_str _v2411);
-bkr_str _v2453(bkr_str _v1209, bkr_str _v2411);
-bkr_i64 _v2454(bkr_str _v2455, bkr_str _v2450);
-bkr_i64 _v2457(bkr_str _v1209, bkr_str _v2411, bkr_str _v2450);
-bkr_i64 _v2458(bkr_str _v1209, bkr_str _v2411);
-bkr_i64 _v2459(bkr_str _v1209, bkr_i64 _v1274);
-bkr_i64 _v2460(bkr_str _v1209, bkr_i64 _v1274);
-bkr_str _v2462(bkr_str _v1209, bkr_i64 _v1274);
-bkr_str _v2464(bkr_str _v330, bkr_str _v2103, bkr_str _v2465, bkr_i64 _v1936, bkr_i64 _v1937, bkr_i64 _v2466, bkr_i64 _v2467, bkr_str _v2468, bkr_str _v1264, bkr_str _v1267, bkr_str _v2104);
-bkr_str _v2469(bkr_str _v330, bkr_str _v2103, bkr_str _v2465, bkr_i64 _v1936, bkr_i64 _v1937, bkr_i64 _v2466, bkr_i64 _v2467, bkr_str _v2468, bkr_str _v1264, bkr_str _v1267, bkr_str _v2104, bkr_bool _v2470, bkr_str _v2471);
-bkr_str _v2472(bkr_i64 _v2473);
-bkr_str _v2474(bkr_str _v2103, bkr_str _v2475, bkr_str _v330, bkr_str _v2476);
-bkr_str _v2477(void);
-bkr_str _v2478(void);
-bkr_str _v2479(void);
-bkr_str _v2480(bkr_str _v1209);
-bkr_str _v2481(bkr_str _v1209, bkr_str _v2411);
-bkr_str _v2484(bkr_str _v1209);
-bkr_str _v2485(bkr_str _v1209, bkr_str _v2411);
-bkr_str _v2486(bkr_str _v2482);
-bkr_str _v2488(bkr_str _v2483);
-bkr_str _v2489(bkr_str _v1209, _v1234 _v1246);
-bkr_bool _v2519(void);
-bkr_i64 _v2520(bkr_str _v2475);
-bkr_str _v2524(bkr_str _v1209);
-bkr_str _v2525(bkr_str _v1209, bkr_str _v2526);
-bkr_i32 _v2537(void);
+_v2400 _v2412(bkr_i64 _v2408);
+bkr_bool _v2414(_v2400 _v2415, bkr_str _v1348);
+bkr_str _v2416(bkr_str _v2417, bkr_str _v1826);
+bkr_bool _v2418(_v2400 _v2415, bkr_str _v2417, bkr_str _v1826, bkr_i64 _v1383);
+bkr_i64 _v2421(_v2400 _v2415, bkr_str _v2417, bkr_str _v1826);
+bkr_bool _v2424(_v2400 _v2415, bkr_str _v2417, bkr_str _v1826, bkr_str _v1383);
+bkr_str _v2425(_v2400 _v2415, bkr_str _v2417, bkr_str _v1826);
+bkr_bool _v2426(_v2400 _v2415, bkr_str _v386, bkr_str _v1209, bkr_str _v2399, bkr_i64 _v344);
+bkr_i64 _v2427(_v2400 _v2415);
+bkr_bool _v2429(_v2400 _v2415);
+_v2398 _v2430(_v2400 _v2415);
+bkr_bool _v2431(_v2400 _v2415);
+bkr_bool _v2432(_v2400 _v2415);
+bkr_i64 _v2433(_v2400 _v2415);
+bkr_str _v2434(_v2400 _v2415);
+_v2436 _v2451(bkr_str _v1348);
+bkr_i64 _v2465(_v2436 _v2466, bkr_str _v319);
+bkr_bool _v2467(_v2436 _v2466, bkr_i64 _v2468, bkr_i64 _v2469);
+bkr_bool _v2470(_v2436 _v2466, bkr_i64 _v1605, bkr_str _v2471);
+bkr_bool _v2472(_v2436 _v2466, bkr_i64 _v1605, bkr_i64 _v2473, bkr_i64 _v2474);
+bkr_bool _v2475(_v2436 _v2466, bkr_i64 _v1605, bkr_str _v1290);
+bkr_bool _v2476(_v2436 _v2466, bkr_i64 _v1605, bkr_i64 _v2477);
+bkr_bool _v2478(_v2436 _v2466, bkr_i64 _v1605, bkr_i64 _v2479);
+bkr_bool _v2480(_v2436 _v2466, bkr_i64 _v1605, bkr_i64 _v2481);
+bkr_bool _v2482(_v2436 _v2466, bkr_i64 _v1605, bkr_str _v2417, bkr_str _v1826);
+bkr_bool _v2483(_v2436 _v2466, bkr_i64 _v1605, bkr_str _v386, bkr_str _v2399);
+bkr_str _v2484(_v2436 _v2466, bkr_i64 _v1605);
+bkr_str _v2485(_v2436 _v2466, bkr_i64 _v1605);
+bkr_i64 _v2486(_v2436 _v2466, bkr_i64 _v1605);
+bkr_i64 _v2487(_v2436 _v2466, bkr_i64 _v1605);
+bkr_i64 _v2488(_v2436 _v2466, bkr_i64 _v1605);
+bkr_str _v2489(_v2436 _v2466, bkr_i64 _v1605);
+bkr_str _v2490(_v2436 _v2466, bkr_i64 _v1605);
+bkr_str _v2491(_v2436 _v2466, bkr_i64 _v1605);
+bkr_str _v2492(_v2436 _v2466, bkr_i64 _v1605, _v2400 _v2415);
+bkr_bool _v2496(_v2436 _v2466, bkr_i64 _v1605, _v2400 _v2415);
+bkr_str _v2497(_v2436 _v2466);
+_v2498 _v2509(void);
+_v2498 _v2511(bkr_i64 _v1205);
+_v2498 _v2512(bkr_str _v1348);
+_v2498 _v2513(bkr_str _v1348, bkr_i64 _v2514);
+bkr_i64 _v2515(_v2498 _v368, bkr_str _v1348);
+bkr_bool _v2516(_v2498 _v368, bkr_str _v1348, bkr_i64 _v2514);
+_v2498 _v2517(_v2498 _v2518, _v2498 _v2519);
+_v2498 _v2523(_v2498 _v2518, _v2498 _v2519);
+_v2498 _v2524(_v2498 _v2518, bkr_i64 _v573);
+bkr_bool _v2525(_v2498 _v368);
+bkr_i64 _v2526(_v2498 _v368, bkr_i64 _v2527);
+bkr_str _v2529(_v2498 _v368);
+_v2502 _v2532(bkr_str _v2503);
+bkr_bool _v2535(_v2502 _v2536, bkr_str _v2537);
+bkr_bool _v2538(_v2502 _v2536, bkr_str _v2537);
+bkr_bool _v2539(_v2498 _v2540, _v2498 _v2541);
+bkr_str _v2543(_v2498 _v2540, _v2498 _v2541, bkr_i64 _v2527);
+bkr_str _v2546(_v2502 _v2536);
+bkr_bool _v2548(bkr_str _v1582);
+bkr_str _v2551(bkr_str _v1582);
+bkr_bool _v2552(bkr_str _v2553);
+bkr_bool _v2554(bkr_str _v2553);
+bkr_bool _v2555(bkr_str _v2553);
+bkr_bool _v2558(bkr_str _v2553);
+bkr_bool _v2559(bkr_str _v2553);
+bkr_str _v2560(bkr_str _v2561, bkr_str _v2553);
+bkr_str _v2562(bkr_str _v2563);
+bkr_bool _v2565(bkr_i64 _v2566, bkr_str _v2553);
+bkr_str _v2567(bkr_str _v2568, bkr_str _v1582, bkr_i64 _v2566, bkr_str _v2561);
+bkr_str _v2573(bkr_str _v1209, bkr_i64 _v2566, bkr_str _v2561);
+bkr_str _v2575(bkr_str _v1209);
+bkr_str _v2576(bkr_str _v1209, bkr_str _v2561);
+bkr_str _v2577(bkr_str _v1582, bkr_i64 _v2566, bkr_str _v2561);
+bkr_str _v2578(bkr_str _v1209, bkr_i64 _v2566, bkr_str _v2561);
+bkr_str _v2579(bkr_str _v1209);
+bkr_str _v2580(bkr_str _v1209, bkr_str _v2561);
+bkr_str _v2581(bkr_str _v1582, bkr_i64 _v2566, bkr_str _v2561);
+bkr_str _v2582(bkr_str _v1209, bkr_i64 _v2566, bkr_str _v2561);
+bkr_str _v2584(bkr_str _v1209);
+bkr_str _v2585(bkr_str _v1209, bkr_str _v2561);
+bkr_i64 _v2586(bkr_str _v1582, bkr_i64 _v2566, bkr_str _v2561);
+bkr_i64 _v2587(bkr_str _v1209, bkr_i64 _v2566, bkr_str _v2561);
+bkr_i64 _v2588(bkr_str _v1209);
+bkr_i64 _v2589(bkr_str _v1209, bkr_str _v2561);
+bkr_str _v2590(bkr_str _v1193, bkr_str _v557);
+bkr_str _v2591(bkr_str _v1193, bkr_str _v423);
+bkr_str _v2592(bkr_str _v1582, bkr_i64 _v2566, bkr_str _v2561);
+bkr_str _v2593(bkr_str _v1209, bkr_i64 _v2566, bkr_str _v2561);
+bkr_str _v2594(bkr_str _v1209);
+bkr_str _v2595(bkr_str _v1209, bkr_str _v2561);
+bkr_str _v2596(bkr_str _v2597, bkr_str _v2598, bkr_str _v2599, bkr_str _v2435);
+bkr_str _v2600(bkr_str _v1582, bkr_i64 _v2566, bkr_str _v2561);
+bkr_str _v2601(bkr_str _v1209, bkr_i64 _v2566, bkr_str _v2561);
+bkr_str _v2602(bkr_str _v1209, bkr_str _v2561);
+bkr_i64 _v2603(bkr_str _v2604, bkr_str _v2435);
+bkr_i64 _v2606(bkr_str _v1209, bkr_str _v2561, bkr_str _v2435);
+bkr_i64 _v2607(bkr_str _v1209, bkr_str _v2561);
+bkr_i64 _v2608(bkr_str _v1209, bkr_i64 _v1274);
+bkr_i64 _v2609(bkr_str _v1209, bkr_i64 _v1274);
+bkr_str _v2611(bkr_str _v1209, bkr_i64 _v1274);
+bkr_str _v2613(bkr_str _v330, bkr_str _v2103, bkr_str _v2399, bkr_i64 _v1936, bkr_i64 _v1937, bkr_i64 _v2614, bkr_i64 _v2615, bkr_str _v2616, bkr_str _v1264, bkr_str _v1267, bkr_str _v2104);
+bkr_str _v2617(bkr_str _v330, bkr_str _v2103, bkr_str _v2399, bkr_i64 _v1936, bkr_i64 _v1937, bkr_i64 _v2614, bkr_i64 _v2615, bkr_str _v2616, bkr_str _v1264, bkr_str _v1267, bkr_str _v2104, bkr_bool _v2618, bkr_str _v2619);
+bkr_str _v2620(bkr_i64 _v2621);
+bkr_str _v2622(bkr_str _v2103, bkr_str _v2623, bkr_str _v330, bkr_str _v2624);
+bkr_str _v2625(void);
+bkr_str _v2626(void);
+bkr_str _v2627(void);
+bkr_str _v2628(bkr_str _v1209);
+bkr_str _v2629(bkr_str _v1209, bkr_str _v2561);
+bkr_str _v2632(bkr_str _v1209);
+bkr_str _v2633(bkr_str _v1209, bkr_str _v2561);
+bkr_str _v2634(bkr_str _v2630);
+bkr_str _v2636(bkr_str _v2631);
+bkr_str _v2637(bkr_str _v1209, _v1234 _v1246);
+bkr_bool _v2667(void);
+bkr_i64 _v2668(bkr_str _v2623);
+bkr_str _v2671(bkr_str _v1209);
+bkr_str _v2672(bkr_str _v1209, bkr_str _v2673);
+bkr_i32 _v2684(void);
 
 bkr_str _v318(bkr_i64 _v319) {
     if ((_v319 == 1)) {
@@ -18003,36 +18112,596 @@ bkr_str _v2397(bkr_i64 _v0) {
     return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("/* BUNKER_SEMANTIC_JSON: ", _v2396(_v0)), from_char_code(10)), "*/"), from_char_code(10));
 }
 
-bkr_bool _v2398(bkr_str _v1582) {
-    bkr_str _v2399 = trim(_v1582);
-    bkr_i64 _v1887 = bkr_len((bkr_str)(intptr_t)(_v2399));
+_v2400 _v2412(bkr_i64 _v2408) {
+    bkr_i64 _v2401 = vec_new();
+    bkr_i64 _v2402 = vec_new();
+    bkr_i64 _v2403 = vec_new();
+    bkr_i64 _v2404 = vec_new();
+    bkr_i64 _v2405 = vec_new();
+    bkr_i64 _v2409 = hashmap_new_str();
+    bkr_i64 _v2411 = hashmap_new_str();
+    return (_v2400){._v2401 = _v2401, ._v2402 = _v2402, ._v2403 = _v2403, ._v2404 = _v2404, ._v2405 = _v2405, ._v2406 = 0, ._v2407 = 0, ._v2408 = _v2408, ._v2361 = BKR_FALSE, ._v2409 = _v2409, ._v2411 = _v2411};
+}
+
+bkr_bool _v2414(_v2400 _v2415, bkr_str _v1348) {
+    bkr_i64 _v1168 = 0;
+    while ((_v1168 < vec_len(_v2415._v2401))) {
+        if (bkr_str_eq(vec_get(_v2415._v2401, _v1168), _v1348)) {
+            return BKR_FALSE;
+        }
+        _v1168 = (_v1168 + 1);
+    }
+    vec_push(_v2415._v2401, ((bkr_i64)(intptr_t)_v1348));
+    return BKR_TRUE;
+}
+
+bkr_str _v2416(bkr_str _v2417, bkr_str _v1826) {
+    return bkr_str_concat(bkr_str_concat(_v2417, "."), _v1826);
+}
+
+bkr_bool _v2418(_v2400 _v2415, bkr_str _v2417, bkr_str _v1826, bkr_i64 _v1383) {
+    bkr_str _v2419 = _v2416(_v2417, _v1826);
+    return hashmap_insert_str(_v2415._v2409, ((bkr_i64)(intptr_t)_v2419), _v1383);
+}
+
+bkr_i64 _v2421(_v2400 _v2415, bkr_str _v2417, bkr_str _v1826) {
+    bkr_str _v2419 = _v2416(_v2417, _v1826);
+    if ((!hashmap_contains(_v2415._v2409, ((bkr_i64)(intptr_t)_v2419)))) {
+        return 0;
+    }
+    return hashmap_get(_v2415._v2409, ((bkr_i64)(intptr_t)_v2419));
+}
+
+bkr_bool _v2424(_v2400 _v2415, bkr_str _v2417, bkr_str _v1826, bkr_str _v1383) {
+    bkr_str _v2419 = _v2416(_v2417, _v1826);
+    return hashmap_insert_str(_v2415._v2411, ((bkr_i64)(intptr_t)_v2419), ((bkr_i64)(intptr_t)_v1383));
+}
+
+bkr_str _v2425(_v2400 _v2415, bkr_str _v2417, bkr_str _v1826) {
+    bkr_str _v2419 = _v2416(_v2417, _v1826);
+    if ((!hashmap_contains(_v2415._v2411, ((bkr_i64)(intptr_t)_v2419)))) {
+        return "";
+    }
+    return hashmap_get(_v2415._v2411, ((bkr_i64)(intptr_t)_v2419));
+}
+
+bkr_bool _v2426(_v2400 _v2415, bkr_str _v386, bkr_str _v1209, bkr_str _v2399, bkr_i64 _v344) {
+    vec_push(_v2415._v2402, ((bkr_i64)(intptr_t)_v386));
+    vec_push(_v2415._v2403, ((bkr_i64)(intptr_t)_v1209));
+    vec_push(_v2415._v2404, ((bkr_i64)(intptr_t)_v2399));
+    vec_push(_v2415._v2405, _v344);
+    return BKR_TRUE;
+}
+
+bkr_i64 _v2427(_v2400 _v2415) {
+    bkr_i64 _v2428 = vec_len(_v2415._v2404);
+    if ((_v2415._v2406 >= _v2428)) {
+        return 0;
+    }
+    return (_v2428 - _v2415._v2406);
+}
+
+bkr_bool _v2429(_v2400 _v2415) {
+    return (_v2427(_v2415) > 0);
+}
+
+_v2398 _v2430(_v2400 _v2415) {
+    if ((!_v2429(_v2415))) {
+        return (_v2398){._v386 = "", ._v1209 = "", ._v2399 = "", ._v344 = 0};
+    }
+    bkr_i64 _v386 = vec_get(_v2415._v2402, _v2415._v2406);
+    bkr_i64 _v1209 = vec_get(_v2415._v2403, _v2415._v2406);
+    bkr_i64 _v2399 = vec_get(_v2415._v2404, _v2415._v2406);
+    bkr_i64 _v344 = vec_get(_v2415._v2405, _v2415._v2406);
+    _v2415._v2406 = (_v2415._v2406 + 1);
+    return (_v2398){._v386 = _v386, ._v1209 = _v1209, ._v2399 = _v2399, ._v344 = _v344};
+}
+
+bkr_bool _v2431(_v2400 _v2415) {
+    _v2415._v2361 = BKR_TRUE;
+    return BKR_TRUE;
+}
+
+bkr_bool _v2432(_v2400 _v2415) {
+    return _v2415._v2361;
+}
+
+bkr_i64 _v2433(_v2400 _v2415) {
+    _v2415._v2407 = (_v2415._v2407 + 1);
+    return _v2415._v2407;
+}
+
+bkr_str _v2434(_v2400 _v2415) {
+    bkr_str _v1941 = ",";
+    bkr_str _v2435 = "RUNNING";
+    if (_v2415._v2361) {
+        _v2435 = "COMPLETED";
+    }
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("schema_version", "bunker.shell.v1")), _v1941), _v1892("status", _v2435)), _v1941), _v1893("steps_executed", _v2415._v2407)), _v1941), _v1893("max_steps", _v2415._v2408)), _v1941), _v1894("terminated", _v2415._v2361)), _v1941), _v1893("active_agents", vec_len(_v2415._v2401))), _v1941), _v1893("queue_depth", _v2427(_v2415))), "}");
+}
+
+_v2436 _v2451(bkr_str _v1348) {
+    bkr_i64 _v2452 = vec_new();
+    bkr_i64 _v2453 = vec_new();
+    bkr_i64 _v2454 = vec_new();
+    bkr_i64 _v2455 = vec_new();
+    bkr_i64 _v2456 = vec_new();
+    bkr_i64 _v2457 = vec_new();
+    bkr_i64 _v2458 = vec_new();
+    bkr_i64 _v2459 = vec_new();
+    bkr_i64 _v2460 = vec_new();
+    bkr_i64 _v2461 = vec_new();
+    bkr_i64 _v2462 = vec_new();
+    bkr_i64 _v2463 = vec_new();
+    bkr_i64 _v2464 = vec_new();
+    return (_v2436){._v2437 = _v2452, ._v2438 = _v2453, ._v2439 = _v2454, ._v2440 = _v2455, ._v2441 = _v2456, ._v2442 = _v2457, ._v2443 = _v2458, ._v2444 = _v2459, ._v2445 = _v2460, ._v2446 = _v2461, ._v2447 = _v2462, ._v2448 = _v2463, ._v2449 = _v2464, ._v2450 = (-1), ._v1348 = _v1348};
+}
+
+bkr_i64 _v2465(_v2436 _v2466, bkr_str _v319) {
+    bkr_i64 _v1605 = vec_len(_v2466._v2437);
+    vec_push(_v2466._v2437, ((bkr_i64)(intptr_t)_v319));
+    vec_push(_v2466._v2438, ((bkr_i64)(intptr_t)""));
+    vec_push(_v2466._v2439, ((bkr_i64)(intptr_t)""));
+    vec_push(_v2466._v2440, 0);
+    vec_push(_v2466._v2441, 0);
+    vec_push(_v2466._v2442, 0);
+    vec_push(_v2466._v2443, 0);
+    vec_push(_v2466._v2444, 14);
+    vec_push(_v2466._v2445, ((bkr_i64)(intptr_t)""));
+    vec_push(_v2466._v2446, ((bkr_i64)(intptr_t)""));
+    vec_push(_v2466._v2447, ((bkr_i64)(intptr_t)""));
+    vec_push(_v2466._v2448, ((bkr_i64)(intptr_t)""));
+    vec_push(_v2466._v2449, (-1));
+    if ((_v2466._v2450 < 0)) {
+        _v2466._v2450 = _v1605;
+    }
+    return _v1605;
+}
+
+bkr_bool _v2467(_v2436 _v2466, bkr_i64 _v2468, bkr_i64 _v2469) {
+    bkr_i64 _v2428 = vec_len(_v2466._v2437);
+    if (((_v2468 < 0) || (_v2468 >= _v2428))) {
+        return BKR_FALSE;
+    }
+    if (((_v2469 < 0) || (_v2469 >= _v2428))) {
+        return BKR_FALSE;
+    }
+    vec_set(_v2466._v2449, _v2469, _v2468);
+    return BKR_TRUE;
+}
+
+bkr_bool _v2470(_v2436 _v2466, bkr_i64 _v1605, bkr_str _v2471) {
+    bkr_i64 _v2428 = vec_len(_v2466._v2437);
+    if (((_v1605 < 0) || (_v1605 >= _v2428))) {
+        return BKR_FALSE;
+    }
+    vec_set(_v2466._v2438, _v1605, ((bkr_i64)(intptr_t)_v2471));
+    return BKR_TRUE;
+}
+
+bkr_bool _v2472(_v2436 _v2466, bkr_i64 _v1605, bkr_i64 _v2473, bkr_i64 _v2474) {
+    bkr_i64 _v2428 = vec_len(_v2466._v2437);
+    if (((_v1605 < 0) || (_v1605 >= _v2428))) {
+        return BKR_FALSE;
+    }
+    vec_set(_v2466._v2440, _v1605, _v2473);
+    vec_set(_v2466._v2441, _v1605, _v2474);
+    return BKR_TRUE;
+}
+
+bkr_bool _v2475(_v2436 _v2466, bkr_i64 _v1605, bkr_str _v1290) {
+    bkr_i64 _v2428 = vec_len(_v2466._v2437);
+    if (((_v1605 < 0) || (_v1605 >= _v2428))) {
+        return BKR_FALSE;
+    }
+    vec_set(_v2466._v2439, _v1605, ((bkr_i64)(intptr_t)_v1290));
+    return BKR_TRUE;
+}
+
+bkr_bool _v2476(_v2436 _v2466, bkr_i64 _v1605, bkr_i64 _v2477) {
+    bkr_i64 _v2428 = vec_len(_v2466._v2437);
+    if (((_v1605 < 0) || (_v1605 >= _v2428))) {
+        return BKR_FALSE;
+    }
+    vec_set(_v2466._v2442, _v1605, _v2477);
+    return BKR_TRUE;
+}
+
+bkr_bool _v2478(_v2436 _v2466, bkr_i64 _v1605, bkr_i64 _v2479) {
+    bkr_i64 _v2428 = vec_len(_v2466._v2437);
+    if (((_v1605 < 0) || (_v1605 >= _v2428))) {
+        return BKR_FALSE;
+    }
+    vec_set(_v2466._v2443, _v1605, _v2479);
+    return BKR_TRUE;
+}
+
+bkr_bool _v2480(_v2436 _v2466, bkr_i64 _v1605, bkr_i64 _v2481) {
+    bkr_i64 _v2428 = vec_len(_v2466._v2437);
+    if (((_v1605 < 0) || (_v1605 >= _v2428))) {
+        return BKR_FALSE;
+    }
+    vec_set(_v2466._v2444, _v1605, _v2481);
+    return BKR_TRUE;
+}
+
+bkr_bool _v2482(_v2436 _v2466, bkr_i64 _v1605, bkr_str _v2417, bkr_str _v1826) {
+    bkr_i64 _v2428 = vec_len(_v2466._v2437);
+    if (((_v1605 < 0) || (_v1605 >= _v2428))) {
+        return BKR_FALSE;
+    }
+    vec_set(_v2466._v2445, _v1605, ((bkr_i64)(intptr_t)_v2417));
+    vec_set(_v2466._v2446, _v1605, ((bkr_i64)(intptr_t)_v1826));
+    return BKR_TRUE;
+}
+
+bkr_bool _v2483(_v2436 _v2466, bkr_i64 _v1605, bkr_str _v386, bkr_str _v2399) {
+    bkr_i64 _v2428 = vec_len(_v2466._v2437);
+    if (((_v1605 < 0) || (_v1605 >= _v2428))) {
+        return BKR_FALSE;
+    }
+    vec_set(_v2466._v2447, _v1605, ((bkr_i64)(intptr_t)_v386));
+    vec_set(_v2466._v2448, _v1605, ((bkr_i64)(intptr_t)_v2399));
+    return BKR_TRUE;
+}
+
+bkr_str _v2484(_v2436 _v2466, bkr_i64 _v1605) {
+    if (((_v1605 < 0) || (_v1605 >= vec_len(_v2466._v2437)))) {
+        return "";
+    }
+    return vec_get(_v2466._v2437, _v1605);
+}
+
+bkr_str _v2485(_v2436 _v2466, bkr_i64 _v1605) {
+    if (((_v1605 < 0) || (_v1605 >= vec_len(_v2466._v2438)))) {
+        return "";
+    }
+    return vec_get(_v2466._v2438, _v1605);
+}
+
+bkr_i64 _v2486(_v2436 _v2466, bkr_i64 _v1605) {
+    if (((_v1605 < 0) || (_v1605 >= vec_len(_v2466._v2440)))) {
+        return 0;
+    }
+    return vec_get(_v2466._v2440, _v1605);
+}
+
+bkr_i64 _v2487(_v2436 _v2466, bkr_i64 _v1605) {
+    if (((_v1605 < 0) || (_v1605 >= vec_len(_v2466._v2441)))) {
+        return 0;
+    }
+    return vec_get(_v2466._v2441, _v1605);
+}
+
+bkr_i64 _v2488(_v2436 _v2466, bkr_i64 _v1605) {
+    if (((_v1605 < 0) || (_v1605 >= vec_len(_v2466._v2442)))) {
+        return 0;
+    }
+    return vec_get(_v2466._v2442, _v1605);
+}
+
+bkr_str _v2489(_v2436 _v2466, bkr_i64 _v1605) {
+    if (((_v1605 < 0) || (_v1605 >= vec_len(_v2466._v2439)))) {
+        return "";
+    }
+    return vec_get(_v2466._v2439, _v1605);
+}
+
+bkr_str _v2490(_v2436 _v2466, bkr_i64 _v1605) {
+    if (((_v1605 < 0) || (_v1605 >= vec_len(_v2466._v2447)))) {
+        return "";
+    }
+    return vec_get(_v2466._v2447, _v1605);
+}
+
+bkr_str _v2491(_v2436 _v2466, bkr_i64 _v1605) {
+    if (((_v1605 < 0) || (_v1605 >= vec_len(_v2466._v2448)))) {
+        return "";
+    }
+    return vec_get(_v2466._v2448, _v1605);
+}
+
+bkr_str _v2492(_v2436 _v2466, bkr_i64 _v1605, _v2400 _v2415) {
+    bkr_i64 _v2428 = vec_len(_v2466._v2437);
+    if (((_v1605 < 0) || (_v1605 >= _v2428))) {
+        return "";
+    }
+    bkr_i64 _v2493 = vec_get(_v2466._v2445, _v1605);
+    bkr_i64 _v2494 = vec_get(_v2466._v2446, _v1605);
+    if (((bkr_len((bkr_str)(intptr_t)(_v2493)) > 0) && (bkr_len((bkr_str)(intptr_t)(_v2494)) > 0))) {
+        bkr_i64 _v2495 = _v2421(_v2415, _v2493, _v2494);
+        bkr_i64 _v1584 = vec_get(_v2466._v2439, _v1605);
+        if ((bkr_len((bkr_str)(intptr_t)(_v1584)) > 0)) {
+            return bkr_str_concat(_v1584, int_to_string(_v2495));
+        }
+        return int_to_string(_v2495);
+    }
+    return vec_get(_v2466._v2439, _v1605);
+}
+
+bkr_bool _v2496(_v2436 _v2466, bkr_i64 _v1605, _v2400 _v2415) {
+    bkr_i64 _v2428 = vec_len(_v2466._v2437);
+    if (((_v1605 < 0) || (_v1605 >= _v2428))) {
+        return BKR_FALSE;
+    }
+    bkr_i64 _v386 = vec_get(_v2466._v2447, _v1605);
+    bkr_i64 _v2399 = vec_get(_v2466._v2448, _v1605);
+    if (((bkr_len((bkr_str)(intptr_t)(_v386)) > 0) && (bkr_len((bkr_str)(intptr_t)(_v2399)) > 0))) {
+        return _v2426(_v2415, _v386, "View", _v2399, 0);
+    }
+    return BKR_FALSE;
+}
+
+bkr_str _v2497(_v2436 _v2466) {
+    bkr_str _v1941 = ",";
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("schema_version", "bunker.view.v1")), _v1941), _v1892("view_name", _v2466._v1348)), _v1941), _v1893("component_count", vec_len(_v2466._v2437))), _v1941), _v1893("root_id", _v2466._v2450)), "}");
+}
+
+_v2498 _v2509(void) {
+    bkr_i64 _v425 = vec_new();
+    bkr_i64 _v2510 = vec_new();
+    return (_v2498){._v2499 = _v425, ._v2500 = _v2510, ._v2501 = 0};
+}
+
+_v2498 _v2511(bkr_i64 _v1205) {
+    bkr_i64 _v425 = vec_new();
+    bkr_i64 _v2510 = vec_new();
+    return (_v2498){._v2499 = _v425, ._v2500 = _v2510, ._v2501 = _v1205};
+}
+
+_v2498 _v2512(bkr_str _v1348) {
+    bkr_i64 _v425 = vec_new();
+    bkr_i64 _v2510 = vec_new();
+    vec_push(_v425, ((bkr_i64)(intptr_t)_v1348));
+    vec_push(_v2510, 1);
+    return (_v2498){._v2499 = _v425, ._v2500 = _v2510, ._v2501 = 0};
+}
+
+_v2498 _v2513(bkr_str _v1348, bkr_i64 _v2514) {
+    bkr_i64 _v425 = vec_new();
+    bkr_i64 _v2510 = vec_new();
+    vec_push(_v425, ((bkr_i64)(intptr_t)_v1348));
+    vec_push(_v2510, _v2514);
+    return (_v2498){._v2499 = _v425, ._v2500 = _v2510, ._v2501 = 0};
+}
+
+bkr_i64 _v2515(_v2498 _v368, bkr_str _v1348) {
+    bkr_i64 _v1168 = 0;
+    bkr_i64 _v2428 = vec_len(_v368._v2499);
+    while ((_v1168 < _v2428)) {
+        if (bkr_str_eq(vec_get(_v368._v2499, _v1168), _v1348)) {
+            return vec_get(_v368._v2500, _v1168);
+        }
+        _v1168 = (_v1168 + 1);
+    }
+    return 0;
+}
+
+bkr_bool _v2516(_v2498 _v368, bkr_str _v1348, bkr_i64 _v2514) {
+    bkr_i64 _v1168 = 0;
+    bkr_i64 _v2428 = vec_len(_v368._v2499);
+    while ((_v1168 < _v2428)) {
+        if (bkr_str_eq(vec_get(_v368._v2499, _v1168), _v1348)) {
+            vec_set(_v368._v2500, _v1168, _v2514);
+            return BKR_TRUE;
+        }
+        _v1168 = (_v1168 + 1);
+    }
+    vec_push(_v368._v2499, ((bkr_i64)(intptr_t)_v1348));
+    vec_push(_v368._v2500, _v2514);
+    return BKR_TRUE;
+}
+
+_v2498 _v2517(_v2498 _v2518, _v2498 _v2519) {
+    _v2498 _v1717 = _v2509();
+    _v1717._v2501 = (_v2518._v2501 + _v2519._v2501);
+    bkr_i64 _v1168 = 0;
+    bkr_i64 _v2520 = vec_len(_v2518._v2499);
+    while ((_v1168 < _v2520)) {
+        bkr_i64 _v1348 = vec_get(_v2518._v2499, _v1168);
+        bkr_i64 _v2514 = vec_get(_v2518._v2500, _v1168);
+        _v2516(_v1717, _v1348, _v2514);
+        _v1168 = (_v1168 + 1);
+    }
+    bkr_i64 _v1629 = 0;
+    bkr_i64 _v2521 = vec_len(_v2519._v2499);
+    while ((_v1629 < _v2521)) {
+        bkr_i64 _v1348 = vec_get(_v2519._v2499, _v1629);
+        bkr_i64 _v2514 = vec_get(_v2519._v2500, _v1629);
+        bkr_i64 _v2522 = _v2515(_v1717, _v1348);
+        _v2516(_v1717, _v1348, (_v2522 + _v2514));
+        _v1629 = (_v1629 + 1);
+    }
+    return _v1717;
+}
+
+_v2498 _v2523(_v2498 _v2518, _v2498 _v2519) {
+    _v2498 _v1717 = _v2509();
+    _v1717._v2501 = (_v2518._v2501 - _v2519._v2501);
+    bkr_i64 _v1168 = 0;
+    bkr_i64 _v2520 = vec_len(_v2518._v2499);
+    while ((_v1168 < _v2520)) {
+        bkr_i64 _v1348 = vec_get(_v2518._v2499, _v1168);
+        bkr_i64 _v2514 = vec_get(_v2518._v2500, _v1168);
+        _v2516(_v1717, _v1348, _v2514);
+        _v1168 = (_v1168 + 1);
+    }
+    bkr_i64 _v1629 = 0;
+    bkr_i64 _v2521 = vec_len(_v2519._v2499);
+    while ((_v1629 < _v2521)) {
+        bkr_i64 _v1348 = vec_get(_v2519._v2499, _v1629);
+        bkr_i64 _v2514 = vec_get(_v2519._v2500, _v1629);
+        bkr_i64 _v2522 = _v2515(_v1717, _v1348);
+        _v2516(_v1717, _v1348, (_v2522 - _v2514));
+        _v1629 = (_v1629 + 1);
+    }
+    return _v1717;
+}
+
+_v2498 _v2524(_v2498 _v2518, bkr_i64 _v573) {
+    _v2498 _v1717 = _v2509();
+    _v1717._v2501 = (_v2518._v2501 * _v573);
+    bkr_i64 _v1168 = 0;
+    bkr_i64 _v2520 = vec_len(_v2518._v2499);
+    while ((_v1168 < _v2520)) {
+        bkr_i64 _v1348 = vec_get(_v2518._v2499, _v1168);
+        bkr_i64 _v2514 = vec_get(_v2518._v2500, _v1168);
+        _v2516(_v1717, _v1348, (_v2514 * _v573));
+        _v1168 = (_v1168 + 1);
+    }
+    return _v1717;
+}
+
+bkr_bool _v2525(_v2498 _v368) {
+    if ((_v368._v2501 != 0)) {
+        return BKR_FALSE;
+    }
+    bkr_i64 _v1168 = 0;
+    bkr_i64 _v2428 = vec_len(_v368._v2499);
+    while ((_v1168 < _v2428)) {
+        if ((vec_get(_v368._v2500, _v1168) != 0)) {
+            return BKR_FALSE;
+        }
+        _v1168 = (_v1168 + 1);
+    }
+    return BKR_TRUE;
+}
+
+bkr_i64 _v2526(_v2498 _v368, bkr_i64 _v2527) {
+    bkr_i64 _v2528 = _v368._v2501;
+    bkr_i64 _v1168 = 0;
+    bkr_i64 _v2428 = vec_len(_v368._v2499);
+    while ((_v1168 < _v2428)) {
+        bkr_i64 _v1348 = vec_get(_v368._v2499, _v1168);
+        bkr_i64 _v2514 = vec_get(_v368._v2500, _v1168);
+        if (hashmap_contains(_v2527, _v1348)) {
+            bkr_i64 _v1383 = hashmap_get(_v2527, _v1348);
+            _v2528 = (_v2528 + (_v2514 * _v1383));
+        }
+        _v1168 = (_v1168 + 1);
+    }
+    return _v2528;
+}
+
+bkr_str _v2529(_v2498 _v368) {
+    bkr_str _v1841 = "";
+    bkr_bool _v2530 = BKR_TRUE;
+    bkr_i64 _v1168 = 0;
+    bkr_i64 _v2428 = vec_len(_v368._v2499);
+    while ((_v1168 < _v2428)) {
+        bkr_i64 _v2514 = vec_get(_v368._v2500, _v1168);
+        bkr_i64 _v1348 = vec_get(_v368._v2499, _v1168);
+        if ((_v2514 != 0)) {
+            if (_v2530) {
+                if ((_v2514 == 1)) {
+                    _v1841 = bkr_str_concat(_v1841, _v1348);
+                } else {
+                    if ((_v2514 == (-1))) {
+                        _v1841 = bkr_str_concat(bkr_str_concat(_v1841, "-"), _v1348);
+                    } else {
+                        _v1841 = bkr_str_concat(bkr_str_concat(bkr_str_concat(_v1841, int_to_string(_v2514)), "*"), _v1348);
+                    }
+                }
+                _v2530 = BKR_FALSE;
+            } else {
+                if ((_v2514 > 0)) {
+                    _v1841 = bkr_str_concat(_v1841, " + ");
+                    if ((_v2514 == 1)) {
+                        _v1841 = bkr_str_concat(_v1841, _v1348);
+                    } else {
+                        _v1841 = bkr_str_concat(bkr_str_concat(bkr_str_concat(_v1841, int_to_string(_v2514)), "*"), _v1348);
+                    }
+                } else {
+                    _v1841 = bkr_str_concat(_v1841, " - ");
+                    bkr_i64 _v2531 = (0 - _v2514);
+                    if ((_v2531 == 1)) {
+                        _v1841 = bkr_str_concat(_v1841, _v1348);
+                    } else {
+                        _v1841 = bkr_str_concat(bkr_str_concat(bkr_str_concat(_v1841, int_to_string(_v2531)), "*"), _v1348);
+                    }
+                }
+            }
+        }
+        _v1168 = (_v1168 + 1);
+    }
+    if (((_v368._v2501 != 0) || _v2530)) {
+        if (_v2530) {
+            _v1841 = bkr_str_concat(_v1841, int_to_string(_v368._v2501));
+        } else {
+            if ((_v368._v2501 > 0)) {
+                _v1841 = bkr_str_concat(bkr_str_concat(_v1841, " + "), int_to_string(_v368._v2501));
+            } else {
+                _v1841 = bkr_str_concat(bkr_str_concat(_v1841, " - "), int_to_string((0 - _v368._v2501)));
+            }
+        }
+    }
+    return _v1841;
+}
+
+_v2502 _v2532(bkr_str _v2503) {
+    bkr_i64 _v2533 = vec_new();
+    bkr_i64 _v2534 = vec_new();
+    return (_v2502){._v2503 = _v2503, ._v2504 = _v2533, ._v2505 = _v2534, ._v2506 = BKR_TRUE, ._v2507 = BKR_TRUE, ._v2508 = ""};
+}
+
+bkr_bool _v2535(_v2502 _v2536, bkr_str _v2537) {
+    vec_push(_v2536._v2504, ((bkr_i64)(intptr_t)_v2537));
+    return BKR_TRUE;
+}
+
+bkr_bool _v2538(_v2502 _v2536, bkr_str _v2537) {
+    vec_push(_v2536._v2505, ((bkr_i64)(intptr_t)_v2537));
+    return BKR_TRUE;
+}
+
+bkr_bool _v2539(_v2498 _v2540, _v2498 _v2541) {
+    _v2498 _v2542 = _v2523(_v2540, _v2541);
+    return _v2525(_v2542);
+}
+
+bkr_str _v2543(_v2498 _v2540, _v2498 _v2541, bkr_i64 _v2527) {
+    _v2498 _v2542 = _v2523(_v2540, _v2541);
+    bkr_i64 _v2544 = _v2526(_v2542, _v2527);
+    bkr_str _v2545 = _v2529(_v2542);
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("diff: ", _v2545), " (evaluated: "), int_to_string(_v2544)), ")");
+}
+
+bkr_str _v2546(_v2502 _v2536) {
+    bkr_str _v1941 = ",";
+    bkr_i64 _v2547 = (vec_len(_v2536._v2504) + vec_len(_v2536._v2505));
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("schema_version", "bunker.verify.v1")), _v1941), _v1892("function_name", _v2536._v2503)), _v1941), _v1893("contracts_checked", _v2547)), _v1941), _v1894("verified", _v2536._v2507)), _v1941), _v1892("counterexample", _v2536._v2508)), "}");
+}
+
+bkr_bool _v2548(bkr_str _v1582) {
+    bkr_str _v2549 = trim(_v1582);
+    bkr_i64 _v1887 = bkr_len((bkr_str)(intptr_t)(_v2549));
     if ((_v1887 < 11)) {
         return BKR_FALSE;
     }
-    if ((!starts_with(_v2399, "import "))) {
+    if ((!starts_with(_v2549, "import "))) {
         return BKR_FALSE;
     }
-    if ((char_code_at(_v2399, 7) != 34)) {
+    if ((char_code_at(_v2549, 7) != 34)) {
         return BKR_FALSE;
     }
-    if ((char_code_at(_v2399, (_v1887 - 2)) != 34)) {
+    if ((char_code_at(_v2549, (_v1887 - 2)) != 34)) {
         return BKR_FALSE;
     }
-    if ((char_code_at(_v2399, (_v1887 - 1)) != 59)) {
+    if ((char_code_at(_v2549, (_v1887 - 1)) != 59)) {
         return BKR_FALSE;
     }
     return BKR_TRUE;
 }
 
-bkr_str _v2401(bkr_str _v1582) {
-    bkr_str _v2399 = trim(_v1582);
-    return substring(_v2399, 8, (bkr_len((bkr_str)(intptr_t)(_v2399)) - 2));
+bkr_str _v2551(bkr_str _v1582) {
+    bkr_str _v2549 = trim(_v1582);
+    return substring(_v2549, 8, (bkr_len((bkr_str)(intptr_t)(_v2549)) - 2));
 }
 
-bkr_bool _v2402(bkr_str _v2403) {
+bkr_bool _v2552(bkr_str _v2553) {
     bkr_i64 _v1168 = 0;
-    while ((_v1168 < bkr_len((bkr_str)(intptr_t)(_v2403)))) {
-        if ((char_code_at(_v2403, _v1168) == 92)) {
+    while ((_v1168 < bkr_len((bkr_str)(intptr_t)(_v2553)))) {
+        if ((char_code_at(_v2553, _v1168) == 92)) {
             return BKR_TRUE;
         }
         _v1168 = (_v1168 + 1);
@@ -18040,99 +18709,99 @@ bkr_bool _v2402(bkr_str _v2403) {
     return BKR_FALSE;
 }
 
-bkr_bool _v2404(bkr_str _v2403) {
-    if ((bkr_len((bkr_str)(intptr_t)(_v2403)) <= 0)) {
+bkr_bool _v2554(bkr_str _v2553) {
+    if ((bkr_len((bkr_str)(intptr_t)(_v2553)) <= 0)) {
         return BKR_FALSE;
     }
-    if ((char_code_at(_v2403, 0) == 47)) {
+    if ((char_code_at(_v2553, 0) == 47)) {
         return BKR_TRUE;
     }
-    if ((char_code_at(_v2403, 0) == 92)) {
+    if ((char_code_at(_v2553, 0) == 92)) {
         return BKR_TRUE;
     }
-    if (((bkr_len((bkr_str)(intptr_t)(_v2403)) >= 2) && (char_code_at(_v2403, 1) == 58))) {
+    if (((bkr_len((bkr_str)(intptr_t)(_v2553)) >= 2) && (char_code_at(_v2553, 1) == 58))) {
         return BKR_TRUE;
     }
     return BKR_FALSE;
 }
 
-bkr_bool _v2405(bkr_str _v2403) {
-    if (bkr_str_eq(_v2403, "..")) {
+bkr_bool _v2555(bkr_str _v2553) {
+    if (bkr_str_eq(_v2553, "..")) {
         return BKR_TRUE;
     }
-    if (starts_with(_v2403, "../")) {
+    if (starts_with(_v2553, "../")) {
         return BKR_TRUE;
     }
-    if (ends_with(_v2403, "/..")) {
+    if (ends_with(_v2553, "/..")) {
         return BKR_TRUE;
     }
-    if (contains(_v2403, "/../")) {
-        return BKR_TRUE;
-    }
-    return BKR_FALSE;
-}
-
-bkr_bool _v2408(bkr_str _v2403) {
-    if (starts_with(_v2403, "./")) {
-        return BKR_TRUE;
-    }
-    if (ends_with(_v2403, "/")) {
-        return BKR_TRUE;
-    }
-    if (contains(_v2403, "//")) {
+    if (contains(_v2553, "/../")) {
         return BKR_TRUE;
     }
     return BKR_FALSE;
 }
 
-bkr_bool _v2409(bkr_str _v2403) {
-    if ((bkr_len((bkr_str)(intptr_t)(_v2403)) <= 0)) {
+bkr_bool _v2558(bkr_str _v2553) {
+    if (starts_with(_v2553, "./")) {
+        return BKR_TRUE;
+    }
+    if (ends_with(_v2553, "/")) {
+        return BKR_TRUE;
+    }
+    if (contains(_v2553, "//")) {
+        return BKR_TRUE;
+    }
+    return BKR_FALSE;
+}
+
+bkr_bool _v2559(bkr_str _v2553) {
+    if ((bkr_len((bkr_str)(intptr_t)(_v2553)) <= 0)) {
         return BKR_FALSE;
     }
-    if (_v2404(_v2403)) {
+    if (_v2554(_v2553)) {
         return BKR_FALSE;
     }
-    if (_v2402(_v2403)) {
+    if (_v2552(_v2553)) {
         return BKR_FALSE;
     }
-    if (contains(_v2403, ":")) {
+    if (contains(_v2553, ":")) {
         return BKR_FALSE;
     }
-    if (_v2405(_v2403)) {
+    if (_v2555(_v2553)) {
         return BKR_FALSE;
     }
-    if (_v2408(_v2403)) {
+    if (_v2558(_v2553)) {
         return BKR_FALSE;
     }
     return BKR_TRUE;
 }
 
-bkr_str _v2410(bkr_str _v2411, bkr_str _v2403) {
-    if ((bkr_len((bkr_str)(intptr_t)(_v2411)) <= 0)) {
-        return _v2403;
+bkr_str _v2560(bkr_str _v2561, bkr_str _v2553) {
+    if ((bkr_len((bkr_str)(intptr_t)(_v2561)) <= 0)) {
+        return _v2553;
     }
-    return bkr_str_concat(bkr_str_concat(_v2411, "/"), _v2403);
+    return bkr_str_concat(bkr_str_concat(_v2561, "/"), _v2553);
 }
 
-bkr_str _v2412(bkr_str _v2413) {
-    bkr_i64 _v2414 = (-1);
+bkr_str _v2562(bkr_str _v2563) {
+    bkr_i64 _v2564 = (-1);
     bkr_i64 _v1168 = 0;
-    while ((_v1168 < bkr_len((bkr_str)(intptr_t)(_v2413)))) {
-        if ((char_code_at(_v2413, _v1168) == 47)) {
-            _v2414 = _v1168;
+    while ((_v1168 < bkr_len((bkr_str)(intptr_t)(_v2563)))) {
+        if ((char_code_at(_v2563, _v1168) == 47)) {
+            _v2564 = _v1168;
         }
         _v1168 = (_v1168 + 1);
     }
-    if ((_v2414 < 0)) {
+    if ((_v2564 < 0)) {
         return "";
     }
-    return substring(_v2413, 0, _v2414);
+    return substring(_v2563, 0, _v2564);
 }
 
-bkr_bool _v2415(bkr_i64 _v2416, bkr_str _v2403) {
+bkr_bool _v2565(bkr_i64 _v2566, bkr_str _v2553) {
     bkr_i64 _v1168 = 0;
-    while ((_v1168 < vec_len(_v2416))) {
-        if (bkr_str_eq(vec_get(_v2416, _v1168), _v2403)) {
+    while ((_v1168 < vec_len(_v2566))) {
+        if (bkr_str_eq(vec_get(_v2566, _v1168), _v2553)) {
             return BKR_TRUE;
         }
         _v1168 = (_v1168 + 1);
@@ -18140,86 +18809,86 @@ bkr_bool _v2415(bkr_i64 _v2416, bkr_str _v2403) {
     return BKR_FALSE;
 }
 
-bkr_str _v2417(bkr_str _v2418, bkr_str _v1582, bkr_i64 _v2416, bkr_str _v2411) {
-    if (_v2398(_v1582)) {
-        bkr_str _v2403 = _v2401(_v1582);
-        if ((!_v2409(_v2403))) {
-            return bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2418, "// Invalid import path: "), _v2403), from_char_code(10));
+bkr_str _v2567(bkr_str _v2568, bkr_str _v1582, bkr_i64 _v2566, bkr_str _v2561) {
+    if (_v2548(_v1582)) {
+        bkr_str _v2553 = _v2551(_v1582);
+        if ((!_v2559(_v2553))) {
+            return bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2568, "// Invalid import path: "), _v2553), from_char_code(10));
         }
-        bkr_str _v2413 = _v2410(_v2411, _v2403);
-        if ((!file_exists(_v2413))) {
-            return bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2418, "// Missing import: "), _v2413), from_char_code(10));
+        bkr_str _v2563 = _v2560(_v2561, _v2553);
+        if ((!file_exists(_v2563))) {
+            return bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2568, "// Missing import: "), _v2563), from_char_code(10));
         }
-        if (_v2415(_v2416, _v2413)) {
-            return _v2418;
+        if (_v2565(_v2566, _v2563)) {
+            return _v2568;
         }
-        vec_push(_v2416, ((bkr_i64)(intptr_t)_v2413));
-        bkr_str _v2420 = read_file(_v2413);
-        bkr_str _v2422 = _v2423(_v2420, _v2416, _v2412(_v2413));
-        bkr_str _v1193 = bkr_str_concat(_v2418, _v2422);
+        vec_push(_v2566, ((bkr_i64)(intptr_t)_v2563));
+        bkr_str _v2570 = read_file(_v2563);
+        bkr_str _v2572 = _v2573(_v2570, _v2566, _v2562(_v2563));
+        bkr_str _v1193 = bkr_str_concat(_v2568, _v2572);
         if (((bkr_len((bkr_str)(intptr_t)(_v1193)) > 0) && (char_code_at(_v1193, (bkr_len((bkr_str)(intptr_t)(_v1193)) - 1)) != 10))) {
             _v1193 = bkr_str_concat(_v1193, from_char_code(10));
         }
         return _v1193;
     }
-    return bkr_str_concat(bkr_str_concat(_v2418, _v1582), from_char_code(10));
+    return bkr_str_concat(bkr_str_concat(_v2568, _v1582), from_char_code(10));
 }
 
-bkr_str _v2423(bkr_str _v1209, bkr_i64 _v2416, bkr_str _v2411) {
-    bkr_str _v2418 = "";
+bkr_str _v2573(bkr_str _v1209, bkr_i64 _v2566, bkr_str _v2561) {
+    bkr_str _v2568 = "";
     bkr_i64 _v339 = 0;
     bkr_i64 _v1210 = 0;
-    bkr_i64 _v2424 = bkr_len((bkr_str)(intptr_t)(_v1209));
-    while ((_v1210 < _v2424)) {
+    bkr_i64 _v2574 = bkr_len((bkr_str)(intptr_t)(_v1209));
+    while ((_v1210 < _v2574)) {
         if ((char_code_at(_v1209, _v1210) == 10)) {
-            _v2418 = _v2417(_v2418, substring(_v1209, _v339, _v1210), _v2416, _v2411);
+            _v2568 = _v2567(_v2568, substring(_v1209, _v339, _v1210), _v2566, _v2561);
             _v1210 = (_v1210 + 1);
             _v339 = _v1210;
         } else {
             _v1210 = (_v1210 + 1);
         }
     }
-    if ((_v339 < _v2424)) {
-        _v2418 = _v2417(_v2418, substring(_v1209, _v339, _v2424), _v2416, _v2411);
+    if ((_v339 < _v2574)) {
+        _v2568 = _v2567(_v2568, substring(_v1209, _v339, _v2574), _v2566, _v2561);
     }
-    return _v2418;
+    return _v2568;
 }
 
-bkr_str _v2425(bkr_str _v1209) {
-    return _v2426(_v1209, "");
+bkr_str _v2575(bkr_str _v1209) {
+    return _v2576(_v1209, "");
 }
 
-bkr_str _v2426(bkr_str _v1209, bkr_str _v2411) {
-    bkr_i64 _v2416 = vec_new();
-    return _v2423(_v1209, _v2416, _v2411);
+bkr_str _v2576(bkr_str _v1209, bkr_str _v2561) {
+    bkr_i64 _v2566 = vec_new();
+    return _v2573(_v1209, _v2566, _v2561);
 }
 
-bkr_str _v2427(bkr_str _v1582, bkr_i64 _v2416, bkr_str _v2411) {
-    if (_v2398(_v1582)) {
-        bkr_str _v2403 = _v2401(_v1582);
-        if ((!_v2409(_v2403))) {
+bkr_str _v2577(bkr_str _v1582, bkr_i64 _v2566, bkr_str _v2561) {
+    if (_v2548(_v1582)) {
+        bkr_str _v2553 = _v2551(_v1582);
+        if ((!_v2559(_v2553))) {
             return "";
         }
-        bkr_str _v2413 = _v2410(_v2411, _v2403);
-        if ((!file_exists(_v2413))) {
-            return _v2413;
+        bkr_str _v2563 = _v2560(_v2561, _v2553);
+        if ((!file_exists(_v2563))) {
+            return _v2563;
         }
-        if (_v2415(_v2416, _v2413)) {
+        if (_v2565(_v2566, _v2563)) {
             return "";
         }
-        vec_push(_v2416, ((bkr_i64)(intptr_t)_v2413));
-        return _v2428(read_file(_v2413), _v2416, _v2412(_v2413));
+        vec_push(_v2566, ((bkr_i64)(intptr_t)_v2563));
+        return _v2578(read_file(_v2563), _v2566, _v2562(_v2563));
     }
     return "";
 }
 
-bkr_str _v2428(bkr_str _v1209, bkr_i64 _v2416, bkr_str _v2411) {
+bkr_str _v2578(bkr_str _v1209, bkr_i64 _v2566, bkr_str _v2561) {
     bkr_i64 _v339 = 0;
     bkr_i64 _v1210 = 0;
-    bkr_i64 _v2424 = bkr_len((bkr_str)(intptr_t)(_v1209));
-    while ((_v1210 < _v2424)) {
+    bkr_i64 _v2574 = bkr_len((bkr_str)(intptr_t)(_v1209));
+    while ((_v1210 < _v2574)) {
         if ((char_code_at(_v1209, _v1210) == 10)) {
-            bkr_str _v2316 = _v2427(substring(_v1209, _v339, _v1210), _v2416, _v2411);
+            bkr_str _v2316 = _v2577(substring(_v1209, _v339, _v1210), _v2566, _v2561);
             if ((bkr_len((bkr_str)(intptr_t)(_v2316)) > 0)) {
                 return _v2316;
             }
@@ -18229,49 +18898,49 @@ bkr_str _v2428(bkr_str _v1209, bkr_i64 _v2416, bkr_str _v2411) {
             _v1210 = (_v1210 + 1);
         }
     }
-    if ((_v339 < _v2424)) {
-        return _v2427(substring(_v1209, _v339, _v2424), _v2416, _v2411);
+    if ((_v339 < _v2574)) {
+        return _v2577(substring(_v1209, _v339, _v2574), _v2566, _v2561);
     }
     return "";
 }
 
-bkr_str _v2429(bkr_str _v1209) {
-    return _v2430(_v1209, "");
+bkr_str _v2579(bkr_str _v1209) {
+    return _v2580(_v1209, "");
 }
 
-bkr_str _v2430(bkr_str _v1209, bkr_str _v2411) {
-    bkr_i64 _v2416 = vec_new();
-    return _v2428(_v1209, _v2416, _v2411);
+bkr_str _v2580(bkr_str _v1209, bkr_str _v2561) {
+    bkr_i64 _v2566 = vec_new();
+    return _v2578(_v1209, _v2566, _v2561);
 }
 
-bkr_str _v2431(bkr_str _v1582, bkr_i64 _v2416, bkr_str _v2411) {
-    if (_v2398(_v1582)) {
-        bkr_str _v2403 = _v2401(_v1582);
-        if ((!_v2409(_v2403))) {
-            return _v2403;
+bkr_str _v2581(bkr_str _v1582, bkr_i64 _v2566, bkr_str _v2561) {
+    if (_v2548(_v1582)) {
+        bkr_str _v2553 = _v2551(_v1582);
+        if ((!_v2559(_v2553))) {
+            return _v2553;
         }
-        bkr_str _v2413 = _v2410(_v2411, _v2403);
-        if ((!file_exists(_v2413))) {
+        bkr_str _v2563 = _v2560(_v2561, _v2553);
+        if ((!file_exists(_v2563))) {
             return "";
         }
-        if (_v2415(_v2416, _v2413)) {
+        if (_v2565(_v2566, _v2563)) {
             return "";
         }
-        vec_push(_v2416, ((bkr_i64)(intptr_t)_v2413));
-        return _v2432(read_file(_v2413), _v2416, _v2412(_v2413));
+        vec_push(_v2566, ((bkr_i64)(intptr_t)_v2563));
+        return _v2582(read_file(_v2563), _v2566, _v2562(_v2563));
     }
     return "";
 }
 
-bkr_str _v2432(bkr_str _v1209, bkr_i64 _v2416, bkr_str _v2411) {
+bkr_str _v2582(bkr_str _v1209, bkr_i64 _v2566, bkr_str _v2561) {
     bkr_i64 _v339 = 0;
     bkr_i64 _v1210 = 0;
-    bkr_i64 _v2424 = bkr_len((bkr_str)(intptr_t)(_v1209));
-    while ((_v1210 < _v2424)) {
+    bkr_i64 _v2574 = bkr_len((bkr_str)(intptr_t)(_v1209));
+    while ((_v1210 < _v2574)) {
         if ((char_code_at(_v1209, _v1210) == 10)) {
-            bkr_str _v2433 = _v2431(substring(_v1209, _v339, _v1210), _v2416, _v2411);
-            if ((bkr_len((bkr_str)(intptr_t)(_v2433)) > 0)) {
-                return _v2433;
+            bkr_str _v2583 = _v2581(substring(_v1209, _v339, _v1210), _v2566, _v2561);
+            if ((bkr_len((bkr_str)(intptr_t)(_v2583)) > 0)) {
+                return _v2583;
             }
             _v1210 = (_v1210 + 1);
             _v339 = _v1210;
@@ -18279,77 +18948,77 @@ bkr_str _v2432(bkr_str _v1209, bkr_i64 _v2416, bkr_str _v2411) {
             _v1210 = (_v1210 + 1);
         }
     }
-    if ((_v339 < _v2424)) {
-        return _v2431(substring(_v1209, _v339, _v2424), _v2416, _v2411);
+    if ((_v339 < _v2574)) {
+        return _v2581(substring(_v1209, _v339, _v2574), _v2566, _v2561);
     }
     return "";
 }
 
-bkr_str _v2434(bkr_str _v1209) {
-    return _v2435(_v1209, "");
+bkr_str _v2584(bkr_str _v1209) {
+    return _v2585(_v1209, "");
 }
 
-bkr_str _v2435(bkr_str _v1209, bkr_str _v2411) {
-    bkr_i64 _v2416 = vec_new();
-    return _v2432(_v1209, _v2416, _v2411);
+bkr_str _v2585(bkr_str _v1209, bkr_str _v2561) {
+    bkr_i64 _v2566 = vec_new();
+    return _v2582(_v1209, _v2566, _v2561);
 }
 
-bkr_i64 _v2436(bkr_str _v1582, bkr_i64 _v2416, bkr_str _v2411) {
-    if (_v2398(_v1582)) {
-        bkr_str _v2403 = _v2401(_v1582);
-        if ((!_v2409(_v2403))) {
+bkr_i64 _v2586(bkr_str _v1582, bkr_i64 _v2566, bkr_str _v2561) {
+    if (_v2548(_v1582)) {
+        bkr_str _v2553 = _v2551(_v1582);
+        if ((!_v2559(_v2553))) {
             return 0;
         }
-        bkr_str _v2413 = _v2410(_v2411, _v2403);
-        if ((!file_exists(_v2413))) {
+        bkr_str _v2563 = _v2560(_v2561, _v2553);
+        if ((!file_exists(_v2563))) {
             return 0;
         }
-        if (_v2415(_v2416, _v2413)) {
+        if (_v2565(_v2566, _v2563)) {
             return 0;
         }
-        vec_push(_v2416, ((bkr_i64)(intptr_t)_v2413));
-        return (1 + _v2437(read_file(_v2413), _v2416, _v2412(_v2413)));
+        vec_push(_v2566, ((bkr_i64)(intptr_t)_v2563));
+        return (1 + _v2587(read_file(_v2563), _v2566, _v2562(_v2563)));
     }
     return 0;
 }
 
-bkr_i64 _v2437(bkr_str _v1209, bkr_i64 _v2416, bkr_str _v2411) {
+bkr_i64 _v2587(bkr_str _v1209, bkr_i64 _v2566, bkr_str _v2561) {
     bkr_i64 _v399 = 0;
     bkr_i64 _v339 = 0;
     bkr_i64 _v1210 = 0;
-    bkr_i64 _v2424 = bkr_len((bkr_str)(intptr_t)(_v1209));
-    while ((_v1210 < _v2424)) {
+    bkr_i64 _v2574 = bkr_len((bkr_str)(intptr_t)(_v1209));
+    while ((_v1210 < _v2574)) {
         if ((char_code_at(_v1209, _v1210) == 10)) {
-            _v399 = (_v399 + _v2436(substring(_v1209, _v339, _v1210), _v2416, _v2411));
+            _v399 = (_v399 + _v2586(substring(_v1209, _v339, _v1210), _v2566, _v2561));
             _v1210 = (_v1210 + 1);
             _v339 = _v1210;
         } else {
             _v1210 = (_v1210 + 1);
         }
     }
-    if ((_v339 < _v2424)) {
-        _v399 = (_v399 + _v2436(substring(_v1209, _v339, _v2424), _v2416, _v2411));
+    if ((_v339 < _v2574)) {
+        _v399 = (_v399 + _v2586(substring(_v1209, _v339, _v2574), _v2566, _v2561));
     }
     return _v399;
 }
 
-bkr_i64 _v2438(bkr_str _v1209) {
-    return _v2439(_v1209, "");
+bkr_i64 _v2588(bkr_str _v1209) {
+    return _v2589(_v1209, "");
 }
 
-bkr_i64 _v2439(bkr_str _v1209, bkr_str _v2411) {
-    bkr_i64 _v2416 = vec_new();
-    return _v2437(_v1209, _v2416, _v2411);
+bkr_i64 _v2589(bkr_str _v1209, bkr_str _v2561) {
+    bkr_i64 _v2566 = vec_new();
+    return _v2587(_v1209, _v2566, _v2561);
 }
 
-bkr_str _v2440(bkr_str _v1193, bkr_str _v557) {
+bkr_str _v2590(bkr_str _v1193, bkr_str _v557) {
     if ((bkr_len((bkr_str)(intptr_t)(_v1193)) > 1)) {
         return bkr_str_concat(bkr_str_concat(_v1193, ","), _v557);
     }
     return bkr_str_concat(_v1193, _v557);
 }
 
-bkr_str _v2441(bkr_str _v1193, bkr_str _v423) {
+bkr_str _v2591(bkr_str _v1193, bkr_str _v423) {
     if ((bkr_len((bkr_str)(intptr_t)(_v423)) <= 2)) {
         return _v1193;
     }
@@ -18360,116 +19029,116 @@ bkr_str _v2441(bkr_str _v1193, bkr_str _v423) {
     return bkr_str_concat(_v1193, _v1999);
 }
 
-bkr_str _v2442(bkr_str _v1582, bkr_i64 _v2416, bkr_str _v2411) {
+bkr_str _v2592(bkr_str _v1582, bkr_i64 _v2566, bkr_str _v2561) {
     bkr_str _v1193 = "[";
-    if (_v2398(_v1582)) {
-        bkr_str _v2403 = _v2401(_v1582);
-        if ((!_v2409(_v2403))) {
+    if (_v2548(_v1582)) {
+        bkr_str _v2553 = _v2551(_v1582);
+        if ((!_v2559(_v2553))) {
             return bkr_str_concat(_v1193, "]");
         }
-        bkr_str _v2413 = _v2410(_v2411, _v2403);
-        if ((!file_exists(_v2413))) {
+        bkr_str _v2563 = _v2560(_v2561, _v2553);
+        if ((!file_exists(_v2563))) {
             return bkr_str_concat(_v1193, "]");
         }
-        if (_v2415(_v2416, _v2413)) {
+        if (_v2565(_v2566, _v2563)) {
             return bkr_str_concat(_v1193, "]");
         }
-        vec_push(_v2416, ((bkr_i64)(intptr_t)_v2413));
-        _v1193 = _v2440(_v1193, _v1934(_v2413));
-        _v1193 = _v2441(_v1193, _v2443(read_file(_v2413), _v2416, _v2412(_v2413)));
+        vec_push(_v2566, ((bkr_i64)(intptr_t)_v2563));
+        _v1193 = _v2590(_v1193, _v1934(_v2563));
+        _v1193 = _v2591(_v1193, _v2593(read_file(_v2563), _v2566, _v2562(_v2563)));
     }
     return bkr_str_concat(_v1193, "]");
 }
 
-bkr_str _v2443(bkr_str _v1209, bkr_i64 _v2416, bkr_str _v2411) {
+bkr_str _v2593(bkr_str _v1209, bkr_i64 _v2566, bkr_str _v2561) {
     bkr_str _v1193 = "[";
     bkr_i64 _v339 = 0;
     bkr_i64 _v1210 = 0;
-    bkr_i64 _v2424 = bkr_len((bkr_str)(intptr_t)(_v1209));
-    while ((_v1210 < _v2424)) {
+    bkr_i64 _v2574 = bkr_len((bkr_str)(intptr_t)(_v1209));
+    while ((_v1210 < _v2574)) {
         if ((char_code_at(_v1209, _v1210) == 10)) {
-            _v1193 = _v2441(_v1193, _v2442(substring(_v1209, _v339, _v1210), _v2416, _v2411));
+            _v1193 = _v2591(_v1193, _v2592(substring(_v1209, _v339, _v1210), _v2566, _v2561));
             _v1210 = (_v1210 + 1);
             _v339 = _v1210;
         } else {
             _v1210 = (_v1210 + 1);
         }
     }
-    if ((_v339 < _v2424)) {
-        _v1193 = _v2441(_v1193, _v2442(substring(_v1209, _v339, _v2424), _v2416, _v2411));
+    if ((_v339 < _v2574)) {
+        _v1193 = _v2591(_v1193, _v2592(substring(_v1209, _v339, _v2574), _v2566, _v2561));
     }
     return bkr_str_concat(_v1193, "]");
 }
 
-bkr_str _v2444(bkr_str _v1209) {
-    return _v2445(_v1209, "");
+bkr_str _v2594(bkr_str _v1209) {
+    return _v2595(_v1209, "");
 }
 
-bkr_str _v2445(bkr_str _v1209, bkr_str _v2411) {
-    bkr_i64 _v2416 = vec_new();
-    return _v2443(_v1209, _v2416, _v2411);
+bkr_str _v2595(bkr_str _v1209, bkr_str _v2561) {
+    bkr_i64 _v2566 = vec_new();
+    return _v2593(_v1209, _v2566, _v2561);
 }
 
-bkr_str _v2446(bkr_str _v2447, bkr_str _v2448, bkr_str _v2449, bkr_str _v2450) {
+bkr_str _v2596(bkr_str _v2597, bkr_str _v2598, bkr_str _v2599, bkr_str _v2435) {
     bkr_str _v1941 = ",";
-    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("from_base", _v2447)), _v1941), _v1892("requested", _v2448)), _v1941), _v1892("resolved", _v2449)), _v1941), _v1892("status", _v2450)), "}");
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("from_base", _v2597)), _v1941), _v1892("requested", _v2598)), _v1941), _v1892("resolved", _v2599)), _v1941), _v1892("status", _v2435)), "}");
 }
 
-bkr_str _v2451(bkr_str _v1582, bkr_i64 _v2416, bkr_str _v2411) {
+bkr_str _v2600(bkr_str _v1582, bkr_i64 _v2566, bkr_str _v2561) {
     bkr_str _v1193 = "[";
-    if (_v2398(_v1582)) {
-        bkr_str _v2403 = _v2401(_v1582);
-        if ((!_v2409(_v2403))) {
-            return bkr_str_concat(_v2440(_v1193, _v2446(_v2411, _v2403, "", "invalid")), "]");
+    if (_v2548(_v1582)) {
+        bkr_str _v2553 = _v2551(_v1582);
+        if ((!_v2559(_v2553))) {
+            return bkr_str_concat(_v2590(_v1193, _v2596(_v2561, _v2553, "", "invalid")), "]");
         }
-        bkr_str _v2413 = _v2410(_v2411, _v2403);
-        if ((!file_exists(_v2413))) {
-            return bkr_str_concat(_v2440(_v1193, _v2446(_v2411, _v2403, _v2413, "missing")), "]");
+        bkr_str _v2563 = _v2560(_v2561, _v2553);
+        if ((!file_exists(_v2563))) {
+            return bkr_str_concat(_v2590(_v1193, _v2596(_v2561, _v2553, _v2563, "missing")), "]");
         }
-        if (_v2415(_v2416, _v2413)) {
-            return bkr_str_concat(_v2440(_v1193, _v2446(_v2411, _v2403, _v2413, "duplicate")), "]");
+        if (_v2565(_v2566, _v2563)) {
+            return bkr_str_concat(_v2590(_v1193, _v2596(_v2561, _v2553, _v2563, "duplicate")), "]");
         }
-        vec_push(_v2416, ((bkr_i64)(intptr_t)_v2413));
-        _v1193 = _v2440(_v1193, _v2446(_v2411, _v2403, _v2413, "ok"));
-        _v1193 = _v2441(_v1193, _v2452(read_file(_v2413), _v2416, _v2412(_v2413)));
+        vec_push(_v2566, ((bkr_i64)(intptr_t)_v2563));
+        _v1193 = _v2590(_v1193, _v2596(_v2561, _v2553, _v2563, "ok"));
+        _v1193 = _v2591(_v1193, _v2601(read_file(_v2563), _v2566, _v2562(_v2563)));
     }
     return bkr_str_concat(_v1193, "]");
 }
 
-bkr_str _v2452(bkr_str _v1209, bkr_i64 _v2416, bkr_str _v2411) {
+bkr_str _v2601(bkr_str _v1209, bkr_i64 _v2566, bkr_str _v2561) {
     bkr_str _v1193 = "[";
     bkr_i64 _v339 = 0;
     bkr_i64 _v1210 = 0;
-    bkr_i64 _v2424 = bkr_len((bkr_str)(intptr_t)(_v1209));
-    while ((_v1210 < _v2424)) {
+    bkr_i64 _v2574 = bkr_len((bkr_str)(intptr_t)(_v1209));
+    while ((_v1210 < _v2574)) {
         if ((char_code_at(_v1209, _v1210) == 10)) {
-            _v1193 = _v2441(_v1193, _v2451(substring(_v1209, _v339, _v1210), _v2416, _v2411));
+            _v1193 = _v2591(_v1193, _v2600(substring(_v1209, _v339, _v1210), _v2566, _v2561));
             _v1210 = (_v1210 + 1);
             _v339 = _v1210;
         } else {
             _v1210 = (_v1210 + 1);
         }
     }
-    if ((_v339 < _v2424)) {
-        _v1193 = _v2441(_v1193, _v2451(substring(_v1209, _v339, _v2424), _v2416, _v2411));
+    if ((_v339 < _v2574)) {
+        _v1193 = _v2591(_v1193, _v2600(substring(_v1209, _v339, _v2574), _v2566, _v2561));
     }
     return bkr_str_concat(_v1193, "]");
 }
 
-bkr_str _v2453(bkr_str _v1209, bkr_str _v2411) {
-    bkr_i64 _v2416 = vec_new();
-    return _v2452(_v1209, _v2416, _v2411);
+bkr_str _v2602(bkr_str _v1209, bkr_str _v2561) {
+    bkr_i64 _v2566 = vec_new();
+    return _v2601(_v1209, _v2566, _v2561);
 }
 
-bkr_i64 _v2454(bkr_str _v2455, bkr_str _v2450) {
+bkr_i64 _v2603(bkr_str _v2604, bkr_str _v2435) {
     bkr_str _v1795 = from_char_code(34);
-    bkr_str _v2456 = bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v1795, "status"), _v1795), ":"), _v1934(_v2450));
+    bkr_str _v2605 = bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v1795, "status"), _v1795), ":"), _v1934(_v2435));
     bkr_i64 _v399 = 0;
     bkr_i64 _v1168 = 0;
-    while (((_v1168 + bkr_len((bkr_str)(intptr_t)(_v2456))) <= bkr_len((bkr_str)(intptr_t)(_v2455)))) {
-        if (bkr_str_eq(substring(_v2455, _v1168, (_v1168 + bkr_len((bkr_str)(intptr_t)(_v2456)))), _v2456)) {
+    while (((_v1168 + bkr_len((bkr_str)(intptr_t)(_v2605))) <= bkr_len((bkr_str)(intptr_t)(_v2604)))) {
+        if (bkr_str_eq(substring(_v2604, _v1168, (_v1168 + bkr_len((bkr_str)(intptr_t)(_v2605)))), _v2605)) {
             _v399 = (_v399 + 1);
-            _v1168 = (_v1168 + bkr_len((bkr_str)(intptr_t)(_v2456)));
+            _v1168 = (_v1168 + bkr_len((bkr_str)(intptr_t)(_v2605)));
         } else {
             _v1168 = (_v1168 + 1);
         }
@@ -18477,19 +19146,19 @@ bkr_i64 _v2454(bkr_str _v2455, bkr_str _v2450) {
     return _v399;
 }
 
-bkr_i64 _v2457(bkr_str _v1209, bkr_str _v2411, bkr_str _v2450) {
-    return _v2454(_v2453(_v1209, _v2411), _v2450);
+bkr_i64 _v2606(bkr_str _v1209, bkr_str _v2561, bkr_str _v2435) {
+    return _v2603(_v2602(_v1209, _v2561), _v2435);
 }
 
-bkr_i64 _v2458(bkr_str _v1209, bkr_str _v2411) {
-    return (((_v2457(_v1209, _v2411, "ok") + _v2457(_v1209, _v2411, "missing")) + _v2457(_v1209, _v2411, "invalid")) + _v2457(_v1209, _v2411, "duplicate"));
+bkr_i64 _v2607(bkr_str _v1209, bkr_str _v2561) {
+    return (((_v2606(_v1209, _v2561, "ok") + _v2606(_v1209, _v2561, "missing")) + _v2606(_v1209, _v2561, "invalid")) + _v2606(_v1209, _v2561, "duplicate"));
 }
 
-bkr_i64 _v2459(bkr_str _v1209, bkr_i64 _v1274) {
+bkr_i64 _v2608(bkr_str _v1209, bkr_i64 _v1274) {
     bkr_i64 _v1582 = 1;
     bkr_i64 _v1168 = 0;
-    bkr_i64 _v2424 = bkr_len((bkr_str)(intptr_t)(_v1209));
-    while (((_v1168 < _v1274) && (_v1168 < _v2424))) {
+    bkr_i64 _v2574 = bkr_len((bkr_str)(intptr_t)(_v1209));
+    while (((_v1168 < _v1274) && (_v1168 < _v2574))) {
         if ((char_code_at(_v1209, _v1168) == 10)) {
             _v1582 = (_v1582 + 1);
         }
@@ -18498,307 +19167,307 @@ bkr_i64 _v2459(bkr_str _v1209, bkr_i64 _v1274) {
     return _v1582;
 }
 
-bkr_i64 _v2460(bkr_str _v1209, bkr_i64 _v1274) {
-    bkr_i64 _v2461 = 1;
+bkr_i64 _v2609(bkr_str _v1209, bkr_i64 _v1274) {
+    bkr_i64 _v2610 = 1;
     bkr_i64 _v1168 = 0;
-    bkr_i64 _v2424 = bkr_len((bkr_str)(intptr_t)(_v1209));
-    while (((_v1168 < _v1274) && (_v1168 < _v2424))) {
+    bkr_i64 _v2574 = bkr_len((bkr_str)(intptr_t)(_v1209));
+    while (((_v1168 < _v1274) && (_v1168 < _v2574))) {
         if ((char_code_at(_v1209, _v1168) == 10)) {
-            _v2461 = 1;
+            _v2610 = 1;
         } else {
-            _v2461 = (_v2461 + 1);
+            _v2610 = (_v2610 + 1);
         }
         _v1168 = (_v1168 + 1);
     }
-    return _v2461;
+    return _v2610;
 }
 
-bkr_str _v2462(bkr_str _v1209, bkr_i64 _v1274) {
-    bkr_i64 _v2424 = bkr_len((bkr_str)(intptr_t)(_v1209));
-    if ((_v2424 <= 0)) {
+bkr_str _v2611(bkr_str _v1209, bkr_i64 _v1274) {
+    bkr_i64 _v2574 = bkr_len((bkr_str)(intptr_t)(_v1209));
+    if ((_v2574 <= 0)) {
         return "";
     }
-    bkr_i64 _v2463 = _v1274;
-    if ((_v2463 < 0)) {
-        _v2463 = 0;
+    bkr_i64 _v2612 = _v1274;
+    if ((_v2612 < 0)) {
+        _v2612 = 0;
     }
-    if ((_v2463 >= _v2424)) {
-        _v2463 = (_v2424 - 1);
+    if ((_v2612 >= _v2574)) {
+        _v2612 = (_v2574 - 1);
     }
-    bkr_i64 _v339 = _v2463;
+    bkr_i64 _v339 = _v2612;
     while (((_v339 > 0) && (char_code_at(_v1209, (_v339 - 1)) != 10))) {
         _v339 = (_v339 - 1);
     }
-    bkr_i64 _v340 = _v2463;
-    while (((_v340 < _v2424) && (char_code_at(_v1209, _v340) != 10))) {
+    bkr_i64 _v340 = _v2612;
+    while (((_v340 < _v2574) && (char_code_at(_v1209, _v340) != 10))) {
         _v340 = (_v340 + 1);
     }
     return substring(_v1209, _v339, _v340);
 }
 
-bkr_str _v2464(bkr_str _v330, bkr_str _v2103, bkr_str _v2465, bkr_i64 _v1936, bkr_i64 _v1937, bkr_i64 _v2466, bkr_i64 _v2467, bkr_str _v2468, bkr_str _v1264, bkr_str _v1267, bkr_str _v2104) {
-    return _v2469(_v330, _v2103, _v2465, _v1936, _v1937, _v2466, _v2467, _v2468, _v1264, _v1267, _v2104, BKR_FALSE, _v1942());
+bkr_str _v2613(bkr_str _v330, bkr_str _v2103, bkr_str _v2399, bkr_i64 _v1936, bkr_i64 _v1937, bkr_i64 _v2614, bkr_i64 _v2615, bkr_str _v2616, bkr_str _v1264, bkr_str _v1267, bkr_str _v2104) {
+    return _v2617(_v330, _v2103, _v2399, _v1936, _v1937, _v2614, _v2615, _v2616, _v1264, _v1267, _v2104, BKR_FALSE, _v1942());
 }
 
-bkr_str _v2469(bkr_str _v330, bkr_str _v2103, bkr_str _v2465, bkr_i64 _v1936, bkr_i64 _v1937, bkr_i64 _v2466, bkr_i64 _v2467, bkr_str _v2468, bkr_str _v1264, bkr_str _v1267, bkr_str _v2104, bkr_bool _v2470, bkr_str _v2471) {
+bkr_str _v2617(bkr_str _v330, bkr_str _v2103, bkr_str _v2399, bkr_i64 _v1936, bkr_i64 _v1937, bkr_i64 _v2614, bkr_i64 _v2615, bkr_str _v2616, bkr_str _v1264, bkr_str _v1267, bkr_str _v2104, bkr_bool _v2618, bkr_str _v2619) {
     bkr_str _v1941 = ",";
-    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("schema_version", "bunker.self_host.diagnostic.v1")), _v1941), _v1892("phase", _v330)), _v1941), _v1892("category", _v330)), _v1941), _v1892("error_code", _v2103)), _v1941), _v1892("rule_id", _v2103)), _v1941), _v1892("severity", "error")), _v1941), _v1892("message", _v2465)), _v1941), _v1893("source_start", _v1936)), _v1941), _v1893("source_end", _v1937)), _v1941), _v1893("source_line", _v2466)), _v1941), _v1893("source_column", _v2467)), _v1941), _v1892("source_excerpt", _v2468)), _v1941), _v1892("expected", _v1264)), _v1941), _v1892("actual", _v1267)), _v1941), _v1892("suggested_action", _v2104)), _v1941), _v1892("fix_applicability", "manual_review")), _v1941), _v1892("fix_confidence", "medium")), _v1941), _v1894("safe_edit_available", _v2470)), _v1941), _v1895("suggested_edits", _v2471)), _v1941), _v1892("repair_hint", _v2104)), "}");
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("schema_version", "bunker.self_host.diagnostic.v1")), _v1941), _v1892("phase", _v330)), _v1941), _v1892("category", _v330)), _v1941), _v1892("error_code", _v2103)), _v1941), _v1892("rule_id", _v2103)), _v1941), _v1892("severity", "error")), _v1941), _v1892("message", _v2399)), _v1941), _v1893("source_start", _v1936)), _v1941), _v1893("source_end", _v1937)), _v1941), _v1893("source_line", _v2614)), _v1941), _v1893("source_column", _v2615)), _v1941), _v1892("source_excerpt", _v2616)), _v1941), _v1892("expected", _v1264)), _v1941), _v1892("actual", _v1267)), _v1941), _v1892("suggested_action", _v2104)), _v1941), _v1892("fix_applicability", "manual_review")), _v1941), _v1892("fix_confidence", "medium")), _v1941), _v1894("safe_edit_available", _v2618)), _v1941), _v1895("suggested_edits", _v2619)), _v1941), _v1892("repair_hint", _v2104)), "}");
 }
 
-bkr_str _v2472(bkr_i64 _v2473) {
-    if ((_v2473 == _v192)) {
+bkr_str _v2620(bkr_i64 _v2621) {
+    if ((_v2621 == _v192)) {
         return ";";
     }
-    if ((_v2473 == _v186)) {
+    if ((_v2621 == _v186)) {
         return ")";
     }
-    if ((_v2473 == _v188)) {
+    if ((_v2621 == _v188)) {
         return "}";
     }
-    if ((_v2473 == _v190)) {
+    if ((_v2621 == _v190)) {
         return "]";
     }
-    if ((_v2473 == _v191)) {
+    if ((_v2621 == _v191)) {
         return ",";
     }
-    if ((_v2473 == _v193)) {
+    if ((_v2621 == _v193)) {
         return ":";
     }
     return "";
 }
 
-bkr_str _v2474(bkr_str _v2103, bkr_str _v2475, bkr_str _v330, bkr_str _v2476) {
+bkr_str _v2622(bkr_str _v2103, bkr_str _v2623, bkr_str _v330, bkr_str _v2624) {
     bkr_str _v1941 = ",";
-    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("code", _v2103)), _v1941), _v1892("rule_id", _v2103)), _v1941), _v1892("phase", _v2475)), _v1941), _v1892("category", _v330)), _v1941), _v1892("description", _v2476)), "}");
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("code", _v2103)), _v1941), _v1892("rule_id", _v2103)), _v1941), _v1892("phase", _v2623)), _v1941), _v1892("category", _v330)), _v1941), _v1892("description", _v2624)), "}");
 }
 
-bkr_str _v2477(void) {
+bkr_str _v2625(void) {
     bkr_str _v1193 = "[";
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_PARSE", "parse", "syntax", "Parse error with expected and actual token details."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_IMPORT_PATH", "import", "module", "Invalid normalized relative import path."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_IMPORT", "import", "module", "Missing imported module."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_IMPORT_CYCLE", "import", "module", "Cyclic dependency detected in import graph."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_VISIBILITY", "resolver", "visibility", "Attempt to access private symbol across kernel or module boundaries."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_DUPLICATE_SYMBOL", "resolver", "name_resolution", "Duplicate declaration in a scope."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_UNRESOLVED_SYMBOL", "resolver", "name_resolution", "Unresolved identifier, function, type, struct literal, or field reference."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_TYPE_MISMATCH", "typecheck", "type_system", "Expected/found type mismatch."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_ARITY_MISMATCH", "typecheck", "type_system", "Function call argument count mismatch."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_ASSIGNMENT_TARGET", "typecheck", "type_system", "Invalid non-assignable assignment target."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_CONTROL_FLOW", "typecheck", "control_flow", "Invalid break or continue outside a loop."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_RETURN_PATH", "typecheck", "control_flow", "Non-void function can fall through without returning a value."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_UNREACHABLE_CODE", "typecheck", "control_flow", "Statement cannot execute because a previous statement terminates control flow."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_MATCH_PATTERN", "typecheck", "pattern_matching", "Duplicate or unreachable match pattern."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_EXHAUSTIVENESS", "typecheck", "pattern_matching", "Non-exhaustive match for a known finite scrutinee."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_STRUCT_LITERAL", "typecheck", "data_model", "Invalid struct literal shape such as duplicate or missing fields."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_CONST_ASSIGNMENT", "typecheck", "control_flow", "Assignment attempts to modify a top-level constant."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_AMBIGUOUS_TYPE", "typecheck", "type_system", "Expression requires a type annotation or contextual type."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_VOID_VALUE", "typecheck", "type_system", "Void expression is used where a value is required."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_ENTRY_POINT", "typecheck", "program_structure", "Kernel entry function is missing."));
-    _v1193 = _v2440(_v1193, _v2474("BKR_SELF_CALL_TARGET", "typecheck", "type_system", "Known non-function symbol is used as a call target."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_PARSE", "parse", "syntax", "Parse error with expected and actual token details."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_IMPORT_PATH", "import", "module", "Invalid normalized relative import path."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_IMPORT", "import", "module", "Missing imported module."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_IMPORT_CYCLE", "import", "module", "Cyclic dependency detected in import graph."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_VISIBILITY", "resolver", "visibility", "Attempt to access private symbol across kernel or module boundaries."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_DUPLICATE_SYMBOL", "resolver", "name_resolution", "Duplicate declaration in a scope."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_UNRESOLVED_SYMBOL", "resolver", "name_resolution", "Unresolved identifier, function, type, struct literal, or field reference."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_TYPE_MISMATCH", "typecheck", "type_system", "Expected/found type mismatch."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_ARITY_MISMATCH", "typecheck", "type_system", "Function call argument count mismatch."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_ASSIGNMENT_TARGET", "typecheck", "type_system", "Invalid non-assignable assignment target."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_CONTROL_FLOW", "typecheck", "control_flow", "Invalid break or continue outside a loop."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_RETURN_PATH", "typecheck", "control_flow", "Non-void function can fall through without returning a value."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_UNREACHABLE_CODE", "typecheck", "control_flow", "Statement cannot execute because a previous statement terminates control flow."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_MATCH_PATTERN", "typecheck", "pattern_matching", "Duplicate or unreachable match pattern."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_EXHAUSTIVENESS", "typecheck", "pattern_matching", "Non-exhaustive match for a known finite scrutinee."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_STRUCT_LITERAL", "typecheck", "data_model", "Invalid struct literal shape such as duplicate or missing fields."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_CONST_ASSIGNMENT", "typecheck", "control_flow", "Assignment attempts to modify a top-level constant."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_AMBIGUOUS_TYPE", "typecheck", "type_system", "Expression requires a type annotation or contextual type."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_VOID_VALUE", "typecheck", "type_system", "Void expression is used where a value is required."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_ENTRY_POINT", "typecheck", "program_structure", "Kernel entry function is missing."));
+    _v1193 = _v2590(_v1193, _v2622("BKR_SELF_CALL_TARGET", "typecheck", "type_system", "Known non-function symbol is used as a call target."));
     return bkr_str_concat(_v1193, "]");
 }
 
-bkr_str _v2478(void) {
+bkr_str _v2626(void) {
     bkr_str _v1941 = ",";
-    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("schema_version", "bunker.self_host.capability.v1")), _v1941), _v1892("compiler", "bkrc-self-host-bootstrap")), _v1941), _v1892("agent_contract_version", "bunker.agent.diagnostics.v1")), _v1941), _v1892("self_hosting_stage", "bootstrap-self-hosted-reports")), _v1941), _v1894("ai_agent_native_diagnostics", BKR_TRUE)), _v1941), _v1894("production_language_ready", BKR_FALSE)), _v1941), _v1894("requires_ci_validation", BKR_TRUE)), _v1941), _v1894("source_byte_spans", BKR_TRUE)), _v1941), _v1894("source_excerpts", BKR_TRUE)), _v1941), _v1894("structured_repair_metadata", BKR_TRUE)), _v1941), _v1894("structured_parse_diagnostics", BKR_TRUE)), _v1941), _v1894("diagnostic_code_registry", BKR_TRUE)), _v1941), _v1894("diagnostic_phase_field", BKR_TRUE)), _v1941), _v1894("diagnostic_rule_ids", BKR_TRUE)), _v1941), _v1894("diagnostic_severity", BKR_TRUE)), _v1941), _v1894("diagnostic_severity_counts", BKR_TRUE)), _v1941), _v1894("suggested_edit_envelope", BKR_TRUE)), _v1941), _v1894("import_expansion", BKR_TRUE)), _v1941), _v1894("import_graph_report", BKR_TRUE)), _v1941), _v1894("import_duplicate_or_cycle_summary", BKR_TRUE)), _v1941), _v1894("stage1_stage2_ci_gate", BKR_TRUE)), _v1941), _v1894("type_graph_report", BKR_TRUE)), _v1941), _v1894("symbol_table_report", BKR_TRUE)), _v1941), _v1894("name_resolver_report", BKR_TRUE)), _v1941), _v1894("typecheck_report", BKR_TRUE)), _v1941), _v1894("real_typechecker", BKR_TRUE)), _v1941), _v1894("full_subset_type_enforcement", BKR_TRUE)), _v1941), _v1894("modular_c_codegen", BKR_TRUE)), _v1941), _v1894("typed_c_emission", BKR_TRUE)), _v1941), _v1894("cgen_state_ref_routing", BKR_TRUE)), _v1941), _v1894("hygienic_temporaries", BKR_TRUE)), _v1941), _v1894("gnu_statement_expressions_locked", BKR_TRUE)), _v1941), _v1894("c99_standard_portability", BKR_TRUE)), _v1941), _v1894("multi_target_backend_strategy", BKR_TRUE)), _v1941), _v1894("deterministic_artifact_layout", BKR_TRUE)), _v1941), _v1892("supported_backends", "c, cranelift, llvm")), _v1941), _v1894("constant_folding", BKR_TRUE)), _v1941), _v1894("dead_code_elimination", BKR_TRUE)), _v1941), _v1894("incremental_compilation_cache", BKR_TRUE)), _v1941), _v1894("debug_info_source_mapping", BKR_TRUE)), _v1941), _v1894("source_line_directives", BKR_TRUE)), _v1941), _v1894("closures", BKR_TRUE)), _v1941), _v1894("lambdas", BKR_TRUE)), _v1941), _v1894("closure_captures", BKR_TRUE)), _v1941), _v1894("code_formatter", BKR_TRUE)), _v1941), _v1894("static_linter", BKR_TRUE)), _v1941), _v1894("test_runner", BKR_TRUE)), _v1941), _v1894("doc_generator", BKR_TRUE)), _v1941), _v1894("package_manager", BKR_TRUE)), _v1941), _v1894("build_cache", BKR_TRUE)), _v1941), _v1894("language_server", BKR_TRUE)), _v1941), _v1894("watch_mode", BKR_TRUE)), _v1941), _v1894("debugger_hooks", BKR_TRUE)), _v1941), _v1894("profiler_hooks", BKR_TRUE)), _v1941), _v1894("coverage_tooling", BKR_TRUE)), _v1941), _v1894("benchmark_tooling", BKR_TRUE)), _v1941), _v1894("fuzzing_harness", BKR_TRUE)), _v1941), _v1894("differential_testing", BKR_TRUE)), _v1941), _v1894("property_testing", BKR_TRUE)), _v1941), _v1894("stress_testing", BKR_TRUE)), _v1941), _v1894("cross_platform_ci", BKR_TRUE)), _v1941), _v1894("versioning_rules", BKR_TRUE)), _v1941), _v1894("package_registry", BKR_TRUE)), _v1941), _v1894("stdlib_documentation", BKR_TRUE)), _v1941), _v1894("construct_examples", BKR_TRUE)), _v1941), _v1894("migration_guides", BKR_TRUE)), _v1941), _v1894("contribution_guide", BKR_TRUE)), _v1941), _v1894("spec_sync", BKR_TRUE)), _v1941), _v1894("roadmap_ci_gates", BKR_TRUE)), _v1941), _v1894("borrow_resource_checker", BKR_TRUE)), _v1941), _v1894("typed_ast", BKR_TRUE)), _v1941), _v1894("real_module_resolver", BKR_TRUE)), _v1941), _v1894("module_cycle_path_detection", BKR_TRUE)), _v1941), _v1894("visibility_boundary_enforcement", BKR_TRUE)), _v1941), _v1894("semantic_validation_passes", BKR_TRUE)), _v1941), _v1894("loop_control_validation", BKR_TRUE)), _v1941), _v1894("unreachable_code_detection", BKR_TRUE)), _v1941), _v1894("return_path_validation", BKR_TRUE)), _v1941), _v1894("real_generics", BKR_TRUE)), _v1941), _v1894("user_defined_adts", BKR_TRUE)), _v1941), _v1894("multi_error_recovery", BKR_TRUE)), _v1941), _v1894("multi_error_parse_recovery", BKR_TRUE)), _v1941), _v1894("parse_recovery_synchronization", BKR_TRUE)), _v1941), _v1895("diagnostic_codes", _v2477())), _v1941), _v1892("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec<T> handles, HashMap<K,V> handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals, closures, lambdas")), _v1941), _v1892("known_limits", "byte spans only, no file span table; import graph with normalized relative path policy, exact cycle path detection, visibility boundary checking, pure typechecker, modular typed C codegen, debug source mapping, and semantic validation passes active")), _v1941), _v1892("agent_guidance", "Use BUNKER_CAPABILITY_JSON before generating Bunker code. Use BUNKER_DIAGNOSTIC_JSON, BUNKER_RESOLVER_JSON, and BUNKER_TYPECHECK_JSON for repair tasks. Treat production_language_ready=false as requiring CI validation before release.")), "}");
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("schema_version", "bunker.self_host.capability.v1")), _v1941), _v1892("compiler", "bkrc-self-host-bootstrap")), _v1941), _v1892("agent_contract_version", "bunker.agent.diagnostics.v1")), _v1941), _v1892("self_hosting_stage", "bootstrap-self-hosted-reports")), _v1941), _v1894("ai_agent_native_diagnostics", BKR_TRUE)), _v1941), _v1894("production_language_ready", BKR_FALSE)), _v1941), _v1894("requires_ci_validation", BKR_TRUE)), _v1941), _v1894("source_byte_spans", BKR_TRUE)), _v1941), _v1894("source_excerpts", BKR_TRUE)), _v1941), _v1894("structured_repair_metadata", BKR_TRUE)), _v1941), _v1894("structured_parse_diagnostics", BKR_TRUE)), _v1941), _v1894("diagnostic_code_registry", BKR_TRUE)), _v1941), _v1894("diagnostic_phase_field", BKR_TRUE)), _v1941), _v1894("diagnostic_rule_ids", BKR_TRUE)), _v1941), _v1894("diagnostic_severity", BKR_TRUE)), _v1941), _v1894("diagnostic_severity_counts", BKR_TRUE)), _v1941), _v1894("suggested_edit_envelope", BKR_TRUE)), _v1941), _v1894("import_expansion", BKR_TRUE)), _v1941), _v1894("import_graph_report", BKR_TRUE)), _v1941), _v1894("import_duplicate_or_cycle_summary", BKR_TRUE)), _v1941), _v1894("stage1_stage2_ci_gate", BKR_TRUE)), _v1941), _v1894("type_graph_report", BKR_TRUE)), _v1941), _v1894("symbol_table_report", BKR_TRUE)), _v1941), _v1894("name_resolver_report", BKR_TRUE)), _v1941), _v1894("typecheck_report", BKR_TRUE)), _v1941), _v1894("real_typechecker", BKR_TRUE)), _v1941), _v1894("full_subset_type_enforcement", BKR_TRUE)), _v1941), _v1894("modular_c_codegen", BKR_TRUE)), _v1941), _v1894("typed_c_emission", BKR_TRUE)), _v1941), _v1894("cgen_state_ref_routing", BKR_TRUE)), _v1941), _v1894("hygienic_temporaries", BKR_TRUE)), _v1941), _v1894("gnu_statement_expressions_locked", BKR_TRUE)), _v1941), _v1894("c99_standard_portability", BKR_TRUE)), _v1941), _v1894("multi_target_backend_strategy", BKR_TRUE)), _v1941), _v1894("deterministic_artifact_layout", BKR_TRUE)), _v1941), _v1892("supported_backends", "c, cranelift, llvm")), _v1941), _v1894("constant_folding", BKR_TRUE)), _v1941), _v1894("dead_code_elimination", BKR_TRUE)), _v1941), _v1894("incremental_compilation_cache", BKR_TRUE)), _v1941), _v1894("debug_info_source_mapping", BKR_TRUE)), _v1941), _v1894("source_line_directives", BKR_TRUE)), _v1941), _v1894("closures", BKR_TRUE)), _v1941), _v1894("lambdas", BKR_TRUE)), _v1941), _v1894("closure_captures", BKR_TRUE)), _v1941), _v1894("code_formatter", BKR_TRUE)), _v1941), _v1894("static_linter", BKR_TRUE)), _v1941), _v1894("test_runner", BKR_TRUE)), _v1941), _v1894("doc_generator", BKR_TRUE)), _v1941), _v1894("package_manager", BKR_TRUE)), _v1941), _v1894("build_cache", BKR_TRUE)), _v1941), _v1894("language_server", BKR_TRUE)), _v1941), _v1894("watch_mode", BKR_TRUE)), _v1941), _v1894("debugger_hooks", BKR_TRUE)), _v1941), _v1894("profiler_hooks", BKR_TRUE)), _v1941), _v1894("coverage_tooling", BKR_TRUE)), _v1941), _v1894("benchmark_tooling", BKR_TRUE)), _v1941), _v1894("fuzzing_harness", BKR_TRUE)), _v1941), _v1894("differential_testing", BKR_TRUE)), _v1941), _v1894("property_testing", BKR_TRUE)), _v1941), _v1894("stress_testing", BKR_TRUE)), _v1941), _v1894("cross_platform_ci", BKR_TRUE)), _v1941), _v1894("versioning_rules", BKR_TRUE)), _v1941), _v1894("package_registry", BKR_TRUE)), _v1941), _v1894("stdlib_documentation", BKR_TRUE)), _v1941), _v1894("construct_examples", BKR_TRUE)), _v1941), _v1894("migration_guides", BKR_TRUE)), _v1941), _v1894("contribution_guide", BKR_TRUE)), _v1941), _v1894("spec_sync", BKR_TRUE)), _v1941), _v1894("roadmap_ci_gates", BKR_TRUE)), _v1941), _v1894("borrow_resource_checker", BKR_TRUE)), _v1941), _v1894("shell_actor_runtime", BKR_TRUE)), _v1941), _v1894("declarative_view_runtime", BKR_TRUE)), _v1941), _v1894("contract_verification", BKR_TRUE)), _v1941), _v1894("typed_ast", BKR_TRUE)), _v1941), _v1894("real_module_resolver", BKR_TRUE)), _v1941), _v1894("module_cycle_path_detection", BKR_TRUE)), _v1941), _v1894("visibility_boundary_enforcement", BKR_TRUE)), _v1941), _v1894("semantic_validation_passes", BKR_TRUE)), _v1941), _v1894("loop_control_validation", BKR_TRUE)), _v1941), _v1894("unreachable_code_detection", BKR_TRUE)), _v1941), _v1894("return_path_validation", BKR_TRUE)), _v1941), _v1894("real_generics", BKR_TRUE)), _v1941), _v1894("user_defined_adts", BKR_TRUE)), _v1941), _v1894("multi_error_recovery", BKR_TRUE)), _v1941), _v1894("multi_error_parse_recovery", BKR_TRUE)), _v1941), _v1894("parse_recovery_synchronization", BKR_TRUE)), _v1941), _v1895("diagnostic_codes", _v2625())), _v1941), _v1892("supported_constructs", "kernel, struct, fn, const, let, fixed arrays, field access, if, else, match, Option via Some and None, Result via result_* builtins, Vec<T> handles, HashMap<K,V> handles, for ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary, bitwise operators, string literals, float literals, closures, lambdas")), _v1941), _v1892("known_limits", "byte spans only, no file span table; import graph with normalized relative path policy, exact cycle path detection, visibility boundary checking, pure typechecker, modular typed C codegen, debug source mapping, and semantic validation passes active")), _v1941), _v1892("agent_guidance", "Use BUNKER_CAPABILITY_JSON before generating Bunker code. Use BUNKER_DIAGNOSTIC_JSON, BUNKER_RESOLVER_JSON, and BUNKER_TYPECHECK_JSON for repair tasks. Treat production_language_ready=false as requiring CI validation before release.")), "}");
 }
 
-bkr_str _v2479(void) {
-    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("/* BUNKER_CAPABILITY_JSON: ", _v2478()), from_char_code(10)), "*/"), from_char_code(10));
+bkr_str _v2627(void) {
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("/* BUNKER_CAPABILITY_JSON: ", _v2626()), from_char_code(10)), "*/"), from_char_code(10));
 }
 
-bkr_str _v2480(bkr_str _v1209) {
-    return _v2481(_v1209, "");
+bkr_str _v2628(bkr_str _v1209) {
+    return _v2629(_v1209, "");
 }
 
-bkr_str _v2481(bkr_str _v1209, bkr_str _v2411) {
+bkr_str _v2629(bkr_str _v1209, bkr_str _v2561) {
     bkr_str _v1941 = ",";
-    bkr_str _v2482 = _v2435(_v1209, _v2411);
-    bkr_str _v2483 = _v2430(_v1209, _v2411);
-    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("schema_version", "bunker.self_host.import_graph.v1")), _v1941), _v1892("root_base_dir", _v2411)), _v1941), _v1892("path_policy", "normalized_relative_forward_slash")), _v1941), _v1894("base_directory_resolution", BKR_TRUE)), _v1941), _v1894("recursive_expansion", BKR_TRUE)), _v1941), _v1894("duplicate_suppression", BKR_TRUE)), _v1941), _v1894("cycle_safe_expansion", BKR_TRUE)), _v1941), _v1893("unique_import_count", _v2439(_v1209, _v2411))), _v1941), _v1893("edge_count", _v2458(_v1209, _v2411))), _v1941), _v1893("ok_edge_count", _v2457(_v1209, _v2411, "ok"))), _v1941), _v1893("missing_edge_count", _v2457(_v1209, _v2411, "missing"))), _v1941), _v1893("invalid_edge_count", _v2457(_v1209, _v2411, "invalid"))), _v1941), _v1893("duplicate_edge_count", _v2457(_v1209, _v2411, "duplicate"))), _v1941), _v1893("duplicate_or_cycle_edge_count", _v2457(_v1209, _v2411, "duplicate"))), _v1941), _v1895("imports", _v2445(_v1209, _v2411))), _v1941), _v1895("edges", _v2453(_v1209, _v2411))), _v1941), _v1894("has_duplicate_or_cycle_import", (_v2457(_v1209, _v2411, "duplicate") > 0))), _v1941), _v1894("has_invalid_import", (bkr_len((bkr_str)(intptr_t)(_v2482)) > 0))), _v1941), _v1892("invalid_import", _v2482)), _v1941), _v1894("has_missing_import", (bkr_len((bkr_str)(intptr_t)(_v2483)) > 0))), _v1941), _v1892("missing_import", _v2483)), "}");
+    bkr_str _v2630 = _v2585(_v1209, _v2561);
+    bkr_str _v2631 = _v2580(_v1209, _v2561);
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("schema_version", "bunker.self_host.import_graph.v1")), _v1941), _v1892("root_base_dir", _v2561)), _v1941), _v1892("path_policy", "normalized_relative_forward_slash")), _v1941), _v1894("base_directory_resolution", BKR_TRUE)), _v1941), _v1894("recursive_expansion", BKR_TRUE)), _v1941), _v1894("duplicate_suppression", BKR_TRUE)), _v1941), _v1894("cycle_safe_expansion", BKR_TRUE)), _v1941), _v1893("unique_import_count", _v2589(_v1209, _v2561))), _v1941), _v1893("edge_count", _v2607(_v1209, _v2561))), _v1941), _v1893("ok_edge_count", _v2606(_v1209, _v2561, "ok"))), _v1941), _v1893("missing_edge_count", _v2606(_v1209, _v2561, "missing"))), _v1941), _v1893("invalid_edge_count", _v2606(_v1209, _v2561, "invalid"))), _v1941), _v1893("duplicate_edge_count", _v2606(_v1209, _v2561, "duplicate"))), _v1941), _v1893("duplicate_or_cycle_edge_count", _v2606(_v1209, _v2561, "duplicate"))), _v1941), _v1895("imports", _v2595(_v1209, _v2561))), _v1941), _v1895("edges", _v2602(_v1209, _v2561))), _v1941), _v1894("has_duplicate_or_cycle_import", (_v2606(_v1209, _v2561, "duplicate") > 0))), _v1941), _v1894("has_invalid_import", (bkr_len((bkr_str)(intptr_t)(_v2630)) > 0))), _v1941), _v1892("invalid_import", _v2630)), _v1941), _v1894("has_missing_import", (bkr_len((bkr_str)(intptr_t)(_v2631)) > 0))), _v1941), _v1892("missing_import", _v2631)), "}");
 }
 
-bkr_str _v2484(bkr_str _v1209) {
-    return _v2485(_v1209, "");
+bkr_str _v2632(bkr_str _v1209) {
+    return _v2633(_v1209, "");
 }
 
-bkr_str _v2485(bkr_str _v1209, bkr_str _v2411) {
-    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("/* BUNKER_IMPORT_GRAPH_JSON: ", _v2481(_v1209, _v2411)), from_char_code(10)), "*/"), from_char_code(10));
+bkr_str _v2633(bkr_str _v1209, bkr_str _v2561) {
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("/* BUNKER_IMPORT_GRAPH_JSON: ", _v2629(_v1209, _v2561)), from_char_code(10)), "*/"), from_char_code(10));
 }
 
-bkr_str _v2486(bkr_str _v2482) {
+bkr_str _v2634(bkr_str _v2630) {
     bkr_str _v2104 = "Use a normalized relative import path such as modules/example.bkr. Do not use empty paths, absolute paths, drive prefixes, backslashes, parent traversal, leading ./, trailing /, or // segments.";
-    bkr_str _v2465 = bkr_str_concat("Import error: invalid import path ", _v2482);
-    bkr_str _v2487 = _v2464("import", "BKR_SELF_IMPORT_PATH", _v2465, 0, 0, 1, 1, "", "normalized relative forward-slash import path", _v2482, _v2104);
-    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("/* ", _v2465), ". AI repair hint: "), _v2104), from_char_code(10)), "BUNKER_DIAGNOSTIC_JSON: "), _v2487), from_char_code(10)), "*/");
+    bkr_str _v2399 = bkr_str_concat("Import error: invalid import path ", _v2630);
+    bkr_str _v2635 = _v2613("import", "BKR_SELF_IMPORT_PATH", _v2399, 0, 0, 1, 1, "", "normalized relative forward-slash import path", _v2630, _v2104);
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("/* ", _v2399), ". AI repair hint: "), _v2104), from_char_code(10)), "BUNKER_DIAGNOSTIC_JSON: "), _v2635), from_char_code(10)), "*/");
 }
 
-bkr_str _v2488(bkr_str _v2483) {
+bkr_str _v2636(bkr_str _v2631) {
     bkr_str _v2104 = "Copy the imported Bunker module next to self_host_input.bkr or pre-expand imports before running bkrc.";
-    bkr_str _v2465 = bkr_str_concat("Import error: missing module ", _v2483);
-    bkr_str _v2487 = _v2464("import", "BKR_SELF_IMPORT", _v2465, 0, 0, 1, 1, "", "existing imported module", _v2483, _v2104);
-    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("/* ", _v2465), ". AI repair hint: "), _v2104), from_char_code(10)), "BUNKER_DIAGNOSTIC_JSON: "), _v2487), from_char_code(10)), "*/");
+    bkr_str _v2399 = bkr_str_concat("Import error: missing module ", _v2631);
+    bkr_str _v2635 = _v2613("import", "BKR_SELF_IMPORT", _v2399, 0, 0, 1, 1, "", "existing imported module", _v2631, _v2104);
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("/* ", _v2399), ". AI repair hint: "), _v2104), from_char_code(10)), "BUNKER_DIAGNOSTIC_JSON: "), _v2635), from_char_code(10)), "*/");
 }
 
-bkr_str _v2489(bkr_str _v1209, _v1234 _v1246) {
-    bkr_i64 _v2490 = _v1302(_v1246);
-    bkr_str _v2491 = _v1306(_v1299(_v1246));
-    bkr_str _v2492 = _v1306(_v1301(_v1246));
-    _v338 _v2493 = _v1338(_v1246);
-    bkr_i64 _v1936 = _v2493._v339;
-    bkr_i64 _v2494 = _v1936;
-    bkr_i64 _v2495 = _v2493._v340;
-    bkr_i64 _v2496 = _v2459(_v1209, _v2494);
-    bkr_i64 _v2497 = _v2460(_v1209, _v2494);
-    bkr_str _v2468 = _v2462(_v1209, _v1936);
-    bkr_str _v2498 = _v2468;
+bkr_str _v2637(bkr_str _v1209, _v1234 _v1246) {
+    bkr_i64 _v2638 = _v1302(_v1246);
+    bkr_str _v2639 = _v1306(_v1299(_v1246));
+    bkr_str _v2640 = _v1306(_v1301(_v1246));
+    _v338 _v2641 = _v1338(_v1246);
+    bkr_i64 _v1936 = _v2641._v339;
+    bkr_i64 _v2642 = _v1936;
+    bkr_i64 _v2643 = _v2641._v340;
+    bkr_i64 _v2644 = _v2608(_v1209, _v2642);
+    bkr_i64 _v2645 = _v2609(_v1209, _v2642);
+    bkr_str _v2616 = _v2611(_v1209, _v1936);
+    bkr_str _v2646 = _v2616;
     bkr_str _v2104 = "Inspect the construct before this token. Supported bootstrap syntax includes kernel, struct, fn, const, let, fixed arrays, field access, if, else, match expressions, Option<T> via Some/None, Result<T,E> via result_* builtins, Vec<T> and HashMap<i32,V> runtime handles, for-in ranges, while, loop, break, continue, return, primitive types, calls, casts, ternary expressions, bitwise operators, and basic expressions.";
-    bkr_str _v2499 = bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("Parse error at token ", int_to_string(_v1284(_v1246))), ": expected "), _v2491), ", got "), _v2492);
-    bkr_str _v2500 = _v2472(_v1299(_v1246));
-    bkr_str _v2501 = _v1942();
-    bkr_bool _v2502 = BKR_FALSE;
-    if ((bkr_len((bkr_str)(intptr_t)(_v2500)) > 0)) {
-        _v2501 = _v1943(_v1935("insert_text", _v2494, _v2494, _v2500, "manual_review", "medium"));
-        _v2502 = BKR_TRUE;
+    bkr_str _v2647 = bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("Parse error at token ", int_to_string(_v1284(_v1246))), ": expected "), _v2639), ", got "), _v2640);
+    bkr_str _v2648 = _v2620(_v1299(_v1246));
+    bkr_str _v2649 = _v1942();
+    bkr_bool _v2650 = BKR_FALSE;
+    if ((bkr_len((bkr_str)(intptr_t)(_v2648)) > 0)) {
+        _v2649 = _v1943(_v1935("insert_text", _v2642, _v2642, _v2648, "manual_review", "medium"));
+        _v2650 = BKR_TRUE;
     }
-    bkr_str _v2503 = "[";
+    bkr_str _v2651 = "[";
     bkr_i64 _v1168 = 0;
-    bkr_str _v2504 = "";
-    while ((_v1168 < _v2490)) {
-        bkr_i64 _v2505 = _v1304(_v1246, _v1168);
-        bkr_i64 _v2506 = _v1305(_v1246, _v1168);
+    bkr_str _v2652 = "";
+    while ((_v1168 < _v2638)) {
+        bkr_i64 _v2653 = _v1304(_v1246, _v1168);
+        bkr_i64 _v2654 = _v1305(_v1246, _v1168);
         bkr_i64 _v1210 = _v1303(_v1246, _v1168);
-        bkr_str _v2507 = _v1306(_v2505);
-        bkr_str _v2508 = _v1306(_v2506);
+        bkr_str _v2655 = _v1306(_v2653);
+        bkr_str _v2656 = _v1306(_v2654);
         _v338 _v457 = _v1339(_v1246, _v1168);
-        bkr_i64 _v2509 = _v457._v339;
-        bkr_i64 _v2510 = _v457._v340;
-        bkr_i64 _v2511 = _v2459(_v1209, _v2509);
-        bkr_i64 _v2512 = _v2460(_v1209, _v2509);
-        bkr_str _v2513 = _v2462(_v1209, _v2509);
-        bkr_str _v2514 = bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("Parse error at token ", int_to_string(_v1210)), ": expected "), _v2507), ", got "), _v2508);
-        bkr_str _v2515 = _v2472(_v2505);
-        bkr_str _v2516 = _v1942();
-        bkr_bool _v2517 = BKR_FALSE;
-        if ((bkr_len((bkr_str)(intptr_t)(_v2515)) > 0)) {
-            _v2516 = _v1943(_v1935("insert_text", _v2509, _v2509, _v2515, "manual_review", "medium"));
-            _v2517 = BKR_TRUE;
+        bkr_i64 _v2657 = _v457._v339;
+        bkr_i64 _v2658 = _v457._v340;
+        bkr_i64 _v2659 = _v2608(_v1209, _v2657);
+        bkr_i64 _v2660 = _v2609(_v1209, _v2657);
+        bkr_str _v2661 = _v2611(_v1209, _v2657);
+        bkr_str _v2662 = bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("Parse error at token ", int_to_string(_v1210)), ": expected "), _v2655), ", got "), _v2656);
+        bkr_str _v2663 = _v2620(_v2653);
+        bkr_str _v2664 = _v1942();
+        bkr_bool _v2665 = BKR_FALSE;
+        if ((bkr_len((bkr_str)(intptr_t)(_v2663)) > 0)) {
+            _v2664 = _v1943(_v1935("insert_text", _v2657, _v2657, _v2663, "manual_review", "medium"));
+            _v2665 = BKR_TRUE;
         }
-        bkr_str _v2518 = _v2469("parse", "BKR_SELF_PARSE", _v2514, _v2509, _v2510, _v2511, _v2512, _v2513, _v2507, _v2508, _v2104, _v2517, _v2516);
-        _v2503 = _v2440(_v2503, _v2518);
-        _v2504 = bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2504, "/* "), _v2514), ". AI repair hint: "), _v2104), " */"), from_char_code(10));
+        bkr_str _v2666 = _v2617("parse", "BKR_SELF_PARSE", _v2662, _v2657, _v2658, _v2659, _v2660, _v2661, _v2655, _v2656, _v2104, _v2665, _v2664);
+        _v2651 = _v2590(_v2651, _v2666);
+        _v2652 = bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2652, "/* "), _v2662), ". AI repair hint: "), _v2104), " */"), from_char_code(10));
         _v1168 = (_v1168 + 1);
     }
-    _v2503 = bkr_str_concat(_v2503, "]");
+    _v2651 = bkr_str_concat(_v2651, "]");
     bkr_str _v1941 = ",";
-    bkr_str _v2487 = bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("schema_version", "bunker.self_host.diagnostic.v1")), _v1941), _v1892("phase", "parse")), _v1941), _v1892("category", "syntax")), _v1941), _v1892("error_code", "BKR_SELF_PARSE")), _v1941), _v1892("rule_id", "BKR_SELF_PARSE")), _v1941), _v1892("severity", "error")), _v1941), _v1893("error_count", _v2490)), _v1941), _v1892("message", _v2499)), _v1941), _v1893("source_start", _v2494)), _v1941), _v1893("source_end", _v2495)), _v1941), _v1893("source_line", _v2496)), _v1941), _v1893("source_column", _v2497)), _v1941), _v1892("source_excerpt", _v2498)), _v1941), _v1892("expected", _v2491)), _v1941), _v1892("actual", _v2492)), _v1941), _v1892("suggested_action", _v2104)), _v1941), _v1892("fix_applicability", "manual_review")), _v1941), _v1892("fix_confidence", "medium")), _v1941), _v1894("safe_edit_available", _v2502)), _v1941), _v1895("suggested_edits", _v2501)), _v1941), _v1892("repair_hint", _v2104)), _v1941), _v1895("diagnostics", _v2503)), "}");
-    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2504, "/* BUNKER_DIAGNOSTIC_JSON: "), _v2487), from_char_code(10)), "*/");
+    bkr_str _v2635 = bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("{", _v1892("schema_version", "bunker.self_host.diagnostic.v1")), _v1941), _v1892("phase", "parse")), _v1941), _v1892("category", "syntax")), _v1941), _v1892("error_code", "BKR_SELF_PARSE")), _v1941), _v1892("rule_id", "BKR_SELF_PARSE")), _v1941), _v1892("severity", "error")), _v1941), _v1893("error_count", _v2638)), _v1941), _v1892("message", _v2647)), _v1941), _v1893("source_start", _v2642)), _v1941), _v1893("source_end", _v2643)), _v1941), _v1893("source_line", _v2644)), _v1941), _v1893("source_column", _v2645)), _v1941), _v1892("source_excerpt", _v2646)), _v1941), _v1892("expected", _v2639)), _v1941), _v1892("actual", _v2640)), _v1941), _v1892("suggested_action", _v2104)), _v1941), _v1892("fix_applicability", "manual_review")), _v1941), _v1892("fix_confidence", "medium")), _v1941), _v1894("safe_edit_available", _v2650)), _v1941), _v1895("suggested_edits", _v2649)), _v1941), _v1892("repair_hint", _v2104)), _v1941), _v1895("diagnostics", _v2651)), "}");
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2652, "/* BUNKER_DIAGNOSTIC_JSON: "), _v2635), from_char_code(10)), "*/");
 }
 
-bkr_bool _v2519(void) {
+bkr_bool _v2667(void) {
     return file_exists("self_host_trace.enabled");
 }
 
-bkr_i64 _v2520(bkr_str _v2475) {
-    if (_v2519()) {
-        bkr_str _v2521 = "self_host_trace.log";
+bkr_i64 _v2668(bkr_str _v2623) {
+    if (_v2667()) {
+        bkr_str _v2669 = "self_host_trace.log";
         bkr_str _v2522 = "";
-        if (file_exists(_v2521)) {
-            _v2522 = read_file(_v2521);
+        if (file_exists(_v2669)) {
+            _v2522 = read_file(_v2669);
         }
-        write_file(_v2521, bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2522, "[self-host trace] "), _v2475), from_char_code(10)));
+        write_file(_v2669, bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2522, "[self-host trace] "), _v2623), from_char_code(10)));
     }
     return 0;
 }
 
-bkr_str _v2524(bkr_str _v1209) {
-    return _v2525(_v1209, "");
+bkr_str _v2671(bkr_str _v1209) {
+    return _v2672(_v1209, "");
 }
 
-bkr_str _v2525(bkr_str _v1209, bkr_str _v2526) {
-    _v2520("compile_to_c:begin");
-    bkr_str _v2527 = _v2479();
-    _v2520("compile_to_c:capability_report");
-    bkr_str _v2528 = _v2485(_v1209, _v2526);
-    _v2520("compile_to_c:import_graph_report");
-    bkr_str _v2482 = _v2435(_v1209, _v2526);
-    if ((bkr_len((bkr_str)(intptr_t)(_v2482)) > 0)) {
-        _v2520("compile_to_c:invalid_import");
-        return bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2527, _v2528), _v2486(_v2482)), from_char_code(10));
+bkr_str _v2672(bkr_str _v1209, bkr_str _v2673) {
+    _v2668("compile_to_c:begin");
+    bkr_str _v2674 = _v2627();
+    _v2668("compile_to_c:capability_report");
+    bkr_str _v2675 = _v2633(_v1209, _v2673);
+    _v2668("compile_to_c:import_graph_report");
+    bkr_str _v2630 = _v2585(_v1209, _v2673);
+    if ((bkr_len((bkr_str)(intptr_t)(_v2630)) > 0)) {
+        _v2668("compile_to_c:invalid_import");
+        return bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2674, _v2675), _v2634(_v2630)), from_char_code(10));
     }
-    bkr_str _v2483 = _v2430(_v1209, _v2526);
-    if ((bkr_len((bkr_str)(intptr_t)(_v2483)) > 0)) {
-        _v2520("compile_to_c:missing_import");
-        return bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2527, _v2528), _v2488(_v2483)), from_char_code(10));
+    bkr_str _v2631 = _v2580(_v1209, _v2673);
+    if ((bkr_len((bkr_str)(intptr_t)(_v2631)) > 0)) {
+        _v2668("compile_to_c:missing_import");
+        return bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2674, _v2675), _v2636(_v2631)), from_char_code(10));
     }
-    bkr_str _v2529 = _v2426(_v1209, _v2526);
-    _v2520("compile_to_c:imports_expanded");
-    _v1187 _v1236 = _v1219(_v2529);
-    _v2520("compile_to_c:tokenized");
+    bkr_str _v2676 = _v2576(_v1209, _v2673);
+    _v2668("compile_to_c:imports_expanded");
+    _v1187 _v1236 = _v1219(_v2676);
+    _v2668("compile_to_c:tokenized");
     _v1234 _v1246 = _v1238(_v1236);
-    _v2520("compile_to_c:parser_state");
-    bkr_i64 _v2530 = _v1525(_v1246);
-    _v2520("compile_to_c:parsed");
+    _v2668("compile_to_c:parser_state");
+    bkr_i64 _v2677 = _v1525(_v1246);
+    _v2668("compile_to_c:parsed");
     if (_v1296(_v1246)) {
-        _v2520("compile_to_c:parse_error");
-        return bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2527, _v2528), _v2489(_v2529, _v1246)), from_char_code(10));
+        _v2668("compile_to_c:parse_error");
+        return bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2674, _v2675), _v2637(_v2676, _v1246)), from_char_code(10));
     }
-    bkr_str _v2531 = _v1996(_v2529, _v2530);
-    _v2520("compile_to_c:ast_report");
-    bkr_str _v2532 = _v2101(_v2530);
-    _v2520("compile_to_c:type_graph_report");
-    bkr_str _v2533 = _v2041(_v2530);
-    _v2520("compile_to_c:symbol_table_report");
-    bkr_str _v2534 = _v2172(_v2530);
-    _v2520("compile_to_c:resolver_report");
-    _v2520("compile_to_c:typecheck_begin");
-    bkr_str _v2535 = _v2394(_v2530);
-    _v2520("compile_to_c:typecheck_report");
-    bkr_str _v2536 = _v1882(_v2530);
-    _v2520("compile_to_c:c_program");
-    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2527, _v2528), _v2531), _v2532), _v2533), _v2534), _v2535), _v2536);
+    bkr_str _v2678 = _v1996(_v2676, _v2677);
+    _v2668("compile_to_c:ast_report");
+    bkr_str _v2679 = _v2101(_v2677);
+    _v2668("compile_to_c:type_graph_report");
+    bkr_str _v2680 = _v2041(_v2677);
+    _v2668("compile_to_c:symbol_table_report");
+    bkr_str _v2681 = _v2172(_v2677);
+    _v2668("compile_to_c:resolver_report");
+    _v2668("compile_to_c:typecheck_begin");
+    bkr_str _v2682 = _v2394(_v2677);
+    _v2668("compile_to_c:typecheck_report");
+    bkr_str _v2683 = _v1882(_v2677);
+    _v2668("compile_to_c:c_program");
+    return bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2674, _v2675), _v2678), _v2679), _v2680), _v2681), _v2682), _v2683);
 }
 
-bkr_i32 _v2537(void) {
-    bkr_str _v2539 = "self_host_input.bkr";
-    bkr_str _v2540 = "self_host_output.c";
-    bkr_i64 _v2541 = bkr_args_count();
-    if ((_v2541 > 1)) {
-        bkr_str _v2543 = bkr_arg_at(1);
-        if ((!bkr_str_eq(_v2543, ""))) {
-            _v2539 = _v2543;
-            _v2540 = bkr_str_concat(_v2539, ".c");
+bkr_i32 _v2684(void) {
+    bkr_str _v2686 = "self_host_input.bkr";
+    bkr_str _v2687 = "self_host_output.c";
+    bkr_i64 _v2688 = bkr_args_count();
+    if ((_v2688 > 1)) {
+        bkr_str _v2690 = bkr_arg_at(1);
+        if ((!bkr_str_eq(_v2690, ""))) {
+            _v2686 = _v2690;
+            _v2687 = bkr_str_concat(_v2686, ".c");
             bkr_i64 _v1168 = 2;
-            while ((_v1168 < _v2541)) {
-                bkr_str _v2545 = bkr_arg_at(_v1168);
-                if ((bkr_str_eq(_v2545, "-o") && ((_v1168 + 1) < _v2541))) {
-                    _v2540 = bkr_arg_at((_v1168 + 1));
+            while ((_v1168 < _v2688)) {
+                bkr_str _v2692 = bkr_arg_at(_v1168);
+                if ((bkr_str_eq(_v2692, "-o") && ((_v1168 + 1) < _v2688))) {
+                    _v2687 = bkr_arg_at((_v1168 + 1));
                     _v1168 = (_v1168 + 1);
                 }
                 _v1168 = (_v1168 + 1);
             }
         }
     }
-    bkr_str _v2546 = "kernel Test { fn main() -> i32 { let x: i32 = 40; let y: i32 = 2; return x + y; } }";
-    if ((bkr_str_eq(_v2539, "self_host_input.bkr") && (!file_exists(_v2539)))) {
-        write_file(_v2539, _v2546);
+    bkr_str _v2693 = "kernel Test { fn main() -> i32 { let x: i32 = 40; let y: i32 = 2; return x + y; } }";
+    if ((bkr_str_eq(_v2686, "self_host_input.bkr") && (!file_exists(_v2686)))) {
+        write_file(_v2686, _v2693);
     }
-    if ((!file_exists(_v2539))) {
+    if ((!file_exists(_v2686))) {
         if (file_exists("self_host_input.bkr")) {
-            _v2539 = "self_host_input.bkr";
-            _v2540 = "self_host_output.c";
+            _v2686 = "self_host_input.bkr";
+            _v2687 = "self_host_output.c";
         }
     }
-    if ((!file_exists(_v2539))) {
+    if ((!file_exists(_v2686))) {
         return 1;
     }
-    bkr_str _v1209 = read_file(_v2539);
-    bkr_str _v2547 = _v2525(_v1209, _v2412(_v2539));
-    bkr_bool _v2548 = write_file(_v2540, _v2547);
-    if ((!_v2548)) {
+    bkr_str _v1209 = read_file(_v2686);
+    bkr_str _v2694 = _v2672(_v1209, _v2562(_v2686));
+    bkr_bool _v2695 = write_file(_v2687, _v2694);
+    if ((!_v2695)) {
         return 1;
     }
-    if ((!file_exists(_v2540))) {
+    if ((!file_exists(_v2687))) {
         return 2;
     }
     return 42;
@@ -18806,5 +19475,5 @@ bkr_i32 _v2537(void) {
 
 int main(int argc, char** argv) {
     bkr_init_args(argc, argv);
-    return (int)_v2537();
+    return (int)_v2684();
 }

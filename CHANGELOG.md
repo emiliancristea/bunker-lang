@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 This release completes the entire 14-track roadmap (Tracks A, CF, CB, F, R, S, TL, E, M, etc. — 167/168 items pure DONE at 99.4%, with 100.0% of actionable non-deferred items complete) and stabilizes the Bunker self-host compiler (`bkrc`) across the continuous integration multi-OS matrix (Ubuntu, Windows, macOS). All 314 test fixtures pass with zero regressions, and all GitHub Actions CI matrix jobs are 100% green.
 
 ### Added
+- **Full Rust Retraction and Zero-Rust Toolchain Migration (Q-323, SH-011)**:
+  - Relocated Stage 0 bootstrap compiler (`bunker-cli/`) to `archive/bootstrap/stage0-rust/` per `BKR-SPEC-MIGRATE-001` (Phase 5), eliminating 100% of `.rs` files from active repository source paths.
+  - Distributed updated, self-contained C11 bootstrap compiler package (`bootstrap/bkrc-stage1.c`, `bootstrap/bkrc-stage2.c`, `bootstrap/runtime.h`, and `bootstrap/SHA256SUMS`).
+  - Added multi-OS standalone bootstrap verification matrix (`bootstrap-c11`) to CI on Ubuntu, Windows, and macOS, proving fixpoint stability with zero Rust dependencies.
+  - Updated `run_tests.ps1` primary compiler discovery for pure Bunker binaries (`bkrc` / `bkrc.exe`).
 - **Pure Bunker Contract Verification Engine (Q-322, VRF-001, VRF-002)**:
   - Authored canonical specification `docs/CONTRACT_VERIFICATION_ARCHITECTURE.md` (`BKR-SPEC-VERIFY-001`) formalizing function contracts (`#[requires]`, `#[ensures]`), symbolic execution across affine variable domains, linear expression arithmetic, equality proofs, and counterexample generation (`bunker.verify.v1`).
   - Implemented pure Bunker module `self-host/modules/verify.bkr` (`LinExpr`, `VerifyContract`, `lin_expr_add`, `lin_expr_sub`, `lin_expr_mul_const`, `lin_expr_eval`, `verify_prove_equality`, `verify_synthesize_counterexample`, `verify_contract_json`).

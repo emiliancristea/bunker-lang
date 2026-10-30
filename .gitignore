@@ -18,6 +18,9 @@ tests/*.o
 # Factory AI
 .factory/
 
+# Stage 0 Rust Bootstrap compatibility link
+bunker-cli/
+
 # Local scratch files (dev/harness)
 test_output.txt
 tmp_*

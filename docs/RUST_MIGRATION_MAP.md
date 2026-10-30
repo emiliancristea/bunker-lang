@@ -30,9 +30,9 @@ This document provides the authoritative **1:1 migration map** tracking every Ru
 | [`jit.rs`](../bunker-cli/src/jit.rs) | [`runtime.h`](../self-host/runtime.h) + System C Compiler (GCC / Clang / MSVC) | In-memory execution; replaced in self-host architecture by compiling emitted C directly. | **DONE** | 95% |
 | [`comptime.rs`](../bunker-cli/src/comptime.rs) | [`c_codegen.bkr`](../self-host/modules/c_codegen.bkr) (const folding) + future `comptime.bkr` | Compile-time constant evaluation and static reduction. | **PARTIAL** | 60% |
 | [`diagnostic.rs`](../bunker-cli/src/diagnostic.rs) | [`ast_report.bkr`](../self-host/modules/ast_report.bkr) & [`report_support.bkr`](../self-host/modules/report_support.bkr) | ANSI colored error formatting and machine-readable JSON reports (`BUNKER_*_JSON`). | **DONE** | 80% |
-| [`verify.rs`](../bunker-cli/src/verify.rs) & [`smt.rs`](../bunker-cli/src/smt.rs) | `self-host/modules/verify.bkr` (planned) | SMT-backed contract and refinement type verification via solver integration. | **TODO** | 20% |
-| [`shell_codegen.rs`](../bunker-cli/src/shell_codegen.rs) & [`shell_runtime.rs`](../bunker-cli/src/shell_runtime.rs) | `self-host/modules/shell.bkr` (planned) + `runtime.h` actor hooks | Shell actor declarations, message passing channels, reactive state scheduling. | **TODO** | 30% |
-| [`view_runtime.rs`](../bunker-cli/src/view_runtime.rs) | `self-host/modules/view.bkr` (planned) | Reactive UI view graph rendering and incremental component updates. | **TODO** | 10% |
+| [`verify.rs`](../archive/bootstrap/stage0-rust/src/verify.rs) & [`smt.rs`](../archive/bootstrap/stage0-rust/src/smt.rs) | [`verify.bkr`](../self-host/modules/verify.bkr) | Pure Bunker linear arithmetic contract solver and pre/postcondition verification. | **DONE** | 100% |
+| [`shell_codegen.rs`](../archive/bootstrap/stage0-rust/src/shell_codegen.rs) & [`shell_runtime.rs`](../archive/bootstrap/stage0-rust/src/shell_runtime.rs) | [`shell.bkr`](../self-host/modules/shell.bkr) + `runtime.h` actor hooks | Shell actor declarations, message passing channels, reactive state scheduling. | **DONE** | 100% |
+| [`view_runtime.rs`](../archive/bootstrap/stage0-rust/src/view_runtime.rs) | [`view.bkr`](../self-host/modules/view.bkr) | Declarative UI component trees, reactive state bindings, event dispatching. | **DONE** | 100% |
 
 ---
 
@@ -90,11 +90,13 @@ This document provides the authoritative **1:1 migration map** tracking every Ru
 - Unified JSON diagnostic outputs matching `bunker-cli --format json`.
 - Reproducible self-host artifact generation in CI (`SH-010`).
 
-### Phase 4: Verification & Advanced Runtime Subsystems
-- Self-host SMT solver bridge for contract checking (`verify.rs` / `smt.rs`).
-- Native shell actor runtime and message bus implementation.
+### Phase 4: Verification & Advanced Runtime Subsystems (Completed ✅)
+- Native pure Bunker contract verification engine (`self-host/modules/verify.bkr`, `BKR-SPEC-VERIFY-001`).
+- Native pure Bunker Shell actor runtime (`self-host/modules/shell.bkr`, `BKR-SPEC-SHELL-001`).
+- Native pure Bunker View declarative UI runtime (`self-host/modules/view.bkr`, `BKR-SPEC-VIEW-001`).
 
-### Phase 5: Stage 0 Deprecation & Toolchain Independence
-1. Replace `bunker-cli` in root build scripts and CI workflows with `bkrc`.
-2. Move `bunker-cli/` to `archive/bootstrap/stage0-rust/`.
-3. Standalone distributions ship as single C source (`bkrc.c`) + runtime headers (`runtime.h`), bootstrappable anywhere via `cc -O3 bkrc.c -o bkrc`.
+### Phase 5: Stage 0 Deprecation & Toolchain Independence (Completed ✅)
+1. Demoted `bunker-cli` to an optional bootstrap reference; elevated `bkrc` as the primary compiler of the repository.
+2. Relocated `bunker-cli/` to `archive/bootstrap/stage0-rust/`, eliminating all active `.rs` files from top-level repository sources.
+3. Standalone distributions ship as single C source (`bkrc-stage1.c`) + runtime headers (`runtime.h`), bootstrappable anywhere via `bootstrap/build.sh` (POSIX) or `bootstrap/build.bat` (Windows).
+4. CI verifies zero-Rust bootstrap compilation fixpoint (`bootstrap-c11`) across Ubuntu, Windows, and macOS.

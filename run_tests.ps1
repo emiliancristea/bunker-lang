@@ -21,8 +21,12 @@ if ($CompilerPath -and (Test-Path $CompilerPath)) {
     $bunker = ".\bkrc.exe"
 } elseif (Test-Path ".\bkrc") {
     $bunker = ".\bkrc"
-} else {
+} elseif (Test-Path ".\archive\bootstrap\stage0-rust\target\release\bunker-cli.exe") {
+    $bunker = ".\archive\bootstrap\stage0-rust\target\release\bunker-cli.exe"
+} elseif (Test-Path ".\bunker-cli\target\release\bunker-cli.exe") {
     $bunker = ".\bunker-cli\target\release\bunker-cli.exe"
+} else {
+    $bunker = ".\bkrc.exe"
 }
 
 # Expected results for JIT Kernel tests (main() return values - integers)
