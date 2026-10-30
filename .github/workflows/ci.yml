@@ -11,8 +11,9 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  rust:
-    name: Rust ${{ matrix.os }}
+  archive-rust-verification:
+    name: Archived Rust Stage 0 (${{ matrix.os }})
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 35
     strategy:
@@ -65,21 +66,18 @@ jobs:
   bunker-tests:
     name: Bunker language tests
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Link archived Stage 0 Rust compiler
-        if: runner.os != 'Windows'
-        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
-
-      - name: Select Rust toolchain
-        run: rustup default stable
-
-      - name: Build release compiler
-        working-directory: archive/bootstrap/stage0-rust
-        run: cargo build --release
+      - name: Build pure Bunker compiler from bootstrap C seed (Windows)
+        shell: pwsh
+        run: |
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $vcvars = Join-Path $vsPath "VC\Auxiliary\Build\vcvars64.bat"
+          cmd.exe /c "`"$vcvars`" && bootstrap\build.bat"
+          if (!(Test-Path ".\bkrc.exe")) { exit 1 }
 
       - name: Run Bunker test suite
         shell: pwsh
@@ -94,6 +92,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Link archived Stage 0 Rust compiler
+        shell: bash
         run: ln -sf archive/bootstrap/stage0-rust bunker-cli
 
       - name: Prevent raw AST collection traversal outside AST boundary
@@ -1578,15 +1577,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Link archived Stage 0 Rust compiler
-        if: runner.os != 'Windows'
+        shell: bash
         run: ln -sf archive/bootstrap/stage0-rust bunker-cli
 
-      - name: Select Rust toolchain
-        run: rustup default stable
-
-      - name: Build release compiler
-        working-directory: archive/bootstrap/stage0-rust
-        run: cargo build --release
+      - name: Build pure Bunker compiler from bootstrap C seed
+        run: |
+          bash bootstrap/build.sh
+          test -x ./bkrc
+          mkdir -p bunker-cli/target/release
+          ln -sf "$(pwd)/bkrc" bunker-cli/target/release/bunker-cli
+          chmod +x bunker-cli/target/release/bunker-cli
 
       - name: Check self-host compiler sources
         timeout-minutes: 2
@@ -3483,15 +3483,16 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Link archived Stage 0 Rust compiler
-        if: runner.os != 'Windows'
+        shell: bash
         run: ln -sf archive/bootstrap/stage0-rust bunker-cli
 
-      - name: Select Rust toolchain
-        run: rustup default stable
-
-      - name: Build release compiler
-        working-directory: archive/bootstrap/stage0-rust
-        run: cargo build --release
+      - name: Build pure Bunker compiler from bootstrap C seed
+        run: |
+          bash bootstrap/build.sh
+          test -x ./bkrc
+          mkdir -p bunker-cli/target/release
+          ln -sf "$(pwd)/bkrc" bunker-cli/target/release/bunker-cli
+          chmod +x bunker-cli/target/release/bunker-cli
 
       - name: Compile incremental parser fixture under resource caps
         timeout-minutes: 3

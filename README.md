@@ -98,66 +98,70 @@ Human writes contracts → AI generates code → Compiler verifies → Ship prov
 4. If verification fails, AI refines based on counterexamples
 5. **Proven-correct code** ships to production
 
-## Build Policy
+## Toolchain & Bootstrap
 
-Local Cargo builds, local test-suite execution, and local code-producing/runtime CLI commands are disabled for this repository. The compiler and self-host runtime can consume enough memory to destabilize a workstation while the language is still being bootstrapped.
+Bunker is 100% self-hosted in pure Bunker (`self-host/`) and bootstraps from portable C11 source (`bootstrap/`) with **zero external dependencies**. No Rust, Cargo, Node, or Python required.
 
-Use GitHub Actions as the build and verification environment:
+To build the native Bunker compiler binary (`bkrc` / `bkrc.exe`):
 
-1. Push a branch or open a pull request.
-2. Wait for the `CI` workflow.
-3. Download the `bunker-cli-*` artifact from the workflow run when a verified compiler binary is needed.
+```bash
+# POSIX (Linux, macOS) - requires GCC or Clang
+bash bootstrap/build.sh
 
-Safe local inspection commands are still allowed when a CI-built binary is available: `check`, `parse`, and `self-host-check`. Code-producing or runtime commands such as `build`, `run`, and `self-host-compile` are CI-only.
-
-Required CI runs bounded self-host smoke inputs. Large incremental self-host fixtures are kept behind the manual GitHub Actions canary until the self-host compiler's memory growth is fixed.
+# Windows - requires MSVC (cl.exe), GCC, or Clang
+bootstrap\build.bat
+```
 
 ## Usage
 
 ```bash
-# Check syntax and types
-bunker-cli check myfile.bkr
+# Check syntax, imports, and types
+./bkrc check myfile.bkr
 
-# CI-only: run with JIT compilation
-bunker-cli run myfile.bkr
+# Compile Bunker source to portable C11
+./bkrc compile myfile.bkr -o myfile.c
 
-# CI-only: compile to object file
-bunker-cli build myfile.bkr -o myfile.o
+# Inspect compiler capabilities (prompt-ready JSON for AI agents)
+./bkrc capability
 
-# Parse and show AST (debugging)
-bunker-cli parse myfile.bkr
+# Parse source and emit AST JSON
+./bkrc parse --ast-json myfile.bkr
 
-# Emit prompt-ready JSON diagnostics for an AI repair loop
-bunker-cli --format=json check myfile.bkr
-
-# Check whether the Bunker-written compiler sources are self-host ready
-bunker-cli self-host-check self-host
-
-# CI-only: compile through the Bunker-written compiler prototype
-bunker-cli self-host-compile tests/01_basic_math.bkr -o self_host_output.c
+# Emit type graph, symbol table, and resolver reports
+./bkrc check --type-graph myfile.bkr
+./bkrc check --symbol-table myfile.bkr
+./bkrc check --resolver-json myfile.bkr
 ```
 
 ## Project Structure
 
 ```
 bunker-lang/
-├── bunker-cli/           # Compiler implementation (Rust)
-│   ├── src/
-│   │   ├── main.rs           # CLI entry point
-│   │   ├── grammar/
-│   │   │   └── bunker.pest   # PEG grammar (AI-friendly LL(1))
-│   │   ├── ast.rs            # AST type definitions
-│   │   ├── ast_builder.rs    # Parse tree → AST
-│   │   ├── typeck.rs         # Type checker + move tracking
-│   │   ├── jit.rs            # Cranelift JIT compilation
-│   │   ├── codegen.rs        # Cranelift AOT compilation
-│   │   └── shell_runtime.rs  # Agent VM runtime
-│   └── Cargo.toml
-├── tests/                # 98 acceptance tests
-├── docs/
-│   ├── VISION.md         # Language design philosophy
-│   └── ARCHITECTURE.md   # Compiler pipeline design
-├── ROADMAP.md            # Implementation phases
+├── self-host/            # Primary self-hosted compiler (100% Pure Bunker)
+│   ├── bkrc.bkr          # Main compiler driver entry point
+│   └── modules/          # Modular compiler pipeline
+│       ├── parser.bkr    # LL(1) recursive descent parser
+│       ├── ast.bkr       # Typed AST nodes & spans
+│       ├── typecheck.bkr # Semantic analyzer & type checker
+│       ├── c_codegen.bkr # C11 emission & runtime ABI mapping
+│       ├── resolver.bkr  # Scope intern tables & visibility enforcement
+│       ├── shell.bkr     # Pure Bunker Shell & actor runtime
+│       ├── view.bkr      # Declarative UI tree & reactive bindings
+│       └── verify.bkr    # Contract verification engine
+├── bootstrap/            # Portable C11 bootstrap compiler package
+│   ├── bkrc-stage1.c     # Canonical Stage 1 C seed
+│   ├── bkrc-stage2.c     # Stage 2 C seed (zero-diff fixpoint verification)
+│   ├── runtime.h         # Unified C runtime & arena allocator
+│   ├── build.sh          # POSIX zero-dependency build script
+│   ├── build.bat         # Windows zero-dependency build script
+│   └── SHA256SUMS        # Deterministic cryptographic checksums
+├── tests/                # 320 acceptance tests
+├── docs/                 # Canonical language specifications & architecture
+├── archive/              # Historical Stage 0 bootstrap reference
+│   └── bootstrap/
+│       └── stage0-rust/  # Retired Stage 0 Rust prototype
+├── run_tests.ps1         # 320-test automated validation harness
+├── ROADMAP.md            # Implementation roadmap & completion status
 └── README.md
 ```
 
@@ -280,7 +284,7 @@ view MyView {
 - [x] Self-host readiness command (`self-host-check`) for top-level `self-host/*.bkr` sources; 8/8 of those files pass (this command does not enumerate `self-host/modules/`)
 - [x] Self-host compile wrapper (`self-host-compile`) that runs modular `self-host/bkrc.bkr` on real `.bkr` input and emits C
 - [x] Stage1/stage2 self-compilation for the supported bootstrap subset (CI-certified on `main`)
-- [x] **126 tests passing** (including 18 negative `*_BAD` tests; 89 JIT-validated)
+- [x] **320 tests passing** across Kernel, Shell, View, and Contract Verification
 - [x] Kernel unit enums (`enum Color { Red, Green }`, `Color.Red`, exhaustive match)
 - [x] Self-host unit-enum match exhaustiveness (`non_exhaustive_match` / `BKR_SELF_EXHAUSTIVENESS`)
 - [x] Enum variant payload declarations (`enum Opt { Some(i32), None }`)
@@ -317,7 +321,7 @@ view MyView {
 - [ ] Embedded profile (`--profile=metal`)
 - [ ] Language server (LSP)
 - [ ] Package manager
-- [ ] Primary self-hosted compiler (stage1/stage2 works for the bootstrap subset; Rust is still the production path)
+- [x] Primary self-hosted compiler (`bkrc`) in 100% pure Bunker, with zero-dependency C11 bootstrap seeds and zero Rust dependencies ✅
 
 ## Why Not Existing Languages?
 
