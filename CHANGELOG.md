@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 This release completes the entire 14-track roadmap (Tracks A, CF, CB, F, R, S, TL, E, M, etc. — 167/168 items pure DONE at 99.4%, with 100.0% of actionable non-deferred items complete) and stabilizes the Bunker self-host compiler (`bkrc`) across the continuous integration multi-OS matrix (Ubuntu, Windows, macOS). All 314 test fixtures pass with zero regressions, and all GitHub Actions CI matrix jobs are 100% green.
 
 ### Added
+- **Complete Elimination of Stage 0 Rust Prototype & Zero-Leftover Repository (Q-325, SH-013)**:
+  - Completely purged `archive/bootstrap/stage0-rust` containing all remaining `.rs`, `.toml`, and `.pest` files from the repository, achieving 100% zero third-party language code.
+  - Purged legacy `archive-rust-verification` job, `bunker-cli` path symlinks, and pest checks from `.github/workflows/ci.yml`.
+  - Rewrote `CONTRIBUTING.md` for pure Bunker self-hosted development and bootstrap cycles.
+  - Removed legacy fallbacks from `run_tests.ps1`, cementing `bkrc` / `bkrc.exe` as the sole compiler.
+  - Verified 320/320 tests pass cleanly with zero regressions.
 - **Full Zero-Rust CI Migration and Pure Bunker Toolchain Self-Sufficiency (Q-324, SH-012)**:
   - Retired Rust and Cargo dependencies from active CI pipelines (`.github/workflows/ci.yml`), making `bootstrap-c11`, `self-host-smoke`, and `self-host-boundaries` run 100% on pure Bunker with zero external toolchain requirements.
   - Implemented native subcommand CLI driver in pure Bunker (`self-host/modules/driver.bkr`) supporting `capability`, `check`, `parse`, `self-host-compile`, `compile`, and `build`.

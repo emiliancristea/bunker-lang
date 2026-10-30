@@ -157,9 +157,6 @@ bunker-lang/
 │   └── SHA256SUMS        # Deterministic cryptographic checksums
 ├── tests/                # 320 acceptance tests
 ├── docs/                 # Canonical language specifications & architecture
-├── archive/              # Historical Stage 0 bootstrap reference
-│   └── bootstrap/
-│       └── stage0-rust/  # Retired Stage 0 Rust prototype
 ├── run_tests.ps1         # 320-test automated validation harness
 ├── ROADMAP.md            # Implementation roadmap & completion status
 └── README.md
