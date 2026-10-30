@@ -89,5 +89,5 @@ The test suite covers 320 acceptance tests executed via `run_tests.ps1`:
 ---
 
 ## 5. Historical Stage 0 Prototype
-
-The original Rust-based bootstrap prototype has been permanently relocated to `archive/bootstrap/stage0-rust/`. It serves strictly as a historical reference and is excluded from active CI pipelines.
+ 
+The original Rust-based bootstrap prototype has been completely retired and purged from the repository. The Bunker language and compiler toolchain are 100% self-hosted in pure Bunker (`self-host/`) and bootstrap from portable C11 (`bootstrap/`) with zero third-party programming language dependencies.

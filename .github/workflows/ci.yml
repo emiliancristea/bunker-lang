@@ -7,62 +7,7 @@ on:
     branches: [main]
   workflow_dispatch:
 
-env:
-  CARGO_TERM_COLOR: always
-
 jobs:
-  archive-rust-verification:
-    name: Archived Rust Stage 0 (${{ matrix.os }})
-    if: github.event_name == 'workflow_dispatch'
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 35
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: [stable]
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Link archived Stage 0 Rust compiler
-        if: runner.os != 'Windows'
-        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
-
-      - name: Select Rust toolchain
-        run: rustup default ${{ matrix.rust }}
-
-      - name: Build
-        working-directory: archive/bootstrap/stage0-rust
-        run: cargo build --verbose
-
-      - name: Run Rust tests
-        working-directory: archive/bootstrap/stage0-rust
-        run: cargo test --verbose
-
-      - name: Build release
-        working-directory: archive/bootstrap/stage0-rust
-        run: cargo build --release --verbose
-
-      - name: Upload compiler artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: bunker-cli-${{ matrix.os }}
-          if-no-files-found: ignore
-          path: |
-            archive/bootstrap/stage0-rust/target/release/bunker-cli
-            archive/bootstrap/stage0-rust/target/release/bunker-cli.exe
-
-      - name: Check formatting
-        if: matrix.os == 'ubuntu-latest'
-        working-directory: archive/bootstrap/stage0-rust
-        run: cargo fmt -- --check
-
-      - name: Clippy
-        if: matrix.os == 'ubuntu-latest'
-        working-directory: archive/bootstrap/stage0-rust
-        run: cargo clippy -- -D warnings
-
   bunker-tests:
     name: Bunker language tests
     runs-on: windows-latest
@@ -90,10 +35,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
-      - name: Link archived Stage 0 Rust compiler
-        shell: bash
-        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
 
       - name: Prevent raw AST collection traversal outside AST boundary
         shell: bash
@@ -478,7 +419,7 @@ jobs:
           grep -q 'fn ast_enum_ref_payload_count(item_ref: AstItemRef) -> i64' "$ast"
           grep -q 'fn ast_item_ref_enum(item_ref: AstItemRef) -> AstEnum' "$ast"
           grep -q 'ast_i64_list_append_ref(fields_ref, ast_type_ref_to_optional_handle(parse_type_ref(p)));' self-host/modules/parser.bkr
-          grep -qF 'enum_variant = { doc_comment* ~ identifier ~ ("(" ~ type_expr ~ ("," ~ type_expr)* ~ ")")? }' bunker-cli/src/grammar/bunker.pest
+          grep -q 'fn parse_enum_ref(p: ParserStateRef) -> AstItemRef' self-host/modules/parser.bkr
           grep -q 'fn ast_enum_ref_payload_arity_sum(item_ref: AstItemRef) -> i64' self-host/modules/ast.bkr
           ! grep -q 'ast_node_ref_new(NODE_STRUCT)' "$ast"
           ! grep -q 'ast_node_ref_new(NODE_ENUM)' "$ast"
@@ -1576,26 +1517,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Link archived Stage 0 Rust compiler
-        shell: bash
-        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
-
       - name: Build pure Bunker compiler from bootstrap C seed
         run: |
           bash bootstrap/build.sh
           test -x ./bkrc
-          mkdir -p bunker-cli/target/release
-          ln -sf "$(pwd)/bkrc" bunker-cli/target/release/bunker-cli
-          chmod +x bunker-cli/target/release/bunker-cli
 
       - name: Check self-host compiler sources
         timeout-minutes: 2
-        run: ./bunker-cli/target/release/bunker-cli self-host-check self-host
+        run: ./bkrc self-host-check self-host
 
       - name: Compile NodeKind-typed API fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/94_node_kind_typed_api.bkr \
             -o /tmp/94_node_kind_typed_api.c
           test -s /tmp/94_node_kind_typed_api.c
@@ -1607,7 +1541,7 @@ jobs:
       - name: Compile TokenKind-typed API fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/95_token_kind_typed_api.bkr \
             -o /tmp/95_token_kind_typed_api.c
           test -s /tmp/95_token_kind_typed_api.c
@@ -1619,7 +1553,7 @@ jobs:
       - name: Compile PatternKind and TypeKind typed API fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/96_pattern_type_kind_typed_api.bkr \
             -o /tmp/96_pattern_type_kind_typed_api.c
           test -s /tmp/96_pattern_type_kind_typed_api.c
@@ -1632,7 +1566,7 @@ jobs:
       - name: Compile AstSpan struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/97_ast_span_struct.bkr \
             -o /tmp/97_ast_span_struct.c
           test -s /tmp/97_ast_span_struct.c
@@ -1644,7 +1578,7 @@ jobs:
       - name: Compile AstPattern struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/98_ast_pattern_struct.bkr \
             -o /tmp/98_ast_pattern_struct.c
           test -s /tmp/98_ast_pattern_struct.c
@@ -1656,7 +1590,7 @@ jobs:
       - name: Compile AstType struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/100_ast_type_struct.bkr \
             -o /tmp/100_ast_type_struct.c
           test -s /tmp/100_ast_type_struct.c
@@ -1668,7 +1602,7 @@ jobs:
       - name: Compile AstAtom struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/101_ast_atom_struct.bkr \
             -o /tmp/101_ast_atom_struct.c
           test -s /tmp/101_ast_atom_struct.c
@@ -1680,7 +1614,7 @@ jobs:
       - name: Compile AstBinary struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/102_ast_binary_struct.bkr \
             -o /tmp/102_ast_binary_struct.c
           test -s /tmp/102_ast_binary_struct.c
@@ -1692,7 +1626,7 @@ jobs:
       - name: Compile AstCall struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/103_ast_call_struct.bkr \
             -o /tmp/103_ast_call_struct.c
           test -s /tmp/103_ast_call_struct.c
@@ -1704,7 +1638,7 @@ jobs:
       - name: Compile AstIndex struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/104_ast_index_struct.bkr \
             -o /tmp/104_ast_index_struct.c
           test -s /tmp/104_ast_index_struct.c
@@ -1716,7 +1650,7 @@ jobs:
       - name: Compile AstLet struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/105_ast_let_struct.bkr \
             -o /tmp/105_ast_let_struct.c
           test -s /tmp/105_ast_let_struct.c
@@ -1728,7 +1662,7 @@ jobs:
       - name: Compile AstIf struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/106_ast_if_struct.bkr \
             -o /tmp/106_ast_if_struct.c
           test -s /tmp/106_ast_if_struct.c
@@ -1740,7 +1674,7 @@ jobs:
       - name: Compile AstFor struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/107_ast_for_struct.bkr \
             -o /tmp/107_ast_for_struct.c
           test -s /tmp/107_ast_for_struct.c
@@ -1752,7 +1686,7 @@ jobs:
       - name: Compile AstAssign struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/108_ast_assign_struct.bkr \
             -o /tmp/108_ast_assign_struct.c
           test -s /tmp/108_ast_assign_struct.c
@@ -1764,7 +1698,7 @@ jobs:
       - name: Compile AstTernary struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/109_ast_ternary_struct.bkr \
             -o /tmp/109_ast_ternary_struct.c
           test -s /tmp/109_ast_ternary_struct.c
@@ -1776,7 +1710,7 @@ jobs:
       - name: Compile AstArrayLit struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/110_ast_array_lit_struct.bkr \
             -o /tmp/110_ast_array_lit_struct.c
           test -s /tmp/110_ast_array_lit_struct.c
@@ -1788,7 +1722,7 @@ jobs:
       - name: Compile AstMatch struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/111_ast_match_struct.bkr \
             -o /tmp/111_ast_match_struct.c
           test -s /tmp/111_ast_match_struct.c
@@ -1800,7 +1734,7 @@ jobs:
       - name: Compile AstFn struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/112_ast_fn_struct.bkr \
             -o /tmp/112_ast_fn_struct.c
           test -s /tmp/112_ast_fn_struct.c
@@ -1812,7 +1746,7 @@ jobs:
       - name: Compile AstConst struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/113_ast_const_struct.bkr \
             -o /tmp/113_ast_const_struct.c
           test -s /tmp/113_ast_const_struct.c
@@ -1824,7 +1758,7 @@ jobs:
       - name: Compile AstStruct item fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/114_ast_struct_item.bkr \
             -o /tmp/114_ast_struct_item.c
           test -s /tmp/114_ast_struct_item.c
@@ -1836,7 +1770,7 @@ jobs:
       - name: Compile AstKernel struct fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/115_ast_kernel_struct.bkr \
             -o /tmp/115_ast_kernel_struct.c
           test -s /tmp/115_ast_kernel_struct.c
@@ -1848,7 +1782,7 @@ jobs:
       - name: Compile pattern and type kind enum fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/93_pattern_type_kind_enums.bkr \
             -o /tmp/93_pattern_type_kind_enums.c
           test -s /tmp/93_pattern_type_kind_enums.c
@@ -1859,7 +1793,7 @@ jobs:
       - name: Compile token-kind enum fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/92_token_kind_enum.bkr \
             -o /tmp/92_token_kind_enum.c
           test -s /tmp/92_token_kind_enum.c
@@ -1870,7 +1804,7 @@ jobs:
       - name: Compile node-kind enum fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/91_node_kind_enum.bkr \
             -o /tmp/91_node_kind_enum.c
           test -s /tmp/91_node_kind_enum.c
@@ -1881,7 +1815,7 @@ jobs:
       - name: Compile unit enum fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/88_kernel_unit_enum.bkr \
             -o /tmp/88_kernel_unit_enum.c
           test -s /tmp/88_kernel_unit_enum.c
@@ -1894,7 +1828,7 @@ jobs:
       - name: Check self-host unit-enum exhaustiveness diagnostics
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/89_enum_nonexhaustive_BAD.bkr \
             -o /tmp/89_enum_nonexhaustive_BAD.c
           test -s /tmp/89_enum_nonexhaustive_BAD.c
@@ -1908,7 +1842,7 @@ jobs:
       - name: Compile enum payload declaration fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/117_enum_payload_decl.bkr \
             -o /tmp/117_enum_payload_decl.c
           test -s /tmp/117_enum_payload_decl.c
@@ -1921,9 +1855,8 @@ jobs:
       - name: Compile and run enum payload constructor fixture
         timeout-minutes: 2
         run: |
-          grep -q 'Pack payload constructors as (payload << 8) | tag' bunker-cli/src/typeck.rs
           grep -q 'let eight_ref: AstExprRef = ast_int_lit_ref(8);' self-host/modules/parser.bkr
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/118_enum_payload_ctor.bkr \
             -o /tmp/118_enum_payload_ctor.c
           test -s /tmp/118_enum_payload_ctor.c
@@ -1942,11 +1875,11 @@ jobs:
       - name: Compile and run enum payload match fixture
         timeout-minutes: 2
         run: |
-          grep -qF 'enum_variant_pattern = { identifier ~ "." ~ identifier ~ ("(" ~ identifier ~ ("," ~ identifier)* ~ ")")? }' bunker-cli/src/grammar/bunker.pest
+          grep -q 'PAT_ENUM_VARIANT' self-host/modules/parser.bkr
           grep -q 'fn ast_pattern_ref_new3(kind: PatternKind, value: i64, aux: i64, bind: i64) -> AstPatternRef' self-host/modules/ast.bkr
           grep -q 'fn ast_pattern_ref_bind(pattern_ref: AstPatternRef) -> i64' self-host/modules/ast.bkr
           grep -q 'value_name + " >> 8)' self-host/modules/c_codegen.bkr
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/119_enum_payload_match.bkr \
             -o /tmp/119_enum_payload_match.c
           test -s /tmp/119_enum_payload_match.c
@@ -1965,7 +1898,7 @@ jobs:
       - name: Compile enum multi-field payload declaration fixture
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/120_enum_multi_payload_decl.bkr \
             -o /tmp/120_enum_multi_payload_decl.c
           test -s /tmp/120_enum_multi_payload_decl.c
@@ -1979,9 +1912,8 @@ jobs:
       - name: Compile and run enum multi-field payload constructor fixture
         timeout-minutes: 2
         run: |
-          grep -q 'Pack two-field payload constructors as (a << 20) | (b << 8) | tag' bunker-cli/src/typeck.rs
           grep -q 'let twenty_ref: AstExprRef = ast_int_lit_ref(20);' self-host/modules/parser.bkr
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/121_enum_multi_payload_ctor.bkr \
             -o /tmp/121_enum_multi_payload_ctor.c
           test -s /tmp/121_enum_multi_payload_ctor.c
@@ -2005,7 +1937,7 @@ jobs:
           grep -q 'fn ast_pattern_ref_bind2(pattern_ref: AstPatternRef) -> i64' self-host/modules/ast.bkr
           grep -q 'value_name + " >> 20)' self-host/modules/c_codegen.bkr
           grep -q 'value_name + " >> 8) & 4095)' self-host/modules/c_codegen.bkr
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/122_enum_multi_payload_match.bkr \
             -o /tmp/122_enum_multi_payload_match.c
           test -s /tmp/122_enum_multi_payload_match.c
@@ -2026,7 +1958,7 @@ jobs:
       - name: Compile 123_enum_payload_nonexhaustive_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/123_enum_payload_nonexhaustive_BAD.bkr \
             -o /tmp/123_enum_payload_nonexhaustive_BAD.c
           test -s /tmp/123_enum_payload_nonexhaustive_BAD.c
@@ -2043,7 +1975,7 @@ jobs:
           grep -q 'bkr_enum_payload1' self-host/runtime.h
           grep -q 'bkr_enum_tag' self-host/runtime.h
           grep -q 'bkr_enum_field' self-host/runtime.h
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/124_enum_string_payload.bkr \
             -o /tmp/124_enum_string_payload.c
           test -s /tmp/124_enum_string_payload.c
@@ -2063,7 +1995,7 @@ jobs:
       - name: Compile and run canonical Result & Option enum fixture (125)
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/125_result_option_canonical_enum.bkr \
             -o /tmp/125_result_option_canonical_enum.c
           test -s /tmp/125_result_option_canonical_enum.c
@@ -2079,12 +2011,12 @@ jobs:
           set -e
           echo "125_result_option_canonical_enum exited $status, expected 42"
           test "$status" -eq 42
-          ./bunker-cli/target/release/bunker-cli run tests/125_result_option_canonical_enum.bkr
+          ./bkrc run tests/125_result_option_canonical_enum.bkr
 
       - name: Compile 126_result_match_nonexhaustive_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/126_result_match_nonexhaustive_BAD.bkr \
             -o /tmp/126_result_match_nonexhaustive_BAD.c
           test -s /tmp/126_result_match_nonexhaustive_BAD.c
@@ -2098,7 +2030,7 @@ jobs:
       - name: Compile and run process arguments driver fixture (127)
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/127_cli_args_driver.bkr \
             -o /tmp/127_cli_args_driver.c
           test -s /tmp/127_cli_args_driver.c
@@ -2114,12 +2046,12 @@ jobs:
           set -e
           echo "127_cli_args_driver exited $status, expected 42"
           test "$status" -eq 42
-          ./bunker-cli/target/release/bunker-cli run tests/127_cli_args_driver.bkr
+          ./bkrc run tests/127_cli_args_driver.bkr
 
       - name: Compile and run match guards fixture (128)
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/128_match_guard.bkr \
             -o /tmp/128_match_guard.c
           test -s /tmp/128_match_guard.c
@@ -2132,12 +2064,12 @@ jobs:
           set -e
           echo "128_match_guard exited $status, expected 42"
           test "$status" -eq 42
-          ./bunker-cli/target/release/bunker-cli run tests/128_match_guard.bkr
+          ./bkrc run tests/128_match_guard.bkr
 
       - name: Compile and run unit type fixture (129)
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/129_unit_type.bkr \
             -o /tmp/129_unit_type.c
           test -s /tmp/129_unit_type.c
@@ -2150,12 +2082,12 @@ jobs:
           set -e
           echo "129_unit_type exited $status, expected 42"
           test "$status" -eq 42
-          ./bunker-cli/target/release/bunker-cli run tests/129_unit_type.bkr
+          ./bkrc run tests/129_unit_type.bkr
 
       - name: Compile and run tuple types acceptance test
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/130_tuple_types.bkr \
             -o /tmp/130_tuple_types.c
           test -s /tmp/130_tuple_types.c
@@ -2168,12 +2100,12 @@ jobs:
           set -e
           echo "130_tuple_types exited $status, expected 42"
           test "$status" -eq 42
-          ./bunker-cli/target/release/bunker-cli run tests/130_tuple_types.bkr
+          ./bkrc run tests/130_tuple_types.bkr
 
       - name: Compile and run struct destructuring acceptance test
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/131_struct_destructuring.bkr \
             -o /tmp/131_struct_destructuring.c
           test -s /tmp/131_struct_destructuring.c
@@ -2186,12 +2118,12 @@ jobs:
           set -e
           echo "131_struct_destructuring exited $status, expected 42"
           test "$status" -eq 42
-          ./bunker-cli/target/release/bunker-cli run tests/131_struct_destructuring.bkr
+          ./bkrc run tests/131_struct_destructuring.bkr
 
       - name: Compile and run try operator acceptance test
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/132_try_operator.bkr \
             -o /tmp/132_try_operator.c
           test -s /tmp/132_try_operator.c
@@ -2204,32 +2136,32 @@ jobs:
           set -e
           echo "132_try_operator exited $status, expected 42"
           test "$status" -eq 42
-          ./bunker-cli/target/release/bunker-cli run tests/132_try_operator.bkr
+          ./bkrc run tests/132_try_operator.bkr
 
       - name: Run labeled loops acceptance test (JIT)
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/133_labeled_loops.bkr
+          ./bkrc run tests/133_labeled_loops.bkr
 
       - name: Run panic abort policy acceptance test (JIT)
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/134_panic_abort_policy.bkr
+          ./bkrc run tests/134_panic_abort_policy.bkr
 
       - name: Run recoverable error conventions acceptance test (JIT)
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/135_recoverable_error_conventions.bkr
+          ./bkrc run tests/135_recoverable_error_conventions.bkr
 
       - name: Run generic collections self-host acceptance test (JIT)
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/136_generic_collections_self_host.bkr
+          ./bkrc run tests/136_generic_collections_self_host.bkr
 
       - name: Compile generic collections fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/136_generic_collections_self_host.bkr \
             -o /tmp/136_generic_collections_self_host.c
           test -s /tmp/136_generic_collections_self_host.c
@@ -2245,12 +2177,12 @@ jobs:
       - name: Run type aliases acceptance test (JIT)
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/137_type_aliases.bkr
+          ./bkrc run tests/137_type_aliases.bkr
 
       - name: Compile type aliases fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/137_type_aliases.bkr \
             -o /tmp/137_type_aliases.c
           test -s /tmp/137_type_aliases.c
@@ -2261,12 +2193,12 @@ jobs:
       - name: Run never type acceptance test (JIT)
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/138_never_type.bkr
+          ./bkrc run tests/138_never_type.bkr
 
       - name: Compile never type fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/138_never_type.bkr \
             -o /tmp/138_never_type.c
           test -s /tmp/138_never_type.c
@@ -2277,12 +2209,12 @@ jobs:
       - name: Run nested patterns acceptance test (JIT)
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/139_nested_patterns.bkr
+          ./bkrc run tests/139_nested_patterns.bkr
 
       - name: Compile nested patterns fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/139_nested_patterns.bkr \
             -o /tmp/139_nested_patterns.c
           test -s /tmp/139_nested_patterns.c
@@ -2292,12 +2224,12 @@ jobs:
       - name: Run exhaustive matches acceptance test (JIT)
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/140_exhaustive_matches.bkr
+          ./bkrc run tests/140_exhaustive_matches.bkr
 
       - name: Compile exhaustive matches fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/140_exhaustive_matches.bkr \
             -o /tmp/140_exhaustive_matches.c
           test -s /tmp/140_exhaustive_matches.c
@@ -2307,7 +2239,7 @@ jobs:
       - name: Compile 141_bool_match_nonexhaustive_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/141_bool_match_nonexhaustive_BAD.bkr \
             -o /tmp/141_bool_match_nonexhaustive_BAD.c
           test -s /tmp/141_bool_match_nonexhaustive_BAD.c
@@ -2317,7 +2249,7 @@ jobs:
       - name: Compile 142_option_match_nonexhaustive_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/142_option_match_nonexhaustive_BAD.bkr \
             -o /tmp/142_option_match_nonexhaustive_BAD.c
           test -s /tmp/142_option_match_nonexhaustive_BAD.c
@@ -2327,7 +2259,7 @@ jobs:
       - name: Compile 143_scalar_match_nonexhaustive_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/143_scalar_match_nonexhaustive_BAD.bkr \
             -o /tmp/143_scalar_match_nonexhaustive_BAD.c
           test -s /tmp/143_scalar_match_nonexhaustive_BAD.c
@@ -2337,12 +2269,12 @@ jobs:
       - name: Verify 144_pattern_type_checking fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/144_pattern_type_checking.bkr
+          ./bkrc run tests/144_pattern_type_checking.bkr
 
       - name: Compile pattern type checking fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/144_pattern_type_checking.bkr \
             -o /tmp/144_pattern_type_checking.c
           test -s /tmp/144_pattern_type_checking.c
@@ -2352,7 +2284,7 @@ jobs:
       - name: Compile 145_unreachable_pattern_catchall_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/145_unreachable_pattern_catchall_BAD.bkr \
             -o /tmp/145_unreachable_pattern_catchall_BAD.c
           test -s /tmp/145_unreachable_pattern_catchall_BAD.c
@@ -2362,7 +2294,7 @@ jobs:
       - name: Compile 146_unreachable_pattern_finite_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/146_unreachable_pattern_finite_BAD.bkr \
             -o /tmp/146_unreachable_pattern_finite_BAD.c
           test -s /tmp/146_unreachable_pattern_finite_BAD.c
@@ -2372,7 +2304,7 @@ jobs:
       - name: Compile 147_duplicate_match_pattern_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/147_duplicate_match_pattern_BAD.bkr \
             -o /tmp/147_duplicate_match_pattern_BAD.c
           test -s /tmp/147_duplicate_match_pattern_BAD.c
@@ -2382,12 +2314,12 @@ jobs:
       - name: Verify 148_local_type_inference fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/148_local_type_inference.bkr
+          ./bkrc run tests/148_local_type_inference.bkr
 
       - name: Compile local type inference fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/148_local_type_inference.bkr \
             -o /tmp/148_local_type_inference.c
           test -s /tmp/148_local_type_inference.c
@@ -2397,7 +2329,7 @@ jobs:
       - name: Compile 149_unannotated_empty_array_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/149_unannotated_empty_array_BAD.bkr \
             -o /tmp/149_unannotated_empty_array_BAD.c
           test -s /tmp/149_unannotated_empty_array_BAD.c
@@ -2407,12 +2339,12 @@ jobs:
       - name: Verify 150_call_result_inference fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/150_call_result_inference.bkr
+          ./bkrc run tests/150_call_result_inference.bkr
 
       - name: Compile call result inference fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/150_call_result_inference.bkr \
             -o /tmp/150_call_result_inference.c
           test -s /tmp/150_call_result_inference.c
@@ -2422,7 +2354,7 @@ jobs:
       - name: Compile 151_call_arity_mismatch_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/151_call_arity_mismatch_BAD.bkr \
             -o /tmp/151_call_arity_mismatch_BAD.c
           test -s /tmp/151_call_arity_mismatch_BAD.c
@@ -2432,7 +2364,7 @@ jobs:
       - name: Compile 152_call_arg_type_mismatch_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/152_call_arg_type_mismatch_BAD.bkr \
             -o /tmp/152_call_arg_type_mismatch_BAD.c
           test -s /tmp/152_call_arg_type_mismatch_BAD.c
@@ -2442,7 +2374,7 @@ jobs:
       - name: Compile 153_builtin_arity_mismatch_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/153_builtin_arity_mismatch_BAD.bkr \
             -o /tmp/153_builtin_arity_mismatch_BAD.c
           test -s /tmp/153_builtin_arity_mismatch_BAD.c
@@ -2452,7 +2384,7 @@ jobs:
       - name: Compile 154_builtin_arg_type_mismatch_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/154_builtin_arg_type_mismatch_BAD.bkr \
             -o /tmp/154_builtin_arg_type_mismatch_BAD.c
           test -s /tmp/154_builtin_arg_type_mismatch_BAD.c
@@ -2462,12 +2394,12 @@ jobs:
       - name: Verify 155_inference_constructors fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/155_inference_constructors.bkr
+          ./bkrc run tests/155_inference_constructors.bkr
 
       - name: Compile 155_inference_constructors through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/155_inference_constructors.bkr \
             -o /tmp/155_inference_constructors.c
           test -s /tmp/155_inference_constructors.c
@@ -2477,7 +2409,7 @@ jobs:
       - name: Compile 156_unannotated_none_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/156_unannotated_none_BAD.bkr \
             -o /tmp/156_unannotated_none_BAD.c
           test -s /tmp/156_unannotated_none_BAD.c
@@ -2487,7 +2419,7 @@ jobs:
       - name: Compile 157_unannotated_result_ctor_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/157_unannotated_result_ctor_BAD.bkr \
             -o /tmp/157_unannotated_result_ctor_BAD.c
           test -s /tmp/157_unannotated_result_ctor_BAD.c
@@ -2497,7 +2429,7 @@ jobs:
       - name: Compile 158_unannotated_vec_ctor_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/158_unannotated_vec_ctor_BAD.bkr \
             -o /tmp/158_unannotated_vec_ctor_BAD.c
           test -s /tmp/158_unannotated_vec_ctor_BAD.c
@@ -2507,7 +2439,7 @@ jobs:
       - name: Compile 159_unannotated_map_ctor_BAD through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/159_unannotated_map_ctor_BAD.bkr \
             -o /tmp/159_unannotated_map_ctor_BAD.c
           test -s /tmp/159_unannotated_map_ctor_BAD.c
@@ -2517,12 +2449,12 @@ jobs:
       - name: Verify 160_user_defined_enums_adt fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/160_user_defined_enums_adt.bkr
+          ./bkrc run tests/160_user_defined_enums_adt.bkr
 
       - name: Compile 160_user_defined_enums_adt through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/160_user_defined_enums_adt.bkr \
             -o /tmp/160_user_defined_enums_adt.c
           test -s /tmp/160_user_defined_enums_adt.c
@@ -2532,12 +2464,12 @@ jobs:
       - name: Verify 161_cast_safety_rules fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/161_cast_safety_rules.bkr
+          ./bkrc run tests/161_cast_safety_rules.bkr
 
       - name: Compile 161_cast_safety_rules through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/161_cast_safety_rules.bkr \
             -o /tmp/161_cast_safety_rules.c
           test -s /tmp/161_cast_safety_rules.c
@@ -2547,7 +2479,7 @@ jobs:
       - name: Verify 162_invalid_struct_cast_BAD rejected by self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/162_invalid_struct_cast_BAD.bkr \
             -o /tmp/162_invalid_struct_cast_BAD.c
           test -s /tmp/162_invalid_struct_cast_BAD.c
@@ -2557,7 +2489,7 @@ jobs:
       - name: Verify 163_invalid_array_cast_BAD rejected by self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/163_invalid_array_cast_BAD.bkr \
             -o /tmp/163_invalid_array_cast_BAD.c
           test -s /tmp/163_invalid_array_cast_BAD.c
@@ -2567,12 +2499,12 @@ jobs:
       - name: Verify 164_user_defined_adt_option_result fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/164_user_defined_adt_option_result.bkr
+          ./bkrc run tests/164_user_defined_adt_option_result.bkr
 
       - name: Compile 164_user_defined_adt_option_result through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/164_user_defined_adt_option_result.bkr \
             -o /tmp/164_user_defined_adt_option_result.c
           test -s /tmp/164_user_defined_adt_option_result.c
@@ -2582,12 +2514,12 @@ jobs:
       - name: Verify 167_nested_structs_arrays fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/167_nested_structs_arrays.bkr
+          ./bkrc run tests/167_nested_structs_arrays.bkr
 
       - name: Compile 167_nested_structs_arrays through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/167_nested_structs_arrays.bkr \
             -o /tmp/167_nested_structs_arrays.c
           test -s /tmp/167_nested_structs_arrays.c
@@ -2597,7 +2529,7 @@ jobs:
       - name: Verify 168_invalid_nested_struct_field_BAD rejected by self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/168_invalid_nested_struct_field_BAD.bkr \
             -o /tmp/168_invalid_nested_struct_field_BAD.c
           test -s /tmp/168_invalid_nested_struct_field_BAD.c
@@ -2607,12 +2539,12 @@ jobs:
       - name: Verify 169_typed_vec_complete fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/169_typed_vec_complete.bkr
+          ./bkrc run tests/169_typed_vec_complete.bkr
 
       - name: Compile 169_typed_vec_complete through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/169_typed_vec_complete.bkr \
             -o /tmp/169_typed_vec_complete.c
           test -s /tmp/169_typed_vec_complete.c
@@ -2622,12 +2554,12 @@ jobs:
       - name: Verify 170_typed_hashmap_str_keys fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/170_typed_hashmap_str_keys.bkr
+          ./bkrc run tests/170_typed_hashmap_str_keys.bkr
 
       - name: Compile 170_typed_hashmap_str_keys through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/170_typed_hashmap_str_keys.bkr \
             -o /tmp/170_typed_hashmap_str_keys.c
           test -s /tmp/170_typed_hashmap_str_keys.c
@@ -2637,17 +2569,17 @@ jobs:
       - name: Verify 171_typed_vec_get_type_mismatch_BAD rejected by self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/171_typed_vec_get_type_mismatch_BAD.bkr \
             -o /tmp/171_typed_vec_get_type_mismatch_BAD.c
           test -s /tmp/171_typed_vec_get_type_mismatch_BAD.c
           grep -q '"kind":"annotation_type_mismatch"' /tmp/171_typed_vec_get_type_mismatch_BAD.c
           grep -q "Change the initializer for s or update the declared local type." /tmp/171_typed_vec_get_type_mismatch_BAD.c
 
-      - name: Verify 172_typed_hashmap_val_type_mismatch_BAD rejected by bunker-cli
+      - name: Verify 172_typed_hashmap_val_type_mismatch_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/172_typed_hashmap_val_type_mismatch_BAD.bkr; then
+          if ./bkrc check tests/172_typed_hashmap_val_type_mismatch_BAD.bkr; then
             echo "Expected 172_typed_hashmap_val_type_mismatch_BAD to fail"
             exit 1
           fi
@@ -2655,30 +2587,30 @@ jobs:
       - name: Verify 173_struct_methods fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/173_struct_methods.bkr
+          ./bkrc run tests/173_struct_methods.bkr
 
       - name: Compile 173_struct_methods through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/173_struct_methods.bkr \
             -o /tmp/173_struct_methods.c
           test -s /tmp/173_struct_methods.c
           grep -q "BUNKER_AST_JSON" /tmp/173_struct_methods.c
           grep -q '"has_diagnostics":false' /tmp/173_struct_methods.c
 
-      - name: Verify 174_method_call_on_non_struct_BAD rejected by bunker-cli
+      - name: Verify 174_method_call_on_non_struct_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/174_method_call_on_non_struct_BAD.bkr; then
+          if ./bkrc check tests/174_method_call_on_non_struct_BAD.bkr; then
             echo "Expected 174_method_call_on_non_struct_BAD to fail"
             exit 1
           fi
 
-      - name: Verify 175_method_not_found_BAD rejected by bunker-cli
+      - name: Verify 175_method_not_found_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/175_method_not_found_BAD.bkr; then
+          if ./bkrc check tests/175_method_not_found_BAD.bkr; then
             echo "Expected 175_method_not_found_BAD to fail"
             exit 1
           fi
@@ -2686,30 +2618,30 @@ jobs:
       - name: Verify 176_struct_update_tuple_struct fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/176_struct_update_tuple_struct.bkr
+          ./bkrc run tests/176_struct_update_tuple_struct.bkr
 
       - name: Compile 176_struct_update_tuple_struct through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/176_struct_update_tuple_struct.bkr \
             -o /tmp/176_struct_update_tuple_struct.c
           test -s /tmp/176_struct_update_tuple_struct.c
           grep -q "BUNKER_AST_JSON" /tmp/176_struct_update_tuple_struct.c
           grep -q '"has_diagnostics":false' /tmp/176_struct_update_tuple_struct.c
 
-      - name: Verify 177_struct_update_mismatched_base_BAD rejected by bunker-cli
+      - name: Verify 177_struct_update_mismatched_base_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/177_struct_update_mismatched_base_BAD.bkr; then
+          if ./bkrc check tests/177_struct_update_mismatched_base_BAD.bkr; then
             echo "Expected 177_struct_update_mismatched_base_BAD to fail"
             exit 1
           fi
 
-      - name: Verify 178_tuple_struct_arity_mismatch_BAD rejected by bunker-cli
+      - name: Verify 178_tuple_struct_arity_mismatch_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/178_tuple_struct_arity_mismatch_BAD.bkr; then
+          if ./bkrc check tests/178_tuple_struct_arity_mismatch_BAD.bkr; then
             echo "Expected 178_tuple_struct_arity_mismatch_BAD to fail"
             exit 1
           fi
@@ -2717,30 +2649,30 @@ jobs:
       - name: Verify 179_expression_blocks fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/179_expression_blocks.bkr
+          ./bkrc run tests/179_expression_blocks.bkr
 
       - name: Compile 179_expression_blocks through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/179_expression_blocks.bkr \
             -o /tmp/179_expression_blocks.c
           test -s /tmp/179_expression_blocks.c
           grep -q "BUNKER_AST_JSON" /tmp/179_expression_blocks.c
           grep -q '"has_diagnostics":false' /tmp/179_expression_blocks.c
 
-      - name: Verify 180_block_expr_type_mismatch_BAD rejected by bunker-cli
+      - name: Verify 180_block_expr_type_mismatch_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/180_block_expr_type_mismatch_BAD.bkr; then
+          if ./bkrc check tests/180_block_expr_type_mismatch_BAD.bkr; then
             echo "Expected 180_block_expr_type_mismatch_BAD to fail"
             exit 1
           fi
 
-      - name: Verify 181_block_expr_void_as_value_BAD rejected by bunker-cli
+      - name: Verify 181_block_expr_void_as_value_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/181_block_expr_void_as_value_BAD.bkr; then
+          if ./bkrc check tests/181_block_expr_void_as_value_BAD.bkr; then
             echo "Expected 181_block_expr_void_as_value_BAD to fail"
             exit 1
           fi
@@ -2748,30 +2680,30 @@ jobs:
       - name: Verify 182_runtime_stdlib_complete fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/182_runtime_stdlib_complete.bkr
+          ./bkrc run tests/182_runtime_stdlib_complete.bkr
 
       - name: Compile 182_runtime_stdlib_complete through self-host compiler
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli self-host-compile \
+          ./bkrc self-host-compile \
             tests/182_runtime_stdlib_complete.bkr \
             -o /tmp/182_runtime_stdlib_complete.c
           test -s /tmp/182_runtime_stdlib_complete.c
           grep -q "BUNKER_AST_JSON" /tmp/182_runtime_stdlib_complete.c
           grep -q '"has_diagnostics":false' /tmp/182_runtime_stdlib_complete.c
 
-      - name: Verify 183_stdlib_string_type_mismatch_BAD rejected by bunker-cli
+      - name: Verify 183_stdlib_string_type_mismatch_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/183_stdlib_string_type_mismatch_BAD.bkr; then
+          if ./bkrc check tests/183_stdlib_string_type_mismatch_BAD.bkr; then
             echo "Expected 183_stdlib_string_type_mismatch_BAD to fail"
             exit 1
           fi
 
-      - name: Verify 184_stdlib_arity_mismatch_BAD rejected by bunker-cli
+      - name: Verify 184_stdlib_arity_mismatch_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/184_stdlib_arity_mismatch_BAD.bkr; then
+          if ./bkrc check tests/184_stdlib_arity_mismatch_BAD.bkr; then
             echo "Expected 184_stdlib_arity_mismatch_BAD to fail"
             exit 1
           fi
@@ -2779,30 +2711,30 @@ jobs:
       - name: Verify 185_higher_order_functions fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/185_higher_order_functions.bkr
+          ./bkrc run tests/185_higher_order_functions.bkr
 
       - name: Compile 185_higher_order_functions through self-host compiler
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli self-host-compile \
+          ./bkrc self-host-compile \
             tests/185_higher_order_functions.bkr \
             -o /tmp/185_higher_order_functions.c
           test -s /tmp/185_higher_order_functions.c
           grep -q "BUNKER_AST_JSON" /tmp/185_higher_order_functions.c
           grep -q '"has_diagnostics":false' /tmp/185_higher_order_functions.c
 
-      - name: Verify 186_fn_type_mismatch_BAD rejected by bunker-cli
+      - name: Verify 186_fn_type_mismatch_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/186_fn_type_mismatch_BAD.bkr; then
+          if ./bkrc check tests/186_fn_type_mismatch_BAD.bkr; then
             echo "Expected 186_fn_type_mismatch_BAD to fail"
             exit 1
           fi
 
-      - name: Verify 187_fn_arity_mismatch_BAD rejected by bunker-cli
+      - name: Verify 187_fn_arity_mismatch_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/187_fn_arity_mismatch_BAD.bkr; then
+          if ./bkrc check tests/187_fn_arity_mismatch_BAD.bkr; then
             echo "Expected 187_fn_arity_mismatch_BAD to fail"
             exit 1
           fi
@@ -2810,22 +2742,22 @@ jobs:
       - name: Verify 188_vec_hashmap_combinators fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/188_vec_hashmap_combinators.bkr
+          ./bkrc run tests/188_vec_hashmap_combinators.bkr
 
       - name: Compile 188_vec_hashmap_combinators through self-host compiler
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli self-host-compile \
+          ./bkrc self-host-compile \
             tests/188_vec_hashmap_combinators.bkr \
             -o /tmp/188_vec_hashmap_combinators.c
           test -s /tmp/188_vec_hashmap_combinators.c
           grep -q "BUNKER_AST_JSON" /tmp/188_vec_hashmap_combinators.c
           grep -q '"has_diagnostics":false' /tmp/188_vec_hashmap_combinators.c
 
-      - name: Verify 189_combinator_type_mismatch_BAD rejected by bunker-cli
+      - name: Verify 189_combinator_type_mismatch_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/189_combinator_type_mismatch_BAD.bkr; then
+          if ./bkrc check tests/189_combinator_type_mismatch_BAD.bkr; then
             echo "Expected 189_combinator_type_mismatch_BAD to fail"
             exit 1
           fi
@@ -2833,38 +2765,38 @@ jobs:
       - name: Verify 190_visibility_and_mutability fixture executes in JIT
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli run tests/190_visibility_and_mutability.bkr
+          ./bkrc run tests/190_visibility_and_mutability.bkr
 
       - name: Compile 190_visibility_and_mutability through self-host compiler
         timeout-minutes: 2
         run: |
-          ./bunker-cli/target/release/bunker-cli self-host-compile \
+          ./bkrc self-host-compile \
             tests/190_visibility_and_mutability.bkr \
             -o /tmp/190_visibility_and_mutability.c
           test -s /tmp/190_visibility_and_mutability.c
           grep -q "BUNKER_AST_JSON" /tmp/190_visibility_and_mutability.c
           grep -q '"has_diagnostics":false' /tmp/190_visibility_and_mutability.c
 
-      - name: Verify 191_immutable_assignment_BAD rejected by bunker-cli
+      - name: Verify 191_immutable_assignment_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/191_immutable_assignment_BAD.bkr; then
+          if ./bkrc check tests/191_immutable_assignment_BAD.bkr; then
             echo "Expected 191_immutable_assignment_BAD to fail"
             exit 1
           fi
 
-      - name: Verify 192_private_symbol_access_BAD rejected by bunker-cli
+      - name: Verify 192_private_symbol_access_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/192_private_symbol_access_BAD.bkr; then
+          if ./bkrc check tests/192_private_symbol_access_BAD.bkr; then
             echo "Expected 192_private_symbol_access_BAD to fail"
             exit 1
           fi
 
-      - name: Verify 193_const_assignment_BAD rejected by bunker-cli
+      - name: Verify 193_const_assignment_BAD rejected by bkrc
         timeout-minutes: 2
         run: |
-          if ./bunker-cli/target/release/bunker-cli check tests/193_const_assignment_BAD.bkr; then
+          if ./bkrc check tests/193_const_assignment_BAD.bkr; then
             echo "Expected 193_const_assignment_BAD to fail"
             exit 1
           fi
@@ -2872,7 +2804,7 @@ jobs:
       - name: Compile basic fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/01_basic_math.bkr \
             -o /tmp/01_basic_math.c
           test -s /tmp/01_basic_math.c
@@ -2931,7 +2863,7 @@ jobs:
       - name: Compile and run arena memory fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/02_arena_memory.bkr \
             -o /tmp/02_arena_memory.c
           test -s /tmp/02_arena_memory.c
@@ -2964,7 +2896,7 @@ jobs:
               }
           }
           BKR
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             /tmp/resolver_bad.bkr \
             -o /tmp/resolver_bad.c
           test -s /tmp/resolver_bad.c
@@ -3005,7 +2937,7 @@ jobs:
               }
           }
           BKR
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             /tmp/typecheck_bad.bkr \
             -o /tmp/typecheck_bad.c
           test -s /tmp/typecheck_bad.c
@@ -3031,7 +2963,7 @@ jobs:
       - name: Compile branching fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/14_kernel_if_branching.bkr \
             -o /tmp/14_kernel_if_branching.c
           test -s /tmp/14_kernel_if_branching.c
@@ -3047,7 +2979,7 @@ jobs:
       - name: Compile incremental parser fixture through self-host compiler
         timeout-minutes: 3
         run: |
-          timeout --kill-after=5s 120s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 120s ./bkrc self-host-compile \
             tests/99_incremental_1.bkr \
             -o /tmp/99_incremental_1.c
           test -s /tmp/99_incremental_1.c
@@ -3064,7 +2996,7 @@ jobs:
       - name: Compile incremental codegen fixture through self-host compiler
         timeout-minutes: 3
         run: |
-          timeout --kill-after=5s 120s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 120s ./bkrc self-host-compile \
             tests/99_incremental_2.bkr \
             -o /tmp/99_incremental_2.c
           test -s /tmp/99_incremental_2.c
@@ -3081,7 +3013,7 @@ jobs:
       - name: Compile while-loop fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/38_kernel_while_loop.bkr \
             -o /tmp/38_kernel_while_loop.c
           test -s /tmp/38_kernel_while_loop.c
@@ -3097,7 +3029,7 @@ jobs:
       - name: Compile while-break fixture through self-host compiler
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/39_kernel_while_break.bkr \
             -o /tmp/39_kernel_while_break.c
           test -s /tmp/39_kernel_while_break.c
@@ -3113,7 +3045,7 @@ jobs:
       - name: Compile with imported self-host compiler modules
         timeout-minutes: 2
         run: |
-          timeout --kill-after=5s 60s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 60s ./bkrc self-host-compile \
             tests/01_basic_math.bkr \
             --compiler fixtures/self-host-import/driver.bkr \
             -o /tmp/imported_compiler.c
@@ -3143,7 +3075,7 @@ jobs:
           ) &
           trace_pid=$!
           set +e
-          BUNKER_SELF_HOST_TRACE=1 timeout --kill-after=5s 600s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          BUNKER_SELF_HOST_TRACE=1 timeout --kill-after=5s 600s ./bkrc self-host-compile \
             self-host/bkrc.bkr \
             -o /tmp/bkrc.c
           stage1_status=$?
@@ -3403,11 +3335,11 @@ jobs:
           run_stage2_bkrc_fixture tests/99_incremental_1.bkr incremental_1 42
           run_stage2_bkrc_fixture tests/99_incremental_2.bkr incremental_2 42
 
-          rust_fixture_result() {
+          bunker_fixture_result() {
             fixture="$1"
             name="$2"
-            log="/tmp/golden-rust-$name.log"
-            NO_COLOR=1 ./bunker-cli/target/release/bunker-cli run "$fixture" > "$log"
+            log="/tmp/golden-bunker-$name.log"
+            NO_COLOR=1 ./bkrc run "$fixture" > "$log"
             result="$(sed -r 's/\x1B\[[0-9;]*[mK]//g' "$log" | awk '/Result:/ {print $NF}' | tail -n 1 | tr -d '\r')"
             test -n "$result"
             printf '%s' "$result"
@@ -3433,18 +3365,18 @@ jobs:
             timeout --kill-after=5s 60s "$run_dir/$name"
             program_status=$?
             set -e
-            echo "golden $name produced $program_status, Rust expected $expected_result"
+            echo "golden $name produced $program_status, expected $expected_result"
             test "$program_status" -eq "$expected_result"
           }
 
           run_self_host_golden_fixture() {
             fixture="$1"
             name="$2"
-            rust_result="$(rust_fixture_result "$fixture" "$name")"
+            golden_result="$(bunker_fixture_result "$fixture" "$name")"
             stage1_dir="/tmp/golden-stage1-$name"
             stage2_dir="/tmp/golden-stage2-$name"
-            run_golden_compiler_fixture /tmp/bkrc "$fixture" "$name" "$rust_result" "$stage1_dir"
-            run_golden_compiler_fixture "$self_compile_dir/bkrc2" "$fixture" "$name" "$rust_result" "$stage2_dir"
+            run_golden_compiler_fixture /tmp/bkrc "$fixture" "$name" "$golden_result" "$stage1_dir"
+            run_golden_compiler_fixture "$self_compile_dir/bkrc2" "$fixture" "$name" "$golden_result" "$stage2_dir"
             diff -u "$stage1_dir/self_host_output.c" "$stage2_dir/self_host_output.c"
           }
 
@@ -3482,23 +3414,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Link archived Stage 0 Rust compiler
-        shell: bash
-        run: ln -sf archive/bootstrap/stage0-rust bunker-cli
-
       - name: Build pure Bunker compiler from bootstrap C seed
         run: |
           bash bootstrap/build.sh
           test -x ./bkrc
-          mkdir -p bunker-cli/target/release
-          ln -sf "$(pwd)/bkrc" bunker-cli/target/release/bunker-cli
-          chmod +x bunker-cli/target/release/bunker-cli
 
       - name: Compile incremental parser fixture under resource caps
         timeout-minutes: 3
         run: |
           ulimit -v 1500000
-          timeout --kill-after=5s 120s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 120s ./bkrc self-host-compile \
             tests/99_incremental_1.bkr \
             -o /tmp/99_incremental_1.c
 
@@ -3506,7 +3431,7 @@ jobs:
         timeout-minutes: 3
         run: |
           ulimit -v 1500000
-          timeout --kill-after=5s 120s ./bunker-cli/target/release/bunker-cli self-host-compile \
+          timeout --kill-after=5s 120s ./bkrc self-host-compile \
             tests/99_incremental_2.bkr \
             -o /tmp/99_incremental_2.c
 

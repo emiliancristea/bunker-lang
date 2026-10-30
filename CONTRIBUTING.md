@@ -1,88 +1,113 @@
 # Contributing to Bunker Language
 
-Thank you for your interest in contributing to Bunker! This document provides guidelines for contributing.
+Thank you for your interest in contributing to Bunker! This document provides guidelines for contributing to the 100% self-hosted Bunker codebase.
 
 ## Getting Started
 
 1. Fork the repository
 2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/bunker-lang.git`
 3. Create a branch: `git checkout -b feature/your-feature-name`
-4. Make your changes
-5. Run tests: `cargo test` (in bunker-cli directory)
+4. Make your changes in `self-host/modules/` or `tests/`
+5. Run tests: `./run_tests.ps1`
 6. Commit: `git commit -m "Add your feature"`
 7. Push: `git push origin feature/your-feature-name`
 8. Open a Pull Request
 
 ## Development Setup
 
-### Prerequisites
-- Rust 1.70 or later
-- Cargo
+Bunker is 100% self-hosted in pure Bunker with zero external runtime dependencies. No Rust, Cargo, Node, or Python is required.
 
-### Building
+### Prerequisites
+- A standard C11 compiler for bootstrapping:
+  - **Linux / macOS**: GCC or Clang (`cc`, `gcc`, or `clang`)
+  - **Windows**: MSVC (`cl.exe`), GCC (MinGW), or Clang
+
+### Building the Native Compiler
+
+To bootstrap the native compiler binary (`bkrc` / `bkrc.exe`) from the canonical C11 seed:
+
 ```bash
-cd bunker-cli
-cargo build
+# POSIX (Linux, macOS)
+bash bootstrap/build.sh
+
+# Windows (Command Prompt or PowerShell)
+bootstrap\build.bat
 ```
 
 ### Running Tests
-```bash
-# Run all Rust tests
-cargo test
 
-# Test compilation of all .bkr files
-cd ..
-for f in tests/*.bkr; do
-    ./bunker-cli/target/debug/bunker-cli check "$f"
-done
+```powershell
+# Run full 320-test automated validation suite (Windows / PowerShell)
+$env:GITHUB_ACTIONS = "true"
+.\run_tests.ps1 -Verbose
 ```
 
-## Code Style
+```bash
+# Check or run specific tests using bkrc directly
+./bkrc check tests/01_basic_math.bkr
+./bkrc run tests/01_basic_math.bkr
+```
 
-- Follow standard Rust formatting (`cargo fmt`)
-- Run clippy: `cargo clippy`
-- Keep functions focused and small
-- Add comments for complex logic
-- Use meaningful variable names
+## Compiler Architecture & Project Structure
 
-## Project Structure
+The entire production compiler is written in pure Bunker under `self-host/`:
 
-| Directory | Purpose |
-|-----------|---------|
-| `bunker-cli/src/grammar/` | PEG grammar (bunker.pest) |
-| `bunker-cli/src/ast.rs` | AST type definitions |
-| `bunker-cli/src/ast_builder.rs` | Parse tree to AST conversion |
-| `bunker-cli/src/typeck.rs` | Type checking |
-| `bunker-cli/src/codegen.rs` | Cranelift code generation |
-| `bunker-cli/src/shell_codegen.rs` | Shell layer compilation |
-| `tests/` | Golden test files |
+| Module | Purpose |
+|--------|---------|
+| `self-host/bkrc.bkr` | Main compiler driver entry point |
+| `self-host/modules/driver.bkr` | CLI arguments, subcommands (`check`, `compile`, `run`, `capability`, `parse`), driver pipeline |
+| `self-host/modules/lexer.bkr` | Tokenizer, scan loops, token kind classifications |
+| `self-host/modules/parser.bkr` | Recursive descent parser emitting typed AST records |
+| `self-host/modules/ast.bkr` | AST record types, spans, node list abstractions |
+| `self-host/modules/typecheck.bkr` | Semantic analyzer, type checking, inference, and error reporting |
+| `self-host/modules/resolver.bkr` | Symbol resolution, scope tables, import path directory handling |
+| `self-host/modules/c_codegen.bkr` | C11 emission & runtime ABI mapping |
+| `self-host/modules/shell.bkr` | Shell actor runtime declarations, state scheduling, message channels |
+| `self-host/modules/view.bkr` | View UI declarative trees and reactive bindings |
+| `self-host/modules/verify.bkr` | Linear arithmetic contract solver and pre/postcondition verification |
+| `bootstrap/` | Canonical C11 bootstrap compiler package and zero-diff fixpoint verification |
+| `tests/` | Golden acceptance test suite |
 
-## Areas for Contribution
+## Modifying the Compiler (Self-Host Bootstrap Cycle)
 
-### High Priority
-- Z3 verification integration
-- View layer code generation
-- Runtime library implementation
-- Error message improvements
+When modifying compiler logic in `self-host/modules/*.bkr`:
 
-### Medium Priority
-- Additional type inference
-- Optimization passes
-- Standard library functions
-- Documentation
+1. **Implement changes** in the appropriate `self-host/modules/*.bkr` file.
+2. **Recompile Stage 1**:
+   ```bash
+   ./bkrc compile self-host/bkrc.bkr -o bootstrap/bkrc-stage1.c
+   ```
+3. **Rebuild the compiler**:
+   ```bash
+   # POSIX:
+   bash bootstrap/build.sh
+   # Windows:
+   bootstrap\build.bat
+   ```
+4. **Recompile Stage 2 (Fixpoint Verification)**:
+   ```bash
+   ./bkrc compile self-host/bkrc.bkr -o bootstrap/bkrc-stage2.c
+   ```
+5. **Verify zero-diff fixpoint**:
+   ```bash
+   diff -u bootstrap/bkrc-stage1.c bootstrap/bkrc-stage2.c
+   ```
+6. **Update checksums**:
+   ```bash
+   # POSIX:
+   cd bootstrap && sha256sum bkrc-stage1.c bkrc-stage2.c runtime.h > SHA256SUMS
+   # Windows (PowerShell):
+   cd bootstrap; (Get-FileHash bkrc-stage1.c, bkrc-stage2.c, runtime.h -Algorithm SHA256) | ForEach-Object { "$($_.Hash.ToLower())  $($_.Path | Split-Path -Leaf)" } | Out-File -Encoding ascii SHA256SUMS
+   ```
+7. **Run tests**:
+   Ensure all 320 tests pass cleanly with `./run_tests.ps1`.
 
-### Good First Issues
-- Add more test cases
-- Improve error messages
-- Fix compiler warnings
-- Add code comments
+## Code Style & Invariants
 
-## Adding a New Feature
-
-1. **Grammar changes**: Edit `bunker.pest`, then update `ast.rs` and `ast_builder.rs`
-2. **Type checking**: Add cases to `typeck.rs`
-3. **Code generation**: Update `codegen.rs` or `shell_codegen.rs`
-4. **Tests**: Add a new `.bkr` file in `tests/`
+- **Pure LF Line Endings**: All repository files must use UNIX LF (`\n`, `0x0A`) line endings. Never commit CRLF.
+- **Pure Bunker**: All compiler logic belongs in `self-host/modules/`.
+- **Arena Memory**: Respect arena boundaries and move semantics; use `copy` only when explicit duplication is required.
+- **Typed APIs**: Use enum-backed kinds (`NodeKind`, `TokenKind`, `PatternKind`, `TypeKind`) rather than raw magic integers.
 
 ## Commit Message Format
 
@@ -93,31 +118,12 @@ done
 ```
 
 Types:
-- `feat`: New feature
+- `feat`: New language or compiler feature
 - `fix`: Bug fix
 - `docs`: Documentation
-- `refactor`: Code refactoring
-- `test`: Adding tests
-- `chore`: Maintenance
-
-Examples:
-```
-feat: add support for match expressions
-fix: correct type inference for array literals
-docs: update README with new examples
-```
-
-## Pull Request Process
-
-1. Ensure all tests pass
-2. Update documentation if needed
-3. Add tests for new features
-4. Keep PRs focused (one feature per PR)
-5. Respond to review feedback
-
-## Questions?
-
-Open an issue with the "question" label.
+- `refactor`: Code refactoring without behavior changes
+- `test`: Adding or updating test cases
+- `chore`: Maintenance, CI, or toolchain tasks
 
 ## License
 

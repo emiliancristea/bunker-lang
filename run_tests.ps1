@@ -14,17 +14,13 @@ if ($env:GITHUB_ACTIONS -ne "true") {
 
 $ErrorActionPreference = "Continue"
 
-# Support both pure-Bunker self-host compiler (bkrc) and bootstrap reference (bunker-cli)
+# Pure-Bunker self-host compiler (bkrc)
 if ($CompilerPath -and (Test-Path $CompilerPath)) {
     $bunker = $CompilerPath
 } elseif (Test-Path ".\bkrc.exe") {
     $bunker = ".\bkrc.exe"
 } elseif (Test-Path ".\bkrc") {
     $bunker = ".\bkrc"
-} elseif (Test-Path ".\archive\bootstrap\stage0-rust\target\release\bunker-cli.exe") {
-    $bunker = ".\archive\bootstrap\stage0-rust\target\release\bunker-cli.exe"
-} elseif (Test-Path ".\bunker-cli\target\release\bunker-cli.exe") {
-    $bunker = ".\bunker-cli\target\release\bunker-cli.exe"
 } else {
     $bunker = ".\bkrc.exe"
 }

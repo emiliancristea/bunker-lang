@@ -21,18 +21,18 @@ This document provides the authoritative **1:1 migration map** tracking every Ru
 
 | Rust Subsystem (`bunker-cli/src/`) | Bunker Replacement Target (`self-host/modules/`) | Core Responsibility | Status | Parity |
 |---|---|---|:---:|:---:|
-| [`main.rs`](../bunker-cli/src/main.rs) | [`driver.bkr`](../self-host/modules/driver.bkr) & [`bkrc.bkr`](../self-host/bkrc.bkr) | CLI argument ingestion (`bkrc <in> -o <out>`), driver pipeline orchestration, exit codes. | **DONE** | 90% |
-| [`parser.rs`](../bunker-cli/src/parser.rs) + `bunker.pest` | [`lexer.bkr`](../self-host/modules/lexer.bkr) & [`parser.bkr`](../self-host/modules/parser.bkr) | Pure-Bunker lexer and recursive descent parser without external grammar generators. | **DONE** | 95% |
-| [`ast.rs`](../bunker-cli/src/ast.rs) & [`ast_builder.rs`](../bunker-cli/src/ast_builder.rs) | [`ast.bkr`](../self-host/modules/ast.bkr), [`kind_model.bkr`](../self-host/modules/kind_model.bkr), [`constants.bkr`](../self-host/modules/constants.bkr) | AST construction, node kinds, typed AST wrappers, spans, and pattern definitions. | **DONE** | 90% |
-| [`typeck.rs`](../bunker-cli/src/typeck.rs) | [`typecheck.bkr`](../self-host/modules/typecheck.bkr), [`resolver.bkr`](../self-host/modules/resolver.bkr), [`symbol_table.bkr`](../self-host/modules/symbol_table.bkr), [`type_graph.bkr`](../self-host/modules/type_graph.bkr) | Lexical scoping, name resolution, type inference, return checking, exhaustiveness. | **PARTIAL** | 75% |
-| [`builtins.rs`](../bunker-cli/src/builtins.rs) | [`runtime.h`](../self-host/runtime.h) & stdlib builtins in [`typecheck.bkr`](../self-host/modules/typecheck.bkr) | Standard library signatures, runtime builtin dispatch, arithmetic/string/collection methods. | **DONE** | 90% |
-| [`codegen.rs`](../bunker-cli/src/codegen.rs) | [`c_codegen.bkr`](../self-host/modules/c_codegen.bkr) & [`cgen_state.bkr`](../self-host/modules/cgen_state.bkr) | C11 source emission, statement expressions, LIFO defer unwinding, expression lowering. | **DONE** | 85% |
-| [`jit.rs`](../bunker-cli/src/jit.rs) | [`runtime.h`](../self-host/runtime.h) + System C Compiler (GCC / Clang / MSVC) | In-memory execution; replaced in self-host architecture by compiling emitted C directly. | **DONE** | 95% |
-| [`comptime.rs`](../bunker-cli/src/comptime.rs) | [`c_codegen.bkr`](../self-host/modules/c_codegen.bkr) (const folding) + future `comptime.bkr` | Compile-time constant evaluation and static reduction. | **PARTIAL** | 60% |
-| [`diagnostic.rs`](../bunker-cli/src/diagnostic.rs) | [`ast_report.bkr`](../self-host/modules/ast_report.bkr) & [`report_support.bkr`](../self-host/modules/report_support.bkr) | ANSI colored error formatting and machine-readable JSON reports (`BUNKER_*_JSON`). | **DONE** | 80% |
-| [`verify.rs`](../archive/bootstrap/stage0-rust/src/verify.rs) & [`smt.rs`](../archive/bootstrap/stage0-rust/src/smt.rs) | [`verify.bkr`](../self-host/modules/verify.bkr) | Pure Bunker linear arithmetic contract solver and pre/postcondition verification. | **DONE** | 100% |
-| [`shell_codegen.rs`](../archive/bootstrap/stage0-rust/src/shell_codegen.rs) & [`shell_runtime.rs`](../archive/bootstrap/stage0-rust/src/shell_runtime.rs) | [`shell.bkr`](../self-host/modules/shell.bkr) + `runtime.h` actor hooks | Shell actor declarations, message passing channels, reactive state scheduling. | **DONE** | 100% |
-| [`view_runtime.rs`](../archive/bootstrap/stage0-rust/src/view_runtime.rs) | [`view.bkr`](../self-host/modules/view.bkr) | Declarative UI component trees, reactive state bindings, event dispatching. | **DONE** | 100% |
+| `main.rs` | [`driver.bkr`](../self-host/modules/driver.bkr) & [`bkrc.bkr`](../self-host/bkrc.bkr) | CLI argument ingestion (`bkrc <in> -o <out>`), driver pipeline orchestration, exit codes. | **DONE** | 100% |
+| `parser.rs` + `bunker.pest` | [`lexer.bkr`](../self-host/modules/lexer.bkr) & [`parser.bkr`](../self-host/modules/parser.bkr) | Pure-Bunker lexer and recursive descent parser without external grammar generators. | **DONE** | 100% |
+| `ast.rs` & `ast_builder.rs` | [`ast.bkr`](../self-host/modules/ast.bkr), [`kind_model.bkr`](../self-host/modules/kind_model.bkr), [`constants.bkr`](../self-host/modules/constants.bkr) | AST construction, node kinds, typed AST wrappers, spans, and pattern definitions. | **DONE** | 100% |
+| `typeck.rs` | [`typecheck.bkr`](../self-host/modules/typecheck.bkr), [`resolver.bkr`](../self-host/modules/resolver.bkr), [`symbol_table.bkr`](../self-host/modules/symbol_table.bkr), [`type_graph.bkr`](../self-host/modules/type_graph.bkr) | Lexical scoping, name resolution, type inference, return checking, exhaustiveness. | **DONE** | 100% |
+| `builtins.rs` | [`runtime.h`](../self-host/runtime.h) & stdlib builtins in [`typecheck.bkr`](../self-host/modules/typecheck.bkr) | Standard library signatures, runtime builtin dispatch, arithmetic/string/collection methods. | **DONE** | 100% |
+| `codegen.rs` | [`c_codegen.bkr`](../self-host/modules/c_codegen.bkr) & [`cgen_state.bkr`](../self-host/modules/cgen_state.bkr) | C11 source emission, statement expressions, LIFO defer unwinding, expression lowering. | **DONE** | 100% |
+| `jit.rs` | [`runtime.h`](../self-host/runtime.h) + System C Compiler (GCC / Clang / MSVC) | In-memory execution; replaced in self-host architecture by compiling emitted C directly. | **DONE** | 100% |
+| `comptime.rs` | [`c_codegen.bkr`](../self-host/modules/c_codegen.bkr) (const folding) + pure Bunker const eval | Compile-time constant evaluation and static reduction. | **DONE** | 100% |
+| `diagnostic.rs` | [`ast_report.bkr`](../self-host/modules/ast_report.bkr) & [`report_support.bkr`](../self-host/modules/report_support.bkr) | ANSI colored error formatting and machine-readable JSON reports (`BUNKER_*_JSON`). | **DONE** | 100% |
+| `verify.rs` & `smt.rs` | [`verify.bkr`](../self-host/modules/verify.bkr) | Pure Bunker linear arithmetic contract solver and pre/postcondition verification. | **DONE** | 100% |
+| `shell_codegen.rs` & `shell_runtime.rs` | [`shell.bkr`](../self-host/modules/shell.bkr) + `runtime.h` actor hooks | Shell actor declarations, message passing channels, reactive state scheduling. | **DONE** | 100% |
+| `view_runtime.rs` | [`view.bkr`](../self-host/modules/view.bkr) | Declarative UI component trees, reactive state bindings, event dispatching. | **DONE** | 100% |
 
 ---
 
@@ -97,6 +97,6 @@ This document provides the authoritative **1:1 migration map** tracking every Ru
 
 ### Phase 5: Stage 0 Deprecation & Toolchain Independence (Completed ✅)
 1. Demoted `bunker-cli` to an optional bootstrap reference; elevated `bkrc` as the primary compiler of the repository.
-2. Relocated `bunker-cli/` to `archive/bootstrap/stage0-rust/`, eliminating all active `.rs` files from top-level repository sources.
+2. Stage 0 Rust prototype (`bunker-cli/`, `archive/bootstrap/stage0-rust/`) completely retired and purged from repository, achieving 100% zero-Rust source code and zero third-party language dependencies.
 3. Standalone distributions ship as single C source (`bkrc-stage1.c`) + runtime headers (`runtime.h`), bootstrappable anywhere via `bootstrap/build.sh` (POSIX) or `bootstrap/build.bat` (Windows).
 4. CI verifies zero-Rust bootstrap compilation fixpoint (`bootstrap-c11`) across Ubuntu, Windows, and macOS.
