@@ -24,6 +24,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Link archived Stage 0 Rust compiler
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cmd.exe /c "mklink /J bunker-cli archive\\bootstrap\\stage0-rust"
+          else
+            ln -s archive/bootstrap/stage0-rust bunker-cli
+          fi
+
       - name: Select Rust toolchain
         run: rustup default ${{ matrix.rust }}
 
@@ -66,6 +75,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Link archived Stage 0 Rust compiler
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cmd.exe /c "mklink /J bunker-cli archive\\bootstrap\\stage0-rust"
+          else
+            ln -s archive/bootstrap/stage0-rust bunker-cli
+          fi
+
       - name: Select Rust toolchain
         run: rustup default stable
 
@@ -84,6 +102,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Link archived Stage 0 Rust compiler
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cmd.exe /c "mklink /J bunker-cli archive\\bootstrap\\stage0-rust"
+          else
+            ln -s archive/bootstrap/stage0-rust bunker-cli
+          fi
 
       - name: Prevent raw AST collection traversal outside AST boundary
         shell: bash
@@ -1565,6 +1592,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Link archived Stage 0 Rust compiler
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cmd.exe /c "mklink /J bunker-cli archive\\bootstrap\\stage0-rust"
+          else
+            ln -s archive/bootstrap/stage0-rust bunker-cli
+          fi
 
       - name: Select Rust toolchain
         run: rustup default stable
@@ -3467,6 +3503,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Link archived Stage 0 Rust compiler
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cmd.exe /c "mklink /J bunker-cli archive\\bootstrap\\stage0-rust"
+          else
+            ln -s archive/bootstrap/stage0-rust bunker-cli
+          fi
+
       - name: Select Rust toolchain
         run: rustup default stable
 
@@ -3489,3 +3534,35 @@ jobs:
           timeout --kill-after=5s 120s ./bunker-cli/target/release/bunker-cli self-host-compile \
             tests/99_incremental_2.bkr \
             -o /tmp/99_incremental_2.c
+
+  bootstrap-c11:
+    name: Bootstrap C11 ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build pure Bunker compiler from bootstrap C seed (POSIX)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          ./bootstrap/build.sh
+          test -x ./bkrc
+          ./bkrc self-host/bkrc.bkr -o /tmp/bkrc-stage2.c
+          diff -u bootstrap/bkrc-stage2.c /tmp/bkrc-stage2.c
+          echo "Fixpoint verified with zero differences!"
+
+      - name: Build pure Bunker compiler from bootstrap C seed (Windows)
+        if: runner.os == 'Windows'
+        shell: cmd
+        run: |
+          call bootstrap\build.bat
+          if not exist bkrc.exe exit /b 1
+          bkrc.exe self-host\bkrc.bkr -o bkrc-stage2-win.c
+          fc bootstrap\bkrc-stage2.c bkrc-stage2-win.c
+          echo Fixpoint verified with zero differences!
