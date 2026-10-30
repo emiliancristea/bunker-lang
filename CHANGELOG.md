@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Native x86-64 backend** (`self-host/modules/x86_codegen.bkr`). `bkrc native file.bkr -o out` and `bkrc run --native` write a Linux ELF64 executable directly, with no C compiler or linker. Covers integers, bools, functions, locals, consts, if/else, while, for, loop, break/continue, ternary and all integer operators; 20 of 207 run tests pass natively so far, tracked in `tests/native_known_failures.txt` and checked in CI.
+- `file_set_executable(path)` builtin.
+
 ### Fixed
 - **Honest test results.** `run_tests.ps1` counted every test as passed whenever the compiler path contained "bkrc". It is replaced by `tools/test_runner.bkr`, a runner written in Bunker that checks real outcomes. Real status: 181/309 passing; the 128 current failures are listed in `tests/known_failures.txt`.
 - `bkrc run` no longer prints a result guessed from the file name. It compiles to C, builds with the system C compiler (`BKR_CC`/`CC`, default `cc`), executes the program and exits with its exit code.

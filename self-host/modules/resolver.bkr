@@ -232,6 +232,7 @@
         if name == "read_file" { return true; }
         if name == "write_file" { return true; }
         if name == "file_exists" { return true; }
+        if name == "file_set_executable" { return true; }
         if name == "vec_new" { return true; }
         if name == "vec_push" { return true; }
         if name == "vec_get" { return true; }

@@ -41,5 +41,7 @@ kernel BunkerCompiler {
 
     import "modules/verify.bkr";
 
+    import "modules/x86_codegen.bkr";
+
     import "modules/driver.bkr";
 }

@@ -212,6 +212,7 @@
         if raw == "read_file" { return "read_file"; }
         if raw == "write_file" { return "write_file"; }
         if raw == "file_exists" { return "file_exists"; }
+        if raw == "file_set_executable" { return "file_set_executable"; }
         if raw == "vec_new" { return "vec_new"; }
         if raw == "vec_push" { return "vec_push"; }
         if raw == "vec_get" { return "vec_get"; }
@@ -386,6 +387,7 @@
         if raw == "read_file" { return TYPE_STR; }
         if raw == "write_file" { return TYPE_BOOL; }
         if raw == "file_exists" { return TYPE_BOOL; }
+        if raw == "file_set_executable" { return TYPE_BOOL; }
         if raw == "result_ok" { return TYPE_RESULT; }
         if raw == "result_err" { return TYPE_RESULT; }
         if raw == "result_is_ok" { return TYPE_BOOL; }

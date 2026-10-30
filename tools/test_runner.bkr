@@ -10,6 +10,9 @@
 //
 // Usage: bkrc run tools/test_runner.bkr            (uses ./bkrc)
 //        BKRC=/path/to/bkrc bkrc run tools/test_runner.bkr
+//        BKR_TEST_RUN_FLAGS=--native BKR_TEST_ONLY_RUN=1 \
+//        BKR_TEST_KNOWN_FAILURES=tests/native_known_failures.txt bkrc run tools/test_runner.bkr
+//            (run programs on the native x86-64 backend; known failures tracked separately)
 
 kernel TestRunner {
     fn env_or(key: str, fallback: str) -> str {
@@ -65,6 +68,9 @@ kernel TestRunner {
 
     fn main() -> i32 {
         let bkrc = env_or("BKRC", "./bkrc");
+        let run_flags = env_or("BKR_TEST_RUN_FLAGS", "");
+        let only_run_tests = env_or("BKR_TEST_ONLY_RUN", "") == "1";
+        let known_path = env_or("BKR_TEST_KNOWN_FAILURES", "tests/known_failures.txt");
         let log_path = env_or("TMPDIR", "/tmp") + "/bkr-test-runner-" + int_to_string(process_pid()) + ".log";
 
         let expected: HashMap<str, i64> = hashmap_new();
@@ -79,7 +85,7 @@ kernel TestRunner {
         }
 
         let known: HashMap<str, i64> = hashmap_new();
-        let known_lines: Vec<str> = read_lines("tests/known_failures.txt");
+        let known_lines: Vec<str> = read_lines(known_path);
         let k: i64 = 0;
         while k < vec_len(known_lines) {
             hashmap_insert(known, vec_get(known_lines, k), 1);
@@ -110,57 +116,60 @@ kernel TestRunner {
         while i < vec_len(files) {
             let file: str = vec_get(files, i);
             let name = substring(path_base(file), 0, len(path_base(file)) - 4);
-            let ok = false;
-            let detail = "";
+            let selected = !only_run_tests || hashmap_contains(expected, name);
+            if selected {
+                let ok = false;
+                let detail = "";
 
-            if ends_with(name, "_BAD") {
-                bad_total = bad_total + 1;
-                let status = command_status("timeout 60 " + bkrc + " check " + file + " > " + log_path + " 2>&1");
-                ok = status != 0;
-                detail = "should be rejected by check";
-                if ok {
-                    bad_passed = bad_passed + 1;
-                }
-            } else if hashmap_contains(expected, name) {
-                run_total = run_total + 1;
-                let want: i64 = hashmap_get(expected, name);
-                command_status("timeout 60 " + bkrc + " run " + file + " > " + log_path + " 2>&1");
-                let got = "";
-                if file_exists(log_path) {
-                    got = last_result_line(read_file(log_path));
-                }
-                ok = got == int_to_string(want);
-                if len(got) == 0 {
-                    detail = "expected " + int_to_string(want) + ", did not build or run";
+                if ends_with(name, "_BAD") {
+                    bad_total = bad_total + 1;
+                    let status = command_status("timeout 60 " + bkrc + " check " + file + " > " + log_path + " 2>&1");
+                    ok = status != 0;
+                    detail = "should be rejected by check";
+                    if ok {
+                        bad_passed = bad_passed + 1;
+                    }
+                } else if hashmap_contains(expected, name) {
+                    run_total = run_total + 1;
+                    let want: i64 = hashmap_get(expected, name);
+                    command_status("timeout 60 " + bkrc + " run " + run_flags + " " + file + " > " + log_path + " 2>&1");
+                    let got = "";
+                    if file_exists(log_path) {
+                        got = last_result_line(read_file(log_path));
+                    }
+                    ok = got == int_to_string(want);
+                    if len(got) == 0 {
+                        detail = "expected " + int_to_string(want) + ", did not build or run";
+                    } else {
+                        detail = "expected " + int_to_string(want) + ", got " + got;
+                    }
+                    if ok {
+                        run_passed = run_passed + 1;
+                    }
                 } else {
-                    detail = "expected " + int_to_string(want) + ", got " + got;
+                    check_total = check_total + 1;
+                    let status = command_status("timeout 60 " + bkrc + " check " + file + " > " + log_path + " 2>&1");
+                    ok = status == 0;
+                    detail = "check failed";
+                    if ok {
+                        check_passed = check_passed + 1;
+                    }
                 }
-                if ok {
-                    run_passed = run_passed + 1;
-                }
-            } else {
-                check_total = check_total + 1;
-                let status = command_status("timeout 60 " + bkrc + " check " + file + " > " + log_path + " 2>&1");
-                ok = status == 0;
-                detail = "check failed";
-                if ok {
-                    check_passed = check_passed + 1;
-                }
-            }
 
-            total = total + 1;
-            let is_known = hashmap_contains(known, name);
-            if ok && !is_known {
-                passed = passed + 1;
-            } else if ok && is_known {
-                passed = passed + 1;
-                stale = stale + 1;
-                println("FIXED  " + name + " (now passes: remove it from tests/known_failures.txt)");
-            } else if is_known {
-                known_failed = known_failed + 1;
-            } else {
-                unexpected = unexpected + 1;
-                println("FAIL   " + name + " (" + detail + ")");
+                total = total + 1;
+                let is_known = hashmap_contains(known, name);
+                if ok && !is_known {
+                    passed = passed + 1;
+                } else if ok && is_known {
+                    passed = passed + 1;
+                    stale = stale + 1;
+                    println("FIXED  " + name + " (now passes: remove it from tests/known_failures.txt)");
+                } else if is_known {
+                    known_failed = known_failed + 1;
+                } else {
+                    unexpected = unexpected + 1;
+                    println("FAIL   " + name + " (" + detail + ")");
+                }
             }
             i = i + 1;
         }

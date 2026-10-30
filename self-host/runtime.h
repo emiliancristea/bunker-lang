@@ -1113,6 +1113,17 @@ static inline bkr_bool file_exists(bkr_str path) {
     return BKR_TRUE;
 }
 
+static inline bkr_bool file_set_executable(bkr_str path) {
+    if (!path) return BKR_FALSE;
+#ifdef _WIN32
+    return file_exists(path);
+#else
+    struct stat st;
+    if (stat(path, &st) != 0) return BKR_FALSE;
+    return chmod(path, st.st_mode | S_IXUSR | S_IXGRP | S_IXOTH) == 0 ? BKR_TRUE : BKR_FALSE;
+#endif
+}
+
 static inline bkr_bool path_exists(bkr_str path) {
     if (!path) return BKR_FALSE;
     FILE* f = fopen(path, "rb");

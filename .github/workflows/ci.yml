@@ -36,6 +36,13 @@ jobs:
       - name: Run test suite (tools/test_runner.bkr)
         run: ./bkrc run tools/test_runner.bkr
 
+      - name: Run programs on the native x86-64 backend (no C compiler)
+        env:
+          BKR_TEST_RUN_FLAGS: --native
+          BKR_TEST_ONLY_RUN: "1"
+          BKR_TEST_KNOWN_FAILURES: tests/native_known_failures.txt
+        run: ./bkrc run tools/test_runner.bkr
+
   self-host-boundaries:
     name: Self-host boundary guards
     runs-on: ubuntu-latest
