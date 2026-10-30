@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 This release completes the entire 14-track roadmap (Tracks A, CF, CB, F, R, S, TL, E, M, etc. — 167/168 items pure DONE at 99.4%, with 100.0% of actionable non-deferred items complete) and stabilizes the Bunker self-host compiler (`bkrc`) across the continuous integration multi-OS matrix (Ubuntu, Windows, macOS). All 314 test fixtures pass with zero regressions, and all GitHub Actions CI matrix jobs are 100% green.
 
 ### Added
+- **Pure Bunker View Layer & Declarative UI Runtime (Q-321, VIEW-001, VIEW-002)**:
+  - Authored canonical specification `docs/VIEW_DECLARATIVE_UI_ARCHITECTURE.md` (`BKR-SPEC-VIEW-001`) formalizing composable declarative component trees, reactive state projections bound to Shell agents (`App.State.count`), asynchronous event-driven message dispatching (`on_click`), and decoupled backend agnosticism (`bunker.view.v1`).
+  - Implemented pure Bunker module `self-host/modules/view.bkr` (`ViewComponent`, `ViewTree`, `view_create_component`, `view_add_child`, `view_bind_state`, `view_resolve_text`, `view_click_button`, `view_tree_json`).
+  - Added positive acceptance test fixtures `tests/302_pure_bunker_view_tree.bkr` and `tests/303_view_reactive_state_binding.bkr` (both returning 42).
 - **Pure Bunker Shell Layer & Actor Runtime (Q-320, SHL-001, SHL-002)**:
   - Authored canonical specification `docs/SHELL_ACTOR_ARCHITECTURE.md` (`BKR-SPEC-SHELL-001`) formalizing shared-nothing actor state isolation, asynchronous FIFO mailboxes, deterministic event loop stepping, and reactive state inspection (`bunker.shell.v1`).
   - Implemented pure Bunker module `self-host/modules/shell.bkr` (`ShellMessage`, `ShellSystem`, `shell_send`, `shell_pop_message`, `shell_step_advance`, `shell_terminate`).

@@ -1,0 +1,291 @@
+// Test 303: Pure Bunker View Reactive State Binding (BKR-SPEC-VIEW-001)
+// Purpose: Verify reactive projection of Shell agent state onto View components and event-triggered updates.
+// Expected return: 42
+
+kernel ViewReactiveBinding {
+    // --- Shell Actor Data Structures ---
+
+    struct ShellMessage {
+        target: str,
+        source: str,
+        message: str,
+        payload: i64,
+    }
+
+    struct ShellSystem {
+        agents: Vec<str>,
+        queue_target: Vec<str>,
+        queue_source: Vec<str>,
+        queue_message: Vec<str>,
+        queue_payload: Vec<i64>,
+        queue_head: i64,
+        step_count: i64,
+        max_steps: i64,
+        terminated: bool,
+        agent_states: HashMap<str, i64>,
+        agent_strings: HashMap<str, str>,
+    }
+
+    fn shell_system_new(max_steps: i64) -> ShellSystem {
+        let agents: Vec<str> = vec_new();
+        let queue_target: Vec<str> = vec_new();
+        let queue_source: Vec<str> = vec_new();
+        let queue_message: Vec<str> = vec_new();
+        let queue_payload: Vec<i64> = vec_new();
+        let agent_states: HashMap<str, i64> = hashmap_new();
+        let agent_strings: HashMap<str, str> = hashmap_new();
+
+        return ShellSystem {
+            agents: agents,
+            queue_target: queue_target,
+            queue_source: queue_source,
+            queue_message: queue_message,
+            queue_payload: queue_payload,
+            queue_head: 0,
+            step_count: 0,
+            max_steps: max_steps,
+            terminated: false,
+            agent_states: agent_states,
+            agent_strings: agent_strings
+        };
+    }
+
+    fn shell_register_agent(sys: ShellSystem, name: str) -> bool {
+        let mut i: i64 = 0;
+        while i < vec_len(sys.agents) {
+            if vec_get(sys.agents, i) == name {
+                return false;
+            }
+            i = i + 1;
+        }
+        vec_push(sys.agents, name);
+        return true;
+    }
+
+    fn shell_agent_key(agent: str, key: str) -> str {
+        return agent + "." + key;
+    }
+
+    fn shell_agent_set_int(sys: ShellSystem, agent: str, key: str, val: i64) -> bool {
+        let composite = shell_agent_key(agent, key);
+        return hashmap_insert(sys.agent_states, composite, val);
+    }
+
+    fn shell_agent_get_int(sys: ShellSystem, agent: str, key: str) -> i64 {
+        let composite = shell_agent_key(agent, key);
+        if !hashmap_contains(sys.agent_states, composite) {
+            return 0;
+        }
+        return hashmap_get(sys.agent_states, composite);
+    }
+
+    fn shell_send(sys: ShellSystem, target: str, source: str, message: str, payload: i64) -> bool {
+        vec_push(sys.queue_target, target);
+        vec_push(sys.queue_source, source);
+        vec_push(sys.queue_message, message);
+        vec_push(sys.queue_payload, payload);
+        return true;
+    }
+
+    fn shell_has_pending(sys: ShellSystem) -> bool {
+        return (vec_len(sys.queue_message) - sys.queue_head) > 0;
+    }
+
+    fn shell_pop_message(sys: ShellSystem) -> ShellMessage {
+        if !shell_has_pending(sys) {
+            return ShellMessage {
+                target: "",
+                source: "",
+                message: "",
+                payload: 0
+            };
+        }
+        let target = vec_get(sys.queue_target, sys.queue_head);
+        let source = vec_get(sys.queue_source, sys.queue_head);
+        let message = vec_get(sys.queue_message, sys.queue_head);
+        let payload = vec_get(sys.queue_payload, sys.queue_head);
+        sys.queue_head = sys.queue_head + 1;
+        return ShellMessage {
+            target: target,
+            source: source,
+            message: message,
+            payload: payload
+        };
+    }
+
+    // --- View Layer Data Structures ---
+
+    struct ViewComponent {
+        id: i64,
+        kind: str,
+        title: str,
+        text: str,
+        width: i64,
+        height: i64,
+        spacing: i64,
+        columns: i64,
+        font_size: i64,
+        bound_agent: str,
+        bound_key: str,
+        on_click_target: str,
+        on_click_message: str,
+        children_ids: Vec<i64>,
+    }
+
+    struct ViewTree {
+        components: Vec<ViewComponent>,
+        root_id: i64,
+        name: str,
+    }
+
+    fn view_component_default(id: i64, kind: str) -> ViewComponent {
+        let children: Vec<i64> = vec_new();
+        return ViewComponent {
+            id: id,
+            kind: kind,
+            title: "",
+            text: "",
+            width: 0,
+            height: 0,
+            spacing: 0,
+            columns: 0,
+            font_size: 14,
+            bound_agent: "",
+            bound_key: "",
+            on_click_target: "",
+            on_click_message: "",
+            children_ids: children
+        };
+    }
+
+    fn view_tree_new(name: str) -> ViewTree {
+        let components: Vec<ViewComponent> = vec_new();
+        return ViewTree {
+            components: components,
+            root_id: -1,
+            name: name
+        };
+    }
+
+    fn view_create_component(tree: ViewTree, kind: str) -> i64 {
+        let id = vec_len(tree.components);
+        let comp = view_component_default(id, kind);
+        vec_push(tree.components, comp);
+        if tree.root_id < 0 {
+            tree.root_id = id;
+        }
+        return id;
+    }
+
+    fn view_add_child(tree: ViewTree, parent_id: i64, child_id: i64) -> bool {
+        let parent = vec_get(tree.components, parent_id);
+        vec_push(parent.children_ids, child_id);
+        return true;
+    }
+
+    fn view_set_text(tree: ViewTree, id: i64, text: str) -> bool {
+        let comp = vec_get(tree.components, id);
+        comp.text = text;
+        return true;
+    }
+
+    fn view_bind_state(tree: ViewTree, id: i64, agent: str, key: str) -> bool {
+        let comp = vec_get(tree.components, id);
+        comp.bound_agent = agent;
+        comp.bound_key = key;
+        return true;
+    }
+
+    fn view_set_on_click(tree: ViewTree, id: i64, target: str, message: str) -> bool {
+        let comp = vec_get(tree.components, id);
+        comp.on_click_target = target;
+        comp.on_click_message = message;
+        return true;
+    }
+
+    fn view_resolve_text(tree: ViewTree, id: i64, sys: ShellSystem) -> str {
+        let comp = vec_get(tree.components, id);
+        if len(comp.bound_agent) > 0 && len(comp.bound_key) > 0 {
+            let int_val = shell_agent_get_int(sys, comp.bound_agent, comp.bound_key);
+            let prefix = comp.text;
+            if len(prefix) > 0 {
+                return prefix + int_to_string(int_val);
+            }
+            return int_to_string(int_val);
+        }
+        return comp.text;
+    }
+
+    fn view_click_button(tree: ViewTree, id: i64, sys: ShellSystem) -> bool {
+        let comp = vec_get(tree.components, id);
+        if len(comp.on_click_target) > 0 && len(comp.on_click_message) > 0 {
+            return shell_send(sys, comp.on_click_target, "View", comp.on_click_message, 0);
+        }
+        return false;
+    }
+
+    // --- Agent Event Handler ---
+
+    fn dispatch_event(sys: ShellSystem, msg: ShellMessage) -> bool {
+        if msg.target == "CounterAgent" {
+            if msg.message == "increment" {
+                let current = shell_agent_get_int(sys, "CounterAgent", "count");
+                shell_agent_set_int(sys, "CounterAgent", "count", current + 1);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    fn main() -> i32 {
+        // Setup Shell System
+        let sys = shell_system_new(100);
+        shell_register_agent(sys, "CounterAgent");
+        shell_agent_set_int(sys, "CounterAgent", "count", 0);
+
+        // Setup View Tree
+        let tree = view_tree_new("CounterWindow");
+        let win_id = view_create_component(tree, "Window");
+        let col_id = view_create_component(tree, "Column");
+        view_add_child(tree, win_id, col_id);
+
+        let lbl_id = view_create_component(tree, "Label");
+        view_set_text(tree, lbl_id, "Count: ");
+        view_bind_state(tree, lbl_id, "CounterAgent", "count");
+        view_add_child(tree, col_id, lbl_id);
+
+        let btn_id = view_create_component(tree, "Button");
+        view_set_text(tree, btn_id, "Increment");
+        view_set_on_click(tree, btn_id, "CounterAgent", "increment");
+        view_add_child(tree, col_id, btn_id);
+
+        // 1. Initial State Projection
+        let text0 = view_resolve_text(tree, lbl_id, sys);
+        if text0 != "Count: 0" { return 1; }
+
+        // 2. Click button to enqueue message
+        if !view_click_button(tree, btn_id, sys) { return 2; }
+        if !shell_has_pending(sys) { return 3; }
+
+        // 3. Step event loop to process increment
+        let msg1 = shell_pop_message(sys);
+        dispatch_event(sys, msg1);
+
+        // 4. Verify Reactive Update
+        let text1 = view_resolve_text(tree, lbl_id, sys);
+        if text1 != "Count: 1" { return 4; }
+
+        // 5. Click twice more
+        view_click_button(tree, btn_id, sys);
+        view_click_button(tree, btn_id, sys);
+        while shell_has_pending(sys) {
+            let m = shell_pop_message(sys);
+            dispatch_event(sys, m);
+        }
+
+        let text3 = view_resolve_text(tree, lbl_id, sys);
+        if text3 != "Count: 3" { return 5; }
+
+        return 42;
+    }
+}
