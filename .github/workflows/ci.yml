@@ -1585,7 +1585,8 @@ jobs:
           bash bootstrap/build.sh
           test -x ./bkrc
           mkdir -p bunker-cli/target/release
-          ln -sf ../../../bkrc bunker-cli/target/release/bunker-cli
+          ln -sf "$(pwd)/bkrc" bunker-cli/target/release/bunker-cli
+          chmod +x bunker-cli/target/release/bunker-cli
 
       - name: Check self-host compiler sources
         timeout-minutes: 2
@@ -3490,7 +3491,8 @@ jobs:
           bash bootstrap/build.sh
           test -x ./bkrc
           mkdir -p bunker-cli/target/release
-          ln -sf ../../../bkrc bunker-cli/target/release/bunker-cli
+          ln -sf "$(pwd)/bkrc" bunker-cli/target/release/bunker-cli
+          chmod +x bunker-cli/target/release/bunker-cli
 
       - name: Compile incremental parser fixture under resource caps
         timeout-minutes: 3
