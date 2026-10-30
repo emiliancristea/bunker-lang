@@ -39,5 +39,7 @@ kernel BunkerCompiler {
 
     import "modules/view.bkr";
 
+    import "modules/verify.bkr";
+
     import "modules/driver.bkr";
 }

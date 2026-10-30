@@ -713,6 +713,7 @@
             json_field_bool("borrow_resource_checker", true) + comma +
             json_field_bool("shell_actor_runtime", true) + comma +
             json_field_bool("declarative_view_runtime", true) + comma +
+            json_field_bool("contract_verification", true) + comma +
             json_field_bool("typed_ast", true) + comma +
             json_field_bool("real_module_resolver", true) + comma +
             json_field_bool("module_cycle_path_detection", true) + comma +
