@@ -243,10 +243,12 @@ $ ./bkrc compile tests/01_basic_math.bkr -o math.c
 
 **Deliverables:**
 - [x] Honest test runner written in Bunker (`tools/test_runner.bkr`); PowerShell runner removed.
-- [~] Native x86-64 backend in Bunker (`self-host/modules/x86_codegen.bkr`): instruction encoder plus ELF64 writer, so `bkrc native` writes executables directly. Integers, bools, structs (nesting, methods, update syntax), fixed arrays with bounds checks, enums, Option, match with guards, block expressions, functions and all control flow work; 73/207 run tests pass natively (`tests/native_known_failures.txt`). Missing: strings, Vec/HashMap/Result and other builtins (needs a native runtime), floats, tuples, closures.
-- [ ] Runtime in Bunker on raw Linux syscalls (memory, files, processes), replacing `runtime.h` and libc.
-- [ ] `bkrc` compiles itself through the native backend (fixpoint without `cc`).
-- [ ] Checked-in `bkrc` Linux binary seed with checksums replaces the C seed; `cc` no longer needed to bootstrap.
+- [x] Native x86-64 backend in Bunker (`self-host/modules/x86_codegen.bkr`): instruction encoder plus ELF64 writer, so `bkrc native` writes executables directly. 112/207 run tests pass natively (`tests/native_known_failures.txt`). Still missing: floats, tuples, `?`, `defer`, type aliases, matching on structs, closures.
+- [x] Runtime in Bunker on raw Linux syscalls (`self-host/native_runtime.bkr`): memory (mmap), strings, printing, Vec, HashMap, Result, bytes, files, paths, args, env, processes (fork/execve/wait4).
+- [x] `bkrc` compiles itself through the native backend: byte-identical native fixpoint, and the native compiler emits the same C as the C-built one.
+- [x] Checked-in `bkrc` Linux binary seed (`bootstrap/bkrc-linux-x86_64`, `SHA256SUMS.native`, `bootstrap/build-native.sh`); CI builds with `CC=/bin/false` and checks the C seed and binary seed produce the same compiler.
+- [ ] Faster native code (register allocation): the native compiler is ~6x slower than the C-built one on the full compiler.
+- [ ] Native backends for other targets (Linux arm64, macOS, Windows); those still bootstrap through the C seed.
 - [ ] Test runner spawns processes via syscalls instead of `/bin/sh`.
 
 ---

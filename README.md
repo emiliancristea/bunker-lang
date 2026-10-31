@@ -100,17 +100,18 @@ Human writes contracts → AI generates code → Compiler verifies → Ship prov
 
 ## Toolchain & Bootstrap
 
-Bunker is 100% self-hosted in pure Bunker (`self-host/`) and bootstraps from portable C11 source (`bootstrap/`) with **zero external dependencies**. No Rust, Cargo, Node, or Python required.
-
-To build the native Bunker compiler binary (`bkrc` / `bkrc.exe`):
+Bunker is self-hosted in Bunker (`self-host/`). On Linux x86-64 it builds itself with **no other language at all**: no C compiler, linker or libc. The native backend writes ELF executables directly and the runtime (`self-host/native_runtime.bkr`) is written in Bunker on raw system calls.
 
 ```bash
-# POSIX (Linux, macOS) - requires GCC or Clang
-bash bootstrap/build.sh
+# Linux x86-64: build from the checked-in binary seed, nothing else needed
+bash bootstrap/build-native.sh
 
-# Windows - requires MSVC (cl.exe), GCC, or Clang
-bootstrap\build.bat
+# Other platforms (or to cross-check): build from the portable C11 seed
+bash bootstrap/build.sh        # POSIX, needs gcc or clang
+bootstrap\build.bat            # Windows, needs MSVC, gcc or clang
 ```
+
+CI checks that both paths produce byte-identical compilers.
 
 ## Usage
 
@@ -148,7 +149,7 @@ bunker-lang/
 │       ├── shell.bkr     # Pure Bunker Shell & actor runtime
 │       ├── view.bkr      # Declarative UI tree & reactive bindings
 │       └── verify.bkr    # Contract verification engine
-├── bootstrap/            # Portable C11 bootstrap compiler package
+├── bootstrap/            # Bootstrap seeds: native Linux binary and portable C11
 │   ├── bkrc-stage1.c     # Canonical Stage 1 C seed
 │   ├── bkrc-stage2.c     # Stage 2 C seed (zero-diff fixpoint verification)
 │   ├── runtime.h         # Unified C runtime & arena allocator
@@ -267,7 +268,7 @@ view MyView {
 ### Implemented ✅
 - [x] Full PEG grammar for all three layers (AI-friendly LL(1))
 - [x] Complete AST builder
-- [ ] Kernel: native x86-64 backend (`bkrc native`, `bkrc run --native`) writes Linux executables with no C compiler; integers, bools, structs, fixed arrays, enums, Option and match so far (73/207 run tests)
+- [x] Kernel: native x86-64 backend (`bkrc native`, `bkrc run --native`) writes Linux executables with no C compiler, linker or libc; it compiles the compiler itself (native fixpoint). 112/207 run tests pass natively; missing: floats, tuples, `?`, `defer`, closures
 - [x] Kernel: type checking + C backend; `bkrc run` builds the emitted C with the system C compiler and executes it (the Cranelift JIT went away with the Rust prototype)
 - [x] Kernel: structs, arrays, Option<T>, match expressions, defer, type casting, constants
 - [x] Kernel: comptime functions with compile-time evaluation

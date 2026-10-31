@@ -1,6 +1,16 @@
 # Bunker Bootstrap Seed & Standalone Toolchain
 
-This directory contains the canonical, portable C11 bootstrap seed for the self-hosted Bunker compiler (`bkrc`).
+This directory holds two bootstrap seeds for the self-hosted Bunker compiler (`bkrc`):
+
+- **`bkrc-linux-x86_64`**: a native Linux x86-64 `bkrc` binary built by Bunker itself. With it, Bunker builds with no other language, compiler, linker or libc:
+
+  ```bash
+  bash bootstrap/build-native.sh   # seed -> stage 1 -> stage 2, fails unless stage 1 == stage 2
+  ```
+
+  `SHA256SUMS.native` holds its checksum. CI also builds the compiler through the C seed and checks both paths give the same binary, so the binary seed can always be re-derived from source.
+
+- **The portable C11 seed** below, for other platforms and as an independent cross-check.
 
 ## Overview
 

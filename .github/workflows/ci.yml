@@ -36,12 +36,58 @@ jobs:
       - name: Run test suite (tools/test_runner.bkr)
         run: ./bkrc run tools/test_runner.bkr
 
-      - name: Run programs on the native x86-64 backend (no C compiler)
+  native-bootstrap:
+    name: Native bootstrap without C (Linux x86-64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Any attempt to use a C compiler fails the job.
+      CC: /bin/false
+      BKR_CC: /bin/false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build bkrc from the binary seed (stage 1 + stage 2 fixpoint)
+        run: |
+          bash bootstrap/build-native.sh
+          test -x ./bkrc
+
+      - name: Check self-host compiler sources
+        run: ./bkrc self-host-check self-host
+
+      - name: Run programs natively with a natively built test runner
         env:
+          BKRC: ./bkrc
           BKR_TEST_RUN_FLAGS: --native
           BKR_TEST_ONLY_RUN: "1"
           BKR_TEST_KNOWN_FAILURES: tests/native_known_failures.txt
-        run: ./bkrc run tools/test_runner.bkr
+        run: ./bkrc run --native tools/test_runner.bkr
+
+      - name: Upload native compiler
+        uses: actions/upload-artifact@v4
+        with:
+          name: bkrc-linux-x86_64
+          path: bkrc
+
+  seed-agreement:
+    name: C seed and binary seed agree
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build bkrc through the C seed, then natively
+        run: |
+          bash bootstrap/build.sh /tmp/bkrc-c
+          /tmp/bkrc-c native self-host/bkrc.bkr -o /tmp/bkrc-via-c
+
+      - name: Build bkrc through the binary seed
+        run: bash bootstrap/build-native.sh /tmp/bkrc-via-seed
+
+      - name: Both bootstrap paths produce the same compiler
+        run: cmp /tmp/bkrc-via-c /tmp/bkrc-via-seed
 
   self-host-boundaries:
     name: Self-host boundary guards

@@ -1031,6 +1031,27 @@
         return !has_diagnostic_error(c_code);
     }
 
+    fn native_runtime_path() -> str {
+        let configured = env_or("BKR_NATIVE_RUNTIME", "");
+        if len(configured) > 0 {
+            return configured;
+        }
+        let exe_dir = path_dir(arg_at(0));
+        if len(exe_dir) == 0 {
+            exe_dir = ".";
+        }
+        if file_exists(exe_dir + "/self-host/native_runtime.bkr") {
+            return exe_dir + "/self-host/native_runtime.bkr";
+        }
+        if file_exists(exe_dir + "/native_runtime.bkr") {
+            return exe_dir + "/native_runtime.bkr";
+        }
+        if file_exists(exe_dir + "/../self-host/native_runtime.bkr") {
+            return exe_dir + "/../self-host/native_runtime.bkr";
+        }
+        return "self-host/native_runtime.bkr";
+    }
+
     fn build_native_executable(input_path: str, output_path: str) -> bool {
         let source = read_file(input_path);
         let base_dir = import_path_dir(input_path);
@@ -1040,10 +1061,30 @@
             println("Error: diagnostics found in " + input_path);
             return false;
         }
+        let runtime_path = native_runtime_path();
+        if !file_exists(runtime_path) {
+            println("Error: native runtime not found: " + runtime_path + " (set BKR_NATIVE_RUNTIME)");
+            return false;
+        }
+        // The runtime's functions join the program's kernel so one name table covers both.
         let expanded_source = expand_imports_from_base(source, base_dir);
-        let lex_result: LexerResultRef = tokenize_ref(expanded_source);
+        let close = len(expanded_source) - 1;
+        while close >= 0 && char_at(expanded_source, close) != "}" {
+            close = close - 1;
+        }
+        if close < 0 {
+            println("Error: no kernel body found in " + input_path);
+            return false;
+        }
+        let combined = substring(expanded_source, 0, close) + read_file(runtime_path) + from_char_code(10) + "}" + from_char_code(10);
+        let lex_result: LexerResultRef = tokenize_ref(combined);
         let p: ParserStateRef = parser_new_ref(lex_result);
         let ast: Vec<i64> = parse_kernel_ref(p);
+        if parser_has_error_ref(p) {
+            println(build_parse_diagnostic(combined, p));
+            println("Error: native runtime failed to parse");
+            return false;
+        }
         let st: X86State = x86_gen_program(ast_node_ref_from_node(ast));
         if vec_len(st.errors) > 0 {
             let i: i64 = 0;

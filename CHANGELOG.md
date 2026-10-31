@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Native x86-64 backend** (`self-host/modules/x86_codegen.bkr`). `bkrc native file.bkr -o out` and `bkrc run --native` write a Linux ELF64 executable directly, with no C compiler or linker. Covers integers, bools, functions, locals, consts, if/else, while, for, loop, break/continue, ternary and all integer operators; 20 of 207 run tests pass natively so far, tracked in `tests/native_known_failures.txt` and checked in CI.
 - Native backend: structs (nested, methods, `..base` update syntax, struct arguments and returns with value semantics), fixed arrays of scalars with bounds-checked indexing (exit code 101 like a runtime panic), unit and payload enums, `Option` (`Some`/`None`), `match` with guards and bindings, and block expressions. 73 of 207 run tests now pass natively.
+- **Native runtime written in Bunker** (`self-host/native_runtime.bkr`) on raw Linux system calls: mmap-based allocator, strings, printing, Vec, HashMap (same layout and iteration order as the C runtime), Result, bytes, files, paths, args, env, and processes via fork/execve/wait4. Builtins resolve to its `rt_` functions; the backend adds the intrinsics `__syscall`, `__load8`, `__store8`, `__load64`, `__store64` and `__globals`.
+- Native backend: strings (literal pool, `==`, `+`), typed `Vec<str>`/`HashMap<str, V>`/`Option<str>`/`Result` tracking matching the C backend's rules, `Ok`/`Err` patterns, calls with more than six arguments, a writable data segment. 112 of 207 run tests pass natively.
+- **Bunker builds itself with no C.** `bkrc native self-host/bkrc.bkr` produces a 1 MB compiler that rebuilds itself byte-for-byte. The checked-in seed `bootstrap/bkrc-linux-x86_64` and `bootstrap/build-native.sh` bootstrap with nothing but Bunker; CI runs that job with `CC=/bin/false` and checks it matches the C-seed path.
 - `file_set_executable(path)` builtin.
 
 ### Fixed

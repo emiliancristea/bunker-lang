@@ -1,0 +1,1361 @@
+    // Bunker native runtime (Linux x86-64).
+    //
+    // Compiled into every program built with `bkrc native`. It replaces runtime.h for the
+    // native backend and talks to the kernel directly through system calls: no libc, no C.
+    //
+    // Conventions: every value is a 64-bit word. Strings are pointers to NUL-terminated
+    // bytes, Vec/HashMap/Result are pointers to heap records laid out like the C runtime's
+    // (BkrVec {data, len, cap}, BkrHashMap {buckets, size, count, key_type},
+    // BkrResult {tag, value}), so both backends behave the same, including HashMap
+    // iteration order. User code reaches these through the builtin names: a call to
+    // `vec_push` resolves to `rt_vec_push` here unless the program defines its own.
+    //
+    // Low-level intrinsics provided by the backend:
+    //   __syscall(n, a1..a6)  raw Linux system call
+    //   __load8 / __store8, __load64 / __store64  memory access
+    //   __globals()           address of a zeroed 1 MiB static data area
+    //
+    // Global data area layout (byte offsets from __globals()):
+    //   0  initial stack pointer (argc, argv, envp)   8  heap cursor   16  heap end
+    //   24 ASCII table ready flag                       32 strlen cache string  40 cached length
+    //   4096..4351  one-character strings for codes 0..127
+
+    // ---- Memory ----
+
+    fn rt_exit(code: i64) -> i64 {
+        __syscall(231, code);
+        return 0;
+    }
+
+    fn rt_alloc(n: i64) -> i64 {
+        let g = __globals();
+        let size = (n + 15) & (0 - 16);
+        if size <= 0 {
+            size = 16;
+        }
+        let p = __load64(g + 8);
+        if p == 0 || p + size > __load64(g + 16) {
+            let chunk: i64 = 67108864;
+            if size > chunk {
+                chunk = size;
+            }
+            // mmap(NULL, chunk, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0)
+            let m = __syscall(9, 0, chunk, 3, 34, 0 - 1, 0);
+            if m < 0 {
+                rt_write_fd(2, "bunker runtime panic: out of memory"); rt_write_fd(2, rt_from_char_code(10));
+                rt_exit(101);
+            }
+            p = m;
+            __store64(g + 16, m + chunk);
+        }
+        __store64(g + 8, p + size);
+        return p;
+    }
+
+    fn rt_copy_bytes(dst: i64, src: i64, n: i64) -> i64 {
+        let i: i64 = 0;
+        while i + 8 <= n {
+            __store64(dst + i, __load64(src + i));
+            i = i + 8;
+        }
+        while i < n {
+            __store8(dst + i, __load8(src + i));
+            i = i + 1;
+        }
+        return dst;
+    }
+
+    // ---- Strings ----
+
+    fn rt_strlen(s: i64) -> i64 {
+        if s == 0 {
+            return 0;
+        }
+        let g = __globals();
+        if __load64(g + 32) == s {
+            return __load64(g + 40);
+        }
+        let n: i64 = 0;
+        while __load8(s + n) != 0 {
+            n = n + 1;
+        }
+        __store64(g + 32, s);
+        __store64(g + 40, n);
+        return n;
+    }
+
+    fn rt_len(s: i64) -> i64 {
+        return rt_strlen(s);
+    }
+
+    fn rt_str_new(n: i64) -> i64 {
+        let p = rt_alloc(n + 1);
+        __store8(p + n, 0);
+        return p;
+    }
+
+    fn rt_str_eq(a: i64, b: i64) -> i64 {
+        if a == b {
+            return 1;
+        }
+        if a == 0 || b == 0 {
+            return 0;
+        }
+        let i: i64 = 0;
+        while true {
+            let ca = __load8(a + i);
+            if ca != __load8(b + i) {
+                return 0;
+            }
+            if ca == 0 {
+                return 1;
+            }
+            i = i + 1;
+        }
+        return 1;
+    }
+
+    fn rt_str_concat(a: i64, b: i64) -> i64 {
+        if a == 0 || __load8(a) == 0 {
+            if b == 0 {
+                return "";
+            }
+            return b;
+        }
+        if b == 0 || __load8(b) == 0 {
+            return a;
+        }
+        let la = rt_strlen(a);
+        let lb = rt_strlen(b);
+        let p = rt_str_new(la + lb);
+        rt_copy_bytes(p, a, la);
+        rt_copy_bytes(p + la, b, lb);
+        return p;
+    }
+
+    fn rt_from_char_code(code: i64) -> i64 {
+        let g = __globals();
+        if code >= 0 && code < 128 {
+            if __load64(g + 24) == 0 {
+                let c: i64 = 0;
+                while c < 128 {
+                    __store8(g + 4096 + 2 * c, c);
+                    __store8(g + 4097 + 2 * c, 0);
+                    c = c + 1;
+                }
+                __store64(g + 24, 1);
+            }
+            return g + 4096 + 2 * code;
+        }
+        let p = rt_str_new(1);
+        __store8(p, code & 255);
+        return p;
+    }
+
+    fn rt_char_code_at(s: i64, index: i64) -> i64 {
+        if s == 0 || index < 0 {
+            return 0;
+        }
+        if index >= rt_strlen(s) {
+            return 0;
+        }
+        return __load8(s + index);
+    }
+
+    fn rt_char_code(s: i64) -> i64 {
+        if s == 0 {
+            return 0;
+        }
+        return __load8(s);
+    }
+
+    fn rt_char_at(s: i64, index: i64) -> i64 {
+        if s == 0 || index < 0 {
+            return "";
+        }
+        let code = rt_char_code_at(s, index);
+        if code == 0 && index >= rt_strlen(s) {
+            return "";
+        }
+        return rt_from_char_code(code);
+    }
+
+    fn rt_substring(s: i64, start: i64, end: i64) -> i64 {
+        if s == 0 || start < 0 || end < start {
+            return "";
+        }
+        let n = end - start;
+        if n == 0 {
+            return "";
+        }
+        if n == 1 {
+            return rt_from_char_code(rt_char_code_at(s, start));
+        }
+        let p = rt_str_new(n);
+        rt_copy_bytes(p, s + start, n);
+        return p;
+    }
+
+    // Index of needle in s at or after from, or -1.
+    fn rt_find(s: i64, needle: i64, from: i64) -> i64 {
+        if s == 0 || needle == 0 {
+            return 0 - 1;
+        }
+        let first = __load8(needle);
+        if first == 0 {
+            return from;
+        }
+        let i = from;
+        while __load8(s + i) != 0 {
+            if __load8(s + i) == first {
+                let j: i64 = 1;
+                while __load8(needle + j) != 0 && __load8(s + i + j) == __load8(needle + j) {
+                    j = j + 1;
+                }
+                if __load8(needle + j) == 0 {
+                    return i;
+                }
+            }
+            i = i + 1;
+        }
+        return 0 - 1;
+    }
+
+    fn rt_contains(s: i64, needle: i64) -> i64 {
+        if s == 0 || needle == 0 {
+            return 0;
+        }
+        return rt_find(s, needle, 0) >= 0;
+    }
+
+    fn rt_str_index_of(s: i64, needle: i64) -> i64 {
+        return rt_find(s, needle, 0);
+    }
+
+    fn rt_starts_with(s: i64, prefix: i64) -> i64 {
+        if s == 0 || prefix == 0 {
+            return 0;
+        }
+        let i: i64 = 0;
+        while __load8(prefix + i) != 0 {
+            if __load8(s + i) != __load8(prefix + i) {
+                return 0;
+            }
+            i = i + 1;
+        }
+        return 1;
+    }
+
+    fn rt_ends_with(s: i64, suffix: i64) -> i64 {
+        if s == 0 || suffix == 0 {
+            return 0;
+        }
+        let ls = rt_strlen(s);
+        let lx = rt_strlen(suffix);
+        if lx > ls {
+            return 0;
+        }
+        return rt_str_eq(s + ls - lx, suffix);
+    }
+
+    fn rt_is_space(c: i64) -> i64 {
+        return c == 32 || c == 9 || c == 10 || c == 13;
+    }
+
+    fn rt_trim(s: i64) -> i64 {
+        if s == 0 {
+            return "";
+        }
+        let start: i64 = 0;
+        let end = rt_strlen(s);
+        while start < end && rt_is_space(__load8(s + start)) {
+            start = start + 1;
+        }
+        while end > start && rt_is_space(__load8(s + end - 1)) {
+            end = end - 1;
+        }
+        return rt_substring(s, start, end);
+    }
+
+    fn rt_int_to_string(value: i64) -> i64 {
+        if value >= 0 && value <= 9 {
+            return rt_from_char_code(48 + value);
+        }
+        let buf = rt_alloc(32);
+        let pos: i64 = 31;
+        __store8(buf + pos, 0);
+        let negative = value < 0;
+        let v = value;
+        if v == 0 {
+            pos = pos - 1;
+            __store8(buf + pos, 48);
+        }
+        while v != 0 {
+            let digit = v % 10;
+            if digit < 0 {
+                digit = 0 - digit;
+            }
+            pos = pos - 1;
+            __store8(buf + pos, 48 + digit);
+            v = v / 10;
+        }
+        if negative {
+            pos = pos - 1;
+            __store8(buf + pos, 45);
+        }
+        return buf + pos;
+    }
+
+    // strtoll(s, NULL, 10): optional whitespace and sign, then digits.
+    fn rt_parse_int(s: i64) -> i64 {
+        if s == 0 {
+            return 0;
+        }
+        let i: i64 = 0;
+        while rt_is_space(__load8(s + i)) || __load8(s + i) == 11 || __load8(s + i) == 12 {
+            i = i + 1;
+        }
+        let negative = false;
+        if __load8(s + i) == 45 {
+            negative = true;
+            i = i + 1;
+        } else if __load8(s + i) == 43 {
+            i = i + 1;
+        }
+        let value: i64 = 0;
+        while __load8(s + i) >= 48 && __load8(s + i) <= 57 {
+            value = value * 10 + (__load8(s + i) - 48);
+            i = i + 1;
+        }
+        if negative {
+            return 0 - value;
+        }
+        return value;
+    }
+
+    fn rt_str_replace(s: i64, from: i64, to: i64) -> i64 {
+        if s == 0 {
+            return "";
+        }
+        if from == 0 || __load8(from) == 0 {
+            return s;
+        }
+        if rt_find(s, from, 0) < 0 {
+            return s;
+        }
+        let from_len = rt_strlen(from);
+        let to_len: i64 = 0;
+        if to != 0 {
+            to_len = rt_strlen(to);
+        }
+        let cur: i64 = 0;
+        let total: i64 = 0;
+        let next = rt_find(s, from, 0);
+        while next >= 0 {
+            total = total + (next - cur) + to_len;
+            cur = next + from_len;
+            next = rt_find(s, from, cur);
+        }
+        total = total + rt_strlen(s + cur);
+        let p = rt_str_new(total);
+        let dst: i64 = 0;
+        cur = 0;
+        next = rt_find(s, from, 0);
+        while next >= 0 {
+            rt_copy_bytes(p + dst, s + cur, next - cur);
+            dst = dst + (next - cur);
+            rt_copy_bytes(p + dst, to, to_len);
+            dst = dst + to_len;
+            cur = next + from_len;
+            next = rt_find(s, from, cur);
+        }
+        rt_copy_bytes(p + dst, s + cur, rt_strlen(s + cur));
+        return p;
+    }
+
+    fn rt_str_split(s: i64, delim: i64) -> i64 {
+        let parts = rt_vec_new();
+        if s == 0 {
+            return parts;
+        }
+        if delim == 0 || __load8(delim) == 0 {
+            let i: i64 = 0;
+            while __load8(s + i) != 0 {
+                let one = rt_str_new(1);
+                __store8(one, __load8(s + i));
+                rt_vec_push(parts, one);
+                i = i + 1;
+            }
+            return parts;
+        }
+        let delim_len = rt_strlen(delim);
+        let cur: i64 = 0;
+        let next = rt_find(s, delim, 0);
+        while next >= 0 {
+            let piece = rt_str_new(next - cur);
+            rt_copy_bytes(piece, s + cur, next - cur);
+            rt_vec_push(parts, piece);
+            cur = next + delim_len;
+            next = rt_find(s, delim, cur);
+        }
+        let rest_len = rt_strlen(s + cur);
+        let rest = rt_str_new(rest_len);
+        rt_copy_bytes(rest, s + cur, rest_len);
+        rt_vec_push(parts, rest);
+        return parts;
+    }
+
+    fn rt_str_repeat(s: i64, count: i64) -> i64 {
+        if s == 0 || count <= 0 {
+            return "";
+        }
+        let n = rt_strlen(s);
+        if n == 0 {
+            return "";
+        }
+        let p = rt_str_new(n * count);
+        let i: i64 = 0;
+        while i < count {
+            rt_copy_bytes(p + i * n, s, n);
+            i = i + 1;
+        }
+        return p;
+    }
+
+    fn rt_str_case(s: i64, upper: i64) -> i64 {
+        if s == 0 {
+            return "";
+        }
+        let n = rt_strlen(s);
+        let p = rt_str_new(n);
+        let i: i64 = 0;
+        while i < n {
+            let c = __load8(s + i);
+            if upper && c >= 97 && c <= 122 {
+                c = c - 32;
+            } else if !upper && c >= 65 && c <= 90 {
+                c = c + 32;
+            }
+            __store8(p + i, c);
+            i = i + 1;
+        }
+        return p;
+    }
+
+    fn rt_str_to_upper(s: i64) -> i64 {
+        return rt_str_case(s, 1);
+    }
+
+    fn rt_str_to_lower(s: i64) -> i64 {
+        return rt_str_case(s, 0);
+    }
+
+    fn rt_join_lines(v: i64) -> i64 {
+        let n = rt_vec_len(v);
+        if v == 0 || n <= 0 {
+            return "";
+        }
+        let total: i64 = 0;
+        let i: i64 = 0;
+        while i < n {
+            total = total + rt_strlen(rt_vec_get(v, i)) + 1;
+            i = i + 1;
+        }
+        let p = rt_str_new(total);
+        let dst: i64 = 0;
+        i = 0;
+        while i < n {
+            let line = rt_vec_get(v, i);
+            let len_line = rt_strlen(line);
+            rt_copy_bytes(p + dst, line, len_line);
+            dst = dst + len_line;
+            __store8(p + dst, 10);
+            dst = dst + 1;
+            i = i + 1;
+        }
+        return p;
+    }
+
+    // ---- Output and process ----
+
+    fn rt_write_fd(fd: i64, s: i64) -> i64 {
+        let n = rt_strlen(s);
+        let done: i64 = 0;
+        while done < n {
+            let w = __syscall(1, fd, s + done, n - done);
+            if w <= 0 {
+                return 0;
+            }
+            done = done + w;
+        }
+        return 1;
+    }
+
+    fn rt_print(s: i64) -> i64 {
+        rt_write_fd(1, s);
+        return 0;
+    }
+
+    fn rt_println(s: i64) -> i64 {
+        rt_write_fd(1, s);
+        rt_write_fd(1, rt_from_char_code(10));
+        return 0;
+    }
+
+    fn rt_log(s: i64) -> i64 {
+        return rt_println(s);
+    }
+
+    fn rt_panic(msg: i64) -> i64 {
+        rt_write_fd(2, "bunker runtime panic: ");
+        if msg == 0 {
+            rt_write_fd(2, "<no message>");
+        } else {
+            rt_write_fd(2, msg);
+        }
+        rt_write_fd(2, rt_from_char_code(10));
+        rt_exit(101);
+        return 0;
+    }
+
+    fn rt_assert(cond: i64, msg: i64) -> i64 {
+        if !cond {
+            rt_write_fd(2, "bunker runtime assertion failed: ");
+            if msg == 0 {
+                rt_write_fd(2, "assertion failed");
+            } else {
+                rt_write_fd(2, msg);
+            }
+            rt_write_fd(2, rt_from_char_code(10));
+            rt_exit(101);
+        }
+        return 0;
+    }
+
+    fn rt_process_exit(code: i64) -> i64 {
+        return rt_exit(code);
+    }
+
+    fn rt_process_pid() -> i64 {
+        return __syscall(39);
+    }
+
+    fn rt_args_count() -> i64 {
+        return __load64(__load64(__globals()));
+    }
+
+    fn rt_arg_at(index: i64) -> i64 {
+        let sp = __load64(__globals());
+        if index >= 0 && index < __load64(sp) {
+            return __load64(sp + 8 + 8 * index);
+        }
+        return "";
+    }
+
+    // Value of environment variable key, or 0 when unset.
+    fn rt_env_lookup(key: i64) -> i64 {
+        if key == 0 {
+            return 0;
+        }
+        let sp = __load64(__globals());
+        let envp = sp + 16 + 8 * __load64(sp);
+        let key_len = rt_strlen(key);
+        let i: i64 = 0;
+        while __load64(envp + 8 * i) != 0 {
+            let entry = __load64(envp + 8 * i);
+            if rt_starts_with(entry, key) && __load8(entry + key_len) == 61 {
+                return entry + key_len + 1;
+            }
+            i = i + 1;
+        }
+        return 0;
+    }
+
+    fn rt_env_has(key: i64) -> i64 {
+        return rt_env_lookup(key) != 0;
+    }
+
+    fn rt_env_get(key: i64) -> i64 {
+        let value = rt_env_lookup(key);
+        if value == 0 {
+            return 0;
+        }
+        return (value << 1) | 1;
+    }
+
+    fn rt_process_is_sandboxed() -> i64 {
+        return rt_env_has("BUNKER_DISABLE_PROCESS") || rt_env_has("BUNKER_SANDBOX");
+    }
+
+    // ---- Files ----
+
+    fn rt_read_file(path: i64) -> i64 {
+        let fd = __syscall(2, path, 0, 0);
+        if fd < 0 {
+            return "";
+        }
+        let size = __syscall(8, fd, 0, 2);
+        __syscall(8, fd, 0, 0);
+        if size < 0 {
+            __syscall(3, fd);
+            return "";
+        }
+        let buf = rt_str_new(size);
+        let got: i64 = 0;
+        while got < size {
+            let r = __syscall(0, fd, buf + got, size - got);
+            if r <= 0 {
+                break;
+            }
+            got = got + r;
+        }
+        __store8(buf + got, 0);
+        __syscall(3, fd);
+        return buf;
+    }
+
+    fn rt_write_file(path: i64, content: i64) -> i64 {
+        // O_WRONLY | O_CREAT | O_TRUNC, mode 0644
+        let fd = __syscall(2, path, 577, 420);
+        if fd < 0 {
+            return 0;
+        }
+        let ok = rt_write_fd(fd, content);
+        __syscall(3, fd);
+        return ok;
+    }
+
+    fn rt_file_exists(path: i64) -> i64 {
+        if path == 0 {
+            return 0;
+        }
+        let fd = __syscall(2, path, 0, 0);
+        if fd < 0 {
+            return 0;
+        }
+        __syscall(3, fd);
+        return 1;
+    }
+
+    fn rt_file_remove(path: i64) -> i64 {
+        if __syscall(87, path) < 0 {
+            return rt_result_err("cannot remove file");
+        }
+        return rt_result_ok(1);
+    }
+
+    fn rt_file_set_executable(path: i64) -> i64 {
+        return __syscall(90, path, 493) == 0;
+    }
+
+    // ---- Vec: {data, len, cap} ----
+
+    fn rt_vec_new() -> i64 {
+        let v = rt_alloc(24);
+        __store64(v, rt_alloc(64));
+        __store64(v + 8, 0);
+        __store64(v + 16, 8);
+        return v;
+    }
+
+    fn rt_vec_len(v: i64) -> i64 {
+        if v == 0 {
+            return 0;
+        }
+        return __load64(v + 8);
+    }
+
+    fn rt_vec_push(v: i64, value: i64) -> i64 {
+        if v == 0 {
+            return 0;
+        }
+        let n = __load64(v + 8);
+        let cap = __load64(v + 16);
+        if n >= cap {
+            let data = rt_alloc(16 * cap);
+            rt_copy_bytes(data, __load64(v), 8 * n);
+            __store64(v, data);
+            __store64(v + 16, 2 * cap);
+        }
+        __store64(__load64(v) + 8 * n, value);
+        __store64(v + 8, n + 1);
+        return 1;
+    }
+
+    fn rt_vec_get(v: i64, index: i64) -> i64 {
+        if v == 0 || index < 0 || index >= __load64(v + 8) {
+            return 0;
+        }
+        return __load64(__load64(v) + 8 * index);
+    }
+
+    fn rt_vec_set(v: i64, index: i64, value: i64) -> i64 {
+        if v == 0 || index < 0 || index >= __load64(v + 8) {
+            return 0;
+        }
+        __store64(__load64(v) + 8 * index, value);
+        return 1;
+    }
+
+    fn rt_vec_pop(v: i64) -> i64 {
+        if v == 0 || __load64(v + 8) <= 0 {
+            return 0;
+        }
+        let n = __load64(v + 8) - 1;
+        __store64(v + 8, n);
+        return __load64(__load64(v) + 8 * n);
+    }
+
+    fn rt_vec_clear(v: i64) -> i64 {
+        if v != 0 {
+            __store64(v + 8, 0);
+        }
+        return 0;
+    }
+
+    fn rt_vec_is_empty(v: i64) -> i64 {
+        return rt_vec_len(v) == 0;
+    }
+
+    fn rt_vec_contains(v: i64, item: i64) -> i64 {
+        let i: i64 = 0;
+        while i < rt_vec_len(v) {
+            if rt_vec_get(v, i) == item {
+                return 1;
+            }
+            i = i + 1;
+        }
+        return 0;
+    }
+
+    fn rt_vec_contains_str(v: i64, item: i64) -> i64 {
+        let i: i64 = 0;
+        while i < rt_vec_len(v) {
+            if rt_str_eq(rt_vec_get(v, i), item) {
+                return 1;
+            }
+            i = i + 1;
+        }
+        return 0;
+    }
+
+    fn rt_vec_reverse(v: i64) -> i64 {
+        if v == 0 {
+            return 0;
+        }
+        let i: i64 = 0;
+        let j = rt_vec_len(v) - 1;
+        while i < j {
+            let tmp = rt_vec_get(v, i);
+            rt_vec_set(v, i, rt_vec_get(v, j));
+            rt_vec_set(v, j, tmp);
+            i = i + 1;
+            j = j - 1;
+        }
+        return 1;
+    }
+
+    fn rt_vec_clone(v: i64) -> i64 {
+        let out = rt_vec_new();
+        let i: i64 = 0;
+        while i < rt_vec_len(v) {
+            rt_vec_push(out, rt_vec_get(v, i));
+            i = i + 1;
+        }
+        return out;
+    }
+
+    fn rt_vec_get_opt(v: i64, index: i64) -> i64 {
+        if v == 0 || index < 0 || index >= rt_vec_len(v) {
+            return 0;
+        }
+        return (rt_vec_get(v, index) << 1) | 1;
+    }
+
+    fn rt_vec_pop_opt(v: i64) -> i64 {
+        if rt_vec_len(v) <= 0 {
+            return 0;
+        }
+        return (rt_vec_pop(v) << 1) | 1;
+    }
+
+    // ---- HashMap: {buckets, size, count, key_type}; entries {key, value, next} ----
+
+    fn rt_hashmap_new_typed(key_type: i64) -> i64 {
+        let m = rt_alloc(32);
+        __store64(m, rt_alloc(8 * 64));
+        __store64(m + 8, 64);
+        __store64(m + 16, 0);
+        __store64(m + 24, key_type);
+        return m;
+    }
+
+    fn rt_hashmap_new() -> i64 {
+        return rt_hashmap_new_typed(0);
+    }
+
+    fn rt_hashmap_new_str() -> i64 {
+        return rt_hashmap_new_typed(1);
+    }
+
+    fn rt_hash_key(m: i64, key: i64) -> i64 {
+        let h = key;
+        if __load64(m + 24) == 1 {
+            h = 5381;
+            if key != 0 {
+                let i: i64 = 0;
+                while __load8(key + i) != 0 {
+                    h = ((h << 5) + h) + __load8(key + i);
+                    i = i + 1;
+                }
+            }
+        }
+        if h < 0 {
+            h = 0 - h;
+        }
+        return h % __load64(m + 8);
+    }
+
+    fn rt_key_eq(m: i64, a: i64, b: i64) -> i64 {
+        if __load64(m + 24) == 1 {
+            return rt_str_eq(a, b);
+        }
+        return a == b;
+    }
+
+    // Entry for key, or 0.
+    fn rt_hashmap_find(m: i64, key: i64) -> i64 {
+        if m == 0 {
+            return 0;
+        }
+        let e = __load64(__load64(m) + 8 * rt_hash_key(m, key));
+        while e != 0 {
+            if rt_key_eq(m, __load64(e), key) {
+                return e;
+            }
+            e = __load64(e + 16);
+        }
+        return 0;
+    }
+
+    fn rt_hashmap_insert(m: i64, key: i64, value: i64) -> i64 {
+        if m == 0 {
+            return 0;
+        }
+        let existing = rt_hashmap_find(m, key);
+        if existing != 0 {
+            __store64(existing + 8, value);
+            return 1;
+        }
+        let slot = __load64(m) + 8 * rt_hash_key(m, key);
+        let e = rt_alloc(24);
+        __store64(e, key);
+        __store64(e + 8, value);
+        __store64(e + 16, __load64(slot));
+        __store64(slot, e);
+        __store64(m + 16, __load64(m + 16) + 1);
+        return 1;
+    }
+
+    fn rt_hashmap_insert_str(m: i64, key: i64, value: i64) -> i64 {
+        if m != 0 {
+            __store64(m + 24, 1);
+        }
+        return rt_hashmap_insert(m, key, value);
+    }
+
+    fn rt_hashmap_get(m: i64, key: i64) -> i64 {
+        let e = rt_hashmap_find(m, key);
+        if e == 0 {
+            return 0;
+        }
+        return __load64(e + 8);
+    }
+
+    fn rt_hashmap_get_opt(m: i64, key: i64) -> i64 {
+        let e = rt_hashmap_find(m, key);
+        if e == 0 {
+            return 0;
+        }
+        return (__load64(e + 8) << 1) | 1;
+    }
+
+    fn rt_hashmap_contains(m: i64, key: i64) -> i64 {
+        return rt_hashmap_find(m, key) != 0;
+    }
+
+    fn rt_hashmap_remove(m: i64, key: i64) -> i64 {
+        if m == 0 {
+            return 0;
+        }
+        let slot = __load64(m) + 8 * rt_hash_key(m, key);
+        let prev: i64 = 0;
+        let e = __load64(slot);
+        while e != 0 {
+            if rt_key_eq(m, __load64(e), key) {
+                if prev != 0 {
+                    __store64(prev + 16, __load64(e + 16));
+                } else {
+                    __store64(slot, __load64(e + 16));
+                }
+                __store64(m + 16, __load64(m + 16) - 1);
+                return 1;
+            }
+            prev = e;
+            e = __load64(e + 16);
+        }
+        return 0;
+    }
+
+    fn rt_hashmap_len(m: i64) -> i64 {
+        if m == 0 {
+            return 0;
+        }
+        return __load64(m + 16);
+    }
+
+    fn rt_hashmap_is_empty(m: i64) -> i64 {
+        return rt_hashmap_len(m) == 0;
+    }
+
+    // Keys (field 0) or values (field 8) in bucket order, like the C runtime.
+    fn rt_hashmap_collect(m: i64, field: i64) -> i64 {
+        let out = rt_vec_new();
+        if m == 0 {
+            return out;
+        }
+        let i: i64 = 0;
+        while i < __load64(m + 8) {
+            let e = __load64(__load64(m) + 8 * i);
+            while e != 0 {
+                rt_vec_push(out, __load64(e + field));
+                e = __load64(e + 16);
+            }
+            i = i + 1;
+        }
+        return out;
+    }
+
+    fn rt_hashmap_keys(m: i64) -> i64 {
+        return rt_hashmap_collect(m, 0);
+    }
+
+    fn rt_hashmap_values(m: i64) -> i64 {
+        return rt_hashmap_collect(m, 8);
+    }
+
+    fn rt_hashmap_clear(m: i64) -> i64 {
+        if m == 0 {
+            return 0;
+        }
+        let i: i64 = 0;
+        while i < __load64(m + 8) {
+            __store64(__load64(m) + 8 * i, 0);
+            i = i + 1;
+        }
+        __store64(m + 16, 0);
+        return 0;
+    }
+
+    // ---- Result: {tag, value}, tag 0 = Ok, 1 = Err ----
+
+    fn rt_result_new(tag: i64, value: i64) -> i64 {
+        let r = rt_alloc(16);
+        __store64(r, tag);
+        __store64(r + 8, value);
+        return r;
+    }
+
+    fn rt_result_ok(value: i64) -> i64 {
+        return rt_result_new(0, value);
+    }
+
+    fn rt_result_err(value: i64) -> i64 {
+        return rt_result_new(1, value);
+    }
+
+    fn rt_result_is_ok(r: i64) -> i64 {
+        return r != 0 && __load64(r) == 0;
+    }
+
+    fn rt_result_is_err(r: i64) -> i64 {
+        return r != 0 && __load64(r) == 1;
+    }
+
+    fn rt_result_unwrap(r: i64) -> i64 {
+        if r == 0 {
+            return 0;
+        }
+        return __load64(r + 8);
+    }
+
+    fn rt_result_unwrap_err(r: i64) -> i64 {
+        return rt_result_unwrap(r);
+    }
+
+    fn rt_result_value(r: i64) -> i64 {
+        return rt_result_unwrap(r);
+    }
+
+    fn rt_result_tag(r: i64) -> i64 {
+        if r == 0 {
+            return 1;
+        }
+        return __load64(r);
+    }
+
+    fn rt_read_file_result(path: i64) -> i64 {
+        if !rt_file_exists(path) {
+            return rt_result_err("file not found");
+        }
+        return rt_result_ok(rt_read_file(path));
+    }
+
+    fn rt_write_file_result(path: i64, content: i64) -> i64 {
+        if !rt_write_file(path, content) {
+            return rt_result_err("cannot write file");
+        }
+        return rt_result_ok(1);
+    }
+
+    fn rt_parse_int_result(s: i64) -> i64 {
+        let t = rt_trim(s);
+        let i: i64 = 0;
+        if __load8(t) == 45 || __load8(t) == 43 {
+            i = 1;
+        }
+        if __load8(t + i) == 0 {
+            return rt_result_err("invalid integer");
+        }
+        while __load8(t + i) != 0 {
+            if __load8(t + i) < 48 || __load8(t + i) > 57 {
+                return rt_result_err("invalid integer");
+            }
+            i = i + 1;
+        }
+        return rt_result_ok(rt_parse_int(t));
+    }
+
+    // ---- Bytes: {data, len, cap} ----
+
+    fn rt_bytes_new(cap: i64) -> i64 {
+        let c = cap;
+        if c < 8 {
+            c = 8;
+        }
+        let b = rt_alloc(24);
+        __store64(b, rt_alloc(c));
+        __store64(b + 8, 0);
+        __store64(b + 16, c);
+        return b;
+    }
+
+    fn rt_bytes_len(b: i64) -> i64 {
+        if b == 0 {
+            return 0;
+        }
+        return __load64(b + 8);
+    }
+
+    fn rt_bytes_capacity(b: i64) -> i64 {
+        if b == 0 {
+            return 0;
+        }
+        return __load64(b + 16);
+    }
+
+    fn rt_bytes_get(b: i64, index: i64) -> i64 {
+        if b == 0 || index < 0 || index >= __load64(b + 8) {
+            return 0;
+        }
+        return __load8(__load64(b) + index);
+    }
+
+    fn rt_bytes_set(b: i64, index: i64, value: i64) -> i64 {
+        if b == 0 || index < 0 || index >= __load64(b + 8) {
+            return 0;
+        }
+        __store8(__load64(b) + index, value & 255);
+        return 1;
+    }
+
+    fn rt_bytes_push(b: i64, value: i64) -> i64 {
+        if b == 0 {
+            return 0;
+        }
+        let n = __load64(b + 8);
+        let cap = __load64(b + 16);
+        if n >= cap {
+            let data = rt_alloc(2 * cap);
+            rt_copy_bytes(data, __load64(b), n);
+            __store64(b, data);
+            __store64(b + 16, 2 * cap);
+        }
+        __store8(__load64(b) + n, value & 255);
+        __store64(b + 8, n + 1);
+        return 1;
+    }
+
+    fn rt_bytes_from_str(s: i64) -> i64 {
+        let n = rt_strlen(s);
+        let b = rt_bytes_new(n);
+        rt_copy_bytes(__load64(b), s, n);
+        __store64(b + 8, n);
+        return b;
+    }
+
+    fn rt_bytes_to_str(b: i64) -> i64 {
+        let n = rt_bytes_len(b);
+        let p = rt_str_new(n);
+        if n > 0 {
+            rt_copy_bytes(p, __load64(b), n);
+        }
+        return p;
+    }
+
+    fn rt_file_write_bytes(path: i64, b: i64) -> i64 {
+        if path == 0 {
+            return rt_result_err("null path");
+        }
+        if b == 0 {
+            return rt_result_err("null bytes");
+        }
+        let fd = __syscall(2, path, 577, 420);
+        if fd < 0 {
+            return rt_result_err("failed to open file");
+        }
+        let n = __load64(b + 8);
+        let done: i64 = 0;
+        while done < n {
+            let w = __syscall(1, fd, __load64(b) + done, n - done);
+            if w <= 0 {
+                break;
+            }
+            done = done + w;
+        }
+        __syscall(3, fd);
+        return rt_result_ok(n);
+    }
+
+    fn rt_file_read_bytes(path: i64) -> i64 {
+        if path == 0 {
+            return rt_result_err("null path");
+        }
+        if !rt_file_exists(path) {
+            return rt_result_err("failed to open file");
+        }
+        return rt_result_ok(rt_bytes_from_str(rt_read_file(path)));
+    }
+
+    // ---- Paths ----
+
+    fn rt_is_sep(c: i64) -> i64 {
+        return c == 47 || c == 92;
+    }
+
+    fn rt_last_sep(path: i64) -> i64 {
+        let last = 0 - 1;
+        let i: i64 = 0;
+        while __load8(path + i) != 0 {
+            if rt_is_sep(__load8(path + i)) {
+                last = i;
+            }
+            i = i + 1;
+        }
+        return last;
+    }
+
+    fn rt_path_dir(path: i64) -> i64 {
+        if path == 0 {
+            return "";
+        }
+        let last = rt_last_sep(path);
+        if last < 0 {
+            return "";
+        }
+        let p = rt_str_new(last);
+        rt_copy_bytes(p, path, last);
+        return p;
+    }
+
+    fn rt_path_base(path: i64) -> i64 {
+        if path == 0 {
+            return "";
+        }
+        return path + rt_last_sep(path) + 1;
+    }
+
+    fn rt_path_ext(path: i64) -> i64 {
+        if path == 0 {
+            return "";
+        }
+        let base = rt_path_base(path);
+        let dot = 0 - 1;
+        let i: i64 = 0;
+        while __load8(base + i) != 0 {
+            if __load8(base + i) == 46 {
+                dot = i;
+            }
+            i = i + 1;
+        }
+        if dot <= 0 || __load8(base + dot + 1) == 0 {
+            return "";
+        }
+        return base + dot + 1;
+    }
+
+    fn rt_path_is_abs(path: i64) -> i64 {
+        if path == 0 || __load8(path) == 0 {
+            return 0;
+        }
+        if rt_is_sep(__load8(path)) {
+            return 1;
+        }
+        return __load8(path + 1) == 58;
+    }
+
+    fn rt_path_join(a: i64, b: i64) -> i64 {
+        if a == 0 || __load8(a) == 0 {
+            if b == 0 {
+                return "";
+            }
+            return b;
+        }
+        if b == 0 || __load8(b) == 0 {
+            return a;
+        }
+        let len_a = rt_strlen(a);
+        while len_a > 0 && rt_is_sep(__load8(a + len_a - 1)) {
+            len_a = len_a - 1;
+        }
+        let start_b = b;
+        while rt_is_sep(__load8(start_b)) {
+            start_b = start_b + 1;
+        }
+        let len_b = rt_strlen(start_b);
+        if len_a == 0 {
+            return start_b;
+        }
+        if len_b == 0 {
+            let only = rt_str_new(len_a);
+            rt_copy_bytes(only, a, len_a);
+            return only;
+        }
+        let p = rt_str_new(len_a + 1 + len_b);
+        rt_copy_bytes(p, a, len_a);
+        __store8(p + len_a, 47);
+        rt_copy_bytes(p + len_a + 1, start_b, len_b);
+        return p;
+    }
+
+    // ---- Runtime version (matches runtime.h ABI 1.0.0) ----
+
+    fn rt_runtime_version_major() -> i64 {
+        return 1;
+    }
+
+    fn rt_runtime_version_minor() -> i64 {
+        return 0;
+    }
+
+    fn rt_runtime_version_patch() -> i64 {
+        return 0;
+    }
+
+    fn rt_runtime_version_str() -> i64 {
+        return "1.0.0";
+    }
+
+    // ---- Processes: /bin/sh -c cmd via fork, execve and wait4 ----
+
+    // Child side: point stdout at out_fd (or /dev/null when out_fd < 0) and exec the shell.
+    fn rt_exec_shell(cmd: i64, out_fd: i64) -> i64 {
+        let fd = out_fd;
+        if fd < 0 {
+            fd = __syscall(2, "/dev/null", 1, 0);
+        }
+        __syscall(33, fd, 1);
+        let argv = rt_alloc(32);
+        __store64(argv, "/bin/sh");
+        __store64(argv + 8, "-c");
+        __store64(argv + 16, cmd);
+        __store64(argv + 24, 0);
+        let sp = __load64(__globals());
+        let envp = sp + 16 + 8 * __load64(sp);
+        __syscall(59, "/bin/sh", argv, envp);
+        rt_exit(127);
+        return 0;
+    }
+
+    // Wait for pid and decode the status like pclose + WEXITSTATUS.
+    fn rt_wait_status(pid: i64) -> i64 {
+        let status_box = rt_alloc(8);
+        __store64(status_box, 0);
+        let waited = __syscall(61, pid, status_box, 0, 0);
+        while waited == 0 - 4 {
+            // Retry when interrupted (EINTR)
+            waited = __syscall(61, pid, status_box, 0, 0);
+        }
+        let status = __load64(status_box) & 4294967295;
+        if (status & 127) == 0 {
+            return (status >> 8) & 255;
+        }
+        return status;
+    }
+
+    fn rt_process_run_status(cmd: i64) -> i64 {
+        if rt_process_is_sandboxed() {
+            return rt_result_err("process execution is disabled by sandbox policy");
+        }
+        if cmd == 0 {
+            return rt_result_err("null command");
+        }
+        let pid = __syscall(57);
+        if pid < 0 {
+            return rt_result_err("failed to spawn process");
+        }
+        if pid == 0 {
+            rt_exec_shell(cmd, 0 - 1);
+        }
+        return rt_result_ok(rt_wait_status(pid));
+    }
+
+    fn rt_process_run(cmd: i64) -> i64 {
+        if rt_process_is_sandboxed() {
+            return rt_result_err("process execution is disabled by sandbox policy");
+        }
+        if cmd == 0 {
+            return rt_result_err("null command");
+        }
+        let fds = rt_alloc(8);
+        if __syscall(22, fds) < 0 {
+            return rt_result_err("failed to spawn process");
+        }
+        let read_fd = __load64(fds) & 4294967295;
+        let write_fd = (__load64(fds) >> 32) & 4294967295;
+        let pid = __syscall(57);
+        if pid < 0 {
+            return rt_result_err("failed to spawn process");
+        }
+        if pid == 0 {
+            __syscall(3, read_fd);
+            rt_exec_shell(cmd, write_fd);
+        }
+        __syscall(3, write_fd);
+        let out = rt_bytes_new(1024);
+        let chunk = rt_alloc(4096);
+        let n = __syscall(0, read_fd, chunk, 4096);
+        while n > 0 {
+            let i: i64 = 0;
+            while i < n {
+                rt_bytes_push(out, __load8(chunk + i));
+                i = i + 1;
+            }
+            n = __syscall(0, read_fd, chunk, 4096);
+        }
+        __syscall(3, read_fd);
+        if rt_wait_status(pid) != 0 {
+            return rt_result_err("process exited with non-zero status");
+        }
+        return rt_result_ok(rt_bytes_to_str(out));
+    }
