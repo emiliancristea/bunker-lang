@@ -29,13 +29,13 @@
 
     fn rt_alloc(n: i64) -> i64 {
         let g = __globals();
-        let size = (n + 15) & (0 - 16);
+        let mut size = (n + 15) & (0 - 16);
         if size <= 0 {
             size = 16;
         }
-        let p = __load64(g + 8);
+        let mut p = __load64(g + 8);
         if p == 0 || p + size > __load64(g + 16) {
-            let chunk: i64 = 67108864;
+            let mut chunk: i64 = 67108864;
             if size > chunk {
                 chunk = size;
             }
@@ -53,7 +53,7 @@
     }
 
     fn rt_copy_bytes(dst: i64, src: i64, n: i64) -> i64 {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i + 8 <= n {
             __store64(dst + i, __load64(src + i));
             i = i + 8;
@@ -75,7 +75,7 @@
         if __load64(g + 32) == s {
             return __load64(g + 40);
         }
-        let n: i64 = 0;
+        let mut n: i64 = 0;
         while __load8(s + n) != 0 {
             n = n + 1;
         }
@@ -101,7 +101,7 @@
         if a == 0 || b == 0 {
             return 0;
         }
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while true {
             let ca = __load8(a + i);
             if ca != __load8(b + i) {
@@ -137,7 +137,7 @@
         let g = __globals();
         if code >= 0 && code < 128 {
             if __load64(g + 24) == 0 {
-                let c: i64 = 0;
+                let mut c: i64 = 0;
                 while c < 128 {
                     __store8(g + 4096 + 2 * c, c);
                     __store8(g + 4097 + 2 * c, 0);
@@ -205,10 +205,10 @@
         if first == 0 {
             return from;
         }
-        let i = from;
+        let mut i = from;
         while __load8(s + i) != 0 {
             if __load8(s + i) == first {
-                let j: i64 = 1;
+                let mut j: i64 = 1;
                 while __load8(needle + j) != 0 && __load8(s + i + j) == __load8(needle + j) {
                     j = j + 1;
                 }
@@ -236,7 +236,7 @@
         if s == 0 || prefix == 0 {
             return 0;
         }
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while __load8(prefix + i) != 0 {
             if __load8(s + i) != __load8(prefix + i) {
                 return 0;
@@ -266,8 +266,8 @@
         if s == 0 {
             return "";
         }
-        let start: i64 = 0;
-        let end = rt_strlen(s);
+        let mut start: i64 = 0;
+        let mut end = rt_strlen(s);
         while start < end && rt_is_space(__load8(s + start)) {
             start = start + 1;
         }
@@ -282,16 +282,16 @@
             return rt_from_char_code(48 + value);
         }
         let buf = rt_alloc(32);
-        let pos: i64 = 31;
+        let mut pos: i64 = 31;
         __store8(buf + pos, 0);
         let negative = value < 0;
-        let v = value;
+        let mut v = value;
         if v == 0 {
             pos = pos - 1;
             __store8(buf + pos, 48);
         }
         while v != 0 {
-            let digit = v % 10;
+            let mut digit = v % 10;
             if digit < 0 {
                 digit = 0 - digit;
             }
@@ -311,18 +311,18 @@
         if s == 0 {
             return 0;
         }
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while rt_is_space(__load8(s + i)) || __load8(s + i) == 11 || __load8(s + i) == 12 {
             i = i + 1;
         }
-        let negative = false;
+        let mut negative = false;
         if __load8(s + i) == 45 {
             negative = true;
             i = i + 1;
         } else if __load8(s + i) == 43 {
             i = i + 1;
         }
-        let value: i64 = 0;
+        let mut value: i64 = 0;
         while __load8(s + i) >= 48 && __load8(s + i) <= 57 {
             value = value * 10 + (__load8(s + i) - 48);
             i = i + 1;
@@ -344,13 +344,13 @@
             return s;
         }
         let from_len = rt_strlen(from);
-        let to_len: i64 = 0;
+        let mut to_len: i64 = 0;
         if to != 0 {
             to_len = rt_strlen(to);
         }
-        let cur: i64 = 0;
-        let total: i64 = 0;
-        let next = rt_find(s, from, 0);
+        let mut cur: i64 = 0;
+        let mut total: i64 = 0;
+        let mut next = rt_find(s, from, 0);
         while next >= 0 {
             total = total + (next - cur) + to_len;
             cur = next + from_len;
@@ -358,7 +358,7 @@
         }
         total = total + rt_strlen(s + cur);
         let p = rt_str_new(total);
-        let dst: i64 = 0;
+        let mut dst: i64 = 0;
         cur = 0;
         next = rt_find(s, from, 0);
         while next >= 0 {
@@ -379,7 +379,7 @@
             return parts;
         }
         if delim == 0 || __load8(delim) == 0 {
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while __load8(s + i) != 0 {
                 let one = rt_str_new(1);
                 __store8(one, __load8(s + i));
@@ -389,8 +389,8 @@
             return parts;
         }
         let delim_len = rt_strlen(delim);
-        let cur: i64 = 0;
-        let next = rt_find(s, delim, 0);
+        let mut cur: i64 = 0;
+        let mut next = rt_find(s, delim, 0);
         while next >= 0 {
             let piece = rt_str_new(next - cur);
             rt_copy_bytes(piece, s + cur, next - cur);
@@ -414,7 +414,7 @@
             return "";
         }
         let p = rt_str_new(n * count);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < count {
             rt_copy_bytes(p + i * n, s, n);
             i = i + 1;
@@ -428,9 +428,9 @@
         }
         let n = rt_strlen(s);
         let p = rt_str_new(n);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < n {
-            let c = __load8(s + i);
+            let mut c = __load8(s + i);
             if upper && c >= 97 && c <= 122 {
                 c = c - 32;
             } else if !upper && c >= 65 && c <= 90 {
@@ -455,14 +455,14 @@
         if v == 0 || n <= 0 {
             return "";
         }
-        let total: i64 = 0;
-        let i: i64 = 0;
+        let mut total: i64 = 0;
+        let mut i: i64 = 0;
         while i < n {
             total = total + rt_strlen(rt_vec_get(v, i)) + 1;
             i = i + 1;
         }
         let p = rt_str_new(total);
-        let dst: i64 = 0;
+        let mut dst: i64 = 0;
         i = 0;
         while i < n {
             let line = rt_vec_get(v, i);
@@ -480,7 +480,7 @@
 
     fn rt_write_fd(fd: i64, s: i64) -> i64 {
         let n = rt_strlen(s);
-        let done: i64 = 0;
+        let mut done: i64 = 0;
         while done < n {
             let w = __syscall(1, fd, s + done, n - done);
             if w <= 0 {
@@ -560,7 +560,7 @@
         let sp = __load64(__globals());
         let envp = sp + 16 + 8 * __load64(sp);
         let key_len = rt_strlen(key);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while __load64(envp + 8 * i) != 0 {
             let entry = __load64(envp + 8 * i);
             if rt_starts_with(entry, key) && __load8(entry + key_len) == 61 {
@@ -601,7 +601,7 @@
             return "";
         }
         let buf = rt_str_new(size);
-        let got: i64 = 0;
+        let mut got: i64 = 0;
         while got < size {
             let r = __syscall(0, fd, buf + got, size - got);
             if r <= 0 {
@@ -718,7 +718,7 @@
     }
 
     fn rt_vec_contains(v: i64, item: i64) -> i64 {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < rt_vec_len(v) {
             if rt_vec_get(v, i) == item {
                 return 1;
@@ -729,7 +729,7 @@
     }
 
     fn rt_vec_contains_str(v: i64, item: i64) -> i64 {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < rt_vec_len(v) {
             if rt_str_eq(rt_vec_get(v, i), item) {
                 return 1;
@@ -743,8 +743,8 @@
         if v == 0 {
             return 0;
         }
-        let i: i64 = 0;
-        let j = rt_vec_len(v) - 1;
+        let mut i: i64 = 0;
+        let mut j = rt_vec_len(v) - 1;
         while i < j {
             let tmp = rt_vec_get(v, i);
             rt_vec_set(v, i, rt_vec_get(v, j));
@@ -757,7 +757,7 @@
 
     fn rt_vec_clone(v: i64) -> i64 {
         let out = rt_vec_new();
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < rt_vec_len(v) {
             rt_vec_push(out, rt_vec_get(v, i));
             i = i + 1;
@@ -799,11 +799,11 @@
     }
 
     fn rt_hash_key(m: i64, key: i64) -> i64 {
-        let h = key;
+        let mut h = key;
         if __load64(m + 24) == 1 {
             h = 5381;
             if key != 0 {
-                let i: i64 = 0;
+                let mut i: i64 = 0;
                 while __load8(key + i) != 0 {
                     h = ((h << 5) + h) + __load8(key + i);
                     i = i + 1;
@@ -828,7 +828,7 @@
         if m == 0 {
             return 0;
         }
-        let e = __load64(__load64(m) + 8 * rt_hash_key(m, key));
+        let mut e = __load64(__load64(m) + 8 * rt_hash_key(m, key));
         while e != 0 {
             if rt_key_eq(m, __load64(e), key) {
                 return e;
@@ -889,8 +889,8 @@
             return 0;
         }
         let slot = __load64(m) + 8 * rt_hash_key(m, key);
-        let prev: i64 = 0;
-        let e = __load64(slot);
+        let mut prev: i64 = 0;
+        let mut e = __load64(slot);
         while e != 0 {
             if rt_key_eq(m, __load64(e), key) {
                 if prev != 0 {
@@ -924,9 +924,9 @@
         if m == 0 {
             return out;
         }
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < __load64(m + 8) {
-            let e = __load64(__load64(m) + 8 * i);
+            let mut e = __load64(__load64(m) + 8 * i);
             while e != 0 {
                 rt_vec_push(out, __load64(e + field));
                 e = __load64(e + 16);
@@ -948,7 +948,7 @@
         if m == 0 {
             return 0;
         }
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < __load64(m + 8) {
             __store64(__load64(m) + 8 * i, 0);
             i = i + 1;
@@ -1020,7 +1020,7 @@
 
     fn rt_parse_int_result(s: i64) -> i64 {
         let t = rt_trim(s);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         if __load8(t) == 45 || __load8(t) == 43 {
             i = 1;
         }
@@ -1039,7 +1039,7 @@
     // ---- Bytes: {data, len, cap} ----
 
     fn rt_bytes_new(cap: i64) -> i64 {
-        let c = cap;
+        let mut c = cap;
         if c < 8 {
             c = 8;
         }
@@ -1125,7 +1125,7 @@
             return rt_result_err("failed to open file");
         }
         let n = __load64(b + 8);
-        let done: i64 = 0;
+        let mut done: i64 = 0;
         while done < n {
             let w = __syscall(1, fd, __load64(b) + done, n - done);
             if w <= 0 {
@@ -1154,8 +1154,8 @@
     }
 
     fn rt_last_sep(path: i64) -> i64 {
-        let last = 0 - 1;
-        let i: i64 = 0;
+        let mut last = 0 - 1;
+        let mut i: i64 = 0;
         while __load8(path + i) != 0 {
             if rt_is_sep(__load8(path + i)) {
                 last = i;
@@ -1190,8 +1190,8 @@
             return "";
         }
         let base = rt_path_base(path);
-        let dot = 0 - 1;
-        let i: i64 = 0;
+        let mut dot = 0 - 1;
+        let mut i: i64 = 0;
         while __load8(base + i) != 0 {
             if __load8(base + i) == 46 {
                 dot = i;
@@ -1224,11 +1224,11 @@
         if b == 0 || __load8(b) == 0 {
             return a;
         }
-        let len_a = rt_strlen(a);
+        let mut len_a = rt_strlen(a);
         while len_a > 0 && rt_is_sep(__load8(a + len_a - 1)) {
             len_a = len_a - 1;
         }
-        let start_b = b;
+        let mut start_b = b;
         while rt_is_sep(__load8(start_b)) {
             start_b = start_b + 1;
         }
@@ -1270,7 +1270,7 @@
 
     // Child side: point stdout at out_fd (or /dev/null when out_fd < 0) and exec the shell.
     fn rt_exec_shell(cmd: i64, out_fd: i64) -> i64 {
-        let fd = out_fd;
+        let mut fd = out_fd;
         if fd < 0 {
             fd = __syscall(2, "/dev/null", 1, 0);
         }
@@ -1291,7 +1291,7 @@
     fn rt_wait_status(pid: i64) -> i64 {
         let status_box = rt_alloc(8);
         __store64(status_box, 0);
-        let waited = __syscall(61, pid, status_box, 0, 0);
+        let mut waited = __syscall(61, pid, status_box, 0, 0);
         while waited == 0 - 4 {
             // Retry when interrupted (EINTR)
             waited = __syscall(61, pid, status_box, 0, 0);
@@ -1344,9 +1344,9 @@
         __syscall(3, write_fd);
         let out = rt_bytes_new(1024);
         let chunk = rt_alloc(4096);
-        let n = __syscall(0, read_fd, chunk, 4096);
+        let mut n = __syscall(0, read_fd, chunk, 4096);
         while n > 0 {
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < n {
                 rt_bytes_push(out, __load8(chunk + i));
                 i = i + 1;

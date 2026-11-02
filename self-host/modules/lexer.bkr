@@ -41,8 +41,39 @@
         return pos;
     }
 
+    fn hex_digit_value(c: i64) -> i64 {
+        if c >= 48 && c <= 57 { return c - 48; }
+        if c >= 97 && c <= 102 { return c - 87; }
+        if c >= 65 && c <= 70 { return c - 55; }
+        return -1;
+    }
+
+    // Decode the escape sequence whose backslash is at pos. Returns the byte value and
+    // writes the escape length (in source bytes) into out_len[0]; -1 means invalid.
+    // Supported: \n \t \r \0 \\ \" \' and \xHH.
+    fn decode_escape(source: str, pos: i64, out_len: Vec<i64>) -> i64 {
+        vec_set(out_len, 0, 2);
+        let e = char_code_at(source, pos + 1);
+        if e == 110 { return 10; }
+        if e == 116 { return 9; }
+        if e == 114 { return 13; }
+        if e == 48 { return 0; }
+        if e == 92 { return 92; }
+        if e == 34 { return 34; }
+        if e == 39 { return 39; }
+        if e == 120 {
+            let hi = hex_digit_value(char_code_at(source, pos + 2));
+            let lo = hex_digit_value(char_code_at(source, pos + 3));
+            if hi >= 0 && lo >= 0 {
+                vec_set(out_len, 0, 4);
+                return hi * 16 + lo;
+            }
+        }
+        return -1;
+    }
+
     fn intern_name(names: Vec<str>, word: str) -> i64 {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(names) {
             if vec_get(names, i) == word {
                 return i;
@@ -64,7 +95,7 @@
         let values: Vec<i64> = vec_new();  // integer values
         let strings: Vec<str> = vec_new(); // string literal values
 
-        let pos: i64 = 0;
+        let mut pos: i64 = 0;
         let src_len = len(source);
 
         while pos < src_len {
@@ -78,8 +109,8 @@
 
             let start = pos;
             let c = char_code_at(source, pos);
-            let tok_type: TokenKind = TokenKind.Eof;
-            let handled = false;
+            let mut tok_type: TokenKind = TokenKind.Eof;
+            let mut handled = false;
 
             // Identifier or keyword
             if is_alpha(c) {
@@ -154,20 +185,81 @@
             // String literal
             if !handled && c == 34 {  // "
                 pos = pos + 1;  // skip opening quote
-                let str_start = pos;
+                // Decode escapes. Strings are NUL-terminated, so \0 ends the value.
+                let mut str_val = "";
+                let mut run_start = pos;
+                let mut valid = true;
+                let mut truncated = false;
+                let esc_len: Vec<i64> = vec_new();
+                vec_push(esc_len, 2);
                 while pos < src_len && char_code_at(source, pos) != 34 {
                     if char_code_at(source, pos) == 92 && pos + 1 < src_len {
-                        pos = pos + 2;
+                        if !truncated {
+                            str_val = str_val + substring(source, run_start, pos);
+                        }
+                        let mut code = decode_escape(source, pos, esc_len);
+                        if code < 0 {
+                            valid = false;
+                        } else if code == 0 {
+                            truncated = true;
+                        } else if !truncated {
+                            str_val = str_val + from_char_code(code);
+                        }
+                        pos = pos + vec_get(esc_len, 0);
+                        run_start = pos;
                     } else {
                         pos = pos + 1;
                     }
                 }
-                let str_val = substring(source, str_start, pos);
+                if !truncated {
+                    str_val = str_val + substring(source, run_start, pos);
+                }
+                if pos >= src_len {
+                    valid = false;
+                }
                 pos = pos + 1;  // skip closing quote
-                vec_push(tokens, TOK_STR);
-                vec_push(tokens, vec_len(strings));  // string index
-                vec_push(tokens, pos);
-                vec_push(strings, str_val);
+                if valid {
+                    vec_push(tokens, TOK_STR);
+                    vec_push(tokens, vec_len(strings));  // string index
+                    vec_push(tokens, pos);
+                    vec_push(strings, str_val);
+                } else {
+                    vec_push(tokens, TokenKind.Invalid);
+                    vec_push(tokens, start);
+                    vec_push(tokens, pos);
+                }
+                handled = true;
+            }
+
+            // Character literal: 'x' or an escape, an integer with the byte value
+            if !handled && c == 39 {
+                let mut code: i64 = -1;
+                let mut char_len: i64 = 0;
+                let esc_len: Vec<i64> = vec_new();
+                vec_push(esc_len, 2);
+                if pos + 1 < src_len && char_code_at(source, pos + 1) == 92 {
+                    code = decode_escape(source, pos + 1, esc_len);
+                    char_len = vec_get(esc_len, 0);
+                } else if pos + 1 < src_len {
+                    code = char_code_at(source, pos + 1);
+                    char_len = 1;
+                }
+                if code >= 0 && char_code_at(source, pos + 1 + char_len) == 39 {
+                    pos = pos + 2 + char_len;
+                    vec_push(tokens, TOK_INT);
+                    vec_push(tokens, vec_len(values));
+                    vec_push(tokens, pos);
+                    vec_push(values, code);
+                } else {
+                    pos = pos + 1;
+                    while pos < src_len && char_code_at(source, pos) != 39 && char_code_at(source, pos) != 10 {
+                        pos = pos + 1;
+                    }
+                    pos = pos + 1;
+                    vec_push(tokens, TokenKind.Invalid);
+                    vec_push(tokens, start);
+                    vec_push(tokens, pos);
+                }
                 handled = true;
             }
 
@@ -230,6 +322,10 @@
                 if c == 59 { tok_type = TOK_SEMICOLON; }
                 if c == 58 { tok_type = TOK_COLON; }
                 if c == 63 { tok_type = TOK_QUESTION; }
+                if tok_type == TokenKind.Eof {
+                    // Unknown character: report it instead of silently ending the file
+                    tok_type = TokenKind.Invalid;
+                }
                 pos = pos + 1;
                 vec_push(tokens, tok_type);
                 vec_push(tokens, start);

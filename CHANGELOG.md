@@ -15,7 +15,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Bunker builds itself with no C.** `bkrc native self-host/bkrc.bkr` produces a 1 MB compiler that rebuilds itself byte-for-byte. The checked-in seed `bootstrap/bkrc-linux-x86_64` and `bootstrap/build-native.sh` bootstrap with nothing but Bunker; CI runs that job with `CC=/bin/false` and checks it matches the C-seed path.
 - `file_set_executable(path)` builtin.
 
+### Added
+- **Semantic checks** (`self-host/modules/semantic.bkr`), run after the typechecker: `immutable_assignment`, `use_after_move` (structs and fixed arrays at let, reassignment and literal sites; `copy x` keeps x), `unknown_enum_variant`, `enum_pattern_arity`, `collection_value_mismatch`, `ambiguous_result_value`, `raw_handle_use`, `method_not_found`, `struct_update_base_mismatch`, `match_arm_missing_value`. All 81 rejection tests now fail for their intended rule.
+
+### Changed
+- **`let` bindings are immutable**; reassigning needs `let mut`. The parser now records `mut`. 765 declarations across the compiler, runtime, test runner and tests were migrated.
+
 ### Fixed
+- **String escapes are decoded.** `"\n"` used to stay a backslash and an `n`. The lexer now decodes `\n \t \r \0 \\ \" \'` and `\xHH`, adds character literals (`'a'`, `'\n'`), and reports unknown escapes.
+- An unknown character (such as `@` or `#`) used to end the file silently, dropping everything after it; it is now a parse error. An unexpected token in an expression used to become `0` silently; it is now a parse error.
 - **Honest test results.** `run_tests.ps1` counted every test as passed whenever the compiler path contained "bkrc". It is replaced by `tools/test_runner.bkr`, a runner written in Bunker that checks real outcomes. Real status: 181/309 passing; the 128 current failures are listed in `tests/known_failures.txt`.
 - `bkrc run` no longer prints a result guessed from the file name. It compiles to C, builds with the system C compiler (`BKR_CC`/`CC`, default `cc`), executes the program and exits with its exit code.
 - `bkrc check` no longer rejects files because their name contains `_BAD`, and prints the diagnostic report on failure.

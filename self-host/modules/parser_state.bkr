@@ -216,8 +216,8 @@
             let err_pos = vec_get(state, 9) as Vec<i64>;
             let err_exp = vec_get(state, 10) as Vec<i64>;
             let err_act = vec_get(state, 11) as Vec<i64>;
-            let already = false;
-            let i: i64 = 0;
+            let mut already = false;
+            let mut i: i64 = 0;
             while i < vec_len(err_pos) {
                 if vec_get(err_pos, i) == cur_pos {
                     already = true;
@@ -248,7 +248,7 @@
 
     fn parser_intern_ref(p_ref: ParserStateRef, text: str) -> i64 {
         let names: Vec<str> = parser_names_ref(p_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         let count: i64 = vec_len(names);
         while i < count {
             if vec_get(names, i) == text {

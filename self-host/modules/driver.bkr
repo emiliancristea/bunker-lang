@@ -19,7 +19,7 @@
     }
 
     fn import_path_has_backslash(import_path: str) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < len(import_path) {
             if char_code_at(import_path, i) == 92 {
                 return true;
@@ -70,8 +70,8 @@
     }
 
     fn import_path_dir(resolved_path: str) -> str {
-        let last_slash: i64 = -1;
-        let i: i64 = 0;
+        let mut last_slash: i64 = -1;
+        let mut i: i64 = 0;
         while i < len(resolved_path) {
             if char_code_at(resolved_path, i) == 47 || char_code_at(resolved_path, i) == 92 {
                 last_slash = i;
@@ -85,7 +85,7 @@
     }
 
     fn import_seen_contains(seen: Vec<str>, import_path: str) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(seen) {
             if vec_get(seen, i) == import_path {
                 return true;
@@ -111,7 +111,7 @@
             vec_push(seen, resolved_path);
             let imported = read_file(resolved_path);
             let expanded_import = expand_imports_with_seen(imported, seen, import_path_dir(resolved_path));
-            let result = output + expanded_import;
+            let mut result = output + expanded_import;
             if len(result) > 0 && char_code_at(result, len(result) - 1) != 10 {
                 result = result + from_char_code(10);
             }
@@ -121,9 +121,9 @@
     }
 
     fn expand_imports_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
-        let output = "";
-        let start: i64 = 0;
-        let pos: i64 = 0;
+        let mut output = "";
+        let mut start: i64 = 0;
+        let mut pos: i64 = 0;
         let source_len = len(source);
 
         while pos < source_len {
@@ -172,8 +172,8 @@
     }
 
     fn first_missing_import_path_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
-        let start: i64 = 0;
-        let pos: i64 = 0;
+        let mut start: i64 = 0;
+        let mut pos: i64 = 0;
         let source_len = len(source);
 
         while pos < source_len {
@@ -225,8 +225,8 @@
     }
 
     fn first_invalid_import_path_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
-        let start: i64 = 0;
-        let pos: i64 = 0;
+        let mut start: i64 = 0;
+        let mut pos: i64 = 0;
         let source_len = len(source);
 
         while pos < source_len {
@@ -278,9 +278,9 @@
     }
 
     fn import_count_with_seen(source: str, seen: Vec<str>, base_dir: str) -> i64 {
-        let count: i64 = 0;
-        let start: i64 = 0;
-        let pos: i64 = 0;
+        let mut count: i64 = 0;
+        let mut start: i64 = 0;
+        let mut pos: i64 = 0;
         let source_len = len(source);
 
         while pos < source_len {
@@ -328,7 +328,7 @@
     }
 
     fn import_paths_json_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> str {
-        let result = "[";
+        let mut result = "[";
         if is_import_line(line) {
             let import_path = import_path_from_line(line);
             if !import_path_is_valid(import_path) {
@@ -349,9 +349,9 @@
     }
 
     fn import_paths_json_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
-        let result = "[";
-        let start: i64 = 0;
-        let pos: i64 = 0;
+        let mut result = "[";
+        let mut start: i64 = 0;
+        let mut pos: i64 = 0;
         let source_len = len(source);
 
         while pos < source_len {
@@ -391,7 +391,7 @@
     }
 
     fn import_edges_json_in_line_with_seen(line: str, seen: Vec<str>, base_dir: str) -> str {
-        let result = "[";
+        let mut result = "[";
         if is_import_line(line) {
             let import_path = import_path_from_line(line);
             if !import_path_is_valid(import_path) {
@@ -417,9 +417,9 @@
     }
 
     fn import_edges_json_with_seen(source: str, seen: Vec<str>, base_dir: str) -> str {
-        let result = "[";
-        let start: i64 = 0;
-        let pos: i64 = 0;
+        let mut result = "[";
+        let mut start: i64 = 0;
+        let mut pos: i64 = 0;
         let source_len = len(source);
 
         while pos < source_len {
@@ -449,8 +449,8 @@
     fn import_edge_status_count_in_json(edges_json: str, status: str) -> i64 {
         let quote = from_char_code(34);
         let needle = quote + "status" + quote + ":" + json_escape_string(status);
-        let count: i64 = 0;
-        let i: i64 = 0;
+        let mut count: i64 = 0;
+        let mut i: i64 = 0;
         while i + len(needle) <= len(edges_json) {
             if substring(edges_json, i, i + len(needle)) == needle {
                 count = count + 1;
@@ -474,8 +474,8 @@
     }
 
     fn source_line_at(source: str, offset: i64) -> i64 {
-        let line: i64 = 1;
-        let i: i64 = 0;
+        let mut line: i64 = 1;
+        let mut i: i64 = 0;
         let source_len = len(source);
         while i < offset && i < source_len {
             if char_code_at(source, i) == 10 {
@@ -487,8 +487,8 @@
     }
 
     fn source_column_at(source: str, offset: i64) -> i64 {
-        let column: i64 = 1;
-        let i: i64 = 0;
+        let mut column: i64 = 1;
+        let mut i: i64 = 0;
         let source_len = len(source);
         while i < offset && i < source_len {
             if char_code_at(source, i) == 10 {
@@ -507,7 +507,7 @@
             return "";
         }
 
-        let safe_offset = offset;
+        let mut safe_offset = offset;
         if safe_offset < 0 {
             safe_offset = 0;
         }
@@ -515,12 +515,12 @@
             safe_offset = source_len - 1;
         }
 
-        let start = safe_offset;
+        let mut start = safe_offset;
         while start > 0 && char_code_at(source, start - 1) != 10 {
             start = start - 1;
         }
 
-        let end = safe_offset;
+        let mut end = safe_offset;
         while end < source_len && char_code_at(source, end) != 10 {
             end = end + 1;
         }
@@ -592,7 +592,7 @@
     }
 
     fn self_host_diagnostic_codes_json() -> str {
-        let result = "[";
+        let mut result = "[";
         result = import_graph_json_array_append(result,
             self_host_diagnostic_code_json("BKR_SELF_PARSE", "parse", "syntax", "Parse error with expected and actual token details."));
         result = import_graph_json_array_append(result,
@@ -817,17 +817,17 @@
         let first_message = "Parse error at token " + int_to_string(parser_error_position_ref(p)) +
             ": expected " + first_expected + ", got " + first_actual;
         let first_insert_text = parse_insert_text_for_expected_token(parser_error_expected_ref(p));
-        let first_suggested_edits = diagnostic_no_edits_json();
-        let first_safe_edit_available = false;
+        let mut first_suggested_edits = diagnostic_no_edits_json();
+        let mut first_safe_edit_available = false;
         if len(first_insert_text) > 0 {
             first_suggested_edits = diagnostic_single_edit_json(diagnostic_text_edit_json("insert_text",
                 first_start, first_start, first_insert_text, "manual_review", "medium"));
             first_safe_edit_available = true;
         }
 
-        let diags_json = "[";
-        let i: i64 = 0;
-        let comment_messages = "";
+        let mut diags_json = "[";
+        let mut i: i64 = 0;
+        let mut comment_messages = "";
         while i < err_count {
             let exp_tok = parser_error_expected_at_ref(p, i);
             let act_tok = parser_error_actual_at_ref(p, i);
@@ -842,8 +842,8 @@
             let s_excerpt = source_line_excerpt_at(source, s_start);
             let msg = "Parse error at token " + int_to_string(pos) + ": expected " + exp_name + ", got " + act_name;
             let ins_txt = parse_insert_text_for_expected_token(exp_tok);
-            let edits = diagnostic_no_edits_json();
-            let safe_avail = false;
+            let mut edits = diagnostic_no_edits_json();
+            let mut safe_avail = false;
             if len(ins_txt) > 0 {
                 edits = diagnostic_single_edit_json(diagnostic_text_edit_json("insert_text", s_start, s_start, ins_txt, "manual_review", "medium"));
                 safe_avail = true;
@@ -895,7 +895,7 @@
     fn self_host_trace_phase(phase: str) -> i64 {
         if self_host_trace_enabled() {
             let trace_path = "self_host_trace.log";
-            let existing = "";
+            let mut existing = "";
             if file_exists(trace_path) {
                 existing = read_file(trace_path);
             }
@@ -950,6 +950,8 @@
         self_host_trace_phase("compile_to_c:typecheck_begin");
         let typecheck_report = build_typecheck_report_comment(ast);
         self_host_trace_phase("compile_to_c:typecheck_report");
+        let semantic_report = build_semantic_report_comment(ast, expanded_source);
+        self_host_trace_phase("compile_to_c:semantic_report");
         let c_program = gen_c_program(ast);
         self_host_trace_phase("compile_to_c:c_program");
 
@@ -958,6 +960,7 @@
             symbol_table_report +
             resolver_report +
             typecheck_report +
+            semantic_report +
             c_program;
     }
 
@@ -994,7 +997,7 @@
         if len(configured) > 0 {
             return configured;
         }
-        let exe_dir = path_dir(arg_at(0));
+        let mut exe_dir = path_dir(arg_at(0));
         if len(exe_dir) == 0 {
             exe_dir = ".";
         }
@@ -1011,7 +1014,7 @@
         let q = from_char_code(34);
         let marker = q + "has_diagnostics" + q + ":true";
         let lines: Vec<str> = str_split(c_code, from_char_code(10));
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(lines) {
             let line: str = vec_get(lines, i);
             if contains(line, marker) {
@@ -1036,7 +1039,7 @@
         if len(configured) > 0 {
             return configured;
         }
-        let exe_dir = path_dir(arg_at(0));
+        let mut exe_dir = path_dir(arg_at(0));
         if len(exe_dir) == 0 {
             exe_dir = ".";
         }
@@ -1068,7 +1071,7 @@
         }
         // The runtime's functions join the program's kernel so one name table covers both.
         let expanded_source = expand_imports_from_base(source, base_dir);
-        let close = len(expanded_source) - 1;
+        let mut close = len(expanded_source) - 1;
         while close >= 0 && char_at(expanded_source, close) != "}" {
             close = close - 1;
         }
@@ -1087,7 +1090,7 @@
         }
         let st: X86State = x86_gen_program(ast_node_ref_from_node(ast));
         if vec_len(st.errors) > 0 {
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < vec_len(st.errors) {
                 println("Error: native backend: " + vec_get(st.errors, i));
                 i = i + 1;
@@ -1128,8 +1131,8 @@
         }
 
         if arg1 == "self-host-check" {
-            let target_dir = "self-host";
-            let i: i64 = 2;
+            let mut target_dir = "self-host";
+            let mut i: i64 = 2;
             while i < argc {
                 let arg = arg_at(i);
                 if !starts_with(arg, "-") && len(arg) > 0 {
@@ -1142,8 +1145,8 @@
             }
             println("Checking self-host sources in " + target_dir);
             let names: Vec<str> = str_split("bkrc.bkr,bkrc_simple.bkr,c_codegen.bkr,codegen.bkr,compiler.bkr,lexer.bkr,parser.bkr,typeck.bkr", ",");
-            let passed: i64 = 0;
-            let j: i64 = 0;
+            let mut passed: i64 = 0;
+            let mut j: i64 = 0;
             while j < vec_len(names) {
                 let file_path = target_dir + "/" + vec_get(names, j);
                 if check_source_file(file_path) {
@@ -1163,14 +1166,14 @@
         }
 
         if arg1 == "check" {
-            let input_path = "";
-            let flag_cap = false;
-            let flag_ast = false;
-            let flag_type_graph = false;
-            let flag_symbol_table = false;
-            let flag_typecheck = false;
-            let flag_resolver = false;
-            let i: i64 = 2;
+            let mut input_path = "";
+            let mut flag_cap = false;
+            let mut flag_ast = false;
+            let mut flag_type_graph = false;
+            let mut flag_symbol_table = false;
+            let mut flag_typecheck = false;
+            let mut flag_resolver = false;
+            let mut i: i64 = 2;
             while i < argc {
                 let arg = arg_at(i);
                 if arg == "--capability-json" {
@@ -1214,9 +1217,9 @@
         }
 
         if arg1 == "run" {
-            let input_path = "";
-            let native = env_or("BKR_BACKEND", "c") == "native";
-            let i: i64 = 2;
+            let mut input_path = "";
+            let mut native = env_or("BKR_BACKEND", "c") == "native";
+            let mut i: i64 = 2;
             while i < argc {
                 let arg = arg_at(i);
                 if arg == "--native" {
@@ -1253,7 +1256,7 @@
                 let cc = env_or("BKR_CC", env_or("CC", "cc"));
                 let cc_cmd = cc + " -std=c11 -w -I " + shell_quote(runtime_include_dir()) + " " + shell_quote(c_path) + " -o " + shell_quote(exe_path) + " -lm > " + shell_quote(log_path) + " 2>&1";
                 let cc_res = process_run_status(cc_cmd);
-                let cc_code: i64 = 1;
+                let mut cc_code: i64 = 1;
                 if result_is_ok(cc_res) {
                     cc_code = result_unwrap(cc_res);
                 }
@@ -1284,9 +1287,9 @@
         }
 
         if arg1 == "native" {
-            let input_path = "";
-            let output_path = "";
-            let i: i64 = 2;
+            let mut input_path = "";
+            let mut output_path = "";
+            let mut i: i64 = 2;
             while i < argc {
                 let arg = arg_at(i);
                 if arg == "-o" && i + 1 < argc {
@@ -1311,9 +1314,9 @@
         }
 
         if arg1 == "parse" {
-            let input_path = "";
-            let flag_ast_json = false;
-            let i: i64 = 2;
+            let mut input_path = "";
+            let mut flag_ast_json = false;
+            let mut i: i64 = 2;
             while i < argc {
                 let arg = arg_at(i);
                 if arg == "--ast-json" {
@@ -1345,9 +1348,9 @@
         }
 
         if arg1 == "self-host-compile" || arg1 == "compile" || arg1 == "build" {
-            let input_path = "";
-            let output_path = "";
-            let i: i64 = 2;
+            let mut input_path = "";
+            let mut output_path = "";
+            let mut i: i64 = 2;
             while i < argc {
                 let arg = arg_at(i);
                 if arg == "-o" && i + 1 < argc {
@@ -1374,9 +1377,9 @@
             return 0;
         }
 
-        let input_path = arg_at(1);
-        let output_path = input_path + ".c";
-        let i: i64 = 2;
+        let mut input_path = arg_at(1);
+        let mut output_path = input_path + ".c";
+        let mut i: i64 = 2;
         while i < argc {
             let opt = arg_at(i);
             if opt == "-o" && i + 1 < argc {

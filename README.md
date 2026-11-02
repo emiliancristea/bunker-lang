@@ -283,7 +283,9 @@ view MyView {
 - [x] Self-host readiness command (`self-host-check`) for top-level `self-host/*.bkr` sources; 8/8 of those files pass (this command does not enumerate `self-host/modules/`)
 - [x] Self-host compile wrapper (`self-host-compile`) that runs modular `self-host/bkrc.bkr` on real `.bkr` input and emits C
 - [x] Stage1/stage2 self-compilation for the supported bootstrap subset (CI-certified on `main`)
-- [ ] **181 / 309 tests really pass** (`./bkrc run tools/test_runner.bkr`). The other 128 are listed in `tests/known_failures.txt`; earlier "320 passing" counts came from a runner that marked every test as passed
+- [ ] **201 / 309 tests really pass** (`./bkrc run tools/test_runner.bkr`), including all 81 programs that must be rejected. The other 108 are listed in `tests/known_failures.txt`; earlier "320 passing" counts came from a runner that marked every test as passed
+- [x] Semantic checks (`self-host/modules/semantic.bkr`): immutable `let` bindings (`let mut` to reassign), use-after-move for structs and arrays, unknown enum variants, enum pattern arity, typed Vec/HashMap/Result values, integers used as collection handles, unknown methods, struct update base types, match arms without values
+- [x] String and character escapes (`\n \t \r \0 \\ \" \' \xHH`); unknown escapes and stray characters are errors
 - [x] Kernel unit enums (`enum Color { Red, Green }`, `Color.Red`, exhaustive match)
 - [x] Self-host unit-enum match exhaustiveness (`non_exhaustive_match` / `BKR_SELF_EXHAUSTIVENESS`)
 - [x] Enum variant payload declarations (`enum Opt { Some(i32), None }`)

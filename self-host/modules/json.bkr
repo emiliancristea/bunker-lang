@@ -8,8 +8,8 @@
     fn json_escape_str(raw: str) -> str {
         let quote = from_char_code(34);
         let backslash = from_char_code(92);
-        let out = "";
-        let i: i64 = 0;
+        let mut out = "";
+        let mut i: i64 = 0;
         let n: i64 = len(raw);
         while i < n {
             let ch = char_at(raw, i);

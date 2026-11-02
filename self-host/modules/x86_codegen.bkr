@@ -260,7 +260,7 @@
 
     // Copy `words` 8-byte words from [rax] to [rdx]; clobbers rcx.
     fn x86_copy_words(st: X86State, words: i64) -> bool {
-        let k: i64 = 0;
+        let mut k: i64 = 0;
         while k < words {
             x86_b3(st, 72, 139, 136);
             x86_u32(st, k * 8);
@@ -363,7 +363,7 @@
     }
 
     fn x86_local_index(st: X86State, name: str) -> i64 {
-        let i = vec_len(st.local_names) - 1;
+        let mut i = vec_len(st.local_names) - 1;
         while i >= 0 {
             if vec_get(st.local_names, i) == name {
                 return i;
@@ -519,7 +519,7 @@
     }
 
     fn x86_field_index(st: X86State, struct_name: str, field: str) -> i64 {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(st.sf_struct) {
             if vec_get(st.sf_struct, i) == struct_name && vec_get(st.sf_name, i) == field {
                 return i;
@@ -531,8 +531,8 @@
 
     // Field by declaration position (used by tuple-struct constructors).
     fn x86_field_at(st: X86State, struct_name: str, position: i64) -> i64 {
-        let seen: i64 = 0;
-        let i: i64 = 0;
+        let mut seen: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(st.sf_struct) {
             if vec_get(st.sf_struct, i) == struct_name {
                 if seen == position {
@@ -554,8 +554,8 @@
             x86_fail(st, "recursive struct layout: " + name);
             return 1;
         }
-        let words: i64 = 0;
-        let i: i64 = 0;
+        let mut words: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(st.sf_struct) {
             if vec_get(st.sf_struct, i) == name {
                 vec_set(st.sf_offset, i, words);
@@ -680,7 +680,7 @@
         if kind == NODE_ARRAY_LIT {
             let elems_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
             let count = ast_node_list_ref_count(elems_ref);
-            let elem_ty = "";
+            let mut elem_ty = "";
             if count > 0 {
                 elem_ty = x86_expr_type(st, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(elems_ref, 0)));
             }
@@ -794,7 +794,7 @@
             let handles: Vec<i64> = vec_new();
             vec_push(handles, ast_method_call_ref_receiver_handle(expr_ref));
             let args_ref: AstNodeListRef = ast_method_call_ref_args_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
                 vec_push(handles, ast_node_list_ref_get_handle(args_ref, i));
                 i = i + 1;
@@ -842,7 +842,7 @@
             let elem_ty = x86_array_elem(st, ty);
             let elem_words = x86_size_of(st, elem_ty);
             let base = x86_alloc_block(st, x86_size_of(st, ty));
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < count {
                 let slot = base - 8 * elem_words * i;
                 x86_gen_expr_handle(st, ast_node_list_ref_get_handle(elems_ref, i));
@@ -986,7 +986,7 @@
         if op == TOK_SHL { return x86_b3(st, 72, 211, 224); }
         if op == TOK_SHR { return x86_b3(st, 72, 211, 248); }
 
-        let cc: i64 = 0;
+        let mut cc: i64 = 0;
         if op == TOK_EQ { cc = 148; }
         if op == TOK_NE { cc = 149; }
         if op == TOK_LT { cc = 156; }
@@ -1063,7 +1063,7 @@
             // Tuple-struct constructor: fields in declaration order
             let words = x86_size_of(st, name);
             let base = x86_alloc_block(st, words);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < argc {
                 let f = x86_field_at(st, name, i);
                 if f < 0 {
@@ -1075,7 +1075,7 @@
             return x86_lea_rax(st, base);
         }
         let handles: Vec<i64> = vec_new();
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < argc {
             vec_push(handles, ast_node_list_ref_get_handle(args_ref, i));
             i = i + 1;
@@ -1095,7 +1095,7 @@
     // Evaluate arguments, pass them in registers (struct arguments by address) and call.
     // Functions returning a struct get a fresh destination block as hidden first argument.
     fn x86_emit_call(st: X86State, called: str, handles: Vec<i64>) -> bool {
-        let name = called;
+        let mut name = called;
         if !hashmap_contains(st.fn_arity, name) {
             // Builtins live in the native runtime as rt_<name>.
             if name == "strlen" {
@@ -1113,7 +1113,7 @@
         }
         let argc = vec_len(handles);
         let ret_ty = x86_fn_ret_type(st, name);
-        let hidden: i64 = 0;
+        let mut hidden: i64 = 0;
         if x86_is_struct(st, ret_ty) {
             hidden = 1;
         }
@@ -1127,7 +1127,7 @@
             x86_store_local(st, ret_slot);
             vec_push(slots, ret_slot);
         }
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < argc {
             x86_gen_expr_handle(st, vec_get(handles, i));
             let slot = x86_alloc_block(st, 1);
@@ -1136,8 +1136,8 @@
             i = i + 1;
         }
         let total = vec_len(slots);
-        let stack_words: i64 = 0;
-        let k = total - 1;
+        let mut stack_words: i64 = 0;
+        let mut k = total - 1;
         while k >= 6 {
             // push qword [rbp - slot]
             x86_b2(st, 255, 181);
@@ -1145,7 +1145,7 @@
             stack_words = stack_words + 1;
             k = k - 1;
         }
-        let r: i64 = 0;
+        let mut r: i64 = 0;
         while r < total && r < 6 {
             x86_load_arg(st, r, vec_get(slots, r));
             r = r + 1;
@@ -1179,14 +1179,14 @@
             return x86_mov_rax_imm(st, X86_DATA_VADDR);
         }
         if name == "__syscall" && argc >= 1 && argc <= 7 {
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < argc {
                 x86_gen_expr_handle(st, ast_node_list_ref_get_handle(args_ref, i));
                 x86_push_rax(st);
                 i = i + 1;
             }
             // Pop into rax (number), rdi, rsi, rdx, r10, r8, r9
-            let r = argc - 1;
+            let mut r = argc - 1;
             while r >= 0 {
                 if r == 0 { x86_b(st, 88); }
                 if r == 1 { x86_b(st, 95); }
@@ -1258,7 +1258,7 @@
         }
         let names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
         let values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_i64_list_ref_count(names_ref) {
             let field = x86_name(st, ast_i64_list_ref_get(names_ref, i));
             let f = x86_field_index(st, name, field);
@@ -1275,8 +1275,8 @@
     fn x86_gen_block_value(st: X86State, block_ref: AstBlockRef) -> bool {
         let mark = x86_scope_mark(st);
         let count = ast_block_ref_stmt_count(block_ref);
-        let has_value = false;
-        let i: i64 = 0;
+        let mut has_value = false;
+        let mut i: i64 = 0;
         while i < count {
             let stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, i);
             if i == count - 1 && ast_stmt_ref_kind(stmt_ref) == NODE_EXPR_STMT {
@@ -1335,7 +1335,7 @@
         }
         if kind == PAT_INT || kind == PAT_BOOL {
             x86_load_local(st, slot);
-            let expected = value;
+            let mut expected = value;
             if kind == PAT_BOOL && value != 0 {
                 expected = 1;
             }
@@ -1424,7 +1424,7 @@
             return true;
         }
         if kind == PAT_RESULT_OK || kind == PAT_RESULT_ERR {
-            let part: i64 = 0;
+            let mut part: i64 = 0;
             if kind == PAT_RESULT_ERR {
                 part = 1;
             }
@@ -1467,7 +1467,7 @@
         let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
         let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
         let end_fixes: Vec<i64> = vec_new();
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
             let mark = x86_scope_mark(st);
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
@@ -1484,7 +1484,7 @@
             x86_gen_node_value(st, ast_node_list_ref_get_handle(bodies_ref, i));
             vec_push(end_fixes, x86_jmp_fwd(st));
             let next = x86_pos(st);
-            let j: i64 = 0;
+            let mut j: i64 = 0;
             while j < vec_len(fails) {
                 x86_patch_rel32(st, vec_get(fails, j), next);
                 j = j + 1;
@@ -1494,7 +1494,7 @@
         }
         x86_mov_rax_imm(st, 0);
         let end = x86_pos(st);
-        let k: i64 = 0;
+        let mut k: i64 = 0;
         while k < vec_len(end_fixes) {
             x86_patch_rel32(st, vec_get(end_fixes, k), end);
             k = k + 1;
@@ -1506,7 +1506,7 @@
 
     fn x86_gen_block(st: X86State, block_ref: AstBlockRef) -> bool {
         let mark = x86_scope_mark(st);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         let count = ast_block_ref_stmt_count(block_ref);
         while i < count {
             x86_gen_stmt(st, ast_block_ref_stmt_ref(block_ref, i));
@@ -1531,7 +1531,7 @@
     }
 
     fn x86_patch_loop_jumps(st: X86State, positions: Vec<i64>, owners: Vec<i64>, id: i64, target: i64) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(positions) {
             if vec_get(owners, i) == id {
                 x86_patch_rel32(st, vec_get(positions, i), target);
@@ -1562,7 +1562,7 @@
         if kind == NODE_LET {
             let name = x86_name(st, ast_let_ref_name_idx(stmt_ref));
             let init = ast_let_ref_init_handle(stmt_ref);
-            let ty = x86_type_of_handle(st, ast_let_ref_type_handle(stmt_ref));
+            let mut ty = x86_type_of_handle(st, ast_let_ref_type_handle(stmt_ref));
             if len(ty) == 0 && ast_optional_is_some(init) {
                 ty = x86_expr_type(st, ast_expr_ref_from_handle(init));
             }
@@ -1807,7 +1807,7 @@
 
         let ret_ty = x86_fn_ret_type(st, name);
         vec_set(st.cur_ret, 0, ret_ty);
-        let hidden: i64 = 0;
+        let mut hidden: i64 = 0;
         vec_set(st.counters, 3, 0);
         if x86_is_struct(st, ret_ty) {
             hidden = 1;
@@ -1820,7 +1820,7 @@
         let params_ref: AstNodeListRef = ast_fn_ref_params_ref(fn_ref);
         let count = ast_node_list_ref_count(params_ref);
         let param_slots: Vec<i64> = vec_new();
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < count {
             let slot = x86_alloc_block(st, 1);
             let reg = i + hidden;
@@ -1859,7 +1859,7 @@
         x86_mov_rax_imm(st, 0);
         x86_epilogue(st);
 
-        let frame = vec_get(st.counters, 1);
+        let mut frame = vec_get(st.counters, 1);
         frame = ((frame + 15) / 16) * 16;
         return x86_patch_u32(st, frame_pos, frame);
     }
@@ -1870,7 +1870,7 @@
         let item_count = ast_node_list_ref_count(items_ref);
 
         // First pass: struct and enum names.
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < item_count {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             let item_kind: i64 = ast_item_ref_kind(item_ref);
@@ -1880,7 +1880,7 @@
                 let enum_name = x86_name(st, ast_enum_ref_name_idx(item_ref));
                 hashmap_insert(st.enum_names, enum_name, 1);
                 let variants_ref: AstI64ListRef = ast_enum_ref_variants_ref(item_ref);
-                let v: i64 = 0;
+                let mut v: i64 = 0;
                 while v < ast_i64_list_ref_count(variants_ref) {
                     hashmap_insert(st.enum_tags, enum_name + "." + x86_name(st, ast_i64_list_ref_get(variants_ref, v)), v);
                     v = v + 1;
@@ -1897,7 +1897,7 @@
             if item_kind == NODE_STRUCT {
                 let struct_name = x86_name(st, ast_struct_ref_name_idx(item_ref));
                 let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(item_ref);
-                let f: i64 = 0;
+                let mut f: i64 = 0;
                 while f < ast_node_list_ref_count(fields_ref) {
                     let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, f);
                     vec_push(st.sf_struct, struct_name);
@@ -1922,7 +1922,7 @@
         }
 
         let names_list: Vec<str> = hashmap_keys(st.struct_names);
-        let n: i64 = 0;
+        let mut n: i64 = 0;
         while n < vec_len(names_list) {
             x86_compute_struct_size(st, vec_get(names_list, n), 0);
             n = n + 1;
@@ -1957,7 +1957,7 @@
             i = i + 1;
         }
 
-        let f: i64 = 0;
+        let mut f: i64 = 0;
         while f < vec_len(st.call_fix_pos) {
             let target: i64 = hashmap_get(st.fn_offsets, vec_get(st.call_fix_name, f));
             x86_patch_rel32(st, vec_get(st.call_fix_pos, f), target);
@@ -1966,12 +1966,12 @@
 
         // String literal pool, deduplicated, each NUL-terminated
         let pool: HashMap<str, i64> = hashmap_new();
-        let s: i64 = 0;
+        let mut s: i64 = 0;
         while s < vec_len(st.str_fix_pos) {
             let text: str = vec_get(st.str_fix_text, s);
             if !hashmap_contains(pool, text) {
                 hashmap_insert(pool, text, x86_pos(st));
-                let c: i64 = 0;
+                let mut c: i64 = 0;
                 while c < len(text) {
                     x86_b(st, char_code(char_at(text, c)));
                     c = c + 1;
@@ -2016,7 +2016,7 @@
         vec_push(out, 2);
         vec_push(out, 1);
         vec_push(out, 1);
-        let pad: i64 = 0;
+        let mut pad: i64 = 0;
         while pad < 9 {
             vec_push(out, 0);
             pad = pad + 1;
@@ -2052,7 +2052,7 @@
         x86_push_u64(out, 0);
         x86_push_u64(out, X86_DATA_SIZE);
         x86_push_u64(out, 4096);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(code) {
             vec_push(out, vec_get(code, i));
             i = i + 1;
@@ -2062,7 +2062,7 @@
 
     fn x86_write_executable(path: str, image: Vec<i64>) -> bool {
         let buf = bytes_new(vec_len(image));
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(image) {
             bytes_push(buf, vec_get(image, i) as i32);
             i = i + 1;

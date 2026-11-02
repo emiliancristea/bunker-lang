@@ -116,7 +116,7 @@
 
     fn cgen_intern_name_ref(state_ref: CgenStateRef, text: str) -> i64 {
         let names: Vec<str> = cgen_names_ref(state_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         let count: i64 = vec_len(names);
         while i < count {
             if vec_get(names, i) == text {
@@ -208,8 +208,8 @@
     fn cgen_emit_ref(state_ref: CgenStateRef, line: str) -> CgenStateRef {
         let lines: Vec<str> = cgen_lines_ref(state_ref);
         let indent: i64 = cgen_indent_level_ref(state_ref);
-        let prefix: str = "";
-        let i: i64 = 0;
+        let mut prefix: str = "";
+        let mut i: i64 = 0;
         while i < indent {
             prefix = prefix + "    ";
             i = i + 1;
@@ -300,7 +300,7 @@
     fn cgen_lookup_local_struct_name_idx_ref(state_ref: CgenStateRef, name_idx: i64) -> i64 {
         let local_names: Vec<i64> = cgen_local_names_ref(state_ref);
         let local_struct_names: Vec<i64> = cgen_local_struct_names_ref(state_ref);
-        let i: i64 = vec_len(local_names) - 1;
+        let mut i: i64 = vec_len(local_names) - 1;
         while i >= 0 {
             if vec_get(local_names, i) == name_idx {
                 if i < vec_len(local_struct_names) {
@@ -411,8 +411,8 @@
     fn cgen_lookup_array_length_ref(state_ref: CgenStateRef, name_idx: i64) -> i64 {
         let array_names: Vec<i64> = cgen_array_names_ref(state_ref);
         let array_lengths: Vec<i64> = cgen_array_lengths_ref(state_ref);
-        let result: i64 = -1;
-        let i: i64 = 0;
+        let mut result: i64 = -1;
+        let mut i: i64 = 0;
         while i < vec_len(array_names) {
             if vec_get(array_names, i) == name_idx {
                 result = vec_get(array_lengths, i);
@@ -429,8 +429,8 @@
     fn cgen_lookup_array_elem_type_ref(state_ref: CgenStateRef, name_idx: i64) -> i64 {
         let array_names: Vec<i64> = cgen_array_names_ref(state_ref);
         let array_elem_types: Vec<i64> = cgen_array_elem_types_ref(state_ref);
-        let result: i64 = TYPE_UNKNOWN;
-        let i: i64 = 0;
+        let mut result: i64 = TYPE_UNKNOWN;
+        let mut i: i64 = 0;
         while i < vec_len(array_names) {
             if vec_get(array_names, i) == name_idx {
                 result = vec_get(array_elem_types, i);
@@ -441,8 +441,8 @@
     }
 
     fn cgen_lookup_pair(names: Vec<i64>, types: Vec<i64>, name_idx: i64) -> i64 {
-        let result: i64 = TYPE_UNKNOWN;
-        let i: i64 = 0;
+        let mut result: i64 = TYPE_UNKNOWN;
+        let mut i: i64 = 0;
         while i < vec_len(names) {
             if vec_get(names, i) == name_idx {
                 result = vec_get(types, i);

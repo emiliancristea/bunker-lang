@@ -52,7 +52,7 @@
     }
 
     fn symbol_table_type_references_json(names: Vec<str>, type_node: i64, scope: str) -> str {
-        let result = "[";
+        let mut result = "[";
         if ast_optional_is_some(type_node) {
             result = symbol_table_json_array_append_items(result,
                 symbol_table_type_references_ref_json(names, ast_type_ref_from_handle(type_node), scope));
@@ -61,7 +61,7 @@
     }
 
     fn symbol_table_type_references_ref_json(names: Vec<str>, type_ref: AstTypeRef, scope: str) -> str {
-        let result = "[";
+        let mut result = "[";
         if ast_type_ref_kind_value(type_ref) == TYPE_STRUCT {
             result = symbol_table_json_array_append(result,
                 symbol_table_node_ref_entry_json("type_reference",
@@ -77,7 +77,7 @@
     }
 
     fn symbol_table_pattern_declarations_ref_json(names: Vec<str>, pattern_ref: AstPatternRef, scope: str) -> str {
-        let result = "[";
+        let mut result = "[";
         let kind: i64 = ast_pattern_ref_kind(pattern_ref);
         if kind == PAT_BIND || kind == PAT_SOME || kind == PAT_RESULT_OK || kind == PAT_RESULT_ERR {
             let name_idx: i64 = ast_pattern_ref_value(pattern_ref);
@@ -99,7 +99,7 @@
             let aux: i64 = ast_pattern_ref_aux(pattern_ref);
             if aux != 0 {
                 let sub_pats: Vec<i64> = aux as Vec<i64>;
-                let i: i64 = 0;
+                let mut i: i64 = 0;
                 while i < vec_len(sub_pats) {
                     let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(vec_get(sub_pats, i));
                     result = symbol_table_json_array_append_items(result,
@@ -155,7 +155,7 @@
     }
 
     fn symbol_table_expr_declarations_json(names: Vec<str>, expr_value: i64, scope: str) -> str {
-        let result = "[";
+        let mut result = "[";
         if ast_optional_is_none(expr_value) {
             return result + "]";
         }
@@ -165,12 +165,12 @@
     }
 
     fn symbol_table_expr_declarations_ref_json(names: Vec<str>, expr_ref: AstExprRef, scope: str) -> str {
-        let result = "[";
+        let mut result = "[";
         let kind: i64 = ast_expr_ref_kind(expr_ref);
         if kind == NODE_MATCH {
             let patterns_ref: AstPatternListRef = ast_match_ref_patterns_ref(expr_ref);
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_pattern_list_ref_count(patterns_ref) {
                 result = symbol_table_json_array_append_items(result,
                     symbol_table_pattern_declarations_ref_json(names, ast_pattern_list_ref_get_ref(patterns_ref, i), scope));
@@ -202,7 +202,7 @@
             result = symbol_table_json_array_append_items(result,
                 symbol_table_expr_declarations_ref_json(names, ast_method_call_ref_receiver_ref(expr_ref), scope));
             let args_ref: AstNodeListRef = ast_method_call_ref_args_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
                 let arg_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
                 result = symbol_table_json_array_append_items(result,
@@ -211,7 +211,7 @@
             }
         } else if kind == NODE_CALL {
             let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
                 let arg_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
                 result = symbol_table_json_array_append_items(result,
@@ -230,7 +230,7 @@
                 symbol_table_expr_declarations_json(names, ast_array_repeat_ref_elem_handle(expr_ref), scope));
         } else if kind == NODE_ARRAY_LIT {
             let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(elements_ref) {
                 let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
                 result = symbol_table_json_array_append_items(result,
@@ -247,7 +247,7 @@
                 symbol_table_expr_declarations_ref_json(names, ast_expr_ref_from_handle(ast_field_access_ref_base_handle(expr_ref)), scope));
         } else if kind == NODE_STRUCT_LIT {
             let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(field_values_ref) {
                 let field_value_ref: AstNodeRef = ast_node_list_ref_get_ref(field_values_ref, i);
                 result = symbol_table_json_array_append_items(result,
@@ -264,7 +264,7 @@
     }
 
     fn symbol_table_stmt_declarations_ref_json(names: Vec<str>, stmt_ref: AstStmtRef, scope: str) -> str {
-        let result = "[";
+        let mut result = "[";
         let kind: i64 = ast_stmt_ref_kind(stmt_ref);
         if kind == NODE_LET {
             result = symbol_table_json_array_append(result,
@@ -327,8 +327,8 @@
     }
 
     fn symbol_table_block_declarations_ref_json(names: Vec<str>, block_ref: AstBlockRef, scope: str) -> str {
-        let result = "[";
-        let i: i64 = 0;
+        let mut result = "[";
+        let mut i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
             result = symbol_table_json_array_append_items(result,
                 symbol_table_stmt_declarations_ref_json(names, ast_block_ref_stmt_ref(block_ref, i), scope));
@@ -343,7 +343,7 @@
 
     fn symbol_table_item_declarations_ref_json(kernel_ref: AstNodeRef, item_ref: AstItemRef, kernel_scope: str) -> str {
         let names = ast_kernel_ref_names(kernel_ref);
-        let result = "[";
+        let mut result = "[";
         let item_node_ref: AstNodeRef = ast_node_ref_from_item_ref(item_ref);
         let kind: i64 = ast_item_ref_kind(item_ref);
         if kind == NODE_FN {
@@ -353,7 +353,7 @@
                 symbol_table_node_ref_entry_json("function", fn_name, kernel_scope, item_node_ref));
 
             let params_ref: AstNodeListRef = ast_fn_ref_params_ref(item_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(params_ref) {
                 let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
                 result = symbol_table_json_array_append(result,
@@ -386,7 +386,7 @@
             result = symbol_table_json_array_append(result,
                 symbol_table_node_ref_entry_json("struct", struct_name, kernel_scope, item_node_ref));
             let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(item_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(fields_ref) {
                 let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, i);
                 result = symbol_table_json_array_append(result,
@@ -408,12 +408,12 @@
         let names = ast_kernel_ref_names(kernel_ref);
         let kernel_name = ast_report_name(names, ast_node_ref_name_idx(kernel_ref));
         let kernel_scope = "kernel:" + kernel_name;
-        let result = "[";
+        let mut result = "[";
         result = symbol_table_json_array_append(result,
             symbol_table_node_ref_entry_json("kernel", kernel_name, "global", kernel_ref));
 
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             result = symbol_table_json_array_append_items(result,
@@ -424,7 +424,7 @@
     }
 
     fn symbol_table_expr_references_json(names: Vec<str>, expr_value: i64, scope: str) -> str {
-        let result = "[";
+        let mut result = "[";
         if ast_optional_is_none(expr_value) {
             return result + "]";
         }
@@ -434,7 +434,7 @@
     }
 
     fn symbol_table_expr_references_ref_json(names: Vec<str>, expr_ref: AstExprRef, scope: str) -> str {
-        let result = "[";
+        let mut result = "[";
         let kind: i64 = ast_expr_ref_kind(expr_ref);
         if kind == NODE_IDENT {
             result = symbol_table_json_array_append(result,
@@ -446,7 +446,7 @@
             result = symbol_table_json_array_append_items(result,
                 symbol_table_expr_declarations_ref_json(names, ast_method_call_ref_receiver_ref(expr_ref), scope));
             let args_ref: AstNodeListRef = ast_method_call_ref_args_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
                 let arg_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
                 result = symbol_table_json_array_append_items(result,
@@ -460,7 +460,7 @@
                     scope,
                     ast_node_ref_from_expr_ref(expr_ref)));
             let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
                 let arg_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
                 result = symbol_table_json_array_append_items(result,
@@ -483,7 +483,7 @@
                     ast_node_ref_from_expr_ref(expr_ref)));
             let field_names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
             let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_i64_list_ref_count(field_names_ref) {
                 let field_value_ref: AstNodeRef = ast_node_list_ref_get_ref(field_values_ref, i);
                 result = symbol_table_json_array_append(result,
@@ -521,7 +521,7 @@
                 symbol_table_expr_references_json(names, ast_array_repeat_ref_elem_handle(expr_ref), scope));
         } else if kind == NODE_ARRAY_LIT {
             let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(elements_ref) {
                 let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
                 result = symbol_table_json_array_append_items(result,
@@ -540,7 +540,7 @@
             result = symbol_table_json_array_append_items(result,
                 symbol_table_expr_references_ref_json(names, ast_expr_ref_from_handle(ast_match_ref_scrutinee_handle(expr_ref)), scope));
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(bodies_ref) {
                 let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
                 if ast_node_ref_kind(body_ref) == NODE_BLOCK {
@@ -561,7 +561,7 @@
     }
 
     fn symbol_table_stmt_references_ref_json(names: Vec<str>, stmt_ref: AstStmtRef, scope: str) -> str {
-        let result = "[";
+        let mut result = "[";
         let kind: i64 = ast_stmt_ref_kind(stmt_ref);
         if kind == NODE_LET {
             result = symbol_table_json_array_append_items(result,
@@ -616,8 +616,8 @@
     }
 
     fn symbol_table_block_references_ref_json(names: Vec<str>, block_ref: AstBlockRef, scope: str) -> str {
-        let result = "[";
-        let i: i64 = 0;
+        let mut result = "[";
+        let mut i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
             result = symbol_table_json_array_append_items(result,
                 symbol_table_stmt_references_ref_json(names, ast_block_ref_stmt_ref(block_ref, i), scope));
@@ -632,7 +632,7 @@
 
     fn symbol_table_item_references_ref_json(kernel_ref: AstNodeRef, item_ref: AstItemRef, kernel_scope: str) -> str {
         let names = ast_kernel_ref_names(kernel_ref);
-        let result = "[";
+        let mut result = "[";
         let kind: i64 = ast_item_ref_kind(item_ref);
         if kind == NODE_FN {
             let fn_name = ast_report_name(names, ast_fn_ref_name_idx(item_ref));
@@ -640,7 +640,7 @@
             result = symbol_table_json_array_append_items(result,
                 symbol_table_type_references_json(names, ast_fn_ref_return_type_handle(item_ref), fn_scope));
             let params_ref: AstNodeListRef = ast_fn_ref_params_ref(item_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(params_ref) {
                 let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
                 result = symbol_table_json_array_append_items(result,
@@ -660,7 +660,7 @@
         } else if kind == NODE_STRUCT {
             let struct_scope = "struct:" + ast_report_name(names, ast_struct_ref_name_idx(item_ref));
             let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(item_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(fields_ref) {
                 let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, i);
                 result = symbol_table_json_array_append_items(result,
@@ -678,9 +678,9 @@
     fn symbol_table_references_ref_json(kernel_ref: AstNodeRef) -> str {
         let names = ast_kernel_ref_names(kernel_ref);
         let kernel_scope = "kernel:" + ast_report_name(names, ast_node_ref_name_idx(kernel_ref));
-        let result = "[";
+        let mut result = "[";
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             result = symbol_table_json_array_append_items(result,
@@ -696,8 +696,8 @@
         let names = ast_kernel_ref_names(kernel_ref);
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         let full_walk: bool = ast_report_full_walk(kernel_ref);
-        let declaration_table: str = "[]";
-        let reference_table: str = "[]";
+        let mut declaration_table: str = "[]";
+        let mut reference_table: str = "[]";
         if full_walk {
             declaration_table = symbol_table_declarations_ref_json(kernel_ref);
             reference_table = symbol_table_references_ref_json(kernel_ref);

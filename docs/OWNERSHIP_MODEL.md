@@ -113,6 +113,12 @@ fn make_point() -> Point {
 
 ---
 
+### 3.6 Current enforcement
+
+The self-host compiler (`self-host/modules/semantic.bkr`, rule `use_after_move`) enforces moves for **structs and fixed arrays** at let bindings (3.1), reassignments (3.2) and aggregate construction (3.4), merging moves across `if` and `match` branches. Moves into function arguments (3.3) and moves of handle types (`str`, `Vec`, `HashMap`, `bytes`) are not tracked yet.
+
+---
+
 ## 4. Explicit Deep Copy Operator (`copy`)
 
 When a developer intends to retain access to a source aggregate while creating an independent duplicate, Bunker provides the first-class `copy` prefix operator:

@@ -151,7 +151,7 @@
 
     fn shell_system_json(sys: ShellSystem) -> str {
         let comma = ",";
-        let status = "RUNNING";
+        let mut status = "RUNNING";
         if sys.terminated {
             status = "COMPLETED";
         }

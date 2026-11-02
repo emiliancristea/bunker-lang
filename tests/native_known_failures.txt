@@ -27,7 +27,6 @@
 197_forward_reference_modules
 198_attribute_semantics
 202_comptime_and_doc_comments
-205_string_escapes_and_bytes
 208_slices_and_typed_paths
 211_multifile_modules
 216_generics_basic

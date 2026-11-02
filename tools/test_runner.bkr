@@ -32,7 +32,7 @@ kernel TestRunner {
             return lines;
         }
         let parts: Vec<str> = str_split(read_file(path), from_char_code(10));
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(parts) {
             let line: str = trim(vec_get(parts, i));
             if len(line) > 0 && !starts_with(line, "#") {
@@ -45,8 +45,8 @@ kernel TestRunner {
 
     fn last_result_line(output: str) -> str {
         let parts: Vec<str> = str_split(output, from_char_code(10));
-        let found = "";
-        let i: i64 = 0;
+        let mut found = "";
+        let mut i: i64 = 0;
         while i < vec_len(parts) {
             let line: str = trim(vec_get(parts, i));
             if starts_with(line, "Result: ") {
@@ -75,7 +75,7 @@ kernel TestRunner {
 
         let expected: HashMap<str, i64> = hashmap_new();
         let expected_lines: Vec<str> = read_lines("tests/expected_results.txt");
-        let e: i64 = 0;
+        let mut e: i64 = 0;
         while e < vec_len(expected_lines) {
             let fields: Vec<str> = str_split(vec_get(expected_lines, e), " ");
             if vec_len(fields) == 2 {
@@ -86,7 +86,7 @@ kernel TestRunner {
 
         let known: HashMap<str, i64> = hashmap_new();
         let known_lines: Vec<str> = read_lines(known_path);
-        let k: i64 = 0;
+        let mut k: i64 = 0;
         while k < vec_len(known_lines) {
             hashmap_insert(known, vec_get(known_lines, k), 1);
             k = k + 1;
@@ -100,26 +100,26 @@ kernel TestRunner {
         let files: Vec<str> = read_lines(list_path);
         file_remove(list_path);
 
-        let total: i64 = 0;
-        let passed: i64 = 0;
-        let known_failed: i64 = 0;
-        let unexpected: i64 = 0;
-        let stale: i64 = 0;
-        let run_passed: i64 = 0;
-        let run_total: i64 = 0;
-        let bad_passed: i64 = 0;
-        let bad_total: i64 = 0;
-        let check_passed: i64 = 0;
-        let check_total: i64 = 0;
+        let mut total: i64 = 0;
+        let mut passed: i64 = 0;
+        let mut known_failed: i64 = 0;
+        let mut unexpected: i64 = 0;
+        let mut stale: i64 = 0;
+        let mut run_passed: i64 = 0;
+        let mut run_total: i64 = 0;
+        let mut bad_passed: i64 = 0;
+        let mut bad_total: i64 = 0;
+        let mut check_passed: i64 = 0;
+        let mut check_total: i64 = 0;
 
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(files) {
             let file: str = vec_get(files, i);
             let name = substring(path_base(file), 0, len(path_base(file)) - 4);
             let selected = !only_run_tests || hashmap_contains(expected, name);
             if selected {
-                let ok = false;
-                let detail = "";
+                let mut ok = false;
+                let mut detail = "";
 
                 if ends_with(name, "_BAD") {
                     bad_total = bad_total + 1;
@@ -133,7 +133,7 @@ kernel TestRunner {
                     run_total = run_total + 1;
                     let want: i64 = hashmap_get(expected, name);
                     command_status("timeout 60 " + bkrc + " run " + run_flags + " " + file + " > " + log_path + " 2>&1");
-                    let got = "";
+                    let mut got = "";
                     if file_exists(log_path) {
                         got = last_result_line(read_file(log_path));
                     }
