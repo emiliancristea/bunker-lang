@@ -18,7 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - **Semantic checks** (`self-host/modules/semantic.bkr`), run after the typechecker: `immutable_assignment`, `use_after_move` (structs and fixed arrays at let, reassignment and literal sites; `copy x` keeps x), `unknown_enum_variant`, `enum_pattern_arity`, `collection_value_mismatch`, `ambiguous_result_value`, `raw_handle_use`, `method_not_found`, `struct_update_base_mismatch`, `match_arm_missing_value`. All 81 rejection tests now fail for their intended rule.
 
+- Native backend: `f64` (literals, arithmetic, comparisons, int/float casts, negation via SSE2), tuples (`bkr_tuple2/3`, `t.0`, tuple patterns), matching on structs, `?` (Option and Result, running pending defers), type aliases, and runtime `env_set`, `env_var`, `time_now_ms`, `time_now_unix`. 130 of 207 run tests pass natively.
+- **Block-scoped `defer`** on the native backend, as specified in `docs/RESOURCE_MODEL.md`: deferred statements run in reverse order when their block ends and on `return`, `?`, `break` and `continue` (test 232, which the C backend still fails).
+
 ### Changed
+- Native array parameters are passed by reference, matching the C backend (where arrays decay to pointers); struct parameters are still copied.
 - **`let` bindings are immutable**; reassigning needs `let mut`. The parser now records `mut`. 765 declarations across the compiler, runtime, test runner and tests were migrated.
 
 ### Fixed

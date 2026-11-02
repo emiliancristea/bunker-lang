@@ -268,7 +268,7 @@ view MyView {
 ### Implemented ✅
 - [x] Full PEG grammar for all three layers (AI-friendly LL(1))
 - [x] Complete AST builder
-- [x] Kernel: native x86-64 backend (`bkrc native`, `bkrc run --native`) writes Linux executables with no C compiler, linker or libc; it compiles the compiler itself (native fixpoint). 112/207 run tests pass natively; missing: floats, tuples, `?`, `defer`, closures
+- [x] Kernel: native x86-64 backend (`bkrc native`, `bkrc run --native`) writes Linux executables with no C compiler, linker or libc; it compiles the compiler itself (native fixpoint). 130/207 run tests pass natively (the native backend now passes more run tests than the C backend's 116); missing: closures
 - [x] Kernel: type checking + C backend; `bkrc run` builds the emitted C with the system C compiler and executes it (the Cranelift JIT went away with the Rust prototype)
 - [x] Kernel: structs, arrays, Option<T>, match expressions, defer, type casting, constants
 - [x] Kernel: comptime functions with compile-time evaluation

@@ -243,7 +243,7 @@ $ ./bkrc compile tests/01_basic_math.bkr -o math.c
 
 **Deliverables:**
 - [x] Honest test runner written in Bunker (`tools/test_runner.bkr`); PowerShell runner removed.
-- [x] Native x86-64 backend in Bunker (`self-host/modules/x86_codegen.bkr`): instruction encoder plus ELF64 writer, so `bkrc native` writes executables directly. 112/207 run tests pass natively (`tests/native_known_failures.txt`). Still missing: floats, tuples, `?`, `defer`, type aliases, matching on structs, closures.
+- [x] Native x86-64 backend in Bunker (`self-host/modules/x86_codegen.bkr`): instruction encoder plus ELF64 writer, so `bkrc native` writes executables directly. 130/207 run tests pass natively (`tests/native_known_failures.txt`); 74 of the remaining 77 are programs the front end rejects on every backend. Still missing: closures and function values, generics beyond the C backend's subset.
 - [x] Runtime in Bunker on raw Linux syscalls (`self-host/native_runtime.bkr`): memory (mmap), strings, printing, Vec, HashMap, Result, bytes, files, paths, args, env, processes (fork/execve/wait4).
 - [x] `bkrc` compiles itself through the native backend: byte-identical native fixpoint, and the native compiler emits the same C as the C-built one.
 - [x] Checked-in `bkrc` Linux binary seed (`bootstrap/bkrc-linux-x86_64`, `SHA256SUMS.native`, `bootstrap/build-native.sh`); CI builds with `CC=/bin/false` and checks the C seed and binary seed produce the same compiler.

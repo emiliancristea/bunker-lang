@@ -1,24 +1,10 @@
 # Run tests that do not yet pass on the native x86-64 backend (bkrc run --native).
 # Same rules as known_failures.txt: remove a test here once it passes.
-02_arena_memory
 129_unit_type
-130_tuple_types
-131_struct_destructuring
-132_try_operator
 133_labeled_loops
 134_panic_abort_policy
-135_recoverable_error_conventions
 136_generic_collections_self_host
-137_type_aliases
-138_never_type
 139_nested_patterns
-144_pattern_type_checking
-148_local_type_inference
-150_call_result_inference
-15_kernel_defer_return
-161_cast_safety_rules
-176_struct_update_tuple_struct
-182_runtime_stdlib_complete
 185_higher_order_functions
 188_vec_hashmap_combinators
 190_visibility_and_mutability
@@ -36,7 +22,6 @@
 226_typecheck_resolver_reports
 229_safety_soundness_ub
 231_sandbox_security_bounds
-232_arena_resource_drop
 233_borrow_handle_wrappers
 239_generic_structural_constraints
 240_type_diagnostics_parity
@@ -90,7 +75,5 @@
 305_verified_pre_post_conditions
 30_comptime_for_loop
 31_comptime_loop_break
-36_kernel_type_cast
-53_kernel_float_ops
 79_typed_result_operations
 81_typed_hashmap_operations

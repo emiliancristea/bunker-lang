@@ -557,6 +557,10 @@
         if key == 0 {
             return 0;
         }
+        let overrides = __load64(__globals() + 48);
+        if overrides != 0 && rt_hashmap_contains(overrides, key) {
+            return rt_hashmap_get(overrides, key);
+        }
         let sp = __load64(__globals());
         let envp = sp + 16 + 8 * __load64(sp);
         let key_len = rt_strlen(key);
@@ -569,6 +573,19 @@
             i = i + 1;
         }
         return 0;
+    }
+
+    fn rt_env_set(key: i64, value: i64) -> i64 {
+        if key == 0 || value == 0 {
+            return 0;
+        }
+        // Overrides live in a string-keyed map at globals + 48, checked before envp.
+        let g = __globals();
+        if __load64(g + 48) == 0 {
+            __store64(g + 48, rt_hashmap_new_str());
+        }
+        rt_hashmap_insert(__load64(g + 48), key, value);
+        return 1;
     }
 
     fn rt_env_has(key: i64) -> i64 {
@@ -1358,4 +1375,72 @@
             return rt_result_err("process exited with non-zero status");
         }
         return rt_result_ok(rt_bytes_to_str(out));
+    }
+
+    // ---- Tuples: boxes of words, like bkr_tuple2/3 ----
+
+    fn rt_bkr_tuple2(a: i64, b: i64) -> i64 {
+        let t = rt_alloc(16);
+        __store64(t, a);
+        __store64(t + 8, b);
+        return t;
+    }
+
+    fn rt_bkr_tuple3(a: i64, b: i64, c: i64) -> i64 {
+        let t = rt_alloc(24);
+        __store64(t, a);
+        __store64(t + 8, b);
+        __store64(t + 16, c);
+        return t;
+    }
+
+    fn rt_bkr_tuple_get(t: i64, index: i64) -> i64 {
+        if t == 0 {
+            return 0;
+        }
+        return __load64(t + 8 * index);
+    }
+
+    // ---- ? operator: Option is 0 / (x << 1 | 1), Result is an even record pointer ----
+
+    fn rt_try_is_err(v: i64) -> i64 {
+        if v == 0 {
+            return 1;
+        }
+        if (v & 1) != 0 {
+            return 0;
+        }
+        return rt_result_is_err(v);
+    }
+
+    fn rt_try_unwrap(v: i64) -> i64 {
+        if (v & 1) != 0 {
+            return v >> 1;
+        }
+        return rt_result_unwrap(v);
+    }
+
+    fn rt_env_var(key: i64) -> i64 {
+        if key == 0 {
+            return rt_result_err("null key");
+        }
+        let value = rt_env_lookup(key);
+        if value == 0 {
+            return rt_result_err("environment variable not found");
+        }
+        return rt_result_ok(value);
+    }
+
+    // ---- Time (wall clock, clock_gettime(CLOCK_REALTIME)) ----
+
+    fn rt_time_now_ms() -> i64 {
+        let ts = rt_alloc(16);
+        __syscall(228, 0, ts);
+        return __load64(ts) * 1000 + __load64(ts + 8) / 1000000;
+    }
+
+    fn rt_time_now_unix() -> i64 {
+        let ts = rt_alloc(16);
+        __syscall(228, 0, ts);
+        return __load64(ts);
     }
