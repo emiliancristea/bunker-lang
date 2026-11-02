@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Semantic checks** (`self-host/modules/semantic.bkr`), run after the typechecker: `immutable_assignment`, `use_after_move` (structs and fixed arrays at let, reassignment and literal sites; `copy x` keeps x), `unknown_enum_variant`, `enum_pattern_arity`, `collection_value_mismatch`, `ambiguous_result_value`, `raw_handle_use`, `method_not_found`, `struct_update_base_mismatch`, `match_arm_missing_value`. All 81 rejection tests now fail for their intended rule.
 
 - Native backend: `f64` (literals, arithmetic, comparisons, int/float casts, negation via SSE2), tuples (`bkr_tuple2/3`, `t.0`, tuple patterns), matching on structs, `?` (Option and Result, running pending defers), type aliases, and runtime `env_set`, `env_var`, `time_now_ms`, `time_now_unix`. 130 of 207 run tests pass natively.
+- **Native compiler 5x faster** (self-build 65 s -> 12 s): profiling with callgrind and the new `BKR_NATIVE_MAP` address map showed 91% of time in `rt_strlen`; the runtime now caches 4096 string lengths, scans 8 bytes at a time, records lengths of strings it builds, and copies with the new `__memcpy` intrinsic (`rep movsb`).
 - **Block-scoped `defer`** on the native backend, as specified in `docs/RESOURCE_MODEL.md`: deferred statements run in reverse order when their block ends and on `return`, `?`, `break` and `continue` (test 232, which the C backend still fails).
 
 ### Changed

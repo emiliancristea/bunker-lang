@@ -1441,6 +1441,20 @@
             }
             return x86_b2(st, 15, 5);
         }
+        if name == "__memcpy" && argc == 3 {
+            // rdi = dst, rsi = src, rcx = n; rep movsb
+            let mut i: i64 = 0;
+            while i < 3 {
+                x86_gen_expr_handle(st, ast_node_list_ref_get_handle(args_ref, i));
+                x86_push_rax(st);
+                i = i + 1;
+            }
+            x86_b(st, 89);
+            x86_b(st, 94);
+            x86_b(st, 95);
+            x86_b2(st, 243, 164);
+            return x86_mov_rax_imm(st, 0);
+        }
         if (name == "__load8" || name == "__load64") && argc == 1 {
             x86_gen_expr_handle(st, ast_node_list_ref_get_handle(args_ref, 0));
             if name == "__load8" {

@@ -14,11 +14,13 @@
     //   __syscall(n, a1..a6)  raw Linux system call
     //   __load8 / __store8, __load64 / __store64  memory access
     //   __globals()           address of a zeroed 1 MiB static data area
+    //   __memcpy(dst, src, n) copy n bytes (rep movsb)
     //
     // Global data area layout (byte offsets from __globals()):
     //   0  initial stack pointer (argc, argv, envp)   8  heap cursor   16  heap end
-    //   24 ASCII table ready flag                       32 strlen cache string  40 cached length
+    //   24 ASCII table ready flag   48 env_set overrides map
     //   4096..4351  one-character strings for codes 0..127
+    //   65536..131071 strlen cache: 4096 {pointer, length} pairs
 
     // ---- Memory ----
 
@@ -53,35 +55,63 @@
     }
 
     fn rt_copy_bytes(dst: i64, src: i64, n: i64) -> i64 {
-        let mut i: i64 = 0;
-        while i + 8 <= n {
-            __store64(dst + i, __load64(src + i));
-            i = i + 8;
-        }
-        while i < n {
-            __store8(dst + i, __load8(src + i));
-            i = i + 1;
+        if n > 0 {
+            __memcpy(dst, src, n);
         }
         return dst;
     }
 
     // ---- Strings ----
 
+    // Strings are immutable and never freed, so a pointer identifies its length forever:
+    // lengths are cached in a 4096-entry table (globals + 65536, {pointer, length} pairs).
+    fn rt_strlen_slot(s: i64) -> i64 {
+        return __globals() + 65536 + 16 * (((s >> 4) ^ (s >> 12) ^ s) & 4095);
+    }
+
     fn rt_strlen(s: i64) -> i64 {
         if s == 0 {
             return 0;
         }
-        let g = __globals();
-        if __load64(g + 32) == s {
-            return __load64(g + 40);
+        let slot = __globals() + 65536 + 16 * (((s >> 4) ^ (s >> 12) ^ s) & 4095);
+        if __load64(slot) == s {
+            return __load64(slot + 8);
         }
-        let mut n: i64 = 0;
-        while __load8(s + n) != 0 {
-            n = n + 1;
-        }
-        __store64(g + 32, s);
-        __store64(g + 40, n);
+        let n = rt_strlen_scan(s);
+        __store64(slot, s);
+        __store64(slot + 8, n);
         return n;
+    }
+
+    // Record the length of a finished string so later rt_strlen calls skip the scan.
+    fn rt_strlen_remember(s: i64, n: i64) -> i64 {
+        let slot = __globals() + 65536 + 16 * (((s >> 4) ^ (s >> 12) ^ s) & 4095);
+        __store64(slot, s);
+        __store64(slot + 8, n);
+        return s;
+    }
+
+    // Byte scan up to 8-byte alignment, then whole aligned words (an aligned word never
+    // crosses a page boundary), testing each word for a zero byte.
+    fn rt_strlen_scan(s: i64) -> i64 {
+        let mut i: i64 = 0;
+        while ((s + i) & 7) != 0 {
+            if __load8(s + i) == 0 {
+                return i;
+            }
+            i = i + 1;
+        }
+        let ones: i64 = 72340172838076673;
+        let highs: i64 = 0 - 9187201950435737472;
+        let mut w = __load64(s + i);
+        while ((w - ones) & (w ^ (0 - 1)) & highs) == 0 {
+            i = i + 8;
+            w = __load64(s + i);
+        }
+        while __load8(s + i) != 0 {
+            i = i + 1;
+        }
+        return i;
     }
 
     fn rt_len(s: i64) -> i64 {
@@ -130,7 +160,7 @@
         let p = rt_str_new(la + lb);
         rt_copy_bytes(p, a, la);
         rt_copy_bytes(p + la, b, lb);
-        return p;
+        return rt_strlen_remember(p, la + lb);
     }
 
     fn rt_from_char_code(code: i64) -> i64 {
@@ -152,9 +182,17 @@
         return p;
     }
 
+    // Hot in lexers: checks the length cache inline before falling back to rt_strlen.
     fn rt_char_code_at(s: i64, index: i64) -> i64 {
         if s == 0 || index < 0 {
             return 0;
+        }
+        let slot = __globals() + 65536 + 16 * (((s >> 4) ^ (s >> 12) ^ s) & 4095);
+        if __load64(slot) == s {
+            if index >= __load64(slot + 8) {
+                return 0;
+            }
+            return __load8(s + index);
         }
         if index >= rt_strlen(s) {
             return 0;
@@ -193,7 +231,7 @@
         }
         let p = rt_str_new(n);
         rt_copy_bytes(p, s + start, n);
-        return p;
+        return rt_strlen_remember(p, n);
     }
 
     // Index of needle in s at or after from, or -1.

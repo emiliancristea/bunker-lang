@@ -1097,6 +1097,20 @@
             }
             return false;
         }
+        // BKR_NATIVE_MAP=<file> writes "<address> <function>" lines for profilers and debuggers.
+        let map_path = env_or("BKR_NATIVE_MAP", "");
+        if len(map_path) > 0 {
+            let fn_names: Vec<str> = hashmap_keys(st.fn_offsets);
+            let lines: Vec<str> = vec_new();
+            let mut m: i64 = 0;
+            while m < vec_len(fn_names) {
+                let fn_name: str = vec_get(fn_names, m);
+                let offset: i64 = hashmap_get(st.fn_offsets, fn_name);
+                vec_push(lines, int_to_string(X86_CODE_VADDR + offset) + " " + fn_name);
+                m = m + 1;
+            }
+            write_file(map_path, join_lines(lines));
+        }
         if !x86_write_executable(output_path, x86_elf_image(st.code)) {
             println("Error: cannot write " + output_path);
             return false;

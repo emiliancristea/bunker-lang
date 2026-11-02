@@ -2,11 +2,11 @@
 */
 /* BUNKER_IMPORT_GRAPH_JSON: {"schema_version":"bunker.self_host.import_graph.v1","root_base_dir":"self-host","path_policy":"normalized_relative_forward_slash","base_directory_resolution":true,"recursive_expansion":true,"duplicate_suppression":true,"cycle_safe_expansion":true,"unique_import_count":22,"edge_count":22,"ok_edge_count":22,"missing_edge_count":0,"invalid_edge_count":0,"duplicate_edge_count":0,"duplicate_or_cycle_edge_count":0,"imports":["self-host/modules/constants.bkr","self-host/modules/kind_model.bkr","self-host/modules/ast.bkr","self-host/modules/lexer_result.bkr","self-host/modules/lexer.bkr","self-host/modules/parser_state.bkr","self-host/modules/parser.bkr","self-host/modules/cgen_state.bkr","self-host/modules/c_codegen.bkr","self-host/modules/json.bkr","self-host/modules/report_support.bkr","self-host/modules/ast_report.bkr","self-host/modules/symbol_table.bkr","self-host/modules/type_graph.bkr","self-host/modules/resolver.bkr","self-host/modules/typecheck.bkr","self-host/modules/semantic.bkr","self-host/modules/shell.bkr","self-host/modules/view.bkr","self-host/modules/verify.bkr","self-host/modules/x86_codegen.bkr","self-host/modules/driver.bkr"],"edges":[{"from_base":"self-host","requested":"modules/constants.bkr","resolved":"self-host/modules/constants.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/kind_model.bkr","resolved":"self-host/modules/kind_model.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/ast.bkr","resolved":"self-host/modules/ast.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/lexer_result.bkr","resolved":"self-host/modules/lexer_result.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/lexer.bkr","resolved":"self-host/modules/lexer.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/parser_state.bkr","resolved":"self-host/modules/parser_state.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/parser.bkr","resolved":"self-host/modules/parser.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/cgen_state.bkr","resolved":"self-host/modules/cgen_state.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/c_codegen.bkr","resolved":"self-host/modules/c_codegen.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/json.bkr","resolved":"self-host/modules/json.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/report_support.bkr","resolved":"self-host/modules/report_support.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/ast_report.bkr","resolved":"self-host/modules/ast_report.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/symbol_table.bkr","resolved":"self-host/modules/symbol_table.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/type_graph.bkr","resolved":"self-host/modules/type_graph.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/resolver.bkr","resolved":"self-host/modules/resolver.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/typecheck.bkr","resolved":"self-host/modules/typecheck.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/semantic.bkr","resolved":"self-host/modules/semantic.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/shell.bkr","resolved":"self-host/modules/shell.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/view.bkr","resolved":"self-host/modules/view.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/verify.bkr","resolved":"self-host/modules/verify.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/x86_codegen.bkr","resolved":"self-host/modules/x86_codegen.bkr","status":"ok"},{"from_base":"self-host","requested":"modules/driver.bkr","resolved":"self-host/modules/driver.bkr","status":"ok"}],"has_duplicate_or_cycle_import":false,"has_invalid_import":false,"invalid_import":"","has_missing_import":false,"missing_import":""}
 */
-/* BUNKER_AST_JSON: {"schema_version":"bunker.self_host.ast.v1","representation":"bootstrap_vec_i64","source_byte_spans":true,"complete_tree":false,"truncated":true,"root":{"kind":"kernel","name":"BunkerCompiler","entry":"main","source_start":178,"source_end":970173,"span_known":true},"summary":{"source_bytes":970174,"source_lines":21987,"item_count":1831,"function_count":1615,"struct_count":60,"enum_count":7,"const_count":149},"items":[],"tree":{"kind":"kernel"}}
+/* BUNKER_AST_JSON: {"schema_version":"bunker.self_host.ast.v1","representation":"bootstrap_vec_i64","source_byte_spans":true,"complete_tree":false,"truncated":true,"root":{"kind":"kernel","name":"BunkerCompiler","entry":"main","source_start":178,"source_end":971347,"span_known":true},"summary":{"source_bytes":971348,"source_lines":22015,"item_count":1831,"function_count":1615,"struct_count":60,"enum_count":7,"const_count":149},"items":[],"tree":{"kind":"kernel"}}
 */
 /* BUNKER_TYPE_GRAPH_JSON: {"schema_version":"bunker.self_host.type_graph.v1","representation":"bootstrap_codegen_inference","complete":false,"declared_types":false,"local_inference":false,"truncated":true,"known_limits":"Derived from declarations plus bootstrap C codegen inference; no real Bunker typechecker, generic graph, trait constraints, exhaustiveness graph, or cross-module type graph yet. Detail arrays are omitted when interned names exceed AST_REPORT_FULL_WALK_NAME_LIMIT.","summary":{"function_count":1615,"struct_count":60,"const_count":149},"structs":[],"constants":[],"functions":[]}
 */
-/* BUNKER_SYMBOL_TABLE_JSON: {"schema_version":"bunker.self_host.symbol_table.v1","representation":"bootstrap_ast_walk","complete":false,"declarations":false,"references":false,"truncated":true,"scope_model":"bootstrap kernel/function/struct scopes paired with BUNKER_RESOLVER_JSON validation","known_limits":"Derived from AST names and paired with BUNKER_RESOLVER_JSON for bootstrap duplicate/unresolved diagnostics; imports, visibility, overloads, and related definition-use spans are not complete yet. Full declaration/reference tables are omitted when interned names exceed AST_REPORT_FULL_WALK_NAME_LIMIT so stage1 compile of bkrc stays inside runner memory.","resolver_report":"BUNKER_RESOLVER_JSON","summary":{"interned_name_count":3067,"function_count":1615,"struct_count":60,"const_count":149},"declaration_table":[],"reference_table":[]}
+/* BUNKER_SYMBOL_TABLE_JSON: {"schema_version":"bunker.self_host.symbol_table.v1","representation":"bootstrap_ast_walk","complete":false,"declarations":false,"references":false,"truncated":true,"scope_model":"bootstrap kernel/function/struct scopes paired with BUNKER_RESOLVER_JSON validation","known_limits":"Derived from AST names and paired with BUNKER_RESOLVER_JSON for bootstrap duplicate/unresolved diagnostics; imports, visibility, overloads, and related definition-use spans are not complete yet. Full declaration/reference tables are omitted when interned names exceed AST_REPORT_FULL_WALK_NAME_LIMIT so stage1 compile of bkrc stays inside runner memory.","resolver_report":"BUNKER_RESOLVER_JSON","summary":{"interned_name_count":3069,"function_count":1615,"struct_count":60,"const_count":149},"declaration_table":[],"reference_table":[]}
 */
 /* BUNKER_RESOLVER_JSON: {"schema_version":"bunker.self_host.resolver.v1","representation":"bootstrap_name_resolver","complete":true,"truncated":true,"duplicate_detection":true,"unresolved_detection":true,"visibility_checking":true,"import_graph_awareness":true,"cross_file_definitions":true,"related_declarations":true,"structured_repair_metadata":true,"diagnostic_phase_field":true,"diagnostic_rule_ids":true,"diagnostic_severity":true,"diagnostic_severity_counts":true,"suggested_edit_envelope":true,"has_diagnostics":false,"diagnostic_count":0,"error_count":0,"warning_count":0,"scope_model":"kernel globals plus function/block/pattern binding scopes using interned names with visibility boundaries","known_limits":"Resolver validates duplicate declarations, unresolved identifiers, calls, struct types, struct literals, and struct literal fields with related declaration span objects; import visibility boundaries and cross-file definition origins verified.","diagnostics":[]}
 */
@@ -2219,8 +2219,8 @@ bkr_bool _v3024(bkr_str _v3008);
 bkr_bool _v3028(bkr_str _v2862);
 bkr_str _v3029(void);
 bkr_bool _v3030(bkr_str _v3031, bkr_str _v3032);
-bkr_bool _v3036(void);
-bkr_i32 _v3037(void);
+bkr_bool _v3038(void);
+bkr_i32 _v3039(void);
 
 bkr_str _v318(bkr_i64 _v319) {
     if ((_v319 == 1)) {
@@ -21149,6 +21149,19 @@ bkr_bool _v2794(_v2642 _v2424, bkr_str _v1363, _v434 _v1016) {
         }
         return _v2678(_v2424, 15, 5);
     }
+    if ((bkr_str_eq(_v1363, "__memcpy") && (_v2465 == 3))) {
+        bkr_i64 _v1172 = 0;
+        while ((_v1172 < 3)) {
+            _v2751(_v2424, _v910(_v1016, _v1172));
+            _v2699(_v2424);
+            _v1172 = (_v1172 + 1);
+        }
+        _v2676(_v2424, 89);
+        _v2676(_v2424, 94);
+        _v2676(_v2424, 95);
+        _v2678(_v2424, 243, 164);
+        return _v2684(_v2424, 0);
+    }
     if (((bkr_str_eq(_v1363, "__load8") || bkr_str_eq(_v1363, "__load64")) && (_v2465 == 1))) {
         _v2751(_v2424, _v910(_v1016, 0));
         if (bkr_str_eq(_v1363, "__load8")) {
@@ -22986,6 +22999,19 @@ bkr_bool _v3030(bkr_str _v3031, bkr_str _v3032) {
         }
         return BKR_FALSE;
     }
+    bkr_str _v3036 = _v3011("BKR_NATIVE_MAP", "");
+    if ((bkr_len((bkr_str)(intptr_t)(_v3036)) > 0)) {
+        bkr_i64 _v1555 = hashmap_keys(_v2424._v2644);
+        bkr_i64 _v1552 = vec_new();
+        bkr_i64 _v3037 = 0;
+        while ((_v3037 < vec_len(_v1555))) {
+            bkr_str _v2037 = (bkr_str)(intptr_t)(vec_get(_v1555, _v3037));
+            bkr_i64 _v1289 = hashmap_get(_v2424._v2644, ((bkr_i64)(intptr_t)_v2037));
+            vec_push(_v1552, ((bkr_i64)(intptr_t)bkr_str_concat(bkr_str_concat(int_to_string((_v2668 + _v1289)), " "), _v2037)));
+            _v3037 = (_v3037 + 1);
+        }
+        write_file(_v3036, join_lines(_v1552));
+    }
     if ((!_v2861(_v3032, _v2859(_v2424._v1244)))) {
         bkr_println(bkr_str_concat("Error: cannot write ", _v3032));
         return BKR_FALSE;
@@ -22993,7 +23019,7 @@ bkr_bool _v3030(bkr_str _v3031, bkr_str _v3032) {
     return BKR_TRUE;
 }
 
-bkr_bool _v3036(void) {
+bkr_bool _v3038(void) {
     bkr_println("Usage: bkrc <command> [args]");
     bkr_println("  check <file.bkr>                 Parse, resolve and typecheck");
     bkr_println("  compile <file.bkr> [-o out.c]    Emit C for the program");
@@ -23005,79 +23031,79 @@ bkr_bool _v3036(void) {
     return BKR_TRUE;
 }
 
-bkr_i32 _v3037(void) {
+bkr_i32 _v3039(void) {
     bkr_i64 _v2465 = bkr_args_count();
     if ((_v2465 <= 1)) {
-        _v3036();
+        _v3038();
         return 1;
     }
-    bkr_str _v3039 = bkr_arg_at(1);
-    if ((bkr_str_eq(_v3039, "capability") || bkr_str_eq(_v3039, "--capability"))) {
+    bkr_str _v3041 = bkr_arg_at(1);
+    if ((bkr_str_eq(_v3041, "capability") || bkr_str_eq(_v3041, "--capability"))) {
         bkr_println(_v2948());
         return 0;
     }
-    if (bkr_str_eq(_v3039, "self-host-check")) {
-        bkr_str _v3040 = "self-host";
+    if (bkr_str_eq(_v3041, "self-host-check")) {
+        bkr_str _v3042 = "self-host";
         bkr_i64 _v1172 = 2;
         while ((_v1172 < _v2465)) {
             bkr_str _v1817 = bkr_arg_at(_v1172);
             if (((!starts_with(_v1817, "-")) && (bkr_len((bkr_str)(intptr_t)(_v1817)) > 0))) {
-                _v3040 = _v1817;
+                _v3042 = _v1817;
             }
             _v1172 = (_v1172 + 1);
         }
-        if ((ends_with(_v3040, "/") || ends_with(_v3040, "\\"))) {
-            _v3040 = substring(_v3040, 0, (bkr_len((bkr_str)(intptr_t)(_v3040)) - 1));
+        if ((ends_with(_v3042, "/") || ends_with(_v3042, "\\"))) {
+            _v3042 = substring(_v3042, 0, (bkr_len((bkr_str)(intptr_t)(_v3042)) - 1));
         }
-        bkr_println(bkr_str_concat("Checking self-host sources in ", _v3040));
+        bkr_println(bkr_str_concat("Checking self-host sources in ", _v3042));
         bkr_i64 _v425 = bkr_str_split((bkr_str)(intptr_t)("bkrc.bkr,bkrc_simple.bkr,c_codegen.bkr,codegen.bkr,compiler.bkr,lexer.bkr,parser.bkr,typeck.bkr"), (bkr_str)(intptr_t)(","));
-        bkr_i64 _v3041 = 0;
+        bkr_i64 _v3043 = 0;
         bkr_i64 _v1645 = 0;
         while ((_v1645 < vec_len(_v425))) {
-            bkr_str _v3042 = bkr_str_concat(bkr_str_concat(_v3040, "/"), vec_get(_v425, _v1645));
-            if (_v3028(_v3042)) {
-                bkr_println(bkr_str_concat("  PASS ", _v3042));
-                _v3041 = (_v3041 + 1);
+            bkr_str _v3044 = bkr_str_concat(bkr_str_concat(_v3042, "/"), vec_get(_v425, _v1645));
+            if (_v3028(_v3044)) {
+                bkr_println(bkr_str_concat("  PASS ", _v3044));
+                _v3043 = (_v3043 + 1);
             } else {
-                bkr_println(bkr_str_concat("  FAIL ", _v3042));
+                bkr_println(bkr_str_concat("  FAIL ", _v3044));
             }
             _v1645 = (_v1645 + 1);
         }
         bkr_println("");
-        bkr_println(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("Self-host readiness: ", int_to_string(_v3041)), "/"), int_to_string(vec_len(_v425))), " file(s) passing"));
-        if ((_v3041 != vec_len(_v425))) {
+        bkr_println(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat("Self-host readiness: ", int_to_string(_v3043)), "/"), int_to_string(vec_len(_v425))), " file(s) passing"));
+        if ((_v3043 != vec_len(_v425))) {
             return 1;
         }
         return 0;
     }
-    if (bkr_str_eq(_v3039, "check")) {
+    if (bkr_str_eq(_v3041, "check")) {
         bkr_str _v3031 = "";
-        bkr_bool _v3043 = BKR_FALSE;
-        bkr_bool _v3044 = BKR_FALSE;
         bkr_bool _v3045 = BKR_FALSE;
         bkr_bool _v3046 = BKR_FALSE;
         bkr_bool _v3047 = BKR_FALSE;
         bkr_bool _v3048 = BKR_FALSE;
+        bkr_bool _v3049 = BKR_FALSE;
+        bkr_bool _v3050 = BKR_FALSE;
         bkr_i64 _v1172 = 2;
         while ((_v1172 < _v2465)) {
             bkr_str _v1817 = bkr_arg_at(_v1172);
             if (bkr_str_eq(_v1817, "--capability-json")) {
-                _v3043 = BKR_TRUE;
+                _v3045 = BKR_TRUE;
             } else {
                 if (bkr_str_eq(_v1817, "--ast-json")) {
-                    _v3044 = BKR_TRUE;
+                    _v3046 = BKR_TRUE;
                 } else {
                     if (bkr_str_eq(_v1817, "--type-graph")) {
-                        _v3045 = BKR_TRUE;
+                        _v3047 = BKR_TRUE;
                     } else {
                         if (bkr_str_eq(_v1817, "--symbol-table")) {
-                            _v3046 = BKR_TRUE;
+                            _v3048 = BKR_TRUE;
                         } else {
                             if (bkr_str_eq(_v1817, "--typecheck-json")) {
-                                _v3047 = BKR_TRUE;
+                                _v3049 = BKR_TRUE;
                             } else {
                                 if (bkr_str_eq(_v1817, "--resolver-json")) {
-                                    _v3048 = BKR_TRUE;
+                                    _v3050 = BKR_TRUE;
                                 } else {
                                     if (((!starts_with(_v1817, "-")) && (bkr_len((bkr_str)(intptr_t)(_v3031)) == 0))) {
                                         _v3031 = bkr_arg_at(_v1172);
@@ -23099,7 +23125,7 @@ bkr_i32 _v3037(void) {
         }
         bkr_str _v1212 = read_file(_v3031);
         bkr_str _v3008 = _v2994(_v1212, _v2885(_v3031));
-        if ((((((_v3043 || _v3044) || _v3045) || _v3046) || _v3047) || _v3048)) {
+        if ((((((_v3045 || _v3046) || _v3047) || _v3048) || _v3049) || _v3050)) {
             bkr_println(_v3008);
             return 0;
         }
@@ -23112,14 +23138,14 @@ bkr_i32 _v3037(void) {
         bkr_println("Success: No errors found.");
         return 0;
     }
-    if (bkr_str_eq(_v3039, "run")) {
+    if (bkr_str_eq(_v3041, "run")) {
         bkr_str _v3031 = "";
-        bkr_bool _v3049 = bkr_str_eq(_v3011("BKR_BACKEND", "c"), "native");
+        bkr_bool _v3051 = bkr_str_eq(_v3011("BKR_BACKEND", "c"), "native");
         bkr_i64 _v1172 = 2;
         while ((_v1172 < _v2465)) {
             bkr_str _v1817 = bkr_arg_at(_v1172);
             if (bkr_str_eq(_v1817, "--native")) {
-                _v3049 = BKR_TRUE;
+                _v3051 = BKR_TRUE;
             } else {
                 if (((!starts_with(_v1817, "-")) && (bkr_len((bkr_str)(intptr_t)(_v3031)) == 0))) {
                     _v3031 = bkr_arg_at(_v1172);
@@ -23131,11 +23157,11 @@ bkr_i32 _v3037(void) {
             bkr_println(bkr_str_concat("Error: input file not found: ", _v3031));
             return 1;
         }
-        bkr_str _v3050 = bkr_str_concat(bkr_str_concat(_v3011("TMPDIR", "/tmp"), "/bkr-run-"), int_to_string(process_pid()));
-        bkr_str _v3052 = bkr_str_concat(_v3050, ".out");
-        bkr_str _v3053 = bkr_str_concat(_v3050, ".log");
-        if (_v3049) {
-            if ((!_v3030(_v3031, _v3052))) {
+        bkr_str _v3052 = bkr_str_concat(bkr_str_concat(_v3011("TMPDIR", "/tmp"), "/bkr-run-"), int_to_string(process_pid()));
+        bkr_str _v3054 = bkr_str_concat(_v3052, ".out");
+        bkr_str _v3055 = bkr_str_concat(_v3052, ".log");
+        if (_v3051) {
+            if ((!_v3030(_v3031, _v3054))) {
                 return 1;
             }
         } else {
@@ -23146,44 +23172,44 @@ bkr_i32 _v3037(void) {
                 bkr_println(bkr_str_concat("Error: diagnostics found in ", _v3031));
                 return 1;
             }
-            bkr_str _v3054 = bkr_str_concat(_v3050, ".c");
-            if ((!write_file(_v3054, _v3008))) {
-                bkr_println(bkr_str_concat("Error: cannot write ", _v3054));
+            bkr_str _v3056 = bkr_str_concat(_v3052, ".c");
+            if ((!write_file(_v3056, _v3008))) {
+                bkr_println(bkr_str_concat("Error: cannot write ", _v3056));
                 return 1;
             }
             bkr_str _v2704 = _v3011("BKR_CC", _v3011("CC", "cc"));
-            bkr_str _v3055 = bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2704, " -std=c11 -w -I "), _v3016(_v3019())), " "), _v3016(_v3054)), " -o "), _v3016(_v3052)), " -lm > "), _v3016(_v3053)), " 2>&1");
-            bkr_i64 _v3056 = process_run_status(_v3055);
-            bkr_i64 _v3058 = 1;
-            if (bkr_result_is_ok(_v3056)) {
-                _v3058 = bkr_result_unwrap(_v3056);
+            bkr_str _v3057 = bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v2704, " -std=c11 -w -I "), _v3016(_v3019())), " "), _v3016(_v3056)), " -o "), _v3016(_v3054)), " -lm > "), _v3016(_v3055)), " 2>&1");
+            bkr_i64 _v3058 = process_run_status(_v3057);
+            bkr_i64 _v3060 = 1;
+            if (bkr_result_is_ok(_v3058)) {
+                _v3060 = bkr_result_unwrap(_v3058);
             }
-            if ((_v3058 != 0)) {
-                if (file_exists(_v3053)) {
-                    bkr_print(read_file(_v3053));
+            if ((_v3060 != 0)) {
+                if (file_exists(_v3055)) {
+                    bkr_print(read_file(_v3055));
                 }
                 bkr_println(bkr_str_concat("Error: C backend failed to build ", _v3031));
-                file_remove(_v3054);
-                file_remove(_v3053);
+                file_remove(_v3056);
+                file_remove(_v3055);
                 return 1;
             }
-            file_remove(_v3054);
+            file_remove(_v3056);
         }
-        bkr_i64 _v3062 = process_run_status(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v3016(_v3052), " > "), _v3016(_v3053)), " 2>&1"));
-        if ((!bkr_result_is_ok(_v3062))) {
-            bkr_println(bkr_str_concat("Error: failed to execute ", _v3052));
+        bkr_i64 _v3064 = process_run_status(bkr_str_concat(bkr_str_concat(bkr_str_concat(_v3016(_v3054), " > "), _v3016(_v3055)), " 2>&1"));
+        if ((!bkr_result_is_ok(_v3064))) {
+            bkr_println(bkr_str_concat("Error: failed to execute ", _v3054));
             return 1;
         }
-        bkr_i64 _v3063 = bkr_result_unwrap(_v3062);
-        if (file_exists(_v3053)) {
-            bkr_print(read_file(_v3053));
+        bkr_i64 _v3065 = bkr_result_unwrap(_v3064);
+        if (file_exists(_v3055)) {
+            bkr_print(read_file(_v3055));
         }
-        bkr_println(bkr_str_concat("Result: ", int_to_string(_v3063)));
-        file_remove(_v3052);
-        file_remove(_v3053);
-        return ((bkr_i32)(_v3063));
+        bkr_println(bkr_str_concat("Result: ", int_to_string(_v3065)));
+        file_remove(_v3054);
+        file_remove(_v3055);
+        return ((bkr_i32)(_v3065));
     }
-    if (bkr_str_eq(_v3039, "native")) {
+    if (bkr_str_eq(_v3041, "native")) {
         bkr_str _v3031 = "";
         bkr_str _v3032 = "";
         bkr_i64 _v1172 = 2;
@@ -23211,14 +23237,14 @@ bkr_i32 _v3037(void) {
         }
         return 0;
     }
-    if (bkr_str_eq(_v3039, "parse")) {
+    if (bkr_str_eq(_v3041, "parse")) {
         bkr_str _v3031 = "";
-        bkr_bool _v3064 = BKR_FALSE;
+        bkr_bool _v3066 = BKR_FALSE;
         bkr_i64 _v1172 = 2;
         while ((_v1172 < _v2465)) {
             bkr_str _v1817 = bkr_arg_at(_v1172);
             if (bkr_str_eq(_v1817, "--ast-json")) {
-                _v3064 = BKR_TRUE;
+                _v3066 = BKR_TRUE;
             } else {
                 if (((!starts_with(_v1817, "-")) && (bkr_len((bkr_str)(intptr_t)(_v3031)) == 0))) {
                     _v3031 = bkr_arg_at(_v1172);
@@ -23239,14 +23265,14 @@ bkr_i32 _v3037(void) {
             bkr_println(_v2959(_v2998, _v1261));
             return 1;
         }
-        if (_v3064) {
+        if (_v3066) {
             bkr_println(_v2004(_v2998, _v2999));
         } else {
             bkr_println(_v2010(_v2998, _v2999));
         }
         return 0;
     }
-    if (((bkr_str_eq(_v3039, "self-host-compile") || bkr_str_eq(_v3039, "compile")) || bkr_str_eq(_v3039, "build"))) {
+    if (((bkr_str_eq(_v3041, "self-host-compile") || bkr_str_eq(_v3041, "compile")) || bkr_str_eq(_v3041, "build"))) {
         bkr_str _v3031 = "";
         bkr_str _v3032 = "";
         bkr_i64 _v1172 = 2;
@@ -23271,8 +23297,8 @@ bkr_i32 _v3037(void) {
         }
         bkr_str _v1212 = read_file(_v3031);
         bkr_str _v3008 = _v2994(_v1212, _v2885(_v3031));
-        bkr_bool _v3065 = write_file(_v3032, _v3008);
-        if ((!_v3065)) {
+        bkr_bool _v3067 = write_file(_v3032, _v3008);
+        if ((!_v3067)) {
             return 1;
         }
         return 0;
@@ -23281,8 +23307,8 @@ bkr_i32 _v3037(void) {
     bkr_str _v3032 = bkr_str_concat(_v3031, ".c");
     bkr_i64 _v1172 = 2;
     while ((_v1172 < _v2465)) {
-        bkr_str _v3066 = bkr_arg_at(_v1172);
-        if ((bkr_str_eq(_v3066, "-o") && ((_v1172 + 1) < _v2465))) {
+        bkr_str _v3068 = bkr_arg_at(_v1172);
+        if ((bkr_str_eq(_v3068, "-o") && ((_v1172 + 1) < _v2465))) {
             _v3032 = bkr_arg_at((_v1172 + 1));
             _v1172 = (_v1172 + 1);
         }
@@ -23294,8 +23320,8 @@ bkr_i32 _v3037(void) {
     }
     bkr_str _v1212 = read_file(_v3031);
     bkr_str _v3008 = _v2994(_v1212, _v2885(_v3031));
-    bkr_bool _v3065 = write_file(_v3032, _v3008);
-    if ((!_v3065)) {
+    bkr_bool _v3067 = write_file(_v3032, _v3008);
+    if ((!_v3067)) {
         return 1;
     }
     return 0;
@@ -23303,5 +23329,5 @@ bkr_i32 _v3037(void) {
 
 int main(int argc, char** argv) {
     bkr_init_args(argc, argv);
-    return (int)_v3037();
+    return (int)_v3039();
 }

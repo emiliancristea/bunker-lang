@@ -247,7 +247,7 @@ $ ./bkrc compile tests/01_basic_math.bkr -o math.c
 - [x] Runtime in Bunker on raw Linux syscalls (`self-host/native_runtime.bkr`): memory (mmap), strings, printing, Vec, HashMap, Result, bytes, files, paths, args, env, processes (fork/execve/wait4).
 - [x] `bkrc` compiles itself through the native backend: byte-identical native fixpoint, and the native compiler emits the same C as the C-built one.
 - [x] Checked-in `bkrc` Linux binary seed (`bootstrap/bkrc-linux-x86_64`, `SHA256SUMS.native`, `bootstrap/build-native.sh`); CI builds with `CC=/bin/false` and checks the C seed and binary seed produce the same compiler.
-- [ ] Faster native code (register allocation): the native compiler is ~6x slower than the C-built one on the full compiler.
+- [~] Faster native code: runtime fixes (4096-entry string length cache, word-at-a-time strlen, `rep movsb` copies, lengths recorded by concat/substring) took the native self-build from 65 s to 12 s; the gcc-built compiler takes ~6.7 s. Closing the rest needs register allocation in the code generator. `BKR_NATIVE_MAP=<file>` writes a function address map for profiling.
 - [ ] Native backends for other targets (Linux arm64, macOS, Windows); those still bootstrap through the C seed.
 - [ ] Test runner spawns processes via syscalls instead of `/bin/sh`.
 
