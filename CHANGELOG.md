@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Several kernels per file.** Kernels are merged into one: items of kernels other than the one with `main` are named `Kernel::item`, references inside their own kernel are rewritten, and `Kernel::item` reaches them from elsewhere. Items without `pub` are private to their kernel (`docs/MODULE_RESOLVER_ARCHITECTURE.md` 3.2): reaching one from another kernel is `unresolved_reference`. Tests 190 and 202 use another kernel's items unqualified or non-`pub`, which the spec does not allow, and stay in `tests/known_failures.txt`.
+- **Import cycles are errors** (`BKR_SELF_IMPORT_CYCLE`, message `circular import a.bkr -> b.bkr -> a.bkr`); importing the same module twice through different paths is still allowed.
 - **Attributes**: `#[name]`, `#[name(args)]` and file-level `#![name = value]` parse and attach to functions and kernels. New semantic rules `unknown_attribute`, `unsupported_language_version` (only `#![version = "1.0"]`) and `must_use_ignored`. Contract semantics for `#[requires]`/`#[ensures]` are not implemented yet.
 - **`comptime fn`** with a compile-time interpreter (`self-host/modules/comptime.bkr`): calls with constant arguments are evaluated during checking, and division by zero, recursion past 200 calls or more than 1,000,000 steps are compile errors (`comptime_evaluation_error`). The generated code still computes the call at run time.
 - **Structs in collections**: `vec_push`, `vec_set`, `hashmap_insert`, `Ok`/`Err` store struct values as pointers to arena copies (`bkr_box_value` in C, `rt_alloc` natively), and a struct-typed `let` copies a value read back with `vec_get`/`hashmap_get`/`result_unwrap`.

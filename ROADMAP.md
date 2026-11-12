@@ -243,7 +243,7 @@ $ ./bkrc compile tests/01_basic_math.bkr -o math.c
 
 **Deliverables:**
 - [x] Honest test runner written in Bunker (`tools/test_runner.bkr`); PowerShell runner removed.
-- [x] Native x86-64 backend in Bunker (`self-host/modules/x86_codegen.bkr`): instruction encoder plus ELF64 writer, so `bkrc native` writes executables directly. 169/207 run tests pass natively (`tests/native_known_failures.txt`). Still missing: closures and function values, generics beyond the C backend's subset.
+- [x] Native x86-64 backend in Bunker (`self-host/modules/x86_codegen.bkr`): instruction encoder plus ELF64 writer, so `bkrc native` writes executables directly. 173/207 run tests pass natively (`tests/native_known_failures.txt`). Still missing: closures and function values, generics beyond the C backend's subset.
 - [x] Runtime in Bunker on raw Linux syscalls (`self-host/native_runtime.bkr`): memory (mmap), strings, printing, Vec, HashMap, Result, bytes, files, paths, args, env, processes (fork/execve/wait4).
 - [x] `bkrc` compiles itself through the native backend: byte-identical native fixpoint, and the native compiler emits the same C as the C-built one.
 - [x] Checked-in `bkrc` Linux binary seed (`bootstrap/bkrc-linux-x86_64`, `SHA256SUMS.native`, `bootstrap/build-native.sh`); CI builds with `CC=/bin/false` and checks the C seed and binary seed produce the same compiler.
@@ -288,7 +288,7 @@ $ ./bkrc compile tests/01_basic_math.bkr -o math.c
 | 8 | ⬜ Not Started | Embedded/Metal profile |
 | 9 | ✅ Complete | Pure Bunker self-hosted toolchain (`self-host/`) is the primary production compiler; bootstraps from portable C11 (`bootstrap/`) with zero Rust or Cargo dependencies; zero-diff fixpoint certified. |
 
-**Test Suite:** 250/309 tests really pass (`./bkrc run tools/test_runner.bkr`), including all 81 rejection tests; the 59 current failures are tracked in `tests/known_failures.txt`.bkr`), including all 81 rejection tests; the 108 current failures are tracked in `tests/known_failures.txt`. Attributes (`#[verified]`, `#[requires]`, ...) do not parse yet, so contract tests fail and the two attribute rejection tests pass only because attributes are a syntax error. Shell, View and contract modules exist as libraries but the compiler does not yet compile `shell`/`view` blocks or enforce contracts.
+**Test Suite:** 254/309 tests really pass (`./bkrc run tools/test_runner.bkr`), including all 81 rejection tests; the 55 current failures are tracked in `tests/known_failures.txt`.bkr`), including all 81 rejection tests; the 108 current failures are tracked in `tests/known_failures.txt`. Attributes (`#[verified]`, `#[requires]`, ...) do not parse yet, so contract tests fail and the two attribute rejection tests pass only because attributes are a syntax error. Shell, View and contract modules exist as libraries but the compiler does not yet compile `shell`/`view` blocks or enforce contracts.
 
 ---
 

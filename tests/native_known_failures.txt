@@ -7,10 +7,6 @@
 185_higher_order_functions
 188_vec_hashmap_combinators
 190_visibility_and_mutability
-194_constants_across_modules
-195_namespace_collisions
-197_forward_reference_modules
-198_attribute_semantics
 202_comptime_and_doc_comments
 208_slices_and_typed_paths
 211_multifile_modules
