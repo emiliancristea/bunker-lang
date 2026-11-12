@@ -288,7 +288,7 @@ $ ./bkrc compile tests/01_basic_math.bkr -o math.c
 | 8 | ⬜ Not Started | Embedded/Metal profile |
 | 9 | ✅ Complete | Pure Bunker self-hosted toolchain (`self-host/`) is the primary production compiler; bootstraps from portable C11 (`bootstrap/`) with zero Rust or Cargo dependencies; zero-diff fixpoint certified. |
 
-**Test Suite:** 239/309 tests really pass (`./bkrc run tools/test_runner.bkr`), including all 81 rejection tests; the 70 current failures are tracked in `tests/known_failures.txt`.bkr`), including all 81 rejection tests; the 108 current failures are tracked in `tests/known_failures.txt`. Attributes (`#[verified]`, `#[requires]`, ...) do not parse yet, so contract tests fail and the two attribute rejection tests pass only because attributes are a syntax error. Shell, View and contract modules exist as libraries but the compiler does not yet compile `shell`/`view` blocks or enforce contracts.
+**Test Suite:** 250/309 tests really pass (`./bkrc run tools/test_runner.bkr`), including all 81 rejection tests; the 59 current failures are tracked in `tests/known_failures.txt`.bkr`), including all 81 rejection tests; the 108 current failures are tracked in `tests/known_failures.txt`. Attributes (`#[verified]`, `#[requires]`, ...) do not parse yet, so contract tests fail and the two attribute rejection tests pass only because attributes are a syntax error. Shell, View and contract modules exist as libraries but the compiler does not yet compile `shell`/`view` blocks or enforce contracts.
 
 ---
 

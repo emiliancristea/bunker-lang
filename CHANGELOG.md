@@ -30,6 +30,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`let` bindings are immutable**; reassigning needs `let mut`. The parser now records `mut`. 765 declarations across the compiler, runtime, test runner and tests were migrated.
 
 ### Fixed
+- **Block-scoped `defer` on the C backend** too: deferred statements run when their block ends and on `return`, `?`, `break` and `continue`, each in its own C block (deferred `let`s used to be redeclared in one scope).
+- A user function named like a builtin (for example its own `int_to_string`) now shadows the builtin on the C backend instead of colliding with `runtime.h`.
 - `!s.ok` and `-p.x` parsed as `(!s).ok` and `(-p).x`; unary operators and `copy` now apply to the whole postfix expression.
 - `let x: T = vec_get(...)` (and `hashmap_get`, `result_unwrap`, ...) was rejected because these calls were typed as `i64`; the declared element type is now used, and `semantic.bkr` checks it against the collection's declared type.
 - Text after the kernel's closing `}` is a parse error; `bkrc check` now prints parse and import errors.

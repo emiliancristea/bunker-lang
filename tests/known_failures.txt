@@ -28,7 +28,6 @@
 227_ownership_move_semantics
 229_safety_soundness_ub
 231_sandbox_security_bounds
-232_arena_resource_drop
 233_borrow_handle_wrappers
 239_generic_structural_constraints
 241_unicode_byte_semantics
@@ -45,16 +44,6 @@
 264_codegen_hygienic_temporaries
 26_shell_defer
 272_lambda_expressions_syntax
-276_native_test_runner_harness
-277_doc_comment_generator
-278_package_manager_manifest
-279_build_cache_fingerprint
-280_language_server_protocol
-281_watch_mode_dirty_tracker
-282_debugger_hooks_unwinding
-283_runtime_profiler_metrics
-284_code_coverage_tooling
-285_benchmark_tooling_harness
 28_kernel_main_f64
 29_kernel_main_bool
 300_pure_bunker_shell_actor
