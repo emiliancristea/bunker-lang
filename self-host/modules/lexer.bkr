@@ -322,6 +322,7 @@
                 if c == 59 { tok_type = TOK_SEMICOLON; }
                 if c == 58 { tok_type = TOK_COLON; }
                 if c == 63 { tok_type = TOK_QUESTION; }
+                if c == 35 { tok_type = TokenKind.Hash; }
                 if tok_type == TokenKind.Eof {
                     // Unknown character: report it instead of silently ending the file
                     tok_type = TokenKind.Invalid;

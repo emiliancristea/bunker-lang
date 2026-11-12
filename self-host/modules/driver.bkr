@@ -791,6 +791,70 @@
             "*/";
     }
 
+    // ---- Import cycles ----
+    //
+    // Depth-first walk over imports. `active` holds the files currently being expanded (the
+    // import chain), `done` the files finished. Importing a finished file again is a legal
+    // duplicate (a diamond); importing a file that is still on the chain is a cycle.
+
+    fn import_cycle_in_source(source: str, base_dir: str, active: Vec<str>, done: Vec<str>) -> str {
+        let lines: Vec<str> = str_split(source, from_char_code(10));
+        let mut i: i64 = 0;
+        while i < vec_len(lines) {
+            let line: str = vec_get(lines, i);
+            if is_import_line(line) {
+                let import_path = import_path_from_line(line);
+                if import_path_is_valid(import_path) {
+                    let resolved = resolve_import_path(base_dir, import_path);
+                    if import_seen_contains(active, resolved) {
+                        let mut chain = "";
+                        let mut a: i64 = 0;
+                        let mut on_cycle = false;
+                        while a < vec_len(active) {
+                            let entry: str = vec_get(active, a);
+                            if entry == resolved {
+                                on_cycle = true;
+                            }
+                            if on_cycle {
+                                chain = chain + entry + " -> ";
+                            }
+                            a = a + 1;
+                        }
+                        return chain + resolved;
+                    }
+                    if file_exists(resolved) && !import_seen_contains(done, resolved) {
+                        vec_push(active, resolved);
+                        let found = import_cycle_in_source(read_file(resolved), import_path_dir(resolved), active, done);
+                        vec_pop(active);
+                        vec_push(done, resolved);
+                        if len(found) > 0 {
+                            return found;
+                        }
+                    }
+                }
+            }
+            i = i + 1;
+        }
+        return "";
+    }
+
+    // The import cycle reachable from the root source as "a -> b -> a", or "".
+    fn first_import_cycle_from_base(source: str, base_dir: str) -> str {
+        let active: Vec<str> = vec_new();
+        let done: Vec<str> = vec_new();
+        return import_cycle_in_source(source, base_dir, active, done);
+    }
+
+    fn build_import_cycle_diagnostic(chain: str) -> str {
+        let repair_hint = "Break the cycle: move the shared items into a module that both files import, or remove one of the imports.";
+        let message = "Import error: circular import " + chain;
+        let json = self_host_diagnostic_json("import", "BKR_SELF_IMPORT_CYCLE", message,
+            0, 0, 1, 1, "", "an acyclic import graph", chain, repair_hint);
+        return "/* " + message + ". AI repair hint: " + repair_hint + from_char_code(10) +
+            "BUNKER_DIAGNOSTIC_JSON: " + json + from_char_code(10) +
+            "*/";
+    }
+
     fn build_import_diagnostic(missing_import: str) -> str {
         let repair_hint = "Copy the imported Bunker module next to self_host_input.bkr or pre-expand imports before running bkrc.";
         let message = "Import error: missing module " + missing_import;
@@ -925,6 +989,11 @@
             return capability_report + import_graph_report + build_import_diagnostic(missing_import) + from_char_code(10);
         }
 
+        let import_cycle = first_import_cycle_from_base(source, root_base_dir);
+        if len(import_cycle) > 0 {
+            return capability_report + import_graph_report + build_import_cycle_diagnostic(import_cycle) + from_char_code(10);
+        }
+
         let expanded_source = expand_imports_from_base(source, root_base_dir);
         self_host_trace_phase("compile_to_c:imports_expanded");
         let lex_result: LexerResultRef = tokenize_ref(expanded_source);
@@ -1016,7 +1085,9 @@
         let mut i: i64 = 0;
         while i < vec_len(lines) {
             let line: str = vec_get(lines, i);
-            if contains(line, marker) {
+            // Report blocks that carry errors; parse and import errors use BUNKER_DIAGNOSTIC_JSON.
+            if contains(line, marker) || starts_with(line, "/* BUNKER_DIAGNOSTIC_JSON:") ||
+               starts_with(line, "BUNKER_DIAGNOSTIC_JSON:") {
                 println(line);
             }
             i = i + 1;

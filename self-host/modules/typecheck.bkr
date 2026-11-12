@@ -2737,7 +2737,13 @@
             let type_node: i64 = ast_let_ref_type_handle(stmt_ref);
             if ast_optional_is_some(type_node) && ast_optional_is_some(init) {
                 let expected_kind: i64 = typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(type_node));
-                let found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(init));
+                let mut found_kind: i64 = typecheck_expr_ref_kind(cstate, ast_expr_ref_from_handle(init));
+                // vec_get, hashmap_get, result_unwrap and friends return the collection's element
+                // value; the declared type of the binding says what that element is.
+                // (semantic.bkr checks it against the collection's declared element type).
+                if is_raw_payload_call_ref(cstate, ast_expr_ref_from_handle(init)) {
+                    found_kind = expected_kind;
+                }
                 let hint: str = "Change the initializer for " + name +
                     " or update the declared local type.";
                 state = typecheck_maybe_append_value_mismatch_ref(state, "annotation_type_mismatch",

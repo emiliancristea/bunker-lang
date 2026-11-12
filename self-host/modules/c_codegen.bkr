@@ -1376,7 +1376,40 @@
         if kind == TYPE_STR {
             return "((bkr_i64)(intptr_t)" + result + ")";
         }
+        if kind == TYPE_STRUCT {
+            // Collections hold words: store a struct as a pointer to an arena copy.
+            let s_idx: i64 = c_expr_struct_name_idx(state, expr_ref);
+            if s_idx >= 0 {
+                let c_ty: str = name_to_c_ref(state, s_idx);
+                return "bkr_box_value((" + c_ty + "[]){ " + result + " }, sizeof(" + c_ty + "))";
+            }
+        }
         return result;
+    }
+
+    // Struct name index of a struct-valued expression, or -1 when it cannot be determined.
+    fn c_expr_struct_name_idx(state: CgenStateRef, expr_ref: AstExprRef) -> i64 {
+        let kind: i64 = ast_expr_ref_kind(expr_ref);
+        if kind == NODE_STRUCT_LIT {
+            return ast_struct_lit_ref_name_idx(expr_ref);
+        }
+        if kind == NODE_IDENT {
+            return cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(expr_ref));
+        }
+        if kind == NODE_CALL {
+            let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
+            if cgen_is_struct_name_ref(state, name_idx) {
+                return name_idx;
+            }
+            let ret_ref: AstTypeRef = cgen_lookup_fn_ret_type_info_ref(state, name_idx);
+            if ast_type_ref_is_some(ret_ref) && ast_type_ref_kind_value(ret_ref) == TYPE_STRUCT {
+                let s_idx: i64 = ast_type_ref_struct_name_idx_value(ret_ref);
+                if cgen_is_struct_name_ref(state, s_idx) {
+                    return s_idx;
+                }
+            }
+        }
+        return -1;
     }
 
     fn gen_c_init_expr_for_type(state: Vec<i64>, type_node: i64, init: Vec<i64>) -> str {
@@ -1398,6 +1431,17 @@
         let result = gen_c_expr_ref(state, init_ref);
         if ast_optional_is_some(type_node) && type_node_kind_ref(ast_type_ref_from_handle(type_node)) == TYPE_STR && is_raw_payload_call_ref(state, init_ref) {
             return "(bkr_str)(intptr_t)(" + result + ")";
+        }
+        if ast_optional_is_some(type_node) && is_raw_payload_call_ref(state, init_ref) {
+            // A struct read back from a collection: copy it out of its boxed storage.
+            let type_ref: AstTypeRef = ast_type_ref_from_handle(type_node);
+            if type_node_kind_ref(type_ref) == TYPE_STRUCT {
+                let s_idx: i64 = ast_type_ref_struct_name_idx_value(type_ref);
+                if cgen_is_struct_name_ref(state, s_idx) {
+                    let c_ty: str = name_to_c_ref(state, s_idx);
+                    return "(*(" + c_ty + "*)(intptr_t)(" + result + "))";
+                }
+            }
         }
         return result;
     }
@@ -1656,11 +1700,7 @@
             let mut defer_str: str = "";
             if defer_count > 0 {
                 let sub_state: CgenStateRef = cgen_new_ref("", cgen_names_ref(state));
-                let mut d: i64 = defer_count - 1;
-                while d >= 0 {
-                    gen_c_stmt_ref(sub_state, ast_stmt_ref_from_handle(vec_get(defers, d)));
-                    d = d - 1;
-                }
+                gen_c_emit_defers_ref(sub_state, defers, 0, false);
                 let lines: Vec<str> = cgen_lines_ref(sub_state);
                 let mut li: i64 = 0;
                 while li < vec_len(lines) {
@@ -2151,11 +2191,7 @@
                         cgen_emit_ref(state, gen_c_expr_ref(state, expr_ref) + ";");
                     }
                 }
-                let mut d: i64 = defer_count - 1;
-                while d >= 0 {
-                    gen_c_stmt_ref(state, ast_stmt_ref_from_handle(vec_get(defers, d)));
-                    d = d - 1;
-                }
+                gen_c_emit_defers_ref(state, defers, 0, false);
                 cgen_emit_ref(state, "return;");
                 return state;
             }
@@ -2167,18 +2203,10 @@
                         ret_type = "bkr_i64";
                     }
                     cgen_emit_ref(state, ret_type + " " + ret_var + " = " + gen_c_expr_ref(state, ast_expr_ref_from_handle(expr)) + ";");
-                    let mut d: i64 = defer_count - 1;
-                    while d >= 0 {
-                        gen_c_stmt_ref(state, ast_stmt_ref_from_handle(vec_get(defers, d)));
-                        d = d - 1;
-                    }
+                    gen_c_emit_defers_ref(state, defers, 0, false);
                     cgen_emit_ref(state, "return " + ret_var + ";");
                 } else {
-                    let mut d: i64 = defer_count - 1;
-                    while d >= 0 {
-                        gen_c_stmt_ref(state, ast_stmt_ref_from_handle(vec_get(defers, d)));
-                        d = d - 1;
-                    }
+                    gen_c_emit_defers_ref(state, defers, 0, false);
                     cgen_emit_ref(state, "return;");
                 }
             } else {
@@ -2216,7 +2244,7 @@
             let body_ref: AstBlockRef = ast_while_ref_body_ref(stmt_ref);
             cgen_emit_ref(state, "while (" + gen_c_expr_ref(state, cond_ref) + ") {");
             cgen_indent_ref(state);
-            gen_c_block_ref(state, body_ref);
+            gen_c_loop_body_ref(state, body_ref);
             cgen_dedent_ref(state);
             cgen_emit_ref(state, "}");
             return state;
@@ -2238,7 +2266,7 @@
             cgen_emit_ref(state, "for (bkr_i64 " + name + " = " + gen_c_expr_ref(state, start_ref) + "; " + name + " " + cmp + " " + gen_c_expr_ref(state, end_ref) + "; " + name + " = " + name + " + 1) {");
             cgen_indent_ref(state);
             cgen_add_local_type_ref(state, name_idx, TYPE_I64);
-            gen_c_block_ref(state, body_ref);
+            gen_c_loop_body_ref(state, body_ref);
             cgen_dedent_ref(state);
             cgen_emit_ref(state, "}");
             return state;
@@ -2248,7 +2276,7 @@
             let body_ref: AstBlockRef = ast_loop_ref_body_ref(stmt_ref);
             cgen_emit_ref(state, "while (BKR_TRUE) {");
             cgen_indent_ref(state);
-            gen_c_block_ref(state, body_ref);
+            gen_c_loop_body_ref(state, body_ref);
             cgen_dedent_ref(state);
             cgen_emit_ref(state, "}");
             return state;
@@ -2268,11 +2296,13 @@
         }
 
         if node_type == NODE_BREAK {
+            gen_c_emit_defers_ref(state, cgen_defers_ref(state), 0, true);
             cgen_emit_ref(state, "break;");
             return state;
         }
 
         if node_type == NODE_CONTINUE {
+            gen_c_emit_defers_ref(state, cgen_defers_ref(state), 0, true);
             cgen_emit_ref(state, "continue;");
             return state;
         }
@@ -2320,12 +2350,59 @@
     }
 
     fn gen_c_block_ref(state: CgenStateRef, block_ref: AstBlockRef) -> CgenStateRef {
+        let defers: Vec<i64> = cgen_defers_ref(state);
+        let defer_mark: i64 = vec_len(defers);
         let mut i: i64 = 0;
         let count = ast_block_ref_stmt_count(block_ref);
         while i < count {
             gen_c_stmt_ref(state, ast_block_ref_stmt_ref(block_ref, i));
             i = i + 1;
         }
+        // defer is block scoped (docs/RESOURCE_MODEL.md): a block that ends normally runs
+        // the statements it deferred, latest first.
+        let mut exits_early: bool = false;
+        if count > 0 {
+            let last_kind: i64 = ast_stmt_ref_kind(ast_block_ref_stmt_ref(block_ref, count - 1));
+            exits_early = last_kind == NODE_RETURN || last_kind == NODE_BREAK || last_kind == NODE_CONTINUE;
+        }
+        if !exits_early {
+            gen_c_emit_defers_ref(state, defers, defer_mark, false);
+        }
+        while vec_len(defers) > defer_mark {
+            vec_pop(defers);
+        }
+        return state;
+    }
+
+    // Emit pending deferred statements from the top of `defers` down to index `mark`,
+    // latest first, each in its own C block. -1 entries mark loop bodies: with
+    // stop_at_loop (break/continue) emission stops at the innermost one.
+    fn gen_c_emit_defers_ref(target: CgenStateRef, defers: Vec<i64>, mark: i64, stop_at_loop: bool) -> bool {
+        let mut d: i64 = vec_len(defers) - 1;
+        while d >= mark {
+            let handle: i64 = vec_get(defers, d);
+            if handle == -1 {
+                if stop_at_loop {
+                    return true;
+                }
+            } else {
+                cgen_emit_ref(target, "{");
+                cgen_indent_ref(target);
+                gen_c_stmt_ref(target, ast_stmt_ref_from_handle(handle));
+                cgen_dedent_ref(target);
+                cgen_emit_ref(target, "}");
+            }
+            d = d - 1;
+        }
+        return true;
+    }
+
+    // Loop bodies are delimited in the defer list by a -1 marker.
+    fn gen_c_loop_body_ref(state: CgenStateRef, body_ref: AstBlockRef) -> CgenStateRef {
+        let defers: Vec<i64> = cgen_defers_ref(state);
+        vec_push(defers, -1);
+        gen_c_block_ref(state, body_ref);
+        vec_pop(defers);
         return state;
     }
 
@@ -2424,11 +2501,7 @@
         let defers: Vec<i64> = cgen_defers_ref(state);
         let defer_count: i64 = vec_len(defers);
         if !ends_with_return && defer_count > 0 {
-            let mut d: i64 = defer_count - 1;
-            while d >= 0 {
-                gen_c_stmt_ref(state, ast_stmt_ref_from_handle(vec_get(defers, d)));
-                d = d - 1;
-            }
+            gen_c_emit_defers_ref(state, defers, 0, false);
         }
         cgen_dedent_ref(state);
         cgen_emit_ref(state, "}");
@@ -2617,6 +2690,21 @@
 
     fn gen_c_program_ref(kernel_ref: AstNodeRef) -> str {
         let names: Vec<str> = ast_kernel_ref_names(kernel_ref);
+        // A user function named like a builtin (e.g. its own int_to_string) shadows it: rename
+        // it so it gets an ordinary mangled C name instead of colliding with runtime.h.
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let mut item_i: i64 = 0;
+        while item_i < ast_node_list_ref_count(items_ref) {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, item_i);
+            if ast_item_ref_kind(item_ref) == NODE_FN {
+                let fn_idx: i64 = ast_fn_ref_name_idx(item_ref);
+                let fn_raw: str = name_from_table(names, fn_idx);
+                if builtin_to_c(fn_raw) != "" && fn_raw != "main" {
+                    vec_set(names, fn_idx, "user." + fn_raw);
+                }
+            }
+            item_i = item_i + 1;
+        }
         let kernel_name: str = name_to_c_from_names(names, ast_node_ref_name_idx(kernel_ref));
         let state: CgenStateRef = cgen_new_ref(kernel_name, names);
         cgen_attach_kernel_handle(state, ast_node_ref_handle(kernel_ref));

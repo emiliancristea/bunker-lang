@@ -1369,9 +1369,15 @@
             x86_store_local(st, ret_slot);
             vec_push(slots, ret_slot);
         }
+        let boxes_structs = starts_with(name, "rt_");
         let mut i: i64 = 0;
         while i < argc {
             x86_gen_expr_handle(st, vec_get(handles, i));
+            let arg_ty = x86_expr_type(st, ast_expr_ref_from_handle(vec_get(handles, i)));
+            if boxes_structs && x86_is_struct(st, arg_ty) {
+                // Runtime collections hold words: pass a pointer to a heap copy of the struct.
+                x86_box_struct(st, x86_size_of(st, arg_ty));
+            }
             let slot = x86_alloc_block(st, 1);
             x86_store_local(st, slot);
             vec_push(slots, slot);
@@ -1402,6 +1408,24 @@
             x86_u32(st, 8 * stack_words);
         }
         return true;
+    }
+
+    // rax = address of `words` words -> rax = address of a fresh rt_alloc copy.
+    fn x86_box_struct(st: X86State, words: i64) -> bool {
+        let source = x86_alloc_block(st, 1);
+        x86_store_local(st, source);
+        x86_mov_rax_imm(st, words * 8);
+        // mov rdi, rax; call rt_alloc
+        x86_b3(st, 72, 137, 199);
+        x86_b(st, 232);
+        vec_push(st.call_fix_pos, x86_pos(st));
+        vec_push(st.call_fix_name, "rt_alloc");
+        x86_u32(st, 0);
+        // rdx = copy, rax = source; copy; rax = copy
+        x86_b3(st, 72, 137, 194);
+        x86_load_local(st, source);
+        x86_copy_words(st, words);
+        return x86_b3(st, 72, 137, 208);
     }
 
     // mov <argument register reg>, [rbp - offset]

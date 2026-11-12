@@ -791,7 +791,7 @@
             let raw_name = parser_get_name_ref(p, name_idx);
             if raw_name == "copy" {
                 parser_advance_ref(p);
-                let operand_ref: AstExprRef = parse_atom_ref(p);
+                let operand_ref: AstExprRef = parse_postfix_ref(p);
                 return parser_set_expr_ref_span_from_start(p, operand_ref, start);
             }
             parser_advance_ref(p);
@@ -859,15 +859,16 @@
             return parser_set_expr_ref_span_from_start(p, ast_ident_ref(name_idx), start);
         }
 
+        // Unary operators apply to a whole postfix expression: !s.ok is !(s.ok).
         if tok == TOK_NOT {
             parser_advance_ref(p);
-            let operand_ref: AstExprRef = parse_atom_ref(p);
+            let operand_ref: AstExprRef = parse_postfix_ref(p);
             return parser_set_expr_ref_span_from_start(p, ast_unary_ref(TOK_NOT, operand_ref), start);
         }
 
         if tok == TOK_MINUS {
             parser_advance_ref(p);
-            let operand_ref: AstExprRef = parse_atom_ref(p);
+            let operand_ref: AstExprRef = parse_postfix_ref(p);
             return parser_set_expr_ref_span_from_start(p, ast_unary_ref(TOK_MINUS, operand_ref), start);
         }
 
@@ -1612,26 +1613,222 @@
         return parser_set_item_ref_span_from_start(p, alias_ref, start);
     }
 
+    // Zero or more attributes: #[name], #[name(expr, ...)], #![name = expr].
+    // Returns the attribute list handle, or 0 when there are none.
+    fn parse_attributes_ref(p: ParserStateRef) -> i64 {
+        if parser_peek_ref(p) != TokenKind.Hash {
+            return 0;
+        }
+        let list: Vec<i64> = ast_attr_list_new();
+        while parser_peek_ref(p) == TokenKind.Hash && !parser_has_error_ref(p) {
+            parser_advance_ref(p);
+            let mut inner = false;
+            if parser_peek_ref(p) == TOK_NOT {
+                parser_advance_ref(p);
+                inner = true;
+            }
+            parser_expect_ref(p, TOK_LBRACKET);
+            let name_idx = parser_expect_name(p);
+            let mut args_handle: i64 = 0;
+            if parser_peek_ref(p) == TOK_LPAREN {
+                parser_advance_ref(p);
+                let args: Vec<i64> = vec_new();
+                while parser_peek_ref(p) != TOK_RPAREN && parser_peek_ref(p) != TOK_EOF && !parser_has_error_ref(p) {
+                    vec_push(args, ast_expr_ref_to_optional_handle(parse_expr_ref(p)));
+                    if parser_peek_ref(p) == TOK_COMMA {
+                        parser_advance_ref(p);
+                    } else {
+                        break;
+                    }
+                }
+                parser_expect_ref(p, TOK_RPAREN);
+                args_handle = args as i64;
+            } else if parser_peek_ref(p) == TOK_ASSIGN {
+                parser_advance_ref(p);
+                let args: Vec<i64> = vec_new();
+                vec_push(args, ast_expr_ref_to_optional_handle(parse_expr_ref(p)));
+                args_handle = args as i64;
+            }
+            parser_expect_ref(p, TOK_RBRACKET);
+            ast_attr_list_push(list, name_idx, args_handle, inner);
+        }
+        return list as i64;
+    }
+
+    // ---- Several kernels in one file ----
+    //
+    // A file may hold several `kernel` blocks. They are merged into one kernel: items of
+    // every kernel except the one defining `main` are renamed `Kernel::item`, and bare
+    // references to those items inside their own kernel are rewritten the same way, so
+    // `Alpha::compute()` from another kernel and `helper()` inside Alpha both resolve, and
+    // equal names in different kernels do not collide. The rewrite works on tokens before
+    // parsing; it skips names after `.` or `::`, `let` names, and (except in declarations)
+    // names followed by `:`. Items without `pub` are renamed `Kernel::item (private)`, so
+    // only their own kernel can reach them (docs/MODULE_RESOLVER_ARCHITECTURE.md 3.2).
+
+    fn parser_token_kind_at(tokens: Vec<i64>, index: i64) -> i64 {
+        if index < 0 || index * 3 >= vec_len(tokens) {
+            return TOK_EOF;
+        }
+        return vec_get(tokens, index * 3);
+    }
+
+    // Index of the token closing the brace opened at `open`, or -1.
+    fn parser_matching_brace(tokens: Vec<i64>, open: i64) -> i64 {
+        let mut depth: i64 = 0;
+        let mut i = open;
+        while i * 3 < vec_len(tokens) {
+            let kind = parser_token_kind_at(tokens, i);
+            if kind == TOK_LBRACE {
+                depth = depth + 1;
+            } else if kind == TOK_RBRACE {
+                depth = depth - 1;
+                if depth == 0 {
+                    return i;
+                }
+            } else if kind == TOK_EOF {
+                return -1;
+            }
+            i = i + 1;
+        }
+        return -1;
+    }
+
+    fn parser_qualify_kernel_items(p: ParserStateRef) -> bool {
+        let tokens: Vec<i64> = parser_tokens_ref(p);
+        let names: Vec<str> = parser_names_ref(p);
+        // Kernel blocks at depth 0: token index of the name and of the braces
+        let k_name: Vec<i64> = vec_new();
+        let k_open: Vec<i64> = vec_new();
+        let k_close: Vec<i64> = vec_new();
+        let mut i: i64 = 0;
+        while parser_token_kind_at(tokens, i) != TOK_EOF {
+            if parser_token_kind_at(tokens, i) == TOK_KERNEL && parser_token_kind_at(tokens, i + 2) == TOK_LBRACE {
+                let close = parser_matching_brace(tokens, i + 2);
+                if close < 0 {
+                    return false;
+                }
+                vec_push(k_name, i + 1);
+                vec_push(k_open, i + 2);
+                vec_push(k_close, close);
+                i = close + 1;
+            } else {
+                i = i + 1;
+            }
+        }
+        if vec_len(k_name) < 2 {
+            return true;
+        }
+        let main_idx = parser_intern_ref(p, "main");
+        let mut k: i64 = 0;
+        while k < vec_len(k_name) {
+            let open: i64 = vec_get(k_open, k);
+            let close: i64 = vec_get(k_close, k);
+            // Items declared at depth 1, and whether this kernel defines main
+            let items: HashMap<i64, i64> = hashmap_new();
+            let mut has_main = false;
+            let mut depth: i64 = 0;
+            let mut t = open;
+            while t <= close {
+                let kind = parser_token_kind_at(tokens, t);
+                if kind == TOK_LBRACE {
+                    depth = depth + 1;
+                } else if kind == TOK_RBRACE {
+                    depth = depth - 1;
+                } else if depth == 1 && (kind == TOK_FN || kind == TOK_CONST || kind == TOK_STRUCT ||
+                                         kind == TOK_ENUM || kind == TOK_TYPE_KW) &&
+                          parser_token_kind_at(tokens, t + 1) == TOK_IDENT &&
+                          parser_token_kind_at(tokens, t + 2) != TOK_COLON_COLON {
+                    let item_idx = vec_get(tokens, (t + 1) * 3 + 1);
+                    // 1 = pub, 2 = private to this kernel
+                    let mut before = t - 1;
+                    if parser_token_kind_at(tokens, before) == TOK_IDENT &&
+                       vec_get(names, vec_get(tokens, before * 3 + 1)) == "comptime" {
+                        before = before - 1;
+                    }
+                    if parser_token_kind_at(tokens, before) == TOK_PUB {
+                        hashmap_insert(items, item_idx, 1);
+                    } else {
+                        hashmap_insert(items, item_idx, 2);
+                    }
+                    if kind == TOK_FN && item_idx == main_idx {
+                        has_main = true;
+                    }
+                }
+                t = t + 1;
+            }
+            if !has_main {
+                let kernel_name = vec_get(names, vec_get(tokens, vec_get(k_name, k) * 3 + 1));
+                t = open + 1;
+                while t < close {
+                    if parser_token_kind_at(tokens, t) == TOK_IDENT {
+                        let idx = vec_get(tokens, t * 3 + 1);
+                        let prev = parser_token_kind_at(tokens, t - 1);
+                        let next = parser_token_kind_at(tokens, t + 1);
+                        let declares = prev == TOK_FN || prev == TOK_CONST || prev == TOK_STRUCT ||
+                                       prev == TOK_ENUM || prev == TOK_TYPE_KW;
+                        if hashmap_contains(items, idx) && prev != TOK_DOT && prev != TOK_COLON_COLON &&
+                           prev != TOK_LET && prev != TOK_MUT && (declares || next != TOK_COLON) {
+                            let mut qualified = kernel_name + "::" + vec_get(names, idx);
+                            let visibility: i64 = hashmap_get(items, idx);
+                            if visibility == 2 {
+                                // Private items get a name source code cannot spell, so
+                                // `Kernel::item` from another kernel does not resolve.
+                                qualified = qualified + " (private)";
+                            }
+                            vec_set(tokens, t * 3 + 1, parser_intern_ref(p, qualified));
+                        }
+                    }
+                    t = t + 1;
+                }
+            }
+            k = k + 1;
+        }
+        return true;
+    }
+
     fn parse_kernel_ref(p: ParserStateRef) -> Vec<i64> {
+        parser_qualify_kernel_items(p);
+        let file_attrs = parse_attributes_ref(p);
         let start = parser_current_token_start(p);
         parser_expect_ref(p, TOK_KERNEL);
-        let name_idx = parser_expect_name(p);
+        let mut name_idx = parser_expect_name(p);
         parser_expect_ref(p, TOK_LBRACE);
 
         let items: Vec<i64> = vec_new();
         let items_ref: AstNodeListRef = ast_node_list_ref_from_list(items);
         let mut main_name_idx: i64 = -1;
+        let mut kernel_name_idx = name_idx;
+        let mut more_kernels = true;
+        while more_kernels {
         while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
+            let mut item_attrs = parse_attributes_ref(p);
             let mut tok = parser_peek_ref(p);
             if tok == TOK_PUB {
                 parser_advance_ref(p);
                 tok = parser_peek_ref(p);
             }
+            // `comptime fn` is accepted; comptime functions currently run like ordinary
+            // functions (same results for the pure code they allow).
+            if is_name_token(tok) && parser_get_name_ref(p, parser_peek_value_ref(p)) == "comptime" &&
+               parser_peek_at_ref(p, 1) == TOK_FN {
+                // Recorded as an internal `comptime` attribute on the function.
+                if item_attrs == 0 {
+                    item_attrs = ast_attr_list_new() as i64;
+                }
+                ast_attr_list_push(item_attrs as Vec<i64>, parser_peek_value_ref(p), 0, false);
+                parser_advance_ref(p);
+                tok = parser_peek_ref(p);
+            }
             if tok == TOK_FN {
                 let fn_ref: AstItemRef = parse_fn_ref(p);
+                if item_attrs != 0 {
+                    ast_fn_ref_set_attrs(fn_ref, item_attrs);
+                }
                 let fn_name_idx = ast_fn_ref_name_idx(fn_ref);
                 if parser_get_name_ref(p, fn_name_idx) == "main" {
                     main_name_idx = fn_name_idx;
+                    name_idx = kernel_name_idx;
                 }
                 ast_node_list_append_item_ref(items_ref, fn_ref);
             } else if tok == TOK_CONST {
@@ -1649,8 +1846,26 @@
             }
         }
         parser_expect_ref(p, TOK_RBRACE);
+        // Further kernels (optionally preceded by attributes) join this one; anything else
+        // after the closing brace is an error.
+        more_kernels = false;
+        if !parser_has_error_ref(p) && parser_peek_ref(p) != TOK_EOF {
+            parse_attributes_ref(p);
+            if parser_peek_ref(p) == TOK_KERNEL {
+                parser_advance_ref(p);
+                kernel_name_idx = parser_expect_name(p);
+                parser_expect_ref(p, TOK_LBRACE);
+                more_kernels = !parser_has_error_ref(p);
+            } else if !parser_has_error_ref(p) {
+                parser_mark_error_ref(p, TOK_EOF);
+            }
+        }
+        }
 
         let names_ref: AstStringListRef = ast_string_list_ref_from_list(parser_names_ref(p));
         let kernel_ref: AstNodeRef = ast_kernel_ref(name_idx, items_ref, main_name_idx, names_ref);
+        if file_attrs != 0 {
+            ast_kernel_ref_set_attrs(kernel_ref, file_attrs);
+        }
         return parser_node_ref_to_compat_node(parser_set_node_ref_span_from_start(p, kernel_ref, start));
     }

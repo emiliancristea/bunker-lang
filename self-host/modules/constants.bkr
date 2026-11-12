@@ -3,7 +3,7 @@
     enum TokenKind {
         Eof,
         Invalid,
-        Unused2,
+        Hash,
         Unused3,
         Unused4,
         Unused5,

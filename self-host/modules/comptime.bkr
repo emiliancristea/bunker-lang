@@ -1,0 +1,518 @@
+    // ========================================
+    // COMPILE-TIME EVALUATION
+    // ========================================
+    //
+    // Evaluates calls to `comptime fn` whose arguments are constants, so errors in them
+    // (division by zero, unbounded recursion, runaway loops) are reported at compile time.
+    // Values are integers, bools (0/1) and strings. Supported: literals, locals, let/assign,
+    // if/while/loop/for, break/continue/return, blocks, arithmetic, comparisons, logic,
+    // bitwise operators, string + and ==, casts, ternaries, calls to other comptime
+    // functions, and len / int_to_string. Anything else makes the call "not evaluable",
+    // which is not an error. The generated code still evaluates the call at run time
+    // (same result); substituting the computed constant is not done yet.
+
+    struct CtState {
+        names: Vec<str>,
+        fns: HashMap<str, i64>,
+        env_names: Vec<str>,
+        env_vals: Vec<i64>,
+        env_kinds: Vec<i64>,
+        // [0] signal: 0 none, 1 return, 2 break, 3 continue, 4 error, 5 not evaluable
+        // [1] return value  [2] return kind  [3] call depth  [4] steps  [5] kind of last value
+        status: Vec<i64>,
+        error: Vec<str>
+    }
+
+    const CT_MAX_DEPTH: i64 = 200;
+    const CT_MAX_STEPS: i64 = 1000000;
+
+    fn ct_name(ct: CtState, idx: i64) -> str {
+        if idx >= 0 && idx < vec_len(ct.names) {
+            return vec_get(ct.names, idx);
+        }
+        return "";
+    }
+
+    fn ct_signal(ct: CtState) -> i64 {
+        return vec_get(ct.status, 0);
+    }
+
+    fn ct_set_kind(ct: CtState, kind: i64) -> bool {
+        vec_set(ct.status, 5, kind);
+        return true;
+    }
+
+    fn ct_kind(ct: CtState) -> i64 {
+        return vec_get(ct.status, 5);
+    }
+
+    fn ct_fail(ct: CtState, message: str) -> i64 {
+        if ct_signal(ct) < 4 {
+            vec_set(ct.status, 0, 4);
+            vec_set(ct.error, 0, message);
+        }
+        return 0;
+    }
+
+    fn ct_unsupported(ct: CtState) -> i64 {
+        if ct_signal(ct) < 4 {
+            vec_set(ct.status, 0, 5);
+        }
+        return 0;
+    }
+
+    fn ct_lookup(ct: CtState, name: str) -> i64 {
+        let mut i = vec_len(ct.env_names) - 1;
+        while i >= 0 {
+            if vec_get(ct.env_names, i) == name {
+                return i;
+            }
+            i = i - 1;
+        }
+        return -1;
+    }
+
+    fn ct_bind(ct: CtState, name: str, value: i64, kind: i64) -> bool {
+        vec_push(ct.env_names, name);
+        vec_push(ct.env_vals, value);
+        vec_push(ct.env_kinds, kind);
+        return true;
+    }
+
+    fn ct_restore(ct: CtState, mark: i64) -> bool {
+        while vec_len(ct.env_names) > mark {
+            vec_pop(ct.env_names);
+            vec_pop(ct.env_vals);
+            vec_pop(ct.env_kinds);
+        }
+        return true;
+    }
+
+    fn ct_str_value(value: i64) -> str {
+        return value as str;
+    }
+
+    // ---- Expressions ----
+
+    fn ct_eval_handle(ct: CtState, handle: i64) -> i64 {
+        return ct_eval(ct, ast_expr_ref_from_handle(handle));
+    }
+
+    fn ct_eval(ct: CtState, expr_ref: AstExprRef) -> i64 {
+        if ct_signal(ct) >= 4 {
+            return 0;
+        }
+        let kind: i64 = ast_expr_ref_kind(expr_ref);
+        if kind == NODE_INT_LIT {
+            ct_set_kind(ct, 0);
+            return ast_expr_ref_value(expr_ref);
+        }
+        if kind == NODE_BOOL_LIT {
+            ct_set_kind(ct, 0);
+            if ast_expr_ref_value(expr_ref) == 1 {
+                return 1;
+            }
+            return 0;
+        }
+        if kind == NODE_STR_LIT {
+            ct_set_kind(ct, 1);
+            return ast_expr_ref_value(expr_ref);
+        }
+        if kind == NODE_IDENT {
+            let i = ct_lookup(ct, ct_name(ct, ast_expr_ref_name_idx(expr_ref)));
+            if i < 0 {
+                return ct_unsupported(ct);
+            }
+            ct_set_kind(ct, vec_get(ct.env_kinds, i));
+            return vec_get(ct.env_vals, i);
+        }
+        if kind == NODE_CAST {
+            return ct_eval_handle(ct, ast_cast_ref_expr_handle(expr_ref));
+        }
+        if kind == NODE_UNARY {
+            let op: i64 = ast_unary_ref_op(expr_ref);
+            let v = ct_eval_handle(ct, ast_unary_ref_operand_handle(expr_ref));
+            ct_set_kind(ct, 0);
+            if op == TOK_MINUS {
+                return 0 - v;
+            }
+            if op == TOK_NOT {
+                if v == 0 {
+                    return 1;
+                }
+                return 0;
+            }
+            return ct_unsupported(ct);
+        }
+        if kind == NODE_TERNARY {
+            let c = ct_eval_handle(ct, ast_ternary_ref_cond_handle(expr_ref));
+            if c != 0 {
+                return ct_eval_handle(ct, ast_ternary_ref_then_handle(expr_ref));
+            }
+            return ct_eval_handle(ct, ast_ternary_ref_else_handle(expr_ref));
+        }
+        if kind == NODE_BINARY {
+            return ct_eval_binary(ct, expr_ref);
+        }
+        if kind == NODE_CALL {
+            return ct_eval_call_expr(ct, expr_ref);
+        }
+        if kind == NODE_BLOCK {
+            let mark = vec_len(ct.env_names);
+            let block_ref: AstBlockRef = ast_block_ref_from_handle(ast_expr_ref_handle(expr_ref));
+            let count = ast_block_ref_stmt_count(block_ref);
+            let mut result: i64 = 0;
+            let mut i: i64 = 0;
+            while i < count && ct_signal(ct) == 0 {
+                let stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, i);
+                if i == count - 1 && ast_stmt_ref_kind(stmt_ref) == NODE_EXPR_STMT {
+                    result = ct_eval_handle(ct, ast_expr_stmt_ref_expr_handle(stmt_ref));
+                } else {
+                    ct_exec(ct, stmt_ref);
+                }
+                i = i + 1;
+            }
+            ct_restore(ct, mark);
+            return result;
+        }
+        return ct_unsupported(ct);
+    }
+
+    fn ct_eval_binary(ct: CtState, expr_ref: AstExprRef) -> i64 {
+        let op: i64 = ast_binary_ref_op(expr_ref);
+        if op == TOK_AND || op == TOK_OR {
+            let l = ct_eval_handle(ct, ast_binary_ref_left_handle(expr_ref));
+            ct_set_kind(ct, 0);
+            if op == TOK_AND && l == 0 {
+                return 0;
+            }
+            if op == TOK_OR && l != 0 {
+                return 1;
+            }
+            let r = ct_eval_handle(ct, ast_binary_ref_right_handle(expr_ref));
+            ct_set_kind(ct, 0);
+            if r != 0 {
+                return 1;
+            }
+            return 0;
+        }
+        let l = ct_eval_handle(ct, ast_binary_ref_left_handle(expr_ref));
+        let left_kind = ct_kind(ct);
+        let r = ct_eval_handle(ct, ast_binary_ref_right_handle(expr_ref));
+        let right_kind = ct_kind(ct);
+        if ct_signal(ct) >= 4 {
+            return 0;
+        }
+        if left_kind == 1 || right_kind == 1 {
+            if left_kind != 1 || right_kind != 1 {
+                return ct_unsupported(ct);
+            }
+            if op == TOK_PLUS {
+                ct_set_kind(ct, 1);
+                return (ct_str_value(l) + ct_str_value(r)) as i64;
+            }
+            ct_set_kind(ct, 0);
+            if op == TOK_EQ {
+                if ct_str_value(l) == ct_str_value(r) {
+                    return 1;
+                }
+                return 0;
+            }
+            if op == TOK_NE {
+                if ct_str_value(l) != ct_str_value(r) {
+                    return 1;
+                }
+                return 0;
+            }
+            return ct_unsupported(ct);
+        }
+        ct_set_kind(ct, 0);
+        if op == TOK_PLUS { return l + r; }
+        if op == TOK_MINUS { return l - r; }
+        if op == TOK_STAR { return l * r; }
+        if op == TOK_SLASH || op == TOK_PERCENT {
+            if r == 0 {
+                return ct_fail(ct, "division by zero during compile-time evaluation");
+            }
+            if op == TOK_SLASH {
+                return l / r;
+            }
+            return l % r;
+        }
+        if op == TOK_BIT_AND { return l & r; }
+        if op == TOK_BIT_OR { return l | r; }
+        if op == TOK_BIT_XOR { return l ^ r; }
+        if op == TOK_SHL { return l << r; }
+        if op == TOK_SHR { return l >> r; }
+        let mut truth = false;
+        if op == TOK_EQ { truth = l == r; }
+        if op == TOK_NE { truth = l != r; }
+        if op == TOK_LT { truth = l < r; }
+        if op == TOK_LE { truth = l <= r; }
+        if op == TOK_GT { truth = l > r; }
+        if op == TOK_GE { truth = l >= r; }
+        if !(op == TOK_EQ || op == TOK_NE || op == TOK_LT || op == TOK_LE || op == TOK_GT || op == TOK_GE) {
+            return ct_unsupported(ct);
+        }
+        if truth {
+            return 1;
+        }
+        return 0;
+    }
+
+    fn ct_eval_call_expr(ct: CtState, expr_ref: AstExprRef) -> i64 {
+        let name = ct_name(ct, ast_call_ref_name_idx(expr_ref));
+        let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
+        let argc = ast_node_list_ref_count(args_ref);
+        if (name == "len" || name == "strlen") && argc == 1 {
+            let s = ct_eval_handle(ct, ast_node_list_ref_get_handle(args_ref, 0));
+            if ct_kind(ct) != 1 {
+                return ct_unsupported(ct);
+            }
+            ct_set_kind(ct, 0);
+            return len(ct_str_value(s));
+        }
+        if name == "int_to_string" && argc == 1 {
+            let v = ct_eval_handle(ct, ast_node_list_ref_get_handle(args_ref, 0));
+            ct_set_kind(ct, 1);
+            return int_to_string(v) as i64;
+        }
+        if !hashmap_contains(ct.fns, name) {
+            return ct_unsupported(ct);
+        }
+        let values: Vec<i64> = vec_new();
+        let kinds: Vec<i64> = vec_new();
+        let mut i: i64 = 0;
+        while i < argc {
+            vec_push(values, ct_eval_handle(ct, ast_node_list_ref_get_handle(args_ref, i)));
+            vec_push(kinds, ct_kind(ct));
+            i = i + 1;
+        }
+        return ct_call(ct, name, values, kinds);
+    }
+
+    fn ct_call(ct: CtState, name: str, values: Vec<i64>, kinds: Vec<i64>) -> i64 {
+        if ct_signal(ct) >= 4 {
+            return 0;
+        }
+        let depth = vec_get(ct.status, 3) + 1;
+        if depth > CT_MAX_DEPTH {
+            return ct_fail(ct, "compile-time recursion limit (" + int_to_string(CT_MAX_DEPTH) + " calls) exceeded in " + name);
+        }
+        vec_set(ct.status, 3, depth);
+        let item_handle: i64 = hashmap_get(ct.fns, name);
+        let fn_ref: AstItemRef = ast_item_ref_from_handle(item_handle);
+        let params_ref: AstNodeListRef = ast_fn_ref_params_ref(fn_ref);
+        if ast_node_list_ref_count(params_ref) != vec_len(values) {
+            return ct_unsupported(ct);
+        }
+        let mark = vec_len(ct.env_names);
+        let mut p: i64 = 0;
+        while p < vec_len(values) {
+            let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, p);
+            ct_bind(ct, ct_name(ct, ast_param_ref_name_idx(param_ref)), vec_get(values, p), vec_get(kinds, p));
+            p = p + 1;
+        }
+        ct_exec_block(ct, ast_fn_ref_body_ref(fn_ref));
+        ct_restore(ct, mark);
+        vec_set(ct.status, 3, depth - 1);
+        if ct_signal(ct) == 1 {
+            vec_set(ct.status, 0, 0);
+            ct_set_kind(ct, vec_get(ct.status, 2));
+            return vec_get(ct.status, 1);
+        }
+        if ct_signal(ct) == 2 || ct_signal(ct) == 3 {
+            vec_set(ct.status, 0, 0);
+        }
+        ct_set_kind(ct, 0);
+        return 0;
+    }
+
+    // ---- Statements ----
+
+    fn ct_exec_block(ct: CtState, block_ref: AstBlockRef) -> bool {
+        let mark = vec_len(ct.env_names);
+        let mut i: i64 = 0;
+        while i < ast_block_ref_stmt_count(block_ref) && ct_signal(ct) == 0 {
+            ct_exec(ct, ast_block_ref_stmt_ref(block_ref, i));
+            i = i + 1;
+        }
+        return ct_restore(ct, mark);
+    }
+
+    fn ct_step(ct: CtState) -> bool {
+        let steps = vec_get(ct.status, 4) + 1;
+        vec_set(ct.status, 4, steps);
+        if steps > CT_MAX_STEPS {
+            ct_fail(ct, "compile-time evaluation exceeded " + int_to_string(CT_MAX_STEPS) + " steps (possible infinite loop)");
+            return false;
+        }
+        return true;
+    }
+
+    // Runs a loop body; returns false when the loop must stop (break, return or error).
+    fn ct_loop_body(ct: CtState, body_ref: AstBlockRef) -> bool {
+        ct_exec_block(ct, body_ref);
+        let signal = ct_signal(ct);
+        if signal == 2 {
+            vec_set(ct.status, 0, 0);
+            return false;
+        }
+        if signal == 3 {
+            vec_set(ct.status, 0, 0);
+        }
+        return ct_signal(ct) == 0;
+    }
+
+    fn ct_exec(ct: CtState, stmt_ref: AstStmtRef) -> bool {
+        if ct_signal(ct) != 0 || !ct_step(ct) {
+            return false;
+        }
+        let kind: i64 = ast_stmt_ref_kind(stmt_ref);
+        if kind == NODE_LET {
+            let init = ast_let_ref_init_handle(stmt_ref);
+            let mut value: i64 = 0;
+            let mut value_kind: i64 = 0;
+            if ast_optional_is_some(init) {
+                value = ct_eval_handle(ct, init);
+                value_kind = ct_kind(ct);
+            }
+            return ct_bind(ct, ct_name(ct, ast_let_ref_name_idx(stmt_ref)), value, value_kind);
+        }
+        if kind == NODE_ASSIGN {
+            let target_ref: AstExprRef = ast_expr_ref_from_handle(ast_assign_ref_target_handle(stmt_ref));
+            if ast_expr_ref_kind(target_ref) != NODE_IDENT {
+                ct_unsupported(ct);
+                return false;
+            }
+            let i = ct_lookup(ct, ct_name(ct, ast_expr_ref_name_idx(target_ref)));
+            if i < 0 {
+                ct_unsupported(ct);
+                return false;
+            }
+            let value = ct_eval_handle(ct, ast_assign_ref_value_handle(stmt_ref));
+            vec_set(ct.env_vals, i, value);
+            vec_set(ct.env_kinds, i, ct_kind(ct));
+            return true;
+        }
+        if kind == NODE_RETURN {
+            let expr = ast_return_ref_expr_handle(stmt_ref);
+            let mut value: i64 = 0;
+            let mut value_kind: i64 = 0;
+            if ast_optional_is_some(expr) {
+                value = ct_eval_handle(ct, expr);
+                value_kind = ct_kind(ct);
+            }
+            if ct_signal(ct) == 0 {
+                vec_set(ct.status, 0, 1);
+                vec_set(ct.status, 1, value);
+                vec_set(ct.status, 2, value_kind);
+            }
+            return true;
+        }
+        if kind == NODE_EXPR_STMT {
+            ct_eval_handle(ct, ast_expr_stmt_ref_expr_handle(stmt_ref));
+            return true;
+        }
+        if kind == NODE_IF {
+            let c = ct_eval_handle(ct, ast_if_ref_cond_handle(stmt_ref));
+            if ct_signal(ct) != 0 {
+                return false;
+            }
+            if c != 0 {
+                return ct_exec_block(ct, ast_if_ref_then_block_ref(stmt_ref));
+            }
+            let else_handle = ast_if_ref_else_handle(stmt_ref);
+            if ast_optional_is_some(else_handle) {
+                return ct_exec_block(ct, ast_block_ref_from_handle(else_handle));
+            }
+            return true;
+        }
+        if kind == NODE_WHILE {
+            while ct_signal(ct) == 0 && ct_step(ct) {
+                let c = ct_eval_handle(ct, ast_while_ref_cond_handle(stmt_ref));
+                if ct_signal(ct) != 0 || c == 0 {
+                    return true;
+                }
+                if !ct_loop_body(ct, ast_while_ref_body_ref(stmt_ref)) {
+                    return true;
+                }
+            }
+            return true;
+        }
+        if kind == NODE_LOOP {
+            while ct_signal(ct) == 0 && ct_step(ct) {
+                if !ct_loop_body(ct, ast_loop_ref_body_ref(stmt_ref)) {
+                    return true;
+                }
+            }
+            return true;
+        }
+        if kind == NODE_FOR {
+            let start = ct_eval_handle(ct, ast_for_ref_start_handle(stmt_ref));
+            let mut end = ct_eval_handle(ct, ast_for_ref_end_handle(stmt_ref));
+            if ast_for_ref_inclusive(stmt_ref) != 0 {
+                end = end + 1;
+            }
+            let mark = vec_len(ct.env_names);
+            ct_bind(ct, ct_name(ct, ast_for_ref_name_idx(stmt_ref)), start, 0);
+            let slot = vec_len(ct.env_names) - 1;
+            let mut i = start;
+            while i < end && ct_signal(ct) == 0 && ct_step(ct) {
+                vec_set(ct.env_vals, slot, i);
+                if !ct_loop_body(ct, ast_for_ref_body_ref(stmt_ref)) {
+                    i = end;
+                }
+                i = i + 1;
+            }
+            return ct_restore(ct, mark);
+        }
+        if kind == NODE_BREAK {
+            vec_set(ct.status, 0, 2);
+            return true;
+        }
+        if kind == NODE_CONTINUE {
+            vec_set(ct.status, 0, 3);
+            return true;
+        }
+        if kind == NODE_BLOCK {
+            return ct_exec_block(ct, ast_block_ref_from_handle(ast_stmt_ref_handle(stmt_ref)));
+        }
+        ct_unsupported(ct);
+        return false;
+    }
+
+    // Evaluate `name(args...)` where every argument is a literal. Returns the error message,
+    // or "" when evaluation succeeded or the call is not evaluable at compile time.
+    fn comptime_check_call(names: Vec<str>, fns: HashMap<str, i64>, name: str, args_ref: AstNodeListRef) -> str {
+        let status: Vec<i64> = vec_new();
+        let mut k: i64 = 0;
+        while k < 6 {
+            vec_push(status, 0);
+            k = k + 1;
+        }
+        let error: Vec<str> = vec_new();
+        vec_push(error, "");
+        let ct: CtState = CtState {
+            names: names,
+            fns: fns,
+            env_names: vec_new(),
+            env_vals: vec_new(),
+            env_kinds: vec_new(),
+            status: status,
+            error: error
+        };
+        let values: Vec<i64> = vec_new();
+        let kinds: Vec<i64> = vec_new();
+        let mut i: i64 = 0;
+        while i < ast_node_list_ref_count(args_ref) {
+            vec_push(values, ct_eval_handle(ct, ast_node_list_ref_get_handle(args_ref, i)));
+            vec_push(kinds, ct_kind(ct));
+            i = i + 1;
+        }
+        ct_call(ct, name, values, kinds);
+        if ct_signal(ct) == 4 {
+            return vec_get(ct.error, 0);
+        }
+        return "";
+    }

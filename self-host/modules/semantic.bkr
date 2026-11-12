@@ -14,6 +14,11 @@
     //   match_arm_missing_value     a match used as a value whose block arm ends without one
     //   immutable_assignment        assigning to a `let` binding declared without `mut`
     //   use_after_move              reading a struct or array variable after it was moved
+    //   unknown_attribute           an attribute name the language does not define
+    //   unsupported_language_version  #![version = "..."] other than the supported "1.0"
+    //   must_use_ignored            calling a #[must_use] function as a bare statement
+    //   comptime_evaluation_error   a comptime call with constant arguments fails at compile
+    //                               time (division by zero, recursion or step limit)
     //
     // Moves follow docs/OWNERSHIP_MODEL.md for structs and fixed arrays at let bindings,
     // reassignments and struct/array literals; `copy x` keeps x usable. Function arguments
@@ -34,6 +39,8 @@
         struct_names: HashMap<str, i64>,
         field_desc: HashMap<str, str>,
         fn_ret: HashMap<str, str>,
+        must_use: HashMap<str, i64>,
+        comptime_fns: HashMap<str, i64>,
         l_name: Vec<str>,
         l_desc: Vec<str>,
         l_mut: Vec<i64>,
@@ -330,6 +337,40 @@
         return starts_with(name, "vec_") || starts_with(name, "hashmap_") || starts_with(name, "result_");
     }
 
+    fn sem_is_literal(expr_ref: AstExprRef) -> bool {
+        let kind: i64 = ast_expr_ref_kind(expr_ref);
+        if kind == NODE_INT_LIT || kind == NODE_BOOL_LIT || kind == NODE_STR_LIT {
+            return true;
+        }
+        if kind == NODE_UNARY {
+            return sem_is_literal(ast_expr_ref_from_handle(ast_unary_ref_operand_handle(expr_ref)));
+        }
+        return false;
+    }
+
+    // Evaluate comptime calls whose arguments are all constants; report evaluation errors.
+    fn sem_check_comptime_call(st: SemState, expr_ref: AstExprRef) -> bool {
+        let name = sem_name(st, ast_call_ref_name_idx(expr_ref));
+        if !hashmap_contains(st.comptime_fns, name) {
+            return true;
+        }
+        let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
+        let mut i: i64 = 0;
+        while i < ast_node_list_ref_count(args_ref) {
+            if !sem_is_literal(ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, i))) {
+                return true;
+            }
+            i = i + 1;
+        }
+        let message = comptime_check_call(st.names, st.comptime_fns, name, args_ref);
+        if len(message) > 0 {
+            return sem_error(st, "comptime_evaluation_error", name, ast_node_ref_from_expr_ref(expr_ref),
+                "a call that evaluates at compile time", message,
+                "Fix " + name + " so it finishes without error for these constant arguments.");
+        }
+        return true;
+    }
+
     fn sem_code_name(code: str) -> str {
         if code == "i" { return "integer"; }
         if code == "b" { return "bool"; }
@@ -372,6 +413,37 @@
             }
         }
         return true;
+    }
+
+    // `let x: T = vec_get(v, i)` (also vec_pop, hashmap_get, result_unwrap, result_unwrap_err)
+    // checked against the element type v was declared with.
+    fn sem_check_element_read(st: SemState, declared: str, init_handle: i64) -> bool {
+        let init_ref: AstExprRef = ast_expr_ref_from_handle(init_handle);
+        if !sem_is_scalar_code(declared) || ast_expr_ref_kind(init_ref) != NODE_CALL {
+            return true;
+        }
+        let name = sem_name(st, ast_call_ref_name_idx(init_ref));
+        let args_ref: AstNodeListRef = ast_call_ref_args_ref(init_ref);
+        if hashmap_contains(st.fn_ret, name) || ast_node_list_ref_count(args_ref) == 0 {
+            return true;
+        }
+        let source = sem_expr_desc(st, ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0)));
+        let mut element = "?";
+        if (name == "vec_get" || name == "vec_pop") && starts_with(source, "V:") {
+            element = sem_desc_char(source, 2);
+        } else if name == "hashmap_get" && starts_with(source, "M:") {
+            element = sem_desc_char(source, 3);
+        } else if name == "result_unwrap" && starts_with(source, "R:") {
+            element = sem_desc_char(source, 2);
+        } else if name == "result_unwrap_err" && starts_with(source, "R:") {
+            element = sem_desc_char(source, 3);
+        }
+        if !sem_is_scalar_code(element) || element == declared {
+            return true;
+        }
+        return sem_error(st, "collection_value_mismatch", name, ast_node_ref_from_expr_ref(init_ref),
+            sem_code_name(declared), sem_code_name(element),
+            "The collection holds " + sem_code_name(element) + " values; change the declared type or read from a matching collection.");
     }
 
     // Result constructor checked against a declared Result<T, E>.
@@ -446,6 +518,7 @@
 
         if kind == NODE_CALL {
             sem_walk_list(st, ast_call_ref_args_ref(expr_ref));
+            sem_check_comptime_call(st, expr_ref);
             return sem_check_call(st, expr_ref);
         }
 
@@ -683,6 +756,7 @@
             if ast_optional_is_some(init) {
                 sem_walk_handle(st, init, true);
                 sem_check_result_init(st, desc, init);
+                sem_check_element_read(st, desc, init);
                 if len(desc) == 0 {
                     desc = sem_expr_desc(st, ast_expr_ref_from_handle(init));
                 }
@@ -720,6 +794,15 @@
         }
 
         if kind == NODE_EXPR_STMT {
+            let expr_ref: AstExprRef = ast_expr_ref_from_handle(ast_expr_stmt_ref_expr_handle(stmt_ref));
+            if ast_expr_ref_kind(expr_ref) == NODE_CALL {
+                let callee = sem_name(st, ast_call_ref_name_idx(expr_ref));
+                if hashmap_contains(st.must_use, callee) {
+                    sem_error(st, "must_use_ignored", callee, ast_node_ref_from_expr_ref(expr_ref),
+                        "the result to be used", "result discarded",
+                        "Use the result of " + callee + " (for example `let status = " + callee + "(...);`), as its #[must_use] attribute requires.");
+                }
+            }
             return sem_walk_handle(st, ast_expr_stmt_ref_expr_handle(stmt_ref), false);
         }
 
@@ -778,6 +861,37 @@
         return desc;
     }
 
+    fn sem_is_known_attribute(name: str) -> bool {
+        return name == "verified" || name == "requires" || name == "ensures" || name == "unsafe_trust" ||
+               name == "target" || name == "must_use" || name == "inline" || name == "test" ||
+               name == "version" || name == "deprecated" || name == "comptime";
+    }
+
+    // Validate an attribute list; node_ref locates diagnostics.
+    fn sem_check_attributes(st: SemState, attrs: i64, node_ref: AstNodeRef) -> bool {
+        let mut i: i64 = 0;
+        while i < ast_attr_count(attrs) {
+            let name = sem_name(st, ast_attr_name_idx(attrs, i));
+            if !sem_is_known_attribute(name) {
+                sem_error(st, "unknown_attribute", name, node_ref,
+                    "a supported attribute (verified, requires, ensures, unsafe_trust, target, must_use, inline, test, version, deprecated)",
+                    name, "Remove the attribute or use a supported one.");
+            }
+            if name == "version" && ast_attr_arg_count(attrs, i) == 1 {
+                let value_ref: AstExprRef = ast_expr_ref_from_handle(ast_attr_arg_handle(attrs, i, 0));
+                if ast_expr_ref_kind(value_ref) == NODE_STR_LIT {
+                    let version = ast_expr_ref_value(value_ref) as str;
+                    if version != "1.0" {
+                        sem_error(st, "unsupported_language_version", version, node_ref,
+                            "1.0", version, "This compiler supports Bunker language version 1.0.");
+                    }
+                }
+            }
+            i = i + 1;
+        }
+        return true;
+    }
+
     fn sem_new(names: Vec<str>, source: str) -> SemState {
         let scope: Vec<str> = vec_new();
         vec_push(scope, "");
@@ -791,6 +905,8 @@
             struct_names: hashmap_new(),
             field_desc: hashmap_new(),
             fn_ret: hashmap_new(),
+            must_use: hashmap_new(),
+            comptime_fns: hashmap_new(),
             l_name: vec_new(),
             l_desc: vec_new(),
             l_mut: vec_new(),
@@ -800,6 +916,8 @@
 
     fn semantic_check_kernel(kernel_ref: AstNodeRef, source: str) -> Vec<str> {
         let st: SemState = sem_new(ast_kernel_ref_names(kernel_ref), source);
+        vec_set(st.scope, 0, "kernel");
+        sem_check_attributes(st, ast_kernel_ref_attrs(kernel_ref), kernel_ref);
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         let count = ast_node_list_ref_count(items_ref);
 
@@ -845,8 +963,20 @@
                     f = f + 1;
                 }
             } else if kind == NODE_FN {
-                hashmap_insert(st.fn_ret, sem_name(st, ast_fn_ref_name_idx(item_ref)),
-                    sem_type_desc_handle(st, ast_fn_ref_return_type_handle(item_ref)));
+                let fn_name = sem_name(st, ast_fn_ref_name_idx(item_ref));
+                hashmap_insert(st.fn_ret, fn_name, sem_type_desc_handle(st, ast_fn_ref_return_type_handle(item_ref)));
+                let attrs = ast_fn_ref_attrs(item_ref);
+                sem_check_attributes(st, attrs, ast_node_ref_from_item_ref(item_ref));
+                let mut a: i64 = 0;
+                while a < ast_attr_count(attrs) {
+                    if sem_name(st, ast_attr_name_idx(attrs, a)) == "must_use" {
+                        hashmap_insert(st.must_use, fn_name, 1);
+                    }
+                    if sem_name(st, ast_attr_name_idx(attrs, a)) == "comptime" {
+                        hashmap_insert(st.comptime_fns, fn_name, ast_item_ref_handle(item_ref));
+                    }
+                    a = a + 1;
+                }
             }
             i = i + 1;
         }
