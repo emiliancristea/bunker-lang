@@ -35,6 +35,8 @@ kernel BunkerCompiler {
 
     import "modules/typecheck.bkr";
 
+    import "modules/comptime.bkr";
+
     import "modules/semantic.bkr";
 
     import "modules/shell.bkr";

@@ -268,7 +268,7 @@ view MyView {
 ### Implemented ✅
 - [x] Full PEG grammar for all three layers (AI-friendly LL(1))
 - [x] Complete AST builder
-- [x] Kernel: native x86-64 backend (`bkrc native`, `bkrc run --native`) writes Linux executables with no C compiler, linker or libc; it compiles the compiler itself (native fixpoint). 130/207 run tests pass natively (the native backend now passes more run tests than the C backend's 116); missing: closures
+- [x] Kernel: native x86-64 backend (`bkrc native`, `bkrc run --native`) writes Linux executables with no C compiler, linker or libc; it compiles the compiler itself (native fixpoint). 169/207 run tests pass natively; missing: closures
 - [x] Kernel: type checking + C backend; `bkrc run` builds the emitted C with the system C compiler and executes it (the Cranelift JIT went away with the Rust prototype)
 - [x] Kernel: structs, arrays, Option<T>, match expressions, defer, type casting, constants
 - [x] Kernel: comptime functions with compile-time evaluation
@@ -283,7 +283,7 @@ view MyView {
 - [x] Self-host readiness command (`self-host-check`) for top-level `self-host/*.bkr` sources; 8/8 of those files pass (this command does not enumerate `self-host/modules/`)
 - [x] Self-host compile wrapper (`self-host-compile`) that runs modular `self-host/bkrc.bkr` on real `.bkr` input and emits C
 - [x] Stage1/stage2 self-compilation for the supported bootstrap subset (CI-certified on `main`)
-- [ ] **201 / 309 tests really pass** (`./bkrc run tools/test_runner.bkr`), including all 81 programs that must be rejected. The other 108 are listed in `tests/known_failures.txt`; earlier "320 passing" counts came from a runner that marked every test as passed
+- [ ] **239 / 309 tests really pass** (`./bkrc run tools/test_runner.bkr`), including all 81 programs that must be rejected. The other 70 are listed in `tests/known_failures.txt`; earlier "320 passing" counts came from a runner that marked every test as passed
 - [x] Semantic checks (`self-host/modules/semantic.bkr`): immutable `let` bindings (`let mut` to reassign), use-after-move for structs and arrays, unknown enum variants, enum pattern arity, typed Vec/HashMap/Result values, integers used as collection handles, unknown methods, struct update base types, match arms without values
 - [x] String and character escapes (`\n \t \r \0 \\ \" \' \xHH`); unknown escapes and stray characters are errors
 - [x] Kernel unit enums (`enum Color { Red, Green }`, `Color.Red`, exhaustive match)

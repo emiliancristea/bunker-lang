@@ -791,7 +791,7 @@
             let raw_name = parser_get_name_ref(p, name_idx);
             if raw_name == "copy" {
                 parser_advance_ref(p);
-                let operand_ref: AstExprRef = parse_atom_ref(p);
+                let operand_ref: AstExprRef = parse_postfix_ref(p);
                 return parser_set_expr_ref_span_from_start(p, operand_ref, start);
             }
             parser_advance_ref(p);
@@ -859,15 +859,16 @@
             return parser_set_expr_ref_span_from_start(p, ast_ident_ref(name_idx), start);
         }
 
+        // Unary operators apply to a whole postfix expression: !s.ok is !(s.ok).
         if tok == TOK_NOT {
             parser_advance_ref(p);
-            let operand_ref: AstExprRef = parse_atom_ref(p);
+            let operand_ref: AstExprRef = parse_postfix_ref(p);
             return parser_set_expr_ref_span_from_start(p, ast_unary_ref(TOK_NOT, operand_ref), start);
         }
 
         if tok == TOK_MINUS {
             parser_advance_ref(p);
-            let operand_ref: AstExprRef = parse_atom_ref(p);
+            let operand_ref: AstExprRef = parse_postfix_ref(p);
             return parser_set_expr_ref_span_from_start(p, ast_unary_ref(TOK_MINUS, operand_ref), start);
         }
 
@@ -1612,7 +1613,50 @@
         return parser_set_item_ref_span_from_start(p, alias_ref, start);
     }
 
+    // Zero or more attributes: #[name], #[name(expr, ...)], #![name = expr].
+    // Returns the attribute list handle, or 0 when there are none.
+    fn parse_attributes_ref(p: ParserStateRef) -> i64 {
+        if parser_peek_ref(p) != TokenKind.Hash {
+            return 0;
+        }
+        let list: Vec<i64> = ast_attr_list_new();
+        while parser_peek_ref(p) == TokenKind.Hash && !parser_has_error_ref(p) {
+            parser_advance_ref(p);
+            let mut inner = false;
+            if parser_peek_ref(p) == TOK_NOT {
+                parser_advance_ref(p);
+                inner = true;
+            }
+            parser_expect_ref(p, TOK_LBRACKET);
+            let name_idx = parser_expect_name(p);
+            let mut args_handle: i64 = 0;
+            if parser_peek_ref(p) == TOK_LPAREN {
+                parser_advance_ref(p);
+                let args: Vec<i64> = vec_new();
+                while parser_peek_ref(p) != TOK_RPAREN && parser_peek_ref(p) != TOK_EOF && !parser_has_error_ref(p) {
+                    vec_push(args, ast_expr_ref_to_optional_handle(parse_expr_ref(p)));
+                    if parser_peek_ref(p) == TOK_COMMA {
+                        parser_advance_ref(p);
+                    } else {
+                        break;
+                    }
+                }
+                parser_expect_ref(p, TOK_RPAREN);
+                args_handle = args as i64;
+            } else if parser_peek_ref(p) == TOK_ASSIGN {
+                parser_advance_ref(p);
+                let args: Vec<i64> = vec_new();
+                vec_push(args, ast_expr_ref_to_optional_handle(parse_expr_ref(p)));
+                args_handle = args as i64;
+            }
+            parser_expect_ref(p, TOK_RBRACKET);
+            ast_attr_list_push(list, name_idx, args_handle, inner);
+        }
+        return list as i64;
+    }
+
     fn parse_kernel_ref(p: ParserStateRef) -> Vec<i64> {
+        let file_attrs = parse_attributes_ref(p);
         let start = parser_current_token_start(p);
         parser_expect_ref(p, TOK_KERNEL);
         let name_idx = parser_expect_name(p);
@@ -1622,13 +1666,29 @@
         let items_ref: AstNodeListRef = ast_node_list_ref_from_list(items);
         let mut main_name_idx: i64 = -1;
         while parser_peek_ref(p) != TOK_RBRACE && parser_peek_ref(p) != TOK_EOF {
+            let mut item_attrs = parse_attributes_ref(p);
             let mut tok = parser_peek_ref(p);
             if tok == TOK_PUB {
                 parser_advance_ref(p);
                 tok = parser_peek_ref(p);
             }
+            // `comptime fn` is accepted; comptime functions currently run like ordinary
+            // functions (same results for the pure code they allow).
+            if is_name_token(tok) && parser_get_name_ref(p, parser_peek_value_ref(p)) == "comptime" &&
+               parser_peek_at_ref(p, 1) == TOK_FN {
+                // Recorded as an internal `comptime` attribute on the function.
+                if item_attrs == 0 {
+                    item_attrs = ast_attr_list_new() as i64;
+                }
+                ast_attr_list_push(item_attrs as Vec<i64>, parser_peek_value_ref(p), 0, false);
+                parser_advance_ref(p);
+                tok = parser_peek_ref(p);
+            }
             if tok == TOK_FN {
                 let fn_ref: AstItemRef = parse_fn_ref(p);
+                if item_attrs != 0 {
+                    ast_fn_ref_set_attrs(fn_ref, item_attrs);
+                }
                 let fn_name_idx = ast_fn_ref_name_idx(fn_ref);
                 if parser_get_name_ref(p, fn_name_idx) == "main" {
                     main_name_idx = fn_name_idx;
@@ -1649,8 +1709,15 @@
             }
         }
         parser_expect_ref(p, TOK_RBRACE);
+        // Nothing may follow the kernel's closing brace.
+        if !parser_has_error_ref(p) && parser_peek_ref(p) != TOK_EOF {
+            parser_mark_error_ref(p, TOK_EOF);
+        }
 
         let names_ref: AstStringListRef = ast_string_list_ref_from_list(parser_names_ref(p));
         let kernel_ref: AstNodeRef = ast_kernel_ref(name_idx, items_ref, main_name_idx, names_ref);
+        if file_attrs != 0 {
+            ast_kernel_ref_set_attrs(kernel_ref, file_attrs);
+        }
         return parser_node_ref_to_compat_node(parser_set_node_ref_span_from_start(p, kernel_ref, start));
     }

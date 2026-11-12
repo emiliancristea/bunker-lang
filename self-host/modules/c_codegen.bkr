@@ -1376,7 +1376,40 @@
         if kind == TYPE_STR {
             return "((bkr_i64)(intptr_t)" + result + ")";
         }
+        if kind == TYPE_STRUCT {
+            // Collections hold words: store a struct as a pointer to an arena copy.
+            let s_idx: i64 = c_expr_struct_name_idx(state, expr_ref);
+            if s_idx >= 0 {
+                let c_ty: str = name_to_c_ref(state, s_idx);
+                return "bkr_box_value((" + c_ty + "[]){ " + result + " }, sizeof(" + c_ty + "))";
+            }
+        }
         return result;
+    }
+
+    // Struct name index of a struct-valued expression, or -1 when it cannot be determined.
+    fn c_expr_struct_name_idx(state: CgenStateRef, expr_ref: AstExprRef) -> i64 {
+        let kind: i64 = ast_expr_ref_kind(expr_ref);
+        if kind == NODE_STRUCT_LIT {
+            return ast_struct_lit_ref_name_idx(expr_ref);
+        }
+        if kind == NODE_IDENT {
+            return cgen_lookup_local_struct_name_idx_ref(state, ast_expr_ref_name_idx(expr_ref));
+        }
+        if kind == NODE_CALL {
+            let name_idx: i64 = ast_call_ref_name_idx(expr_ref);
+            if cgen_is_struct_name_ref(state, name_idx) {
+                return name_idx;
+            }
+            let ret_ref: AstTypeRef = cgen_lookup_fn_ret_type_info_ref(state, name_idx);
+            if ast_type_ref_is_some(ret_ref) && ast_type_ref_kind_value(ret_ref) == TYPE_STRUCT {
+                let s_idx: i64 = ast_type_ref_struct_name_idx_value(ret_ref);
+                if cgen_is_struct_name_ref(state, s_idx) {
+                    return s_idx;
+                }
+            }
+        }
+        return -1;
     }
 
     fn gen_c_init_expr_for_type(state: Vec<i64>, type_node: i64, init: Vec<i64>) -> str {
@@ -1398,6 +1431,17 @@
         let result = gen_c_expr_ref(state, init_ref);
         if ast_optional_is_some(type_node) && type_node_kind_ref(ast_type_ref_from_handle(type_node)) == TYPE_STR && is_raw_payload_call_ref(state, init_ref) {
             return "(bkr_str)(intptr_t)(" + result + ")";
+        }
+        if ast_optional_is_some(type_node) && is_raw_payload_call_ref(state, init_ref) {
+            // A struct read back from a collection: copy it out of its boxed storage.
+            let type_ref: AstTypeRef = ast_type_ref_from_handle(type_node);
+            if type_node_kind_ref(type_ref) == TYPE_STRUCT {
+                let s_idx: i64 = ast_type_ref_struct_name_idx_value(type_ref);
+                if cgen_is_struct_name_ref(state, s_idx) {
+                    let c_ty: str = name_to_c_ref(state, s_idx);
+                    return "(*(" + c_ty + "*)(intptr_t)(" + result + "))";
+                }
+            }
         }
         return result;
     }

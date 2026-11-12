@@ -3116,6 +3116,93 @@
         return ast_stmt_ref_from_handle(ast_let_pack(rec) as i64);
     }
 
+    // Extra words after a node's packed fields (zero when absent).
+    fn ast_node_set_extra_word(node: Vec<i64>, index: i64, value: i64) -> bool {
+        while vec_len(node) <= index {
+            vec_push(node, 0);
+        }
+        vec_set(node, index, value);
+        return true;
+    }
+
+    fn ast_node_extra_word(node: Vec<i64>, index: i64) -> i64 {
+        if vec_len(node) > index {
+            return vec_get(node, index);
+        }
+        return 0;
+    }
+
+    // Attributes (`#[name]`, `#[name(args)]`, `#![name = value]`) are a flat Vec<i64> of
+    // records [name_idx, args_handle, inner_flag]; args_handle is a Vec<i64> of expression
+    // handles (0 when the attribute has no arguments). Functions and kernels keep the list
+    // handle in the extra word after their packed fields.
+    fn ast_fn_ref_set_attrs(item_ref: AstItemRef, attrs: i64) -> AstItemRef {
+        ast_node_set_extra_word(ast_item_node_from_ref(item_ref), AST_NODE_DATA_START + 4, attrs);
+        return item_ref;
+    }
+
+    fn ast_fn_ref_attrs(item_ref: AstItemRef) -> i64 {
+        return ast_node_extra_word(ast_item_node_from_ref(item_ref), AST_NODE_DATA_START + 4);
+    }
+
+    fn ast_kernel_ref_set_attrs(node_ref: AstNodeRef, attrs: i64) -> AstNodeRef {
+        ast_node_set_extra_word(ast_node_from_ref(node_ref), AST_NODE_DATA_START + 4, attrs);
+        return node_ref;
+    }
+
+    fn ast_kernel_ref_attrs(node_ref: AstNodeRef) -> i64 {
+        return ast_node_extra_word(ast_node_from_ref(node_ref), AST_NODE_DATA_START + 4);
+    }
+
+    fn ast_attr_list_new() -> Vec<i64> {
+        return vec_new();
+    }
+
+    fn ast_attr_list_push(list: Vec<i64>, name_idx: i64, args_handle: i64, inner: bool) -> bool {
+        vec_push(list, name_idx);
+        vec_push(list, args_handle);
+        if inner {
+            vec_push(list, 1);
+        } else {
+            vec_push(list, 0);
+        }
+        return true;
+    }
+
+    fn ast_attr_count(attrs: i64) -> i64 {
+        if attrs == 0 {
+            return 0;
+        }
+        let list: Vec<i64> = attrs as Vec<i64>;
+        return vec_len(list) / 3;
+    }
+
+    fn ast_attr_name_idx(attrs: i64, index: i64) -> i64 {
+        let list: Vec<i64> = attrs as Vec<i64>;
+        return vec_get(list, index * 3);
+    }
+
+    fn ast_attr_is_inner(attrs: i64, index: i64) -> bool {
+        let list: Vec<i64> = attrs as Vec<i64>;
+        return vec_get(list, index * 3 + 2) == 1;
+    }
+
+    fn ast_attr_arg_count(attrs: i64, index: i64) -> i64 {
+        let list: Vec<i64> = attrs as Vec<i64>;
+        let args = vec_get(list, index * 3 + 1);
+        if args == 0 {
+            return 0;
+        }
+        let arg_list: Vec<i64> = args as Vec<i64>;
+        return vec_len(arg_list);
+    }
+
+    fn ast_attr_arg_handle(attrs: i64, index: i64, arg: i64) -> i64 {
+        let list: Vec<i64> = attrs as Vec<i64>;
+        let arg_list: Vec<i64> = vec_get(list, index * 3 + 1) as Vec<i64>;
+        return vec_get(arg_list, arg);
+    }
+
     // `let mut` is recorded as one extra word after the packed AstLet fields.
     fn ast_let_ref_set_mutable(stmt_ref: AstStmtRef) -> AstStmtRef {
         let node: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);

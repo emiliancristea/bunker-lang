@@ -182,6 +182,15 @@ typedef struct {
     bkr_i64 cap;
 } BkrVec;
 
+/* Copy a struct value into the arena and return its address as a word, so it can be
+ * stored in a Vec, HashMap or Result (which hold 64-bit words). */
+static inline bkr_i64 bkr_box_value(const void* value, size_t size) {
+    void* copy = bkr_arena_alloc(size > 0 ? size : 1, sizeof(void*));
+    if (!copy) return 0;
+    memcpy(copy, value, size);
+    return (bkr_i64)(intptr_t)copy;
+}
+
 static inline bkr_i64 vec_new(void) {
     BkrVec* v = (BkrVec*)bkr_arena_alloc(sizeof(BkrVec), sizeof(void*));
     if (!v) return 0;

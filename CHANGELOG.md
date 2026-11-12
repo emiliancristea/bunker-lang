@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Attributes**: `#[name]`, `#[name(args)]` and file-level `#![name = value]` parse and attach to functions and kernels. New semantic rules `unknown_attribute`, `unsupported_language_version` (only `#![version = "1.0"]`) and `must_use_ignored`. Contract semantics for `#[requires]`/`#[ensures]` are not implemented yet.
+- **`comptime fn`** with a compile-time interpreter (`self-host/modules/comptime.bkr`): calls with constant arguments are evaluated during checking, and division by zero, recursion past 200 calls or more than 1,000,000 steps are compile errors (`comptime_evaluation_error`). The generated code still computes the call at run time.
+- **Structs in collections**: `vec_push`, `vec_set`, `hashmap_insert`, `Ok`/`Err` store struct values as pointers to arena copies (`bkr_box_value` in C, `rt_alloc` natively), and a struct-typed `let` copies a value read back with `vec_get`/`hashmap_get`/`result_unwrap`.
 - **Native x86-64 backend** (`self-host/modules/x86_codegen.bkr`). `bkrc native file.bkr -o out` and `bkrc run --native` write a Linux ELF64 executable directly, with no C compiler or linker. Covers integers, bools, functions, locals, consts, if/else, while, for, loop, break/continue, ternary and all integer operators; 20 of 207 run tests pass natively so far, tracked in `tests/native_known_failures.txt` and checked in CI.
 - Native backend: structs (nested, methods, `..base` update syntax, struct arguments and returns with value semantics), fixed arrays of scalars with bounds-checked indexing (exit code 101 like a runtime panic), unit and payload enums, `Option` (`Some`/`None`), `match` with guards and bindings, and block expressions. 73 of 207 run tests now pass natively.
 - **Native runtime written in Bunker** (`self-host/native_runtime.bkr`) on raw Linux system calls: mmap-based allocator, strings, printing, Vec, HashMap (same layout and iteration order as the C runtime), Result, bytes, files, paths, args, env, and processes via fork/execve/wait4. Builtins resolve to its `rt_` functions; the backend adds the intrinsics `__syscall`, `__load8`, `__store8`, `__load64`, `__store64` and `__globals`.
@@ -27,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`let` bindings are immutable**; reassigning needs `let mut`. The parser now records `mut`. 765 declarations across the compiler, runtime, test runner and tests were migrated.
 
 ### Fixed
+- `!s.ok` and `-p.x` parsed as `(!s).ok` and `(-p).x`; unary operators and `copy` now apply to the whole postfix expression.
+- `let x: T = vec_get(...)` (and `hashmap_get`, `result_unwrap`, ...) was rejected because these calls were typed as `i64`; the declared element type is now used, and `semantic.bkr` checks it against the collection's declared type.
+- Text after the kernel's closing `}` is a parse error; `bkrc check` now prints parse and import errors.
 - **String escapes are decoded.** `"\n"` used to stay a backslash and an `n`. The lexer now decodes `\n \t \r \0 \\ \" \'` and `\xHH`, adds character literals (`'a'`, `'\n'`), and reports unknown escapes.
 - An unknown character (such as `@` or `#`) used to end the file silently, dropping everything after it; it is now a parse error. An unexpected token in an expression used to become `0` silently; it is now a parse error.
 - **Honest test results.** `run_tests.ps1` counted every test as passed whenever the compiler path contained "bkrc". It is replaced by `tools/test_runner.bkr`, a runner written in Bunker that checks real outcomes. Real status: 181/309 passing; the 128 current failures are listed in `tests/known_failures.txt`.

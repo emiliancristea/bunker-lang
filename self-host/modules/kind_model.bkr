@@ -51,6 +51,7 @@
 
     fn token_kind_name(kind: TokenKind) -> str {
         if kind == TokenKind.Eof { return "EOF"; }
+        if kind == TokenKind.Hash { return "#"; }
         if kind == TokenKind.Invalid { return "invalid token (unknown character or escape sequence)"; }
         if kind == TokenKind.Ident { return "identifier"; }
         if kind == TokenKind.Int { return "integer"; }

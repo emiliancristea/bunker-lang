@@ -1016,7 +1016,8 @@
         let mut i: i64 = 0;
         while i < vec_len(lines) {
             let line: str = vec_get(lines, i);
-            if contains(line, marker) {
+            // Report blocks that carry errors; parse and import errors use BUNKER_DIAGNOSTIC_JSON.
+            if contains(line, marker) || starts_with(line, "/* BUNKER_DIAGNOSTIC_JSON:") {
                 println(line);
             }
             i = i + 1;
