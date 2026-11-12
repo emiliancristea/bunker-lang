@@ -43,8 +43,8 @@ kernel MinimalCompiler {
 
     // Join lines with newlines
     fn join_lines(lines: Vec<str>) -> str {
-        let output: str = "";
-        let i: i64 = 0;
+        let mut output: str = "";
+        let mut i: i64 = 0;
         while i < vec_len(lines) {
             let line: str = vec_get(lines, i);
             output = output + line + "\n";

@@ -20,7 +20,7 @@ Read these files to understand the project:
 
 #### 2.1 Run Test Suite
 ```bash
-powershell -ExecutionPolicy Bypass -File run_tests.ps1
+bash bootstrap/build.sh && ./bkrc run tools/test_runner.bkr
 ```
 
 #### 2.2 Analyze Test Coverage

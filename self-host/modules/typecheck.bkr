@@ -105,7 +105,7 @@
 
     fn typecheck_find_type_alias_target_handle(kernel_ref: AstNodeRef, name_idx: i64) -> i64 {
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_TYPE_ALIAS {
@@ -120,7 +120,7 @@
 
     fn typecheck_is_kernel_enum_name(kernel_ref: AstNodeRef, name_idx: i64) -> bool {
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_ENUM {
@@ -271,7 +271,7 @@
 
     fn typecheck_append_invalid_loop_control_ref(state: Vec<str>, scope: str,
                                                  stmt_ref: AstStmtRef) -> Vec<str> {
-        let control_name: str = "break";
+        let mut control_name: str = "break";
         if ast_stmt_ref_kind(stmt_ref) == NODE_CONTINUE {
             control_name = "continue";
         }
@@ -495,6 +495,7 @@
         if name == "read_file" { return 1; }
         if name == "write_file" { return 2; }
         if name == "file_exists" { return 1; }
+        if name == "file_set_executable" { return 1; }
         if name == "read_file_str" { return 1; }
         if name == "write_file_str" { return 2; }
         if name == "vec_new" { return 0; }
@@ -635,6 +636,7 @@
         if name == "write_file" && index == 0 { return TYPE_STR; }
         if name == "write_file" && index == 1 { return TYPE_STR; }
         if name == "file_exists" && index == 0 { return TYPE_STR; }
+        if name == "file_set_executable" && index == 0 { return TYPE_STR; }
         if name == "read_file_str" && index == 0 { return TYPE_STR; }
         if name == "write_file_str" && index == 0 { return TYPE_STR; }
         if name == "write_file_str" && index == 1 { return TYPE_STR; }
@@ -797,7 +799,7 @@
             return state;
         }
         let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(args_ref) {
             if fn_name == "len" && i == 0 {
                 let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, 0);
@@ -880,7 +882,7 @@
 
     fn typecheck_find_function_ref(kernel_ref: AstNodeRef, name_idx: i64) -> AstItemRef {
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_FN && ast_fn_ref_name_idx(item_ref) == name_idx {
@@ -941,7 +943,7 @@
 
     fn typecheck_find_struct_ref(kernel_ref: AstNodeRef, name_idx: i64) -> AstItemRef {
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_ref_name_idx(item_ref) == name_idx {
@@ -954,7 +956,7 @@
 
     fn typecheck_find_const_ref(kernel_ref: AstNodeRef, name_idx: i64) -> AstItemRef {
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_CONST && ast_const_ref_name_idx(item_ref) == name_idx {
@@ -967,12 +969,12 @@
 
     fn typecheck_struct_field_kind_ref(kernel_ref: AstNodeRef, struct_name_idx: i64, field_name_idx: i64) -> i64 {
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_STRUCT && ast_struct_ref_name_idx(item_ref) == struct_name_idx {
                 let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(item_ref);
-                let j: i64 = 0;
+                let mut j: i64 = 0;
                 while j < ast_node_list_ref_count(fields_ref) {
                     let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, j);
                     if ast_field_decl_ref_name_idx(field_ref) == field_name_idx {
@@ -991,10 +993,10 @@
         let struct_name: str = ast_report_name(names, ast_struct_lit_ref_name_idx(expr_ref));
         let field_names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
         let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_i64_list_ref_count(field_names_ref) {
             let field_name_idx: i64 = ast_i64_list_ref_get(field_names_ref, i);
-            let j: i64 = 0;
+            let mut j: i64 = 0;
             while j < i {
                 if ast_i64_list_ref_get(field_names_ref, j) == field_name_idx {
                     let field_name: str = ast_report_name(names, field_name_idx);
@@ -1016,7 +1018,7 @@
     }
 
     fn typecheck_struct_literal_has_field_ref(field_names_ref: AstI64ListRef, field_name_idx: i64) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_i64_list_ref_count(field_names_ref) {
             if ast_i64_list_ref_get(field_names_ref, i) == field_name_idx {
                 return true;
@@ -1041,7 +1043,7 @@
         let struct_name: str = ast_report_name(names, struct_name_idx);
         let field_names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
         let declared_fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(struct_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(declared_fields_ref) {
             let field_ref: AstNodeRef = ast_node_list_ref_get_ref(declared_fields_ref, i);
             let field_name_idx: i64 = ast_field_decl_ref_name_idx(field_ref);
@@ -1229,7 +1231,7 @@
         }
         let first_body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, 0);
         let expected_kind: i64 = typecheck_match_body_ref_kind(cstate, first_body_ref);
-        let i: i64 = 1;
+        let mut i: i64 = 1;
         while i < ast_node_list_ref_count(bodies_ref) {
             let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
             let found_kind: i64 = typecheck_match_body_ref_kind(cstate, body_ref);
@@ -1267,7 +1269,7 @@
 
     fn typecheck_check_match_patterns_ref(state: Vec<str>, patterns_ref: AstPatternListRef,
                                           scrutinee_kind: i64, scope: str) -> Vec<str> {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             let expected_kind: i64 = typecheck_pattern_expected_kind(pattern_ref);
@@ -1304,7 +1306,7 @@
             let aux: i64 = ast_pattern_ref_aux(pattern_ref);
             if aux != 0 {
                 let sub_pats: Vec<i64> = aux as Vec<i64>;
-                let i: i64 = 0;
+                let mut i: i64 = 0;
                 while i < vec_len(sub_pats) {
                     let sub_pat: AstPatternRef = ast_pattern_ref_from_handle(vec_get(sub_pats, i));
                     if !typecheck_pattern_is_catch_all_ref(sub_pat) {
@@ -1346,7 +1348,7 @@
                 if vec_len(left_pats) != vec_len(right_pats) {
                     return false;
                 }
-                let i: i64 = 0;
+                let mut i: i64 = 0;
                 while i < vec_len(left_pats) {
                     let l: AstPatternRef = ast_pattern_ref_from_handle(vec_get(left_pats, i));
                     let r: AstPatternRef = ast_pattern_ref_from_handle(vec_get(right_pats, i));
@@ -1385,8 +1387,8 @@
     fn typecheck_check_match_pattern_semantics_ref(state: Vec<str>, guards_ref: AstI64ListRef,
                                                    patterns_ref: AstPatternListRef,
                                                    scope: str) -> Vec<str> {
-        let catch_all_seen: bool = false;
-        let i: i64 = 0;
+        let mut catch_all_seen: bool = false;
+        let mut i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
             let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
@@ -1401,7 +1403,7 @@
                     "Remove this arm or move it before the catch-all pattern.");
             } else {
                 if !has_guard {
-                    let j: i64 = 0;
+                    let mut j: i64 = 0;
                     while j < i {
                         let prev_has_guard: bool = j < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, j) != 0;
                         if !prev_has_guard {
@@ -1430,7 +1432,7 @@
     }
 
     fn typecheck_match_patterns_cover_bool_ref(guards_ref: AstI64ListRef, patterns_ref: AstPatternListRef, value: i64) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
             if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
                 i = i + 1;
@@ -1449,7 +1451,7 @@
     }
 
     fn typecheck_match_patterns_contain_option_ref(patterns_ref: AstPatternListRef) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
             let pattern_kind: i64 = ast_pattern_ref_kind(ast_pattern_list_ref_get_ref(patterns_ref, i));
             if pattern_kind == PAT_SOME || pattern_kind == PAT_NONE {
@@ -1461,13 +1463,13 @@
     }
 
     fn typecheck_subpatterns_cover_type_ref(subpats: Vec<i64>) -> bool {
-        let i: i64 = 0;
-        let has_some: bool = false;
-        let has_none: bool = false;
-        let has_ok: bool = false;
-        let has_err: bool = false;
-        let has_true: bool = false;
-        let has_false: bool = false;
+        let mut i: i64 = 0;
+        let mut has_some: bool = false;
+        let mut has_none: bool = false;
+        let mut has_ok: bool = false;
+        let mut has_err: bool = false;
+        let mut has_true: bool = false;
+        let mut has_false: bool = false;
         while i < vec_len(subpats) {
             let pat_ref: AstPatternRef = ast_pattern_ref_from_handle(vec_get(subpats, i));
             if typecheck_pattern_is_catch_all_ref(pat_ref) {
@@ -1533,7 +1535,7 @@
     }
 
     fn typecheck_match_patterns_cover_option_ref(guards_ref: AstI64ListRef, patterns_ref: AstPatternListRef, pattern_kind: i64) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         let subpats: Vec<i64> = vec_new();
         while i < ast_pattern_list_ref_count(patterns_ref) {
             if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
@@ -1579,7 +1581,7 @@
         if covers_true && covers_false {
             return state;
         }
-        let missing: str = "";
+        let mut missing: str = "";
         if !covers_true {
             missing = "true";
         }
@@ -1604,10 +1606,10 @@
         if scrutinee_kind != TYPE_BOOL {
             return state;
         }
-        let covers_true: bool = false;
-        let covers_false: bool = false;
-        let exhausted: bool = false;
-        let i: i64 = 0;
+        let mut covers_true: bool = false;
+        let mut covers_false: bool = false;
+        let mut exhausted: bool = false;
+        let mut i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
             let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
@@ -1649,7 +1651,7 @@
         if covers_some && covers_none {
             return state;
         }
-        let missing: str = "";
+        let mut missing: str = "";
         if !covers_some {
             missing = "Some";
         }
@@ -1674,10 +1676,10 @@
         if !typecheck_match_patterns_contain_option_ref(patterns_ref) {
             return state;
         }
-        let covers_some: bool = false;
-        let covers_none: bool = false;
-        let exhausted: bool = false;
-        let i: i64 = 0;
+        let mut covers_some: bool = false;
+        let mut covers_none: bool = false;
+        let mut exhausted: bool = false;
+        let mut i: i64 = 0;
         let subpats: Vec<i64> = vec_new();
         while i < ast_pattern_list_ref_count(patterns_ref) {
             let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
@@ -1722,7 +1724,7 @@
     }
 
     fn typecheck_match_patterns_contain_result_ref(patterns_ref: AstPatternListRef) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             let kind: i64 = ast_pattern_ref_kind(pattern_ref);
@@ -1735,7 +1737,7 @@
     }
 
     fn typecheck_match_patterns_cover_result_ref(guards_ref: AstI64ListRef, patterns_ref: AstPatternListRef, pattern_kind: i64) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         let subpats: Vec<i64> = vec_new();
         while i < ast_pattern_list_ref_count(patterns_ref) {
             if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
@@ -1777,7 +1779,7 @@
         if covers_ok && covers_err {
             return state;
         }
-        let missing: str = "";
+        let mut missing: str = "";
         if !covers_ok {
             missing = "Ok";
         }
@@ -1802,10 +1804,10 @@
         if !typecheck_match_patterns_contain_result_ref(patterns_ref) {
             return state;
         }
-        let covers_ok: bool = false;
-        let covers_err: bool = false;
-        let exhausted: bool = false;
-        let i: i64 = 0;
+        let mut covers_ok: bool = false;
+        let mut covers_err: bool = false;
+        let mut exhausted: bool = false;
+        let mut i: i64 = 0;
         let ok_subpats: Vec<i64> = vec_new();
         let err_subpats: Vec<i64> = vec_new();
         while i < ast_pattern_list_ref_count(patterns_ref) {
@@ -1864,7 +1866,7 @@
     }
 
     fn typecheck_match_patterns_contain_enum_variant_ref(patterns_ref: AstPatternListRef) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
             if ast_pattern_ref_kind(ast_pattern_list_ref_get_ref(patterns_ref, i)) == PAT_ENUM_VARIANT {
                 return true;
@@ -1875,7 +1877,7 @@
     }
 
     fn typecheck_first_enum_variant_name_idx(patterns_ref: AstPatternListRef) -> i64 {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             if ast_pattern_ref_kind(pattern_ref) == PAT_ENUM_VARIANT {
@@ -1888,7 +1890,7 @@
 
     fn typecheck_find_enum_item_ref(kernel_ref: AstNodeRef, enum_name_idx: i64) -> AstItemRef {
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_ENUM {
@@ -1904,7 +1906,7 @@
     fn typecheck_match_patterns_cover_enum_variant_ref(guards_ref: AstI64ListRef, patterns_ref: AstPatternListRef,
                                                       enum_name_idx: i64,
                                                       variant_idx: i64) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
             if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
                 i = i + 1;
@@ -1946,8 +1948,8 @@
             return state;
         }
         let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
-        let missing: str = "";
-        let j: i64 = 0;
+        let mut missing: str = "";
+        let mut j: i64 = 0;
         while j < ast_i64_list_ref_count(variants_ref) {
             let variant_idx: i64 = ast_i64_list_ref_get(variants_ref, j);
             if !typecheck_match_patterns_cover_enum_variant_ref(guards_ref, patterns_ref, enum_name_idx, variant_idx) {
@@ -1983,8 +1985,8 @@
             return state;
         }
         let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
-        let i: i64 = 0;
-        let has_catch_all: bool = false;
+        let mut i: i64 = 0;
+        let mut has_catch_all: bool = false;
         while i < ast_pattern_list_ref_count(patterns_ref) {
             if i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0 {
                 i = i + 1;
@@ -2027,9 +2029,9 @@
         if variant_count <= 0 {
             return state;
         }
-        let covered: i64 = 0;
-        let exhausted: bool = false;
-        let i: i64 = 0;
+        let mut covered: i64 = 0;
+        let mut exhausted: bool = false;
+        let mut i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
             let has_guard: bool = i < ast_i64_list_ref_count(guards_ref) && ast_i64_list_ref_get(guards_ref, i) != 0;
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
@@ -2065,7 +2067,7 @@
     }
 
     fn typecheck_enum_variant_is_declared_ref(variants_ref: AstI64ListRef, variant_idx: i64) -> bool {
-        let j: i64 = 0;
+        let mut j: i64 = 0;
         while j < ast_i64_list_ref_count(variants_ref) {
             if ast_i64_list_ref_get(variants_ref, j) == variant_idx {
                 return true;
@@ -2079,7 +2081,7 @@
                                                              enum_name_idx: i64,
                                                              variant_idx: i64,
                                                              before: i64) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < before {
             let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
             if ast_pattern_ref_kind(pattern_ref) == PAT_ENUM_VARIANT {
@@ -2096,8 +2098,8 @@
 
     fn typecheck_check_array_element_types_ref(state: Vec<str>, cstate: CgenStateRef,
                                                elements_ref: AstNodeListRef, scope: str) -> Vec<str> {
-        let expected_kind: i64 = TYPE_UNKNOWN;
-        let i: i64 = 0;
+        let mut expected_kind: i64 = TYPE_UNKNOWN;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(elements_ref) {
             let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
             let element_expr_ref: AstExprRef = ast_expr_ref_from_node_ref(element_ref);
@@ -2133,7 +2135,7 @@
         if kind == NODE_METHOD_CALL {
             state = typecheck_scan_loop_control_expr_ref(state, ast_method_call_ref_receiver_ref(expr_ref), scope, loop_depth);
             let args_ref: AstNodeListRef = ast_method_call_ref_args_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
                 state = typecheck_scan_loop_control_expr_ref(state,
                     ast_expr_ref_from_node_ref(ast_node_list_ref_get_ref(args_ref, i)), scope, loop_depth);
@@ -2141,7 +2143,7 @@
             }
         } else if kind == NODE_CALL {
             let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
                 state = typecheck_scan_loop_control_expr_ref(state,
                     ast_expr_ref_from_node_ref(ast_node_list_ref_get_ref(args_ref, i)), scope, loop_depth);
@@ -2149,7 +2151,7 @@
             }
         } else if kind == NODE_STRUCT_LIT {
             let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(field_values_ref) {
                 state = typecheck_scan_loop_control_expr_ref(state,
                     ast_expr_ref_from_node_ref(ast_node_list_ref_get_ref(field_values_ref, i)), scope, loop_depth);
@@ -2179,7 +2181,7 @@
                 ast_array_repeat_ref_elem_ref(expr_ref), scope, loop_depth);
         } else if kind == NODE_ARRAY_LIT {
             let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(elements_ref) {
                 state = typecheck_scan_loop_control_expr_ref(state,
                     ast_expr_ref_from_node_ref(ast_node_list_ref_get_ref(elements_ref, i)), scope, loop_depth);
@@ -2193,7 +2195,7 @@
         } else if kind == NODE_MATCH {
             state = typecheck_scan_loop_control_expr_handle(state, ast_match_ref_scrutinee_handle(expr_ref), scope, loop_depth);
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(bodies_ref) {
                 let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
                 if ast_node_ref_kind(body_ref) == NODE_BLOCK {
@@ -2247,7 +2249,7 @@
 
     fn typecheck_scan_loop_control_block_ref(state: Vec<str>, block_ref: AstBlockRef,
                                              scope: str, loop_depth: i64) -> Vec<str> {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
             state = typecheck_scan_loop_control_stmt_ref(state, ast_block_ref_stmt_ref(block_ref, i),
                 scope, loop_depth);
@@ -2273,7 +2275,7 @@
     }
 
     fn typecheck_block_definitely_returns_ref(block_ref: AstBlockRef) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
             if typecheck_stmt_definitely_returns_ref(ast_block_ref_stmt_ref(block_ref, i)) {
                 return true;
@@ -2300,7 +2302,7 @@
     }
 
     fn typecheck_block_terminates_control_ref(block_ref: AstBlockRef) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
             if typecheck_stmt_terminates_control_ref(ast_block_ref_stmt_ref(block_ref, i)) {
                 return true;
@@ -2331,8 +2333,8 @@
 
     fn typecheck_scan_unreachable_block_ref(state: Vec<str>, block_ref: AstBlockRef,
                                             scope: str) -> Vec<str> {
-        let terminated: bool = false;
-        let i: i64 = 0;
+        let mut terminated: bool = false;
+        let mut i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
             let stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, i);
             if terminated {
@@ -2396,7 +2398,7 @@
                     state = typecheck_append_count_mismatch_ref(state, "call_argument_count_mismatch", s_name,
                         scope, ast_node_ref_from_expr_ref(expr_ref), field_count, arg_count, arity_hint);
                 }
-                let i: i64 = 0;
+                let mut i: i64 = 0;
                 while i < arg_count && i < field_count {
                     let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, i);
                     let field_type: i64 = ast_field_decl_ref_type_handle(field_ref);
@@ -2430,7 +2432,7 @@
             state = typecheck_append_count_mismatch_ref(state, "call_argument_count_mismatch", fn_name,
                 scope, ast_node_ref_from_expr_ref(expr_ref), param_count, arg_count, arity_hint);
         }
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < arg_count && i < param_count {
             let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
             let param_type: i64 = ast_param_ref_type_handle(param_ref);
@@ -2480,7 +2482,7 @@
             state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
                 receiver_ref, scope, expected_return_kind);
             let args_ref: AstNodeListRef = ast_method_call_ref_args_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
                 let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
                 let arg_expr_ref: AstExprRef = ast_expr_ref_from_node_ref(arg_node_ref);
@@ -2493,7 +2495,7 @@
         } else if kind == NODE_CALL {
             state = typecheck_check_call_arguments_ref(state, kernel_ref, names, cstate, expr_ref, scope);
             let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(args_ref) {
                 let arg_node_ref: AstNodeRef = ast_node_list_ref_get_ref(args_ref, i);
                 let arg_expr_ref: AstExprRef = ast_expr_ref_from_node_ref(arg_node_ref);
@@ -2510,7 +2512,7 @@
             let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
             state = typecheck_check_struct_literal_duplicate_fields_ref(state, names, expr_ref, scope);
             state = typecheck_check_struct_literal_missing_fields_ref(state, kernel_ref, names, expr_ref, scope);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(field_values_ref) {
                 let field_name_idx: i64 = ast_i64_list_ref_get(field_names_ref, i);
                 let field_name: str = ast_report_name(names, field_name_idx);
@@ -2631,7 +2633,7 @@
         } else if kind == NODE_ARRAY_LIT {
             let elements_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
             state = typecheck_check_array_element_types_ref(state, cstate, elements_ref, scope);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(elements_ref) {
                 let element_ref: AstNodeRef = ast_node_list_ref_get_ref(elements_ref, i);
                 state = typecheck_expr_ref_diagnostics(state, kernel_ref, names, cstate,
@@ -2685,7 +2687,7 @@
                 ast_match_ref_patterns_ref(expr_ref), scope);
             state = typecheck_check_enum_match_redundancy_ref(state, kernel_ref, guards_ref,
                 ast_match_ref_patterns_ref(expr_ref), scope);
-            let k: i64 = 0;
+            let mut k: i64 = 0;
             while k < ast_i64_list_ref_count(guards_ref) {
                 let guard_h: i64 = ast_i64_list_ref_get(guards_ref, k);
                 if guard_h != 0 {
@@ -2696,7 +2698,7 @@
             }
             let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
             state = typecheck_check_match_arm_types_ref(state, cstate, bodies_ref, scope);
-            let i: i64 = 0;
+            let mut i: i64 = 0;
             while i < ast_node_list_ref_count(bodies_ref) {
                 let body_ref: AstNodeRef = ast_node_list_ref_get_ref(bodies_ref, i);
                 if ast_node_ref_kind(body_ref) == NODE_BLOCK {
@@ -2863,7 +2865,7 @@
     fn typecheck_block_ref_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef, names: Vec<str>,
                                        cstate: CgenStateRef, block_ref: AstBlockRef, scope: str,
                                        expected_return_kind: i64) -> Vec<str> {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
             state = typecheck_stmt_ref_diagnostics(state, kernel_ref, names, cstate,
                 ast_block_ref_stmt_ref(block_ref, i), scope, expected_return_kind);
@@ -2944,7 +2946,7 @@
         let cstate: CgenStateRef = type_graph_seed_state_ref(kernel_ref);
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         state = typecheck_check_entry_point_ref(state, kernel_ref, names, kernel_scope);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             let kind: i64 = ast_item_ref_kind(item_ref);
@@ -3037,7 +3039,7 @@
     fn typecheck_semantic_validation_diagnostics(state: Vec<str>, kernel_ref: AstNodeRef) -> Vec<str> {
         let names: Vec<str> = ast_kernel_ref_names(kernel_ref);
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             let kind: i64 = ast_item_ref_kind(item_ref);
@@ -3059,7 +3061,7 @@
 
     fn self_host_semantic_validation_json(kernel: Vec<i64>) -> str {
         let comma: str = ",";
-        let state: Vec<str> = resolver_state_new();
+        let mut state: Vec<str> = resolver_state_new();
         let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
         state = typecheck_semantic_validation_diagnostics(state, kernel_ref);
         return "{" +

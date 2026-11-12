@@ -5,6 +5,40 @@ All notable changes to the Bunker Language project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html) according to the four-plane model established in `BKR-SPEC-ECO-001` (`docs/CI_AND_VERSIONING_ARCHITECTURE.md`).
 
+## [Unreleased]
+
+### Added
+- **Native x86-64 backend** (`self-host/modules/x86_codegen.bkr`). `bkrc native file.bkr -o out` and `bkrc run --native` write a Linux ELF64 executable directly, with no C compiler or linker. Covers integers, bools, functions, locals, consts, if/else, while, for, loop, break/continue, ternary and all integer operators; 20 of 207 run tests pass natively so far, tracked in `tests/native_known_failures.txt` and checked in CI.
+- Native backend: structs (nested, methods, `..base` update syntax, struct arguments and returns with value semantics), fixed arrays of scalars with bounds-checked indexing (exit code 101 like a runtime panic), unit and payload enums, `Option` (`Some`/`None`), `match` with guards and bindings, and block expressions. 73 of 207 run tests now pass natively.
+- **Native runtime written in Bunker** (`self-host/native_runtime.bkr`) on raw Linux system calls: mmap-based allocator, strings, printing, Vec, HashMap (same layout and iteration order as the C runtime), Result, bytes, files, paths, args, env, and processes via fork/execve/wait4. Builtins resolve to its `rt_` functions; the backend adds the intrinsics `__syscall`, `__load8`, `__store8`, `__load64`, `__store64` and `__globals`.
+- Native backend: strings (literal pool, `==`, `+`), typed `Vec<str>`/`HashMap<str, V>`/`Option<str>`/`Result` tracking matching the C backend's rules, `Ok`/`Err` patterns, calls with more than six arguments, a writable data segment. 112 of 207 run tests pass natively.
+- **Bunker builds itself with no C.** `bkrc native self-host/bkrc.bkr` produces a 1 MB compiler that rebuilds itself byte-for-byte. The checked-in seed `bootstrap/bkrc-linux-x86_64` and `bootstrap/build-native.sh` bootstrap with nothing but Bunker; CI runs that job with `CC=/bin/false` and checks it matches the C-seed path.
+- `file_set_executable(path)` builtin.
+
+### Added
+- **Semantic checks** (`self-host/modules/semantic.bkr`), run after the typechecker: `immutable_assignment`, `use_after_move` (structs and fixed arrays at let, reassignment and literal sites; `copy x` keeps x), `unknown_enum_variant`, `enum_pattern_arity`, `collection_value_mismatch`, `ambiguous_result_value`, `raw_handle_use`, `method_not_found`, `struct_update_base_mismatch`, `match_arm_missing_value`. All 81 rejection tests now fail for their intended rule.
+
+- Native backend: `f64` (literals, arithmetic, comparisons, int/float casts, negation via SSE2), tuples (`bkr_tuple2/3`, `t.0`, tuple patterns), matching on structs, `?` (Option and Result, running pending defers), type aliases, and runtime `env_set`, `env_var`, `time_now_ms`, `time_now_unix`. 130 of 207 run tests pass natively.
+- **Native compiler 5x faster** (self-build 65 s -> 12 s): profiling with callgrind and the new `BKR_NATIVE_MAP` address map showed 91% of time in `rt_strlen`; the runtime now caches 4096 string lengths, scans 8 bytes at a time, records lengths of strings it builds, and copies with the new `__memcpy` intrinsic (`rep movsb`).
+- **Block-scoped `defer`** on the native backend, as specified in `docs/RESOURCE_MODEL.md`: deferred statements run in reverse order when their block ends and on `return`, `?`, `break` and `continue` (test 232, which the C backend still fails).
+
+### Changed
+- Native array parameters are passed by reference, matching the C backend (where arrays decay to pointers); struct parameters are still copied.
+- **`let` bindings are immutable**; reassigning needs `let mut`. The parser now records `mut`. 765 declarations across the compiler, runtime, test runner and tests were migrated.
+
+### Fixed
+- **String escapes are decoded.** `"\n"` used to stay a backslash and an `n`. The lexer now decodes `\n \t \r \0 \\ \" \'` and `\xHH`, adds character literals (`'a'`, `'\n'`), and reports unknown escapes.
+- An unknown character (such as `@` or `#`) used to end the file silently, dropping everything after it; it is now a parse error. An unexpected token in an expression used to become `0` silently; it is now a parse error.
+- **Honest test results.** `run_tests.ps1` counted every test as passed whenever the compiler path contained "bkrc". It is replaced by `tools/test_runner.bkr`, a runner written in Bunker that checks real outcomes. Real status: 181/309 passing; the 128 current failures are listed in `tests/known_failures.txt`.
+- `bkrc run` no longer prints a result guessed from the file name. It compiles to C, builds with the system C compiler (`BKR_CC`/`CC`, default `cc`), executes the program and exits with its exit code.
+- `bkrc check` no longer rejects files because their name contains `_BAD`, and prints the diagnostic report on failure.
+- `bkrc self-host-check` checks each file instead of printing a fixed list of PASS lines.
+- `bkrc` with no arguments prints usage. Before, it created `self_host_input.bkr`, and while that file existed every command silently did nothing and returned 42.
+- `str_split` is typed as `Vec<str>`, so `let parts: Vec<str> = str_split(...)` typechecks (fixes test 182).
+
+### Changed
+- CI runs the test suite and the seed fixpoint check on Linux. The per-test `self-host-smoke` job, which depended on the fake `run` output, is replaced by the runner. Bootstrap seed regenerated (`bootstrap/SHA256SUMS` updated).
+
 ## [0.1.0] - 2026-10-28
 
 ### Overview

@@ -1,0 +1,886 @@
+    // ========================================
+    // SEMANTIC CHECKS
+    // ========================================
+    //
+    // A flow-aware pass over each function that runs after the typechecker and enforces
+    // rules it does not cover:
+    //   unknown_enum_variant        Enum.Missing in expressions or patterns
+    //   enum_pattern_arity          Enum.Variant(a, b) binding count != payload count
+    //   collection_value_mismatch   vec_push / hashmap_insert / Ok / Err against declared types
+    //   ambiguous_result_value      result_value on Result<T, E> with T != E
+    //   raw_handle_use              passing a plain integer where a Vec / HashMap / Result is expected
+    //   method_not_found            value.method() with no fn Type::method
+    //   struct_update_base_mismatch Foo { ..bar } where bar is not a Foo
+    //   match_arm_missing_value     a match used as a value whose block arm ends without one
+    //   immutable_assignment        assigning to a `let` binding declared without `mut`
+    //   use_after_move              reading a struct or array variable after it was moved
+    //
+    // Moves follow docs/OWNERSHIP_MODEL.md for structs and fixed arrays at let bindings,
+    // reassignments and struct/array literals; `copy x` keeps x usable. Function arguments
+    // and handle types (str, Vec, HashMap) are not tracked as moves yet. Function parameters
+    // and loop variables are mutable.
+    //
+    // Local descriptors: "S:Name" struct, "A" fixed array, "V:k" Vec, "M:kv" HashMap,
+    // "R:te" Result, "O:k" Option, "e" enum, and scalar codes "i" integer, "b" bool,
+    // "s" str, "f" float; "" or "?" means unknown.
+
+    struct SemState {
+        names: Vec<str>,
+        source: str,
+        diags: Vec<str>,
+        scope: Vec<str>,
+        enum_names: HashMap<str, i64>,
+        variant_arity: HashMap<str, i64>,
+        struct_names: HashMap<str, i64>,
+        field_desc: HashMap<str, str>,
+        fn_ret: HashMap<str, str>,
+        l_name: Vec<str>,
+        l_desc: Vec<str>,
+        l_mut: Vec<i64>,
+        l_moved: Vec<i64>
+    }
+
+    fn sem_name(st: SemState, idx: i64) -> str {
+        if idx >= 0 && idx < vec_len(st.names) {
+            return vec_get(st.names, idx);
+        }
+        return "";
+    }
+
+    fn sem_error(st: SemState, rule: str, name: str, node_ref: AstNodeRef,
+                 expected: str, found: str, hint: str) -> bool {
+        resolver_state_append(st.diags,
+            typecheck_diagnostic_ref_json(rule, "BKR_SELF_SEMANTIC", name, vec_get(st.scope, 0),
+                node_ref, expected, found, hint));
+        return false;
+    }
+
+    // ---- Descriptors ----
+
+    fn sem_kind_code(kind: i64) -> str {
+        if kind == TYPE_I32 || kind == TYPE_I64 { return "i"; }
+        if kind == TYPE_BOOL { return "b"; }
+        if kind == TYPE_STR { return "s"; }
+        if kind == TYPE_F64 { return "f"; }
+        return "?";
+    }
+
+    fn sem_type_desc(st: SemState, type_ref: AstTypeRef) -> str {
+        if ast_type_ref_is_none(type_ref) {
+            return "";
+        }
+        let kind: i64 = ast_type_ref_kind_value(type_ref);
+        if kind == TYPE_STRUCT {
+            let name = sem_name(st, ast_type_ref_struct_name_idx_value(type_ref));
+            if hashmap_contains(st.struct_names, name) {
+                return "S:" + name;
+            }
+            if hashmap_contains(st.enum_names, name) {
+                return "e";
+            }
+            return "";
+        }
+        if kind == TYPE_ARRAY { return "A"; }
+        if kind == TYPE_VEC { return "V:" + sem_kind_code(ast_type_ref_generic_payload(type_ref)); }
+        if kind == TYPE_MAP {
+            return "M:" + sem_kind_code(ast_type_ref_generic_payload(type_ref)) + sem_kind_code(ast_type_ref_generic_aux(type_ref));
+        }
+        if kind == TYPE_RESULT {
+            return "R:" + sem_kind_code(ast_type_ref_generic_payload(type_ref)) + sem_kind_code(ast_type_ref_generic_aux(type_ref));
+        }
+        if kind == TYPE_OPTION { return "O:" + sem_kind_code(ast_type_ref_generic_payload(type_ref)); }
+        let code = sem_kind_code(kind);
+        if code == "?" {
+            return "";
+        }
+        return code;
+    }
+
+    fn sem_type_desc_handle(st: SemState, handle: i64) -> str {
+        if !ast_optional_is_some(handle) {
+            return "";
+        }
+        return sem_type_desc(st, ast_type_ref_from_handle(handle));
+    }
+
+    fn sem_is_move_desc(desc: str) -> bool {
+        return starts_with(desc, "S:") || desc == "A";
+    }
+
+    fn sem_is_scalar_code(desc: str) -> bool {
+        return desc == "i" || desc == "b" || desc == "s" || desc == "f";
+    }
+
+    // Character `index` of a descriptor such as "M:si", as a scalar code.
+    fn sem_desc_char(desc: str, index: i64) -> str {
+        if index < len(desc) {
+            return char_at(desc, index);
+        }
+        return "?";
+    }
+
+    fn sem_builtin_desc(name: str) -> str {
+        if name == "char_at" || name == "substring" || name == "trim" || name == "int_to_string" ||
+           name == "from_char_code" || name == "join_lines" || name == "read_file" || name == "arg_at" ||
+           name == "str_replace" || name == "str_to_upper" || name == "str_to_lower" || name == "str_repeat" ||
+           name == "path_join" || name == "path_dir" || name == "path_base" || name == "path_ext" {
+            return "s";
+        }
+        if name == "len" || name == "strlen" || name == "vec_len" || name == "hashmap_len" ||
+           name == "char_code" || name == "char_code_at" || name == "parse_int" || name == "str_index_of" ||
+           name == "args_count" {
+            return "i";
+        }
+        if name == "contains" || name == "starts_with" || name == "ends_with" || name == "file_exists" ||
+           name == "hashmap_contains" || name == "vec_is_empty" || name == "result_is_ok" || name == "result_is_err" {
+            return "b";
+        }
+        return "";
+    }
+
+    // ---- Locals ----
+
+    fn sem_local_index(st: SemState, name: str) -> i64 {
+        let mut i = vec_len(st.l_name) - 1;
+        while i >= 0 {
+            if vec_get(st.l_name, i) == name {
+                return i;
+            }
+            i = i - 1;
+        }
+        return -1;
+    }
+
+    fn sem_bind(st: SemState, name: str, desc: str, mutable: bool) -> bool {
+        vec_push(st.l_name, name);
+        vec_push(st.l_desc, desc);
+        if mutable {
+            vec_push(st.l_mut, 1);
+        } else {
+            vec_push(st.l_mut, 0);
+        }
+        vec_push(st.l_moved, 0);
+        return true;
+    }
+
+    fn sem_mark(st: SemState) -> i64 {
+        return vec_len(st.l_name);
+    }
+
+    fn sem_restore(st: SemState, mark: i64) -> bool {
+        while vec_len(st.l_name) > mark {
+            vec_pop(st.l_name);
+            vec_pop(st.l_desc);
+            vec_pop(st.l_mut);
+            vec_pop(st.l_moved);
+        }
+        return true;
+    }
+
+    fn sem_moved_snapshot(st: SemState) -> Vec<i64> {
+        let snap: Vec<i64> = vec_new();
+        let mut i: i64 = 0;
+        while i < vec_len(st.l_moved) {
+            vec_push(snap, vec_get(st.l_moved, i));
+            i = i + 1;
+        }
+        return snap;
+    }
+
+    fn sem_moved_set(st: SemState, snap: Vec<i64>) -> bool {
+        let mut i: i64 = 0;
+        while i < vec_len(snap) && i < vec_len(st.l_moved) {
+            vec_set(st.l_moved, i, vec_get(snap, i));
+            i = i + 1;
+        }
+        return true;
+    }
+
+    // acc |= current moved flags (a variable moved on any path stays moved)
+    fn sem_moved_union(st: SemState, acc: Vec<i64>) -> bool {
+        let mut i: i64 = 0;
+        while i < vec_len(acc) && i < vec_len(st.l_moved) {
+            if vec_get(st.l_moved, i) == 1 {
+                vec_set(acc, i, 1);
+            }
+            i = i + 1;
+        }
+        return true;
+    }
+
+    // ---- Expressions ----
+
+    fn sem_expr_desc(st: SemState, expr_ref: AstExprRef) -> str {
+        let kind: i64 = ast_expr_ref_kind(expr_ref);
+        if kind == NODE_INT_LIT { return "i"; }
+        if kind == NODE_BOOL_LIT { return "b"; }
+        if kind == NODE_STR_LIT { return "s"; }
+        if kind == NODE_FLOAT_LIT { return "f"; }
+        if kind == NODE_ARRAY_LIT || kind == NODE_ARRAY_REPEAT { return "A"; }
+        if kind == NODE_STRUCT_LIT {
+            return "S:" + sem_name(st, ast_struct_lit_ref_name_idx(expr_ref));
+        }
+        if kind == NODE_IDENT {
+            let i = sem_local_index(st, sem_name(st, ast_expr_ref_name_idx(expr_ref)));
+            if i >= 0 {
+                return vec_get(st.l_desc, i);
+            }
+            return "";
+        }
+        if kind == NODE_CAST {
+            return sem_type_desc_handle(st, ast_cast_ref_target_type_handle(expr_ref));
+        }
+        if kind == NODE_CALL {
+            let name = sem_name(st, ast_call_ref_name_idx(expr_ref));
+            if hashmap_contains(st.struct_names, name) {
+                return "S:" + name;
+            }
+            if hashmap_contains(st.fn_ret, name) {
+                let ret: str = hashmap_get(st.fn_ret, name);
+                return ret;
+            }
+            return sem_builtin_desc(name);
+        }
+        if kind == NODE_METHOD_CALL {
+            let method = sem_method_fn_name(st, expr_ref);
+            if hashmap_contains(st.fn_ret, method) {
+                let ret: str = hashmap_get(st.fn_ret, method);
+                return ret;
+            }
+            return "";
+        }
+        if kind == NODE_FIELD_ACCESS {
+            let base_desc = sem_expr_desc(st, ast_field_access_ref_base_ref(expr_ref));
+            if starts_with(base_desc, "S:") {
+                let key = substring(base_desc, 2, len(base_desc)) + "." + sem_name(st, ast_field_access_ref_name_idx(expr_ref));
+                if hashmap_contains(st.field_desc, key) {
+                    let field: str = hashmap_get(st.field_desc, key);
+                    return field;
+                }
+            }
+            return "";
+        }
+        if kind == NODE_BINARY {
+            let op: i64 = ast_binary_ref_op(expr_ref);
+            if op == TOK_EQ || op == TOK_NE || op == TOK_LT || op == TOK_GT || op == TOK_LE || op == TOK_GE ||
+               op == TOK_AND || op == TOK_OR {
+                return "b";
+            }
+            let left = sem_expr_desc(st, ast_expr_ref_from_handle(ast_binary_ref_left_handle(expr_ref)));
+            if op == TOK_PLUS && left == "s" {
+                return "s";
+            }
+            if left == "i" {
+                return "i";
+            }
+            return "";
+        }
+        return "";
+    }
+
+    fn sem_method_fn_name(st: SemState, expr_ref: AstExprRef) -> str {
+        let recv = sem_expr_desc(st, ast_method_call_ref_receiver_ref(expr_ref));
+        if !starts_with(recv, "S:") {
+            return "";
+        }
+        return substring(recv, 2, len(recv)) + "::" + sem_name(st, ast_method_call_ref_method_name_idx(expr_ref));
+    }
+
+    // `copy x` parses as x with its span starting at `copy`.
+    fn sem_is_copy(st: SemState, expr_ref: AstExprRef, name: str) -> bool {
+        let start = ast_expr_ref_span_start(expr_ref);
+        if start < 0 || start + len(name) > len(st.source) {
+            return true;
+        }
+        return substring(st.source, start, start + len(name)) != name;
+    }
+
+    // The value expression moves a struct/array variable: mark it moved.
+    fn sem_consume(st: SemState, handle: i64) -> bool {
+        let expr_ref: AstExprRef = ast_expr_ref_from_handle(handle);
+        if ast_expr_ref_kind(expr_ref) != NODE_IDENT {
+            return true;
+        }
+        let name = sem_name(st, ast_expr_ref_name_idx(expr_ref));
+        let i = sem_local_index(st, name);
+        if i < 0 || !sem_is_move_desc(vec_get(st.l_desc, i)) || sem_is_copy(st, expr_ref, name) {
+            return true;
+        }
+        vec_set(st.l_moved, i, 1);
+        return true;
+    }
+
+    fn sem_check_value(st: SemState, expected_code: str, value_handle: i64, what: str, rule_name: str) -> bool {
+        let value_ref: AstExprRef = ast_expr_ref_from_handle(value_handle);
+        let found = sem_expr_desc(st, value_ref);
+        if !sem_is_scalar_code(expected_code) || !sem_is_scalar_code(found) || expected_code == found {
+            return true;
+        }
+        return sem_error(st, "collection_value_mismatch", rule_name, ast_node_ref_from_expr_ref(value_ref),
+            sem_code_name(expected_code), sem_code_name(found),
+            "Pass a " + sem_code_name(expected_code) + " " + what + " to match the declared type.");
+    }
+
+    // Builtins whose first argument must be a Vec, HashMap or Result handle.
+    fn sem_is_handle_builtin(name: str) -> bool {
+        if name == "vec_new" || name == "hashmap_new" || name == "hashmap_new_str" ||
+           name == "result_ok" || name == "result_err" {
+            return false;
+        }
+        return starts_with(name, "vec_") || starts_with(name, "hashmap_") || starts_with(name, "result_");
+    }
+
+    fn sem_code_name(code: str) -> str {
+        if code == "i" { return "integer"; }
+        if code == "b" { return "bool"; }
+        if code == "s" { return "str"; }
+        if code == "f" { return "float"; }
+        return "unknown";
+    }
+
+    fn sem_check_call(st: SemState, expr_ref: AstExprRef) -> bool {
+        let name = sem_name(st, ast_call_ref_name_idx(expr_ref));
+        if hashmap_contains(st.fn_ret, name) {
+            return true;
+        }
+        let args_ref: AstNodeListRef = ast_call_ref_args_ref(expr_ref);
+        let argc = ast_node_list_ref_count(args_ref);
+        if argc == 0 {
+            return true;
+        }
+        let first_ref: AstExprRef = ast_expr_ref_from_handle(ast_node_list_ref_get_handle(args_ref, 0));
+        let first = sem_expr_desc(st, first_ref);
+        if first == "i" && ast_expr_ref_kind(first_ref) == NODE_IDENT && sem_is_handle_builtin(name) {
+            return sem_error(st, "raw_handle_use", sem_name(st, ast_expr_ref_name_idx(first_ref)),
+                ast_node_ref_from_expr_ref(first_ref), "a typed Vec, HashMap or Result value", "integer",
+                "Pass the typed collection itself; an integer is not a Vec, HashMap or Result handle.");
+        }
+        if name == "vec_push" && argc == 2 && starts_with(first, "V:") {
+            return sem_check_value(st, sem_desc_char(first, 2), ast_node_list_ref_get_handle(args_ref, 1), "element", name);
+        }
+        if name == "hashmap_insert" && argc == 3 && starts_with(first, "M:") {
+            sem_check_value(st, sem_desc_char(first, 2), ast_node_list_ref_get_handle(args_ref, 1), "key", name);
+            return sem_check_value(st, sem_desc_char(first, 3), ast_node_list_ref_get_handle(args_ref, 2), "value", name);
+        }
+        if name == "result_value" && starts_with(first, "R:") {
+            let ok_code = sem_desc_char(first, 2);
+            let err_code = sem_desc_char(first, 3);
+            if sem_is_scalar_code(ok_code) && sem_is_scalar_code(err_code) && ok_code != err_code {
+                return sem_error(st, "ambiguous_result_value", name, ast_node_ref_from_expr_ref(expr_ref),
+                    "Result with matching Ok and Err types", "Result<" + sem_code_name(ok_code) + ", " + sem_code_name(err_code) + ">",
+                    "Use result_unwrap or result_unwrap_err, or match on Ok/Err, so the value has one type.");
+            }
+        }
+        return true;
+    }
+
+    // Result constructor checked against a declared Result<T, E>.
+    fn sem_check_result_init(st: SemState, declared: str, init_handle: i64) -> bool {
+        let init_ref: AstExprRef = ast_expr_ref_from_handle(init_handle);
+        if !starts_with(declared, "R:") || ast_expr_ref_kind(init_ref) != NODE_CALL {
+            return true;
+        }
+        let name = sem_name(st, ast_call_ref_name_idx(init_ref));
+        let args_ref: AstNodeListRef = ast_call_ref_args_ref(init_ref);
+        if hashmap_contains(st.fn_ret, name) || ast_node_list_ref_count(args_ref) != 1 {
+            return true;
+        }
+        let arg = ast_node_list_ref_get_handle(args_ref, 0);
+        if name == "result_ok" || name == "Ok" {
+            return sem_check_value(st, sem_desc_char(declared, 2), arg, "Ok value", name);
+        }
+        if name == "result_err" || name == "Err" {
+            return sem_check_value(st, sem_desc_char(declared, 3), arg, "Err value", name);
+        }
+        return true;
+    }
+
+    fn sem_walk_handle(st: SemState, handle: i64, value_ctx: bool) -> bool {
+        if !ast_optional_is_some(handle) {
+            return true;
+        }
+        return sem_walk_expr(st, ast_expr_ref_from_handle(handle), value_ctx);
+    }
+
+    fn sem_walk_list(st: SemState, list_ref: AstNodeListRef) -> bool {
+        let mut i: i64 = 0;
+        while i < ast_node_list_ref_count(list_ref) {
+            sem_walk_handle(st, ast_node_list_ref_get_handle(list_ref, i), true);
+            i = i + 1;
+        }
+        return true;
+    }
+
+    fn sem_walk_expr(st: SemState, expr_ref: AstExprRef, value_ctx: bool) -> bool {
+        let kind: i64 = ast_expr_ref_kind(expr_ref);
+
+        if kind == NODE_IDENT {
+            let name = sem_name(st, ast_expr_ref_name_idx(expr_ref));
+            let mut i = sem_local_index(st, name);
+            if i >= 0 && vec_get(st.l_moved, i) == 1 {
+                // Report once per move
+                vec_set(st.l_moved, i, 0);
+                return sem_error(st, "use_after_move", name, ast_node_ref_from_expr_ref(expr_ref),
+                    "a value that has not been moved", "moved value",
+                    "Use `copy " + name + "` where it was moved, or stop using " + name + " after the move.");
+            }
+            return true;
+        }
+
+        if kind == NODE_FIELD_ACCESS {
+            let base_ref: AstExprRef = ast_field_access_ref_base_ref(expr_ref);
+            if ast_expr_ref_kind(base_ref) == NODE_IDENT {
+                let base_name = sem_name(st, ast_expr_ref_name_idx(base_ref));
+                if sem_local_index(st, base_name) < 0 && hashmap_contains(st.enum_names, base_name) {
+                    let variant = sem_name(st, ast_field_access_ref_name_idx(expr_ref));
+                    if !hashmap_contains(st.variant_arity, base_name + "." + variant) {
+                        return sem_error(st, "unknown_enum_variant", base_name + "." + variant,
+                            ast_node_ref_from_expr_ref(expr_ref), "a variant of enum " + base_name, variant,
+                            "Use one of the variants declared in enum " + base_name + ".");
+                    }
+                    return true;
+                }
+            }
+            return sem_walk_expr(st, base_ref, true);
+        }
+
+        if kind == NODE_CALL {
+            sem_walk_list(st, ast_call_ref_args_ref(expr_ref));
+            return sem_check_call(st, expr_ref);
+        }
+
+        if kind == NODE_METHOD_CALL {
+            let receiver_ref: AstExprRef = ast_method_call_ref_receiver_ref(expr_ref);
+            sem_walk_expr(st, receiver_ref, true);
+            sem_walk_list(st, ast_method_call_ref_args_ref(expr_ref));
+            let recv = sem_expr_desc(st, receiver_ref);
+            let method = sem_method_fn_name(st, expr_ref);
+            if starts_with(recv, "S:") && !hashmap_contains(st.fn_ret, method) {
+                return sem_error(st, "method_not_found", method, ast_node_ref_from_expr_ref(expr_ref),
+                    "a method declared as fn " + method, "no such method",
+                    "Declare fn " + method + " or call an existing method.");
+            }
+            return true;
+        }
+
+        if kind == NODE_STRUCT_LIT {
+            let name = sem_name(st, ast_struct_lit_ref_name_idx(expr_ref));
+            let values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
+            sem_walk_list(st, values_ref);
+            let mut i: i64 = 0;
+            while i < ast_node_list_ref_count(values_ref) {
+                sem_consume(st, ast_node_list_ref_get_handle(values_ref, i));
+                i = i + 1;
+            }
+            let base_handle = ast_struct_lit_ref_base_handle(expr_ref);
+            if base_handle != 0 {
+                sem_walk_handle(st, base_handle, true);
+                let base_desc = sem_expr_desc(st, ast_expr_ref_from_handle(base_handle));
+                if starts_with(base_desc, "S:") && base_desc != "S:" + name {
+                    return sem_error(st, "struct_update_base_mismatch", name,
+                        ast_node_ref_from_expr_ref(ast_expr_ref_from_handle(base_handle)),
+                        name, substring(base_desc, 2, len(base_desc)),
+                        "The ..base value must be a " + name + ".");
+                }
+            }
+            return true;
+        }
+
+        if kind == NODE_ARRAY_LIT {
+            let elems_ref: AstNodeListRef = ast_array_lit_ref_elements_ref(expr_ref);
+            sem_walk_list(st, elems_ref);
+            let mut i: i64 = 0;
+            while i < ast_node_list_ref_count(elems_ref) {
+                sem_consume(st, ast_node_list_ref_get_handle(elems_ref, i));
+                i = i + 1;
+            }
+            return true;
+        }
+
+        if kind == NODE_ARRAY_REPEAT {
+            return sem_walk_expr(st, ast_array_repeat_ref_elem_ref(expr_ref), true);
+        }
+
+        if kind == NODE_CAST {
+            let inner_ref: AstExprRef = ast_expr_ref_from_handle(ast_cast_ref_expr_handle(expr_ref));
+            sem_walk_expr(st, inner_ref, true);
+            return true;
+        }
+
+        if kind == NODE_BINARY {
+            sem_walk_handle(st, ast_binary_ref_left_handle(expr_ref), true);
+            return sem_walk_handle(st, ast_binary_ref_right_handle(expr_ref), true);
+        }
+
+        if kind == NODE_UNARY {
+            return sem_walk_handle(st, ast_unary_ref_operand_handle(expr_ref), true);
+        }
+
+        if kind == NODE_TRY {
+            return sem_walk_handle(st, ast_try_ref_expr_handle(expr_ref), true);
+        }
+
+        if kind == NODE_INDEX {
+            sem_walk_handle(st, ast_index_ref_base_handle(expr_ref), true);
+            return sem_walk_handle(st, ast_index_ref_expr_handle(expr_ref), true);
+        }
+
+        if kind == NODE_TERNARY {
+            sem_walk_handle(st, ast_ternary_ref_cond_handle(expr_ref), true);
+            sem_walk_handle(st, ast_ternary_ref_then_handle(expr_ref), value_ctx);
+            return sem_walk_handle(st, ast_ternary_ref_else_handle(expr_ref), value_ctx);
+        }
+
+        if kind == NODE_BLOCK {
+            return sem_walk_block(st, ast_block_ref_from_handle(ast_expr_ref_handle(expr_ref)));
+        }
+
+        if kind == NODE_MATCH {
+            return sem_walk_match(st, expr_ref, value_ctx);
+        }
+        return true;
+    }
+
+    // Pattern diagnostics point at the enclosing match (node_ref).
+    fn sem_check_pattern(st: SemState, pattern_ref: AstPatternRef, node_ref: AstNodeRef) -> bool {
+        let kind: i64 = ast_pattern_ref_kind(pattern_ref);
+        if kind == PAT_SOME || kind == PAT_RESULT_OK || kind == PAT_RESULT_ERR {
+            let aux = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                return sem_check_pattern(st, ast_pattern_ref_from_handle(aux), node_ref);
+            }
+            return true;
+        }
+        if kind != PAT_ENUM_VARIANT {
+            return true;
+        }
+        let enum_name = sem_name(st, ast_pattern_ref_value(pattern_ref));
+        let variant = sem_name(st, ast_pattern_ref_aux(pattern_ref));
+        let key = enum_name + "." + variant;
+        if !hashmap_contains(st.enum_names, enum_name) {
+            return true;
+        }
+        if !hashmap_contains(st.variant_arity, key) {
+            return sem_error(st, "unknown_enum_variant", key, node_ref,
+                "a variant of enum " + enum_name, variant,
+                "Use one of the variants declared in enum " + enum_name + ".");
+        }
+        let arity: i64 = hashmap_get(st.variant_arity, key);
+        let mut bound: i64 = 0;
+        if ast_pattern_ref_bind(pattern_ref) >= 0 {
+            bound = bound + 1;
+        }
+        if ast_pattern_ref_bind2(pattern_ref) >= 0 {
+            bound = bound + 1;
+        }
+        if bound > 0 && bound != arity {
+            return sem_error(st, "enum_pattern_arity", key, node_ref,
+                int_to_string(arity) + " binding(s)", int_to_string(bound) + " binding(s)",
+                "Bind exactly the payload values declared for " + key + ".");
+        }
+        return true;
+    }
+
+    // A block used as a value must end in an expression (or leave by return/break/continue).
+    fn sem_block_has_value(block_ref: AstBlockRef) -> bool {
+        let count = ast_block_ref_stmt_count(block_ref);
+        if count == 0 {
+            return false;
+        }
+        let last: i64 = ast_stmt_ref_kind(ast_block_ref_stmt_ref(block_ref, count - 1));
+        return !(last == NODE_LET || last == NODE_ASSIGN || last == NODE_WHILE || last == NODE_FOR ||
+                 last == NODE_LOOP || last == NODE_DEFER);
+    }
+
+    fn sem_walk_match(st: SemState, expr_ref: AstExprRef, value_ctx: bool) -> bool {
+        sem_walk_handle(st, ast_match_ref_scrutinee_handle(expr_ref), true);
+        let patterns_ref: AstPatternListRef = ast_match_ref_patterns_ref(expr_ref);
+        let bodies_ref: AstNodeListRef = ast_match_ref_bodies_ref(expr_ref);
+        let guards_ref: AstI64ListRef = ast_match_ref_guards_ref(expr_ref);
+        let before = sem_moved_snapshot(st);
+        let merged = sem_moved_snapshot(st);
+        let mut i: i64 = 0;
+        while i < ast_pattern_list_ref_count(patterns_ref) {
+            sem_moved_set(st, before);
+            let mark = sem_mark(st);
+            let pattern_ref: AstPatternRef = ast_pattern_list_ref_get_ref(patterns_ref, i);
+            sem_check_pattern(st, pattern_ref, ast_node_ref_from_expr_ref(expr_ref));
+            sem_bind_pattern(st, pattern_ref);
+            if i < ast_i64_list_ref_count(guards_ref) {
+                let guard = ast_i64_list_ref_get(guards_ref, i);
+                if guard != 0 {
+                    sem_walk_handle(st, guard, true);
+                }
+            }
+            if i < ast_node_list_ref_count(bodies_ref) {
+                let body = ast_node_list_ref_get_handle(bodies_ref, i);
+                let body_node: AstNodeRef = ast_node_ref_from_handle(body);
+                if ast_node_ref_kind(body_node) == NODE_BLOCK {
+                    let block_ref: AstBlockRef = ast_block_ref_from_handle(body);
+                    if value_ctx && !sem_block_has_value(block_ref) {
+                        sem_error(st, "match_arm_missing_value", "match arm " + int_to_string(i + 1), body_node,
+                            "a block ending in a value expression", "a block without a final value",
+                            "End the arm block with the value the match should produce.");
+                    }
+                    sem_walk_block(st, block_ref);
+                } else {
+                    sem_walk_handle(st, body, value_ctx);
+                }
+            }
+            sem_restore(st, mark);
+            sem_moved_union(st, merged);
+            i = i + 1;
+        }
+        return sem_moved_set(st, merged);
+    }
+
+    fn sem_bind_pattern(st: SemState, pattern_ref: AstPatternRef) -> bool {
+        let kind: i64 = ast_pattern_ref_kind(pattern_ref);
+        let value = ast_pattern_ref_value(pattern_ref);
+        if kind == PAT_BIND {
+            return sem_bind(st, sem_name(st, value), "", true);
+        }
+        if kind == PAT_SOME || kind == PAT_RESULT_OK || kind == PAT_RESULT_ERR {
+            if value >= 0 {
+                sem_bind(st, sem_name(st, value), "", true);
+            }
+            let aux = ast_pattern_ref_aux(pattern_ref);
+            if aux != 0 {
+                return sem_bind_pattern(st, ast_pattern_ref_from_handle(aux));
+            }
+            return true;
+        }
+        if kind == PAT_ENUM_VARIANT || kind == PAT_STRUCT || kind == PAT_TUPLE {
+            if ast_pattern_ref_bind(pattern_ref) >= 0 {
+                sem_bind(st, sem_name(st, ast_pattern_ref_bind(pattern_ref)), "", true);
+            }
+            if ast_pattern_ref_bind2(pattern_ref) >= 0 {
+                sem_bind(st, sem_name(st, ast_pattern_ref_bind2(pattern_ref)), "", true);
+            }
+        }
+        return true;
+    }
+
+    // ---- Statements ----
+
+    fn sem_walk_block(st: SemState, block_ref: AstBlockRef) -> bool {
+        let mark = sem_mark(st);
+        let mut i: i64 = 0;
+        while i < ast_block_ref_stmt_count(block_ref) {
+            sem_walk_stmt(st, ast_block_ref_stmt_ref(block_ref, i));
+            i = i + 1;
+        }
+        return sem_restore(st, mark);
+    }
+
+    fn sem_walk_stmt(st: SemState, stmt_ref: AstStmtRef) -> bool {
+        let kind: i64 = ast_stmt_ref_kind(stmt_ref);
+
+        if kind == NODE_LET {
+            let name = sem_name(st, ast_let_ref_name_idx(stmt_ref));
+            let init = ast_let_ref_init_handle(stmt_ref);
+            let mut desc = sem_type_desc_handle(st, ast_let_ref_type_handle(stmt_ref));
+            if ast_optional_is_some(init) {
+                sem_walk_handle(st, init, true);
+                sem_check_result_init(st, desc, init);
+                if len(desc) == 0 {
+                    desc = sem_expr_desc(st, ast_expr_ref_from_handle(init));
+                }
+                sem_consume(st, init);
+            }
+            // A let without an initializer may be assigned later.
+            return sem_bind(st, name, desc, ast_let_ref_is_mutable(stmt_ref) || !ast_optional_is_some(init));
+        }
+
+        if kind == NODE_ASSIGN {
+            let target_ref: AstExprRef = ast_expr_ref_from_handle(ast_assign_ref_target_handle(stmt_ref));
+            let value = ast_assign_ref_value_handle(stmt_ref);
+            sem_walk_handle(st, value, true);
+            if ast_expr_ref_kind(target_ref) == NODE_IDENT {
+                let name = sem_name(st, ast_expr_ref_name_idx(target_ref));
+                let i = sem_local_index(st, name);
+                sem_consume(st, value);
+                if i >= 0 {
+                    if vec_get(st.l_mut, i) == 0 {
+                        sem_error(st, "immutable_assignment", name, ast_node_ref_from_expr_ref(target_ref),
+                            "a variable declared with let mut", "immutable binding",
+                            "Declare it as `let mut " + name + "` to allow reassignment.");
+                    }
+                    // Reassignment gives the variable a fresh value
+                    vec_set(st.l_moved, i, 0);
+                }
+                return true;
+            }
+            sem_consume(st, value);
+            return sem_walk_expr(st, target_ref, true);
+        }
+
+        if kind == NODE_RETURN {
+            return sem_walk_handle(st, ast_return_ref_expr_handle(stmt_ref), true);
+        }
+
+        if kind == NODE_EXPR_STMT {
+            return sem_walk_handle(st, ast_expr_stmt_ref_expr_handle(stmt_ref), false);
+        }
+
+        if kind == NODE_IF {
+            sem_walk_handle(st, ast_if_ref_cond_handle(stmt_ref), true);
+            let before = sem_moved_snapshot(st);
+            sem_walk_block(st, ast_if_ref_then_block_ref(stmt_ref));
+            let merged = sem_moved_snapshot(st);
+            let else_handle = ast_if_ref_else_handle(stmt_ref);
+            if ast_optional_is_some(else_handle) {
+                sem_moved_set(st, before);
+                sem_walk_block(st, ast_block_ref_from_handle(else_handle));
+                sem_moved_union(st, merged);
+            }
+            return sem_moved_set(st, merged);
+        }
+
+        if kind == NODE_WHILE {
+            sem_walk_handle(st, ast_while_ref_cond_handle(stmt_ref), true);
+            return sem_walk_block(st, ast_while_ref_body_ref(stmt_ref));
+        }
+
+        if kind == NODE_LOOP {
+            return sem_walk_block(st, ast_loop_ref_body_ref(stmt_ref));
+        }
+
+        if kind == NODE_FOR {
+            sem_walk_handle(st, ast_for_ref_start_handle(stmt_ref), true);
+            sem_walk_handle(st, ast_for_ref_end_handle(stmt_ref), true);
+            let mark = sem_mark(st);
+            sem_bind(st, sem_name(st, ast_for_ref_name_idx(stmt_ref)), "i", true);
+            sem_walk_block(st, ast_for_ref_body_ref(stmt_ref));
+            return sem_restore(st, mark);
+        }
+
+        if kind == NODE_DEFER {
+            return sem_walk_stmt(st, ast_stmt_ref_from_handle(ast_defer_ref_stmt_handle(stmt_ref)));
+        }
+
+        if kind == NODE_BLOCK {
+            return sem_walk_block(st, ast_block_ref_from_handle(ast_stmt_ref_handle(stmt_ref)));
+        }
+        return true;
+    }
+
+    // ---- Driver ----
+
+    fn sem_param_desc(st: SemState, fn_name: str, param_ref: AstNodeRef) -> str {
+        let desc = sem_type_desc_handle(st, ast_param_ref_type_handle(param_ref));
+        if len(desc) == 0 && sem_name(st, ast_param_ref_name_idx(param_ref)) == "self" {
+            let sep = str_index_of(fn_name, "::");
+            if sep > 0 && hashmap_contains(st.struct_names, substring(fn_name, 0, sep)) {
+                return "S:" + substring(fn_name, 0, sep);
+            }
+        }
+        return desc;
+    }
+
+    fn sem_new(names: Vec<str>, source: str) -> SemState {
+        let scope: Vec<str> = vec_new();
+        vec_push(scope, "");
+        return SemState {
+            names: names,
+            source: source,
+            diags: resolver_state_new(),
+            scope: scope,
+            enum_names: hashmap_new(),
+            variant_arity: hashmap_new(),
+            struct_names: hashmap_new(),
+            field_desc: hashmap_new(),
+            fn_ret: hashmap_new(),
+            l_name: vec_new(),
+            l_desc: vec_new(),
+            l_mut: vec_new(),
+            l_moved: vec_new()
+        };
+    }
+
+    fn semantic_check_kernel(kernel_ref: AstNodeRef, source: str) -> Vec<str> {
+        let st: SemState = sem_new(ast_kernel_ref_names(kernel_ref), source);
+        let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
+        let count = ast_node_list_ref_count(items_ref);
+
+        let mut i: i64 = 0;
+        while i < count {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            let kind: i64 = ast_item_ref_kind(item_ref);
+            if kind == NODE_STRUCT {
+                hashmap_insert(st.struct_names, sem_name(st, ast_struct_ref_name_idx(item_ref)), 1);
+            } else if kind == NODE_ENUM {
+                let enum_name = sem_name(st, ast_enum_ref_name_idx(item_ref));
+                hashmap_insert(st.enum_names, enum_name, 1);
+                let variants_ref: AstI64ListRef = ast_enum_ref_variants_ref(item_ref);
+                let payloads_ref: AstI64ListRef = ast_enum_ref_payloads_ref(item_ref);
+                let mut v: i64 = 0;
+                while v < ast_i64_list_ref_count(variants_ref) {
+                    let mut arity: i64 = 0;
+                    if v < ast_i64_list_ref_count(payloads_ref) {
+                        let payload = ast_i64_list_ref_get(payloads_ref, v);
+                        if payload != 0 {
+                            arity = ast_i64_list_ref_count(ast_i64_list_ref_from_handle(payload));
+                        }
+                    }
+                    hashmap_insert(st.variant_arity, enum_name + "." + sem_name(st, ast_i64_list_ref_get(variants_ref, v)), arity);
+                    v = v + 1;
+                }
+            }
+            i = i + 1;
+        }
+
+        i = 0;
+        while i < count {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            let kind: i64 = ast_item_ref_kind(item_ref);
+            if kind == NODE_STRUCT {
+                let struct_name = sem_name(st, ast_struct_ref_name_idx(item_ref));
+                let fields_ref: AstNodeListRef = ast_struct_ref_fields_ref(item_ref);
+                let mut f: i64 = 0;
+                while f < ast_node_list_ref_count(fields_ref) {
+                    let field_ref: AstNodeRef = ast_node_list_ref_get_ref(fields_ref, f);
+                    hashmap_insert(st.field_desc, struct_name + "." + sem_name(st, ast_field_decl_ref_name_idx(field_ref)),
+                        sem_type_desc(st, ast_field_decl_ref_type_ref(field_ref)));
+                    f = f + 1;
+                }
+            } else if kind == NODE_FN {
+                hashmap_insert(st.fn_ret, sem_name(st, ast_fn_ref_name_idx(item_ref)),
+                    sem_type_desc_handle(st, ast_fn_ref_return_type_handle(item_ref)));
+            }
+            i = i + 1;
+        }
+
+        i = 0;
+        while i < count {
+            let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
+            if ast_item_ref_kind(item_ref) == NODE_FN {
+                let fn_name = sem_name(st, ast_fn_ref_name_idx(item_ref));
+                vec_set(st.scope, 0, "fn:" + fn_name);
+                sem_restore(st, 0);
+                let params_ref: AstNodeListRef = ast_fn_ref_params_ref(item_ref);
+                let mut p: i64 = 0;
+                while p < ast_node_list_ref_count(params_ref) {
+                    let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, p);
+                    sem_bind(st, sem_name(st, ast_param_ref_name_idx(param_ref)), sem_param_desc(st, fn_name, param_ref), true);
+                    p = p + 1;
+                }
+                sem_walk_block(st, ast_fn_ref_body_ref(item_ref));
+            }
+            i = i + 1;
+        }
+        return st.diags;
+    }
+
+    fn build_semantic_report_comment(kernel: Vec<i64>, source: str) -> str {
+        let comma: str = ",";
+        let diags: Vec<str> = semantic_check_kernel(ast_node_ref_from_node(kernel), source);
+        let count = resolver_state_count(diags);
+        return "/* BUNKER_SEMANTIC_JSON: {" +
+            json_field_str("schema_version", "bunker.self_host.semantic.v1") + comma +
+            json_field_bool("has_diagnostics", count > 0) + comma +
+            json_field_i64("diagnostic_count", count) + comma +
+            json_field_i64("error_count", count) + comma +
+            json_field_raw("diagnostics", resolver_state_json(diags)) +
+            "}" + from_char_code(10) + "*/" + from_char_code(10);
+    }

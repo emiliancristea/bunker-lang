@@ -55,8 +55,8 @@ kernel CCodeGen {
     fn cgen_add_line(state: Vec<i64>, line: str) -> Vec<i64> {
         let lines = vec_get(state, 0) as Vec<str>;
         let indent = vec_get(state, 1);
-        let prefix: str = "";
-        let i: i64 = 0;
+        let mut prefix: str = "";
+        let mut i: i64 = 0;
         while i < indent {
             prefix = prefix + "    ";
             i = i + 1;
@@ -194,7 +194,7 @@ kernel CCodeGen {
             let type_node = vec_get(stmt, 2);
             let init_expr = vec_get(stmt, 3);
 
-            let c_type: str = "bkr_i64";
+            let mut c_type: str = "bkr_i64";
             if type_node != 0 {
                 let type_node_vec = type_node as Vec<i64>;
                 let kind = vec_get(type_node_vec, 1);
@@ -202,7 +202,7 @@ kernel CCodeGen {
             }
 
             let name = name_from_idx(name_idx);
-            let line: str = c_type + " " + name;
+            let mut line: str = c_type + " " + name;
 
             if init_expr != 0 {
                 let init_c = gen_expr(init_expr as Vec<i64>);
@@ -215,7 +215,7 @@ kernel CCodeGen {
 
         if node_type == NODE_RETURN {
             let ret_expr = vec_get(stmt, 1);
-            let line: str = "return";
+            let mut line: str = "return";
             if ret_expr != 0 {
                 let expr_c = gen_expr(ret_expr as Vec<i64>);
                 line = line + " " + expr_c;
@@ -273,7 +273,7 @@ kernel CCodeGen {
 
     // Generate block body
     fn gen_block_body(state: Vec<i64>, block: Vec<i64>) -> Vec<i64> {
-        let i: i64 = 1;
+        let mut i: i64 = 1;
         while i < vec_len(block) {
             let stmt = vec_get(block, i) as Vec<i64>;
             gen_stmt(state, stmt);
@@ -288,7 +288,7 @@ kernel CCodeGen {
         let ret_type_node = vec_get(fn_node, 3);
         let body = vec_get(fn_node, 4) as Vec<i64>;
 
-        let ret_type: str = "void";
+        let mut ret_type: str = "void";
         if ret_type_node != 0 {
             let ret_type_vec = ret_type_node as Vec<i64>;
             let kind = vec_get(ret_type_vec, 1);
@@ -312,7 +312,7 @@ kernel CCodeGen {
         let funcs = vec_get(kernel, 2) as Vec<i64>;
         let prefix = name_from_idx(name_idx);
 
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(funcs) {
             let fn_node = vec_get(funcs, i) as Vec<i64>;
             gen_fn(state, fn_node, prefix);

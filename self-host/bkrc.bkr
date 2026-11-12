@@ -35,11 +35,15 @@ kernel BunkerCompiler {
 
     import "modules/typecheck.bkr";
 
+    import "modules/semantic.bkr";
+
     import "modules/shell.bkr";
 
     import "modules/view.bkr";
 
     import "modules/verify.bkr";
+
+    import "modules/x86_codegen.bkr";
 
     import "modules/driver.bkr";
 }

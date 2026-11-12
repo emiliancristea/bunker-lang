@@ -26,7 +26,7 @@
     fn type_graph_type_ref_json(names: Vec<str>, type_ref: AstTypeRef, source: str) -> str {
         let comma = ",";
         let kind: i64 = ast_type_ref_kind_value(type_ref);
-        let result = "{" +
+        let mut result = "{" +
             json_field_str("type_kind", ast_type_kind_name(kind)) + comma +
             json_field_i64("type_tag", kind) + comma +
             json_field_str("c_abi", type_to_c(kind)) + comma +
@@ -139,13 +139,13 @@
         let state: CgenStateRef = cgen_new_ref(ast_report_name(names, ast_node_ref_name_idx(kernel_ref)), names);
         cgen_attach_kernel_handle(state, ast_node_ref_handle(kernel_ref));
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             let kind: i64 = ast_item_ref_kind(item_ref);
             if kind == NODE_FN {
                 let ret_type: i64 = ast_fn_ref_return_type_handle(item_ref);
-                let ret_kind: i64 = TYPE_VOID;
+                let mut ret_kind: i64 = TYPE_VOID;
                 if ast_optional_is_some(ret_type) {
                     ret_kind = typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(ret_type));
                 }
@@ -196,8 +196,8 @@
     }
 
     fn type_graph_params_ref_json(names: Vec<str>, params_ref: AstNodeListRef) -> str {
-        let result = "[";
-        let i: i64 = 0;
+        let mut result = "[";
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(params_ref) {
             result = type_graph_json_array_append(result,
                 type_graph_param_ref_json(names, ast_node_list_ref_get_ref(params_ref, i)));
@@ -225,8 +225,8 @@
     }
 
     fn type_graph_fields_ref_json(names: Vec<str>, fields_ref: AstNodeListRef) -> str {
-        let result = "[";
-        let i: i64 = 0;
+        let mut result = "[";
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(fields_ref) {
             result = type_graph_json_array_append(result,
                 type_graph_field_ref_json(names, ast_node_list_ref_get_ref(fields_ref, i)));
@@ -256,9 +256,9 @@
 
     fn type_graph_structs_ref_json(kernel_ref: AstNodeRef) -> str {
         let names = ast_kernel_ref_names(kernel_ref);
-        let result = "[";
+        let mut result = "[";
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_STRUCT {
@@ -294,9 +294,9 @@
 
     fn type_graph_consts_ref_json(kernel_ref: AstNodeRef, state: CgenStateRef) -> str {
         let names = ast_kernel_ref_names(kernel_ref);
-        let result = "[";
+        let mut result = "[";
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_CONST {
@@ -364,8 +364,8 @@
     }
 
     fn type_graph_block_locals_ref_json(state: CgenStateRef, names: Vec<str>, block_ref: AstBlockRef) -> str {
-        let result = "[";
-        let i: i64 = 0;
+        let mut result = "[";
+        let mut i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
             let stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, i);
             let kind: i64 = ast_stmt_ref_kind(stmt_ref);
@@ -410,8 +410,8 @@
     }
 
     fn type_graph_block_returns_ref_json(state: CgenStateRef, names: Vec<str>, block_ref: AstBlockRef) -> str {
-        let result = "[";
-        let i: i64 = 0;
+        let mut result = "[";
+        let mut i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
             let stmt_ref: AstStmtRef = ast_block_ref_stmt_ref(block_ref, i);
             let kind: i64 = ast_stmt_ref_kind(stmt_ref);
@@ -442,12 +442,12 @@
     fn type_graph_function_state_ref(kernel_ref: AstNodeRef, fn_ref: AstItemRef) -> CgenStateRef {
         let state: CgenStateRef = type_graph_seed_state_ref(kernel_ref);
         let params_ref: AstNodeListRef = ast_fn_ref_params_ref(fn_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(params_ref) {
             let param_ref: AstNodeRef = ast_node_list_ref_get_ref(params_ref, i);
             let param_type: i64 = ast_param_ref_type_handle(param_ref);
             let param_name_idx: i64 = ast_param_ref_name_idx(param_ref);
-            let param_kind: i64 = TYPE_I64;
+            let mut param_kind: i64 = TYPE_I64;
             if ast_optional_is_some(param_type) {
                 param_kind = typecheck_resolve_type_ref_kind(kernel_ref, ast_type_ref_from_handle(param_type));
             }
@@ -488,9 +488,9 @@
 
     fn type_graph_functions_ref_json(kernel_ref: AstNodeRef) -> str {
         let names = ast_kernel_ref_names(kernel_ref);
-        let result = "[";
+        let mut result = "[";
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstItemRef = ast_node_list_ref_get_item_ref(items_ref, i);
             if ast_item_ref_kind(item_ref) == NODE_FN {
@@ -506,9 +506,9 @@
         let kernel_ref: AstNodeRef = ast_node_ref_from_node(kernel);
         let items_ref: AstNodeListRef = ast_kernel_ref_items_ref(kernel_ref);
         let full_walk: bool = ast_report_full_walk(kernel_ref);
-        let structs_json: str = "[]";
-        let constants_json: str = "[]";
-        let functions_json: str = "[]";
+        let mut structs_json: str = "[]";
+        let mut constants_json: str = "[]";
+        let mut functions_json: str = "[]";
         if full_walk {
             let state: CgenStateRef = type_graph_seed_state_ref(kernel_ref);
             structs_json = type_graph_structs_ref_json(kernel_ref);

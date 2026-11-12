@@ -48,8 +48,8 @@
     }
 
     fn resolver_state_json(state: Vec<str>) -> str {
-        let result = "[";
-        let i: i64 = 0;
+        let mut result = "[";
+        let mut i: i64 = 0;
         while i < vec_len(state) {
             if i > 0 {
                 result = result + ",";
@@ -71,7 +71,7 @@
     }
 
     fn resolver_i64_vec_contains(values: Vec<i64>, value: i64) -> bool {
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(values) {
             if vec_get(values, i) == value {
                 return true;
@@ -88,7 +88,7 @@
 
     fn resolver_i64_vec_copy(values: Vec<i64>) -> Vec<i64> {
         let result: Vec<i64> = vec_new();
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(values) {
             let copied_value: i64 = vec_get(values, i);
             vec_push(result, copied_value);

@@ -5,8 +5,8 @@
     // Produces BUNKER_AST_JSON from typed AST refs over the bootstrap layout.
 
     fn source_line_count(source: str) -> i64 {
-        let count: i64 = 1;
-        let i: i64 = 0;
+        let mut count: i64 = 1;
+        let mut i: i64 = 0;
         while i < len(source) {
             if char_code_at(source, i) == 10 {
                 count = count + 1;
@@ -98,8 +98,8 @@
     }
 
     fn ast_report_count_kind_ref(items_ref: AstNodeListRef, kind: i64) -> i64 {
-        let count: i64 = 0;
-        let i: i64 = 0;
+        let mut count: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             let item_ref: AstNodeRef = ast_node_list_ref_get_ref(items_ref, i);
             if ast_node_ref_kind(item_ref) == kind {
@@ -116,8 +116,8 @@
     }
 
     fn ast_report_items_json_ref(names: Vec<str>, items_ref: AstNodeListRef) -> str {
-        let result = "[";
-        let i: i64 = 0;
+        let mut result = "[";
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(items_ref) {
             if i > 0 {
                 result = result + ",";
@@ -133,8 +133,8 @@
     }
 
     fn ast_report_node_array_json_ref(names: Vec<str>, nodes_ref: AstNodeListRef) -> str {
-        let result = "[";
-        let i: i64 = 0;
+        let mut result = "[";
+        let mut i: i64 = 0;
         while i < ast_node_list_ref_count(nodes_ref) {
             if i > 0 {
                 result = result + ",";
@@ -157,8 +157,8 @@
     }
 
     fn ast_report_block_statements_ref_json(names: Vec<str>, block_ref: AstBlockRef) -> str {
-        let result = "[";
-        let i: i64 = 0;
+        let mut result = "[";
+        let mut i: i64 = 0;
         while i < ast_block_ref_stmt_count(block_ref) {
             if i > 0 {
                 result = result + ",";
@@ -177,7 +177,7 @@
         let comma = ",";
         let kind: i64 = ast_pattern_ref_kind(pattern_ref);
         let value: i64 = ast_pattern_ref_value(pattern_ref);
-        let result = "{" +
+        let mut result = "{" +
             json_field_str("kind", ast_pattern_kind_name(kind)) + comma +
             json_field_i64("source_start", ast_pattern_ref_span_start(pattern_ref)) + comma +
             json_field_i64("source_end", ast_pattern_ref_span_end(pattern_ref)) + comma +
@@ -199,8 +199,8 @@
     }
 
     fn ast_report_match_arms_json_ref(names: Vec<str>, patterns_ref: AstPatternListRef, bodies_ref: AstNodeListRef) -> str {
-        let result = "[";
-        let i: i64 = 0;
+        let mut result = "[";
+        let mut i: i64 = 0;
         while i < ast_pattern_list_ref_count(patterns_ref) {
             if i > 0 {
                 result = result + ",";
@@ -221,8 +221,8 @@
     fn ast_report_struct_lit_fields_json_ref(names: Vec<str>, expr_ref: AstExprRef) -> str {
         let field_names_ref: AstI64ListRef = ast_struct_lit_ref_field_names_ref(expr_ref);
         let field_values_ref: AstNodeListRef = ast_struct_lit_ref_field_values_ref(expr_ref);
-        let result = "[";
-        let i: i64 = 0;
+        let mut result = "[";
+        let mut i: i64 = 0;
         while i < ast_i64_list_ref_count(field_names_ref) {
             if i > 0 {
                 result = result + ",";
@@ -253,7 +253,7 @@
     fn ast_report_node_ref_json(names: Vec<str>, node_ref: AstNodeRef) -> str {
         let comma = ",";
         let kind: i64 = ast_node_ref_kind(node_ref);
-        let result = "{" +
+        let mut result = "{" +
             json_field_str("kind", ast_node_kind_name(kind)) + comma +
             json_field_str("category", ast_category_name(ast_node_ref_category(node_ref))) + comma +
             json_field_i64("source_start", ast_node_ref_span_start(node_ref)) + comma +
@@ -493,8 +493,8 @@
             json_field_i64("const_count", ast_report_count_kind_ref(items_ref, NODE_CONST)) +
             "}";
         let full_walk: bool = ast_report_full_walk(kernel_ref);
-        let items_json: str = "[]";
-        let tree_json: str = "{" + json_field_str("kind", "kernel") + "}";
+        let mut items_json: str = "[]";
+        let mut tree_json: str = "{" + json_field_str("kind", "kernel") + "}";
         if full_walk {
             items_json = ast_report_items_json_ref(names, items_ref);
             tree_json = ast_report_node_ref_json(names, ast_node_ref_from_node(kernel));

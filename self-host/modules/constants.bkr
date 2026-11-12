@@ -2,7 +2,7 @@
     // Declaration order is the stored numeric tag. Unused slots keep historical values.
     enum TokenKind {
         Eof,
-        Unused1,
+        Invalid,
         Unused2,
         Unused3,
         Unused4,

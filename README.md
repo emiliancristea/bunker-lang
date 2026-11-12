@@ -100,17 +100,18 @@ Human writes contracts → AI generates code → Compiler verifies → Ship prov
 
 ## Toolchain & Bootstrap
 
-Bunker is 100% self-hosted in pure Bunker (`self-host/`) and bootstraps from portable C11 source (`bootstrap/`) with **zero external dependencies**. No Rust, Cargo, Node, or Python required.
-
-To build the native Bunker compiler binary (`bkrc` / `bkrc.exe`):
+Bunker is self-hosted in Bunker (`self-host/`). On Linux x86-64 it builds itself with **no other language at all**: no C compiler, linker or libc. The native backend writes ELF executables directly and the runtime (`self-host/native_runtime.bkr`) is written in Bunker on raw system calls.
 
 ```bash
-# POSIX (Linux, macOS) - requires GCC or Clang
-bash bootstrap/build.sh
+# Linux x86-64: build from the checked-in binary seed, nothing else needed
+bash bootstrap/build-native.sh
 
-# Windows - requires MSVC (cl.exe), GCC, or Clang
-bootstrap\build.bat
+# Other platforms (or to cross-check): build from the portable C11 seed
+bash bootstrap/build.sh        # POSIX, needs gcc or clang
+bootstrap\build.bat            # Windows, needs MSVC, gcc or clang
 ```
+
+CI checks that both paths produce byte-identical compilers.
 
 ## Usage
 
@@ -148,16 +149,16 @@ bunker-lang/
 │       ├── shell.bkr     # Pure Bunker Shell & actor runtime
 │       ├── view.bkr      # Declarative UI tree & reactive bindings
 │       └── verify.bkr    # Contract verification engine
-├── bootstrap/            # Portable C11 bootstrap compiler package
+├── bootstrap/            # Bootstrap seeds: native Linux binary and portable C11
 │   ├── bkrc-stage1.c     # Canonical Stage 1 C seed
 │   ├── bkrc-stage2.c     # Stage 2 C seed (zero-diff fixpoint verification)
 │   ├── runtime.h         # Unified C runtime & arena allocator
 │   ├── build.sh          # POSIX zero-dependency build script
 │   ├── build.bat         # Windows zero-dependency build script
 │   └── SHA256SUMS        # Deterministic cryptographic checksums
-├── tests/                # 320 acceptance tests
+├── tests/                # 309 acceptance tests, expected_results.txt, known_failures.txt
+├── tools/test_runner.bkr # Test runner written in Bunker
 ├── docs/                 # Canonical language specifications & architecture
-├── run_tests.ps1         # 320-test automated validation harness
 ├── ROADMAP.md            # Implementation roadmap & completion status
 └── README.md
 ```
@@ -267,7 +268,8 @@ view MyView {
 ### Implemented ✅
 - [x] Full PEG grammar for all three layers (AI-friendly LL(1))
 - [x] Complete AST builder
-- [x] Kernel: full type checking + Cranelift JIT for `fn main() -> i32|i64|f64|bool`
+- [x] Kernel: native x86-64 backend (`bkrc native`, `bkrc run --native`) writes Linux executables with no C compiler, linker or libc; it compiles the compiler itself (native fixpoint). 130/207 run tests pass natively (the native backend now passes more run tests than the C backend's 116); missing: closures
+- [x] Kernel: type checking + C backend; `bkrc run` builds the emitted C with the system C compiler and executes it (the Cranelift JIT went away with the Rust prototype)
 - [x] Kernel: structs, arrays, Option<T>, match expressions, defer, type casting, constants
 - [x] Kernel: comptime functions with compile-time evaluation
 - [x] Kernel: **move semantics** with explicit `copy` (simpler than Rust's borrow checker)
@@ -281,7 +283,9 @@ view MyView {
 - [x] Self-host readiness command (`self-host-check`) for top-level `self-host/*.bkr` sources; 8/8 of those files pass (this command does not enumerate `self-host/modules/`)
 - [x] Self-host compile wrapper (`self-host-compile`) that runs modular `self-host/bkrc.bkr` on real `.bkr` input and emits C
 - [x] Stage1/stage2 self-compilation for the supported bootstrap subset (CI-certified on `main`)
-- [x] **320 tests passing** across Kernel, Shell, View, and Contract Verification
+- [ ] **201 / 309 tests really pass** (`./bkrc run tools/test_runner.bkr`), including all 81 programs that must be rejected. The other 108 are listed in `tests/known_failures.txt`; earlier "320 passing" counts came from a runner that marked every test as passed
+- [x] Semantic checks (`self-host/modules/semantic.bkr`): immutable `let` bindings (`let mut` to reassign), use-after-move for structs and arrays, unknown enum variants, enum pattern arity, typed Vec/HashMap/Result values, integers used as collection handles, unknown methods, struct update base types, match arms without values
+- [x] String and character escapes (`\n \t \r \0 \\ \" \' \xHH`); unknown escapes and stray characters are errors
 - [x] Kernel unit enums (`enum Color { Red, Green }`, `Color.Red`, exhaustive match)
 - [x] Self-host unit-enum match exhaustiveness (`non_exhaustive_match` / `BKR_SELF_EXHAUSTIVENESS`)
 - [x] Enum variant payload declarations (`enum Opt { Some(i32), None }`)

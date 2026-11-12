@@ -111,9 +111,9 @@ kernel CodeGen {
 
     fn lookup_local(state: Vec<i64>, name_idx: i64) -> i64 {
         let locals = vec_get(state, 1) as Vec<i64>;
-        let i: i64 = 0;
-        let found: i64 = 0;
-        let searching = true;
+        let mut i: i64 = 0;
+        let mut found: i64 = 0;
+        let mut searching = true;
 
         while searching && i < vec_len(locals) {
             if vec_get(locals, i) == name_idx {
@@ -305,7 +305,7 @@ kernel CodeGen {
 
     // Generate code for block
     fn gen_block(state: Vec<i64>, block: Vec<i64>) -> Vec<i64> {
-        let i: i64 = 1;
+        let mut i: i64 = 1;
         let continuing = true;
 
         while continuing && i < vec_len(block) {

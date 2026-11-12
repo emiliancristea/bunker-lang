@@ -38,9 +38,9 @@ If the feature introduces new failure modes or rejection boundaries:
 ### Stage 3: Dual-Fixture Test Requirement
 Every language change must contribute a paired set of test fixtures in `tests/`:
 1. **Positive Test Fixture (`tests/{N}_{feature}.bkr`)**:
-   - Executes the new construct through the JIT runtime and self-host C-backend.
+   - Executes the new construct through the self-host C backend (`bkrc run`).
    - Asserts all invariants and returns integer `42` on success.
-   - Must be registered in `$expectedResults` and `$selfHostSubset` in `run_tests.ps1`.
+   - Must be registered in `tests/expected_results.txt` (`<name> <exit code>`).
 2. **Negative Test Fixture (`tests/{N}_{feature}_BAD.bkr`)**:
    - Asserts that invalid or corrupt uses of the construct are rejected at compile time.
    - Emits the exact assigned diagnostic code (`E0xxx`).
@@ -52,7 +52,7 @@ Every language change must contribute a paired set of test fixtures in `tests/`:
 
 ### Stage 5: Multi-OS CI Gating
 - Verification across the full multi-OS matrix (`ubuntu-latest`, `windows-latest`, `macos-latest`).
-- 100% test pass rate in `run_tests.ps1` (0 failures).
+- `./bkrc run tools/test_runner.bkr` reports 0 unexpected failures.
 - Preservation of bit-for-bit Stage 1 / Stage 2 bootstrap fixpoint determinism.
 - Enforcement of pure LF line endings (`0x0A`) with zero CRLF contamination.
 

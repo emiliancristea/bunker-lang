@@ -425,9 +425,9 @@
     }
 
     fn ast_pattern_unpack(node: Vec<i64>) -> AstPattern {
-        let aux: i64 = 0;
-        let bind: i64 = -1;
-        let bind2: i64 = -1;
+        let mut aux: i64 = 0;
+        let mut bind: i64 = -1;
+        let mut bind2: i64 = -1;
         if vec_len(node) > AST_NODE_DATA_START + 1 {
             aux = vec_get(node, AST_NODE_DATA_START + 1);
         }
@@ -2350,9 +2350,9 @@
     }
 
     fn ast_type_unpack(node: Vec<i64>) -> AstType {
-        let kind: TypeKind = TYPE_UNKNOWN;
-        let payload: i64 = 0;
-        let aux: i64 = -1;
+        let mut kind: TypeKind = TYPE_UNKNOWN;
+        let mut payload: i64 = 0;
+        let mut aux: i64 = -1;
         if vec_len(node) > AST_NODE_DATA_START {
             kind = vec_get(node, AST_NODE_DATA_START);
         }
@@ -2450,10 +2450,10 @@
     }
 
     fn ast_match_unpack(node: Vec<i64>) -> AstMatch {
-        let scrutinee: i64 = 0;
-        let patterns: i64 = 0;
-        let bodies: i64 = 0;
-        let guards: i64 = 0;
+        let mut scrutinee: i64 = 0;
+        let mut patterns: i64 = 0;
+        let mut bodies: i64 = 0;
+        let mut guards: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             scrutinee = vec_get(node, AST_NODE_DATA_START);
         }
@@ -2505,7 +2505,7 @@
     }
 
     fn ast_atom_unpack(node: Vec<i64>) -> AstAtom {
-        let payload: i64 = 0;
+        let mut payload: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             payload = vec_get(node, AST_NODE_DATA_START);
         }
@@ -2572,7 +2572,7 @@
     }
 
     fn ast_array_lit_unpack(node: Vec<i64>) -> AstArrayLit {
-        let elements: i64 = 0;
+        let mut elements: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             elements = vec_get(node, AST_NODE_DATA_START);
         }
@@ -2612,8 +2612,8 @@
     }
 
     fn ast_array_repeat_unpack(node: Vec<i64>) -> AstArrayRepeat {
-        let elem: i64 = 0;
-        let count: i64 = 0;
+        let mut elem: i64 = 0;
+        let mut count: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             elem = vec_get(node, AST_NODE_DATA_START);
         }
@@ -2672,10 +2672,10 @@
     }
 
     fn ast_struct_lit_unpack(node: Vec<i64>) -> AstStructLit {
-        let name_idx: i64 = 0;
-        let field_names: i64 = 0;
-        let field_values: i64 = 0;
-        let base_handle: i64 = 0;
+        let mut name_idx: i64 = 0;
+        let mut field_names: i64 = 0;
+        let mut field_values: i64 = 0;
+        let mut base_handle: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             name_idx = vec_get(node, AST_NODE_DATA_START);
         }
@@ -2740,8 +2740,8 @@
     }
 
     fn ast_call_unpack(node: Vec<i64>) -> AstCall {
-        let name_idx: i64 = 0;
-        let args: i64 = 0;
+        let mut name_idx: i64 = 0;
+        let mut args: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             name_idx = vec_get(node, AST_NODE_DATA_START);
         }
@@ -2787,9 +2787,9 @@
     }
 
     fn ast_method_call_unpack(node: Vec<i64>) -> AstMethodCall {
-        let receiver: i64 = 0;
-        let method_name_idx: i64 = 0;
-        let args: i64 = 0;
+        let mut receiver: i64 = 0;
+        let mut method_name_idx: i64 = 0;
+        let mut args: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             receiver = vec_get(node, AST_NODE_DATA_START);
         }
@@ -2849,8 +2849,8 @@
     }
 
     fn ast_unary_unpack(node: Vec<i64>) -> AstUnary {
-        let op: TokenKind = TokenKind.Eof;
-        let operand: i64 = 0;
+        let mut op: TokenKind = TokenKind.Eof;
+        let mut operand: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             op = vec_get(node, AST_NODE_DATA_START);
         }
@@ -2894,8 +2894,8 @@
     }
 
     fn ast_index_unpack(node: Vec<i64>) -> AstIndex {
-        let base: i64 = 0;
-        let index: i64 = 0;
+        let mut base: i64 = 0;
+        let mut index: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             base = vec_get(node, AST_NODE_DATA_START);
         }
@@ -2939,8 +2939,8 @@
     }
 
     fn ast_field_access_unpack(node: Vec<i64>) -> AstFieldAccess {
-        let base: i64 = 0;
-        let name_idx: i64 = 0;
+        let mut base: i64 = 0;
+        let mut name_idx: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             base = vec_get(node, AST_NODE_DATA_START);
         }
@@ -2986,9 +2986,9 @@
     }
 
     fn ast_binary_unpack(node: Vec<i64>) -> AstBinary {
-        let op: TokenKind = TokenKind.Eof;
-        let left: i64 = 0;
-        let right: i64 = 0;
+        let mut op: TokenKind = TokenKind.Eof;
+        let mut left: i64 = 0;
+        let mut right: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             op = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3038,9 +3038,9 @@
     }
 
     fn ast_ternary_unpack(node: Vec<i64>) -> AstTernary {
-        let cond: i64 = 0;
-        let then_expr: i64 = 0;
-        let else_expr: i64 = 0;
+        let mut cond: i64 = 0;
+        let mut then_expr: i64 = 0;
+        let mut else_expr: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             cond = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3090,9 +3090,9 @@
     }
 
     fn ast_let_unpack(node: Vec<i64>) -> AstLet {
-        let name_idx: i64 = 0;
-        let type_handle: i64 = 0;
-        let init: i64 = 0;
+        let mut name_idx: i64 = 0;
+        let mut type_handle: i64 = 0;
+        let mut init: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             name_idx = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3114,6 +3114,21 @@
     fn ast_let_ref(name_idx: i64, type_node: i64, init: i64) -> AstStmtRef {
         let rec: AstLet = ast_let_record(name_idx, type_node, init);
         return ast_stmt_ref_from_handle(ast_let_pack(rec) as i64);
+    }
+
+    // `let mut` is recorded as one extra word after the packed AstLet fields.
+    fn ast_let_ref_set_mutable(stmt_ref: AstStmtRef) -> AstStmtRef {
+        let node: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
+        while vec_len(node) < AST_NODE_DATA_START + 3 {
+            vec_push(node, 0);
+        }
+        vec_push(node, 1);
+        return stmt_ref;
+    }
+
+    fn ast_let_ref_is_mutable(stmt_ref: AstStmtRef) -> bool {
+        let node: Vec<i64> = ast_stmt_node_from_ref(stmt_ref);
+        return vec_len(node) > AST_NODE_DATA_START + 3 && vec_get(node, AST_NODE_DATA_START + 3) == 1;
     }
 
     fn ast_let(name_idx: i64, type_node: i64, init: i64) -> Vec<i64> {
@@ -3138,7 +3153,7 @@
     }
 
     fn ast_return_unpack(node: Vec<i64>) -> AstReturn {
-        let expr: i64 = 0;
+        let mut expr: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             expr = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3176,7 +3191,7 @@
     }
 
     fn ast_defer_unpack(node: Vec<i64>) -> AstDefer {
-        let stmt: i64 = 0;
+        let mut stmt: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             stmt = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3214,7 +3229,7 @@
     }
 
     fn ast_try_unpack(node: Vec<i64>) -> AstTry {
-        let expr: i64 = 0;
+        let mut expr: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             expr = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3254,8 +3269,8 @@
     }
 
     fn ast_cast_unpack(node: Vec<i64>) -> AstCast {
-        let expr: i64 = 0;
-        let target_type: i64 = 0;
+        let mut expr: i64 = 0;
+        let mut target_type: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             expr = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3361,8 +3376,8 @@
     }
 
     fn ast_assign_unpack(node: Vec<i64>) -> AstAssign {
-        let target: i64 = 0;
-        let value: i64 = 0;
+        let mut target: i64 = 0;
+        let mut value: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             target = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3404,7 +3419,7 @@
     }
 
     fn ast_expr_stmt_unpack(node: Vec<i64>) -> AstExprStmt {
-        let expr: i64 = 0;
+        let mut expr: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             expr = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3515,9 +3530,9 @@
     }
 
     fn ast_if_unpack(node: Vec<i64>) -> AstIf {
-        let cond: i64 = 0;
-        let then_block: i64 = 0;
-        let else_block: i64 = 0;
+        let mut cond: i64 = 0;
+        let mut then_block: i64 = 0;
+        let mut else_block: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             cond = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3571,11 +3586,11 @@
     }
 
     fn ast_for_unpack(node: Vec<i64>) -> AstFor {
-        let name_idx: i64 = 0;
-        let start_expr: i64 = 0;
-        let end_expr: i64 = 0;
-        let inclusive: i64 = 0;
-        let body: i64 = 0;
+        let mut name_idx: i64 = 0;
+        let mut start_expr: i64 = 0;
+        let mut end_expr: i64 = 0;
+        let mut inclusive: i64 = 0;
+        let mut body: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             name_idx = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3631,8 +3646,8 @@
     }
 
     fn ast_while_unpack(node: Vec<i64>) -> AstWhile {
-        let cond: i64 = 0;
-        let body: i64 = 0;
+        let mut cond: i64 = 0;
+        let mut body: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             cond = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3674,7 +3689,7 @@
     }
 
     fn ast_loop_unpack(node: Vec<i64>) -> AstLoop {
-        let body: i64 = 0;
+        let mut body: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             body = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3714,8 +3729,8 @@
     }
 
     fn ast_param_unpack(node: Vec<i64>) -> AstParam {
-        let name_idx: i64 = 0;
-        let type_handle: i64 = 0;
+        let mut name_idx: i64 = 0;
+        let mut type_handle: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             name_idx = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3763,10 +3778,10 @@
     }
 
     fn ast_fn_unpack(node: Vec<i64>) -> AstFn {
-        let name_idx: i64 = 0;
-        let params: i64 = 0;
-        let return_type: i64 = 0;
-        let body: i64 = 0;
+        let mut name_idx: i64 = 0;
+        let mut params: i64 = 0;
+        let mut return_type: i64 = 0;
+        let mut body: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             name_idx = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3820,9 +3835,9 @@
     }
 
     fn ast_const_unpack(node: Vec<i64>) -> AstConst {
-        let name_idx: i64 = 0;
-        let type_handle: i64 = 0;
-        let value: i64 = 0;
+        let mut name_idx: i64 = 0;
+        let mut type_handle: i64 = 0;
+        let mut value: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             name_idx = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3870,8 +3885,8 @@
     }
 
     fn ast_field_decl_unpack(node: Vec<i64>) -> AstFieldDecl {
-        let name_idx: i64 = 0;
-        let type_handle: i64 = 0;
+        let mut name_idx: i64 = 0;
+        let mut type_handle: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             name_idx = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3915,8 +3930,8 @@
     }
 
     fn ast_struct_unpack(node: Vec<i64>) -> AstStruct {
-        let name_idx: i64 = 0;
-        let fields: i64 = 0;
+        let mut name_idx: i64 = 0;
+        let mut fields: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             name_idx = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3958,9 +3973,9 @@
     }
 
     fn ast_enum_unpack(node: Vec<i64>) -> AstEnum {
-        let name_idx: i64 = 0;
-        let variants: i64 = 0;
-        let payloads: i64 = 0;
+        let mut name_idx: i64 = 0;
+        let mut variants: i64 = 0;
+        let mut payloads: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             name_idx = vec_get(node, AST_NODE_DATA_START);
         }
@@ -3998,8 +4013,8 @@
 
     fn ast_enum_ref_payload_count(item_ref: AstItemRef) -> i64 {
         let payloads_ref: AstI64ListRef = ast_enum_ref_payloads_ref(item_ref);
-        let count: i64 = 0;
-        let i: i64 = 0;
+        let mut count: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_i64_list_ref_count(payloads_ref) {
             if ast_optional_is_some(ast_i64_list_ref_get(payloads_ref, i)) {
                 count = count + 1;
@@ -4011,8 +4026,8 @@
 
     fn ast_enum_ref_payload_arity_sum(item_ref: AstItemRef) -> i64 {
         let payloads_ref: AstI64ListRef = ast_enum_ref_payloads_ref(item_ref);
-        let sum: i64 = 0;
-        let i: i64 = 0;
+        let mut sum: i64 = 0;
+        let mut i: i64 = 0;
         while i < ast_i64_list_ref_count(payloads_ref) {
             let payload: i64 = ast_i64_list_ref_get(payloads_ref, i);
             if ast_optional_is_some(payload) {
@@ -4043,8 +4058,8 @@
     }
 
     fn ast_type_alias_unpack(node: Vec<i64>) -> AstTypeAlias {
-        let name_idx: i64 = 0;
-        let target_handle: i64 = 0;
+        let mut name_idx: i64 = 0;
+        let mut target_handle: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             name_idx = vec_get(node, AST_NODE_DATA_START);
         }
@@ -4104,10 +4119,10 @@
     }
 
     fn ast_kernel_unpack(node: Vec<i64>) -> AstKernel {
-        let name_idx: i64 = 0;
-        let items: i64 = 0;
-        let entry_idx: i64 = 0;
-        let names: i64 = 0;
+        let mut name_idx: i64 = 0;
+        let mut items: i64 = 0;
+        let mut entry_idx: i64 = 0;
+        let mut names: i64 = 0;
         if vec_len(node) > AST_NODE_DATA_START {
             name_idx = vec_get(node, AST_NODE_DATA_START);
         }

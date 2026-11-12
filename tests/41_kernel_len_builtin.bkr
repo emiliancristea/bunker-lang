@@ -9,7 +9,7 @@ kernel LenTest {
         let arr_len: i32 = len(arr);  // 5
 
         // String length (runtime)
-        let str: str = "Hello";
+        let mut str: str = "Hello";
         let str_len: i32 = len(str);  // 5
 
         // Another array

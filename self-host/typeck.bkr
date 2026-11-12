@@ -78,9 +78,9 @@ kernel TypeChecker {
 
     fn typeck_lookup_symbol(state: Vec<i64>, name_idx: i64) -> i64 {
         let syms = vec_get(state, 1) as Vec<i64>;
-        let i: i64 = 0;
-        let found = TYPE_UNKNOWN;
-        let searching = true;
+        let mut i: i64 = 0;
+        let mut found = TYPE_UNKNOWN;
+        let mut searching = true;
 
         while searching && i < vec_len(syms) {
             let entry = vec_get(syms, i) as Vec<i64>;
@@ -152,18 +152,18 @@ kernel TypeChecker {
             let type_node = vec_get(stmt, 2);
             let init_expr = vec_get(stmt, 3);
 
-            let declared_type = TYPE_UNKNOWN;
+            let mut declared_type = TYPE_UNKNOWN;
             if type_node != 0 {
                 declared_type = get_type_from_node(type_node);
             }
 
-            let inferred_type = TYPE_UNKNOWN;
+            let mut inferred_type = TYPE_UNKNOWN;
             if init_expr != 0 {
                 inferred_type = infer_expr_type(state, init_expr as Vec<i64>);
             }
 
             // Use declared type if available, otherwise inferred
-            let final_type = declared_type;
+            let mut final_type = declared_type;
             if final_type == TYPE_UNKNOWN {
                 final_type = inferred_type;
             }
@@ -178,7 +178,7 @@ kernel TypeChecker {
                 let expr_type = infer_expr_type(state, ret_expr as Vec<i64>);
                 let expected = typeck_get_ret_type(state);
                 // Simplified check: i32 and i64 are compatible
-                let compatible = false;
+                let mut compatible = false;
                 if expr_type == expected { compatible = true; }
                 if expr_type == TYPE_I32 && expected == TYPE_I64 { compatible = true; }
                 if expr_type == TYPE_I64 && expected == TYPE_I32 { compatible = true; }
@@ -241,7 +241,7 @@ kernel TypeChecker {
 
     // Check block
     fn check_block(state: Vec<i64>, block: Vec<i64>) -> Vec<i64> {
-        let i: i64 = 1;  // Skip NODE_BLOCK type marker
+        let mut i: i64 = 1;  // Skip NODE_BLOCK type marker
         let continuing = true;
 
         while continuing && i < vec_len(block) {
@@ -261,7 +261,7 @@ kernel TypeChecker {
         let body = vec_get(fn_node, 4) as Vec<i64>;
 
         // Set current function return type
-        let ret_type = TYPE_VOID;
+        let mut ret_type = TYPE_VOID;
         if ret_type_node != 0 {
             ret_type = get_type_from_node(ret_type_node);
         }
@@ -276,7 +276,7 @@ kernel TypeChecker {
     // Check kernel
     fn check_kernel(state: Vec<i64>, kernel: Vec<i64>) -> Vec<i64> {
         let funcs = vec_get(kernel, 2) as Vec<i64>;
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         let continuing = true;
 
         while continuing && i < vec_len(funcs) {

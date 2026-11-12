@@ -237,6 +237,22 @@ $ ./bkrc compile tests/01_basic_math.bkr -o math.c
 
 ---
 
+## Phase 10: Independence From Every Other Language
+
+**Goal:** Building Bunker and Bunker programs needs no C compiler, Rust, PowerShell or other toolchain. Linux x86-64 first.
+
+**Deliverables:**
+- [x] Honest test runner written in Bunker (`tools/test_runner.bkr`); PowerShell runner removed.
+- [x] Native x86-64 backend in Bunker (`self-host/modules/x86_codegen.bkr`): instruction encoder plus ELF64 writer, so `bkrc native` writes executables directly. 130/207 run tests pass natively (`tests/native_known_failures.txt`); 74 of the remaining 77 are programs the front end rejects on every backend. Still missing: closures and function values, generics beyond the C backend's subset.
+- [x] Runtime in Bunker on raw Linux syscalls (`self-host/native_runtime.bkr`): memory (mmap), strings, printing, Vec, HashMap, Result, bytes, files, paths, args, env, processes (fork/execve/wait4).
+- [x] `bkrc` compiles itself through the native backend: byte-identical native fixpoint, and the native compiler emits the same C as the C-built one.
+- [x] Checked-in `bkrc` Linux binary seed (`bootstrap/bkrc-linux-x86_64`, `SHA256SUMS.native`, `bootstrap/build-native.sh`); CI builds with `CC=/bin/false` and checks the C seed and binary seed produce the same compiler.
+- [~] Faster native code: runtime fixes (4096-entry string length cache, word-at-a-time strlen, `rep movsb` copies, lengths recorded by concat/substring) took the native self-build from 65 s to 12 s; the gcc-built compiler takes ~6.7 s. Closing the rest needs register allocation in the code generator. `BKR_NATIVE_MAP=<file>` writes a function address map for profiling.
+- [ ] Native backends for other targets (Linux arm64, macOS, Windows); those still bootstrap through the C seed.
+- [ ] Test runner spawns processes via syscalls instead of `/bin/sh`.
+
+---
+
 ## Timeline Summary
 
 | Phase | Duration | Milestone |
@@ -272,7 +288,7 @@ $ ./bkrc compile tests/01_basic_math.bkr -o math.c
 | 8 | ⬜ Not Started | Embedded/Metal profile |
 | 9 | ✅ Complete | Pure Bunker self-hosted toolchain (`self-host/`) is the primary production compiler; bootstraps from portable C11 (`bootstrap/`) with zero Rust or Cargo dependencies; zero-diff fixpoint certified. |
 
-**Test Suite:** 320 tests passing (including JIT/AOT validations, negative tests, shell actors, view declarative UI, contract verification)
+**Test Suite:** 201/309 tests really pass (`./bkrc run tools/test_runner.bkr`), including all 81 rejection tests; the 108 current failures are tracked in `tests/known_failures.txt`. Attributes (`#[verified]`, `#[requires]`, ...) do not parse yet, so contract tests fail and the two attribute rejection tests pass only because attributes are a syntax error. Shell, View and contract modules exist as libraries but the compiler does not yet compile `shell`/`view` blocks or enforce contracts.
 
 ---
 

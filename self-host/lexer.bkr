@@ -57,20 +57,20 @@ kernel Lexer {
     fn tokenize_chunk(source: str, pos: i64) -> Vec<i64> {
         let result: Vec<i64> = vec_new();
         let src_len = len(source);
-        let count: i64 = 0;
-        let last_tok: i64 = TOK_ERROR;
-        let continue_loop = true;
+        let mut count: i64 = 0;
+        let mut last_tok: i64 = TOK_ERROR;
+        let mut continue_loop = true;
 
         while continue_loop && count < 8 {
             // Skip whitespace
-            let skipping = true;
+            let mut skipping = true;
             while skipping && pos < src_len {
                 let code = char_code_at(source, pos);
                 if code == 32 || code == 9 || code == 10 || code == 13 {
                     pos = pos + 1;
                 } else if code == 47 && pos + 1 < src_len && char_code_at(source, pos + 1) == 47 {
                     pos = pos + 2;
-                    let in_comment = true;
+                    let mut in_comment = true;
                     while in_comment && pos < src_len {
                         if char_code_at(source, pos) == 10 {
                             in_comment = false;
@@ -83,8 +83,8 @@ kernel Lexer {
                 }
             }
 
-            let tok_type: i64 = TOK_EOF;
-            let handled = false;
+            let mut tok_type: i64 = TOK_EOF;
+            let mut handled = false;
 
             if pos >= src_len {
                 tok_type = TOK_EOF;
@@ -98,7 +98,7 @@ kernel Lexer {
                 let is_alpha = (code >= 97 && code <= 122) || (code >= 65 && code <= 90) || code == 95;
                 if is_alpha {
                     let start = pos;
-                    let scanning = true;
+                    let mut scanning = true;
                     while scanning && pos < src_len {
                         let pc = char_code_at(source, pos);
                         let is_alnum = (pc >= 97 && pc <= 122) || (pc >= 65 && pc <= 90) || pc == 95 || (pc >= 48 && pc <= 57);
@@ -137,7 +137,7 @@ kernel Lexer {
             if !handled {
                 let code = char_code_at(source, pos);
                 if code >= 48 && code <= 57 {
-                    let scanning = true;
+                    let mut scanning = true;
                     while scanning && pos < src_len {
                         let dc = char_code_at(source, pos);
                         if dc >= 48 && dc <= 57 {
@@ -156,7 +156,7 @@ kernel Lexer {
                 let code = char_code_at(source, pos);
                 if code == 34 {
                     pos = pos + 1;
-                    let in_string = true;
+                    let mut in_string = true;
                     while in_string && pos < src_len {
                         if char_code_at(source, pos) == 34 {
                             in_string = false;
@@ -217,7 +217,7 @@ kernel Lexer {
         let final_result: Vec<i64> = vec_new();
         vec_push(final_result, pos);
         vec_push(final_result, last_tok);
-        let i: i64 = 0;
+        let mut i: i64 = 0;
         while i < vec_len(result) {
             vec_push(final_result, vec_get(result, i));
             i = i + 1;
@@ -227,8 +227,8 @@ kernel Lexer {
 
     fn tokenize(source: str) -> Vec<i64> {
         let types: Vec<i64> = vec_new();
-        let pos: i64 = 0;
-        let done = false;
+        let mut pos: i64 = 0;
+        let mut done = false;
 
         while !done {
             let chunk = tokenize_chunk(source, pos);
@@ -236,7 +236,7 @@ kernel Lexer {
             let last_tok = vec_get(chunk, 1);
 
             // Copy tokens from chunk (starting at index 2)
-            let i: i64 = 2;
+            let mut i: i64 = 2;
             while i < vec_len(chunk) {
                 vec_push(types, vec_get(chunk, i));
                 i = i + 1;
