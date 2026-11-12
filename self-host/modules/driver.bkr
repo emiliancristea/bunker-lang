@@ -976,15 +976,14 @@
         return false;
     }
 
+    // Written without a match expression: the C backend lowers those to GNU statement
+    // expressions, and the bootstrap seed must stay plain C11 so MSVC can build it.
     fn env_or(key: str, fallback: str) -> str {
-        if !env_has(key) {
-            return fallback;
+        let found = env_var(key);
+        if result_is_ok(found) {
+            return result_unwrap(found) as str;
         }
-        let value: Option<str> = env_get(key);
-        return match value {
-            Some(found) => found;
-            None => fallback;
-        };
+        return fallback;
     }
 
     fn shell_quote(text: str) -> str {

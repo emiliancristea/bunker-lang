@@ -30,6 +30,9 @@ jobs:
           /tmp/bkrc-stage2 compile self-host/bkrc.bkr -o /tmp/bkrc-stage3.c
           cmp /tmp/bkrc-self.c /tmp/bkrc-stage3.c
 
+      - name: Seed is strict ISO C11 (MSVC cannot build GNU extensions)
+        run: cc -std=c11 -pedantic-errors -fsyntax-only -I bootstrap bootstrap/bkrc-stage1.c
+
       - name: Check self-host compiler sources
         run: ./bkrc self-host-check self-host
 
@@ -180,7 +183,7 @@ jobs:
           grep -q 'fn parser_expect_ref(p_ref: ParserStateRef, expected: TokenKind) -> bool' "$parser_state"
           grep -q 'fn parser_error_expected_ref(p_ref: ParserStateRef) -> TokenKind' "$parser_state"
           grep -q 'fn parse_insert_text_for_expected_token(expected_token: TokenKind) -> str' 'self-host/modules/driver.bkr'
-          grep -q 'let tok_type: TokenKind =' "$lexer"
+          grep -q 'let mut tok_type: TokenKind =' "$lexer"
           ! grep -q 'fn token_kind_name(kind: i64)' "$kind_model"
           ! grep -q 'fn token_name(tok: i64)' "$parser"
           ! grep -q 'fn parser_peek_ref(p_ref: ParserStateRef) -> i64' "$parser_state"
